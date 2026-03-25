@@ -1,0 +1,1312 @@
+Title: Bidirectional Curriculum Generation: A Multi-Agent Framework for Data-Efficient Mathematical Reasoning
+
+URL Source: https://arxiv.org/pdf/2603.05120v1
+
+Published Time: Fri, 06 Mar 2026 01:58:24 GMT
+
+Number of Pages: 20
+
+Markdown Content:
+## Bidirectional Curriculum Generation: A Multi-Agent Framework for Data-Efficient Mathematical Reasoning 
+
+Boren Hu 1, Xiao Liu 2, Boci Peng 3, Xinping Zhao 4, Xiaoran Shang 5,6 , Yun Zhu 6† , Lijun Wu 6
+
+> 1
+
+Zhejiang University, 2University of Macau, 
+
+> 3
+
+Peking University, 4Harbin Institute of Technology (Shenzhen), 
+
+> 5
+
+Wuhan University, 6 Shanghai Artificial Intelligence Laboratory 
+
+boren@zju.edn.cn ,
+
+zhuyun@pjlab.org.cn 
+
+Abstract 
+
+Enhancing mathematical reasoning in Large Language Models typically demands massive datasets, yet data efficiency remains a criti-cal bottleneck. While Curriculum Learning at-tempts to structure this process, standard unidi-rectional approaches (simple-to-complex) suf-fer from inefficient sample utilization: they blindly escalate complexity even when foun-dational gaps persist, leading to wasted compu-tation on unsolvable problems. To maximize the instructional value of every training sam-ple, we introduce a novel Bidirectional Cur-riculum Generation framework. Unlike rigid trajectories, our multi-agent ecosystem mimics adaptive pedagogy to establish a closed feed-back loop. It dynamically generates data by either complicating problems to challenge the model or, crucially, simplying them to repair specific reasoning failures. This mechanism ensures that the model consumes only the most effective data at any given stage. Grounded in the Optimal Pacing Theorem, our approach optimizes the learning trajectory, significantly outperforming baselines while achieving supe-rior reasoning performance with substantially fewer instruction samples. 
+
+1 Introduction 
+
+Data efficiency (Luo et al., 2025) has emerged as a central challenge in training Large Language Mod-els (LLMs) for mathematical reasoning (Yu et al., 2025; Xu et al., 2025; Liu et al., 2025; Yang et al., 2025). Unlike general text generation, mathemat-ical problem-solving requires strict logical coher-ence (Sheng et al., 2025), prompting a shift from massive scaling to strategic data selection. Re-cent studies, such as FastMath (Yoshihara et al., 2025) and LIMO (Ye et al., 2025), demonstrate that data quality can outweigh sheer volume—whether through efficient pipeline optimization or the use of minimal, highly designed cognitive templates. 
+
+† Corresponding author. 10 3 10 4 10 5
+
+> 10 6
+> Data Volume (Samples)
+> 40.0
+> 42.5
+> 45.0
+> 47.5
+> 50.0
+> 52.5
+> 55.0
+> 57.5
+> 60.0
+> Average Performance (%)
+> Scaling Laws: Data Efficiency Comparison
+> Our Method
+> Data Efficient
+> Data-Synthetic
+> Round0
+> Round1
+> Round2
+> Round3
+> Round4
+> LIMO2
+> Fast-Math
+> Raiden-R1
+> QWQ-Longcot
+> OpenO1-SFT
+> MegaScience
+> MathFusion
+
+Figure 1: Comparison of mathematical reasoning per-formance across varying data scales. The x-axis (log-scale) represents the number of training samples, and the y-axis shows the average performance across six benchmarks. The dashed lines represent the fitted scal-ing laws for our method (purple) and baselines (gray). 
+
+However, these approaches often face limitations in adaptability. For instance, LIMO relies on a fixed set of expert examples, which lacks the flexibility to address the specific weaknesses of different models. In realistic learning scenarios, effective progress often requires temporarily reverting to intermedi-ate or lower-difficulty examples to repair missing steps when failures occur (Li et al., 2024). Yet, existing data generation pipelines generally lack mechanisms to diagnose such weaknesses (Wang et al., 2023; Luo et al., 2023). Furthermore, stan-dard Curriculum Learning (CL) (Wang et al., 2021; Bengio et al., 2009) typically relies on a unidi-rectional complexity assumption. This open-loop approach can cause training to stagnate or reinforce erroneous reasoning (Lin et al., 2024) by forcing the model to confront problems for which it lacks the necessary scaffolding. To address these challenges, we propose a Bidi-rectional Curriculum Generation framework. In-
+
+> arXiv:2603.05120v1 [cs.AI] 5 Mar 2026
+
+stead of sorting a static dataset, our system utilizes a multi-agent ecosystem to dynamically adjust both problem difficulty and knowledge coverage, creat-ing a closed feedback loop that aligns training data with the model’s evolving reasoning abilities. To enable controllable and interpretable curricu-lum scheduling, we first introduce a fine-grained 
+
+competition-based difficulty tagging . We catego-rize mathematical problems into ten distinct levels, ranging from introductory middle-school problems to the most challenging International Mathemati-cal Olympiad (IMO) tasks. This design provides a continuous difficulty signal, enabling localized diagnosis of model errors and allowing for flexible, non-monotonic transitions between levels. Built upon this foundation, our framework de-ploys four collaborative agents that actively con-struct the optimal learning trajectory: • Difficulty-Reduction Agent (The Repairer): 
+
+When the model fails, this agent generates transitional examples with reduced constraints to bridge conceptual gaps, preventing the re-inforcement of errors. • Difficulty-Increasing Agent (The Chal-lenger): Once performance stabilizes, this agent promotes the model to higher difficulty levels, ensuring the model operates at the fron-tier of its capability. • Reverse-Generation Agent (The Reasoner): 
+
+To deepen understanding, this agent refor-mulates problems by reversing the roles of queries and answers while preserving mathe-matical equivalence, compelling the model to reason from solutions back to problem condi-tions. • Diversity-Enhancement Agent (The Ex-plorer): This agent expands coverage across knowledge domains to prevent overfitting to specific problem templates. This approach creates a self-pacing data stream, theoretically supported by the Optimal Pacing The-orem. Extensive experiments demonstrate that our framework achieves superior logical coherence and reasoning performance across multiple benchmarks while significantly improving data efficiency com-pared to unidirectional baselines. Our contributions are as follows: • Bidirectional Framework: We propose a dy-namic curriculum system that abandons uni-directional scaling in favor of localized, bidi-rectional difficulty adjustments based on real-time model feedback. • Multi-Agent Modulation: We develop a four-agent ecosystem capable of semantic rewrit-ing, including novel reverse-generation tasks, to robustly train mathematical reasoning. • High-Efficiency Training: Experiments con-firm that our method outperforms static base-lines while requiring substantially fewer in-struction samples, validating the importance of adaptive curriculum generation, as further illustrated by the scaling behavior in Figure 1. 
+
+2 Related Works 
+
+The advancement of mathematical reasoning in Large Language Model (Liu et al., 2025; Yang et al., 2025) has catalyzed research into structured data construction and adaptive training strategies. Our work lies at the intersection of mathematical reasoning, synthetic data engineering, and curricu-lum learning. 
+
+2.1 Mathematical Reasoning in Large Language Models 
+
+The pursuit of robust mathematical reasoning (Lu et al., 2023) in LLMs has transitioned from general-purpose scaling to specialized architectural and data-driven optimizations (Guan et al., 2025). Foundational techniques such as Chain-of-Thought (CoT) (Wei et al., 2022) and Tree-of-Thoughts (ToT) (Yao et al., 2023) have demonstrated the power of structured inference. Recently, special-ized models like DeepSeekMath (Shao et al., 2025) and MetaMath (Yu et al., 2023) have set new bench-marks by fine-tuning on massive, high-quality cor-pora. Furthermore, the emergence of reasoning-oriented models like DeepSeek-R1 (Guo et al., 2025) highlights the significance of large-scale re-inforcement learning and verification in mastering complex logic (Zhang et al., 2025). While these advancements are significant, the performance of these models remains highly sensitive to the quality and difficulty distribution of the training data, of-ten struggling with "reasoning cliffs" (Khan et al., 2025) when faced with tasks slightly beyond their training exposure. 2.2 Scalable Synthetic Data Generation 
+
+Due to the scarcity of human-annotated mathemat-ical proofs (Ge et al., 2024), synthetic data gen-eration has become the primary driver of perfor-mance gains. MegaScience (Yu et al., 2023) exem-plifies this trend by scaling scientific and mathemat-ical data to unprecedented volumes through fine-grained skill-tree decomposition. In terms of struc-tural synthesis, MathFusion (Pei et al., 2025) intro-duces instruction fusion techniques to capture re-lational interdependencies between problems. Ad-ditionally, the Evolve-Instruct paradigm, popular-ized by WizardMath (Luo et al., 2023), employs LLMs to progressively increase problem complex-ity (Greff et al., 2022). However, a common limi-tation among these methods is their unidirectional 
+
+or open-loop nature; they focus on increasing scale or complexity without real-time awareness of the student model’s absorption capacity, leading to po-tential data redundancy or training divergence. 
+
+2.3 Curriculum Learning and Optimal Pacing 
+
+Curriculum Learning suggests that models learn more effectively when samples are presented in an increasing order of difficulty (Bengio et al., 2009). Traditional curriculum learning in LLMs typically follows fixed pacing schedules based on perplexity or sentence length. However, according to the Op-timal Pacing Theorem (Hacohen and Weinshall, 2019), the most efficient learning occurs within the 
+
+Zone of Proximal Development (ZPD) (Vygotsky, 1978)—a state where tasks are neither too simple nor overwhelmingly complex. Unlike previous monotonic complexity scaling, our framework conceptualizes the curriculum as a dynamic, closed-loop process of bidirectional mod-ulation. By adaptively calibrating task difficulty in response to the model’s real-time proficiency, this approach ensures the training remains anchored within an optimal learning regime. Such theoret-ical alignment effectively bypasses the optimiza-tion plateaus and reasoning cliffs inherent in static, open-loop data evolution. 
+
+3 Bidirectional Curriculum Generation Framework 
+
+To address the critical bottleneck of data inef-ficiency in mathematical reasoning, we propose the Adaptive Bidirectional Curriculum Generation framework. In this section, we first formalize the problem definition in Section 3.1. We then detail the core workflow of our framework, comprising curriculum initialization (Section 3.2), diagnostic evaluation (Section 3.3), and the multi-agent gen-eration system that dynamically adjusts problem difficulty (Section 3.4). Finally, we present the data-model co-evolution mechanism in Section 3.5. The overall procedure is summarized in Algorithm 1, and a theoretical justification of our pacing strategy is provided in Appendix A. 
+
+3.1 Problem Definition 
+
+We formulate the mathematical reasoning task within a problem space P, where each instance 
+
+p = (x, y ) ∈ P comprises a problem query 
+
+x and a reference solution y. To quantify com-plexity, we define a difficulty mapping function 
+
+L : P → { 1, 2, . . . , K }, where K = 10 repre-sents the maximum complexity level *. The goal is to train a student model, denoted as πθ, through an iterative curriculum over discrete time rounds 
+
+t ∈ { 1, . . . , T }. At each round t, the objective is to generate and select an optimal training batch 
+
+D(t) ⊂ P that aligns with the student’s current ca-pability πθt−1 . Formally, we aim to minimize the cumulative reasoning error while maximizing data efficiency: 
+
+min 
+
+> θT
+
+X
+
+> t=1
+
+E(x,y )∼D (t) [− log πθt (y|x)] , (1) subject to the constraint that D(t) is synthesized via our Adaptive Bidirectional Curriculum framework. This framework operates as a closed-loop system, consisting of four sequential stages: Seed Initial-ization, Diagnostic Evaluation, Multi-Agent Data Generation, and Curriculum Co-evolution. 
+
+3.2 Curriculum Initialization 
+
+To ensure a high-quality initialization while max-imizing data efficiency, we deliberately constrain the diversity of the seed set. Specifically, we use an LLM-as-Judge to assign each candidate problem to one of seven core disciplines: Prealgebra , Algebra ,
+
+Intermediate Algebra , Geometry , Number Theory ,
+
+Counting & Probability , and Precalculus :
+
+ui = Ψ( pi). (2) Based on these subject annotations, we perform stratified sampling to build the initial seed dataset              
+
+> *https://artofproblemsolving.com/wiki/index. php/AoPS_Wiki:Competition_ratings Stage 1: Initialization
+> Initial Validation
+> Set D
+> Difficulty
+> Assessment
+> Agent
+> Seed Problem
+> (N=200)
+> Difficulty Tagging
+> Stage 2: Diagnostic Evaluation
+> Student
+> Model
+> (Current State)
+> Diagnostic
+> Evaluation
+> Easy Set
+> Hard Set
+> Correct
+> Incorrect
+> Stage 3: Multi -Agent Data Generation Stage 4: Quality Control &
+> Curriculum Scheduling
+> Quality Control
+> Syntax
+> Filtering
+> Semantic
+> Verificati
+> on
+> Valid
+> Downward
+> Samples
+> Valid
+> Upward
+> Samples
+> Training Set
+> Update D train
+> Validation Set
+> Update D val
+> Retention Mechanism (Error Count >3)Model Parameter
+> Optimization
+> Update Model & Loop Back
+> Downward
+> Adjustment
+> easy
+> hard
+> S
+> S
+> Upward
+> Adjustment Difficulty
+> Increasing
+> Agent
+> Diversity
+> Enhancement
+> Agent
+> Difficulty
+> Reduction
+> Agent
+> Reverse -
+> Generation
+> Agent
+> Upward
+> Adjustment
+> Samples
+> Downward
+> Adjustment
+> Samples
+> val
+> (0)
+
+Figure 2: The pipeline of Bidirectional Curriculum with Multi-Agents for Data-Efficient Math Reasoning. 
+
+Subject Category Source Count 
+
+Prealgebra GSM8K & MATH 51 Algebra MATH 26 Intermediate Algebra MATH 22 Geometry MATH 21 Number Theory MATH 21 Counting & Probability MATH 29 Precalculus MATH 30 
+
+Total - 200 
+
+Table 1: Statistics of the seed dataset across different mathematical domains and their respective sources. 
+
+Dseed = D(0) 
+
+val , which contains N = 200 high-quality instances drawn from GSM8K (Cobbe et al., 2021) and MATH (Hendrycks et al., 2021). As summarized in Table 1, this curated subset pro-vides broad topical coverage and a pedagogically coherent starting point for subsequent curriculum construction. Second, to support the subsequent generation stage, we explicitly annotate the difficulty of each seed problem. Using the same automated evalu-ator, we define a mapping function Φ : P → L ,where L = 1 , . . . , 10 denotes our difficulty scale (Table 4). The assigned difficulty level is: 
+
+ℓi = Φ( pi). (3) Finally, we assemble the annotated seed set: 
+
+D(0) 
+
+val = {(xi, y i, ℓ i, u i)}Ni=1 , (4) which serves as the starting point for the subsequent pipeline. 
+
+3.3 Diagnostic Evaluation 
+
+At each curriculum iteration t, we conduct a diag-nostic evaluation to precisely delineate the capabil-ity frontier of the student model πθt . Specifically, the model generates solutions for all instances in the current validation pool D(t)
+
+val . To ensure a rigor-ous assessment of the model’s operational limits, solution correctness is determined through the joint verification of the generated reasoning chain ˆc and the final answer ˆy. We define the correctness indi-cator function (see Table 9) as: 
+
+1corr (p, π θt ) = 
+
+(
+
+1 if ˆc and ˆy are both correct 
+
+0 otherwise (5) Based on this metric, we partition D(t)
+
+val into two dis-joint subsets that drive the bidirectional curriculum adaptation: 
+
+S(t)
+
+hard =
+
+n
+
+p ∈ D (t)
+
+val | 1corr (p, π θt ) = 0 
+
+o
+
+S(t)
+
+easy =
+
+n
+
+p ∈ D (t)
+
+val | 1corr (p, π θt ) = 1 
+
+o (6) Here, S(t)
+
+hard captures specific failure modes that ne-cessitate targeted remediation (via simplification), while S(t)
+
+easy represents mastered concepts suitable for complexity scaling (via advancement). 
+
+3.4 Multi-Agent Data Generation 
+
+To operationalize the curriculum gener-ation, we define a generator ensemble 
+
+G = {G red , Grev , Ginc , Gdiv }. These special-ized agents are designed to address the divergent pedagogical requirements of identifying failures and consolidating mastery. By dynamically synthesizing tailored instruction data, the ensem-ble ensures that the training distribution shifts adaptively with the student model’s proficiency. Handling Hard Samples: Downward Adjust-ment. We define “downward adjustment” not merely as simplification, but as a return to founda-tions to repair reasoning gaps in S(t)
+
+> hard
+
+. This trajec-tory is executed via two complementary operators. The Difficulty-Reduction Agent (Gred ) explicitly lowers the difficulty barrier by reducing problem complexity ( L(p′) < L (p)), offering a smoother learning gradient (see Table 5). Complementing this, the Reverse-Generation Agent (Grev ) oper-ates on the logical foundation. By generating in-verse problems, it forces the model to revisit the problem’s underlying equation from the opposite direction (see Table 8). While not necessarily sim-pler, this operation is “downward” in the pedagog-ical sense: it forces the model to stop advancing and instead deepen its grasp of existing concepts through bidirectional verification, ensuring that the original failure was not due to superficial memo-rization. 
+
+Handling Easy Samples: Upward Expansion. 
+
+For mastered instances in S(t)
+
+> easy
+
+, we initiate an up-ward expansion trajectory that scales along two complementary axes: reasoning depth and the-matic breadth. First, targeting reasoning depth, the Difficulty-Increase Agent (Ginc ) introduces ad-vanced concepts or multi-step dependencies (see Table 6). This synthesis yields complex samples 
+
+p′′ satisfying L(p′′ ) > L(p) + ϵ (for ϵ > 0), systematically extending the model’s competence frontier. Second, targeting thematic breadth, the 
+
+Diversity-Enhancement Agent (Gdiv ) generates structural variants piso by re-contextualizing the core logic within diverse target categories (see Table 7). While this process alters surface fea-tures (such as contextual framing or variable in-stantiation), it enforces strict difficulty bounds (|L(piso ) − L(p)| < τ ), where τ represents a pre-defined tolerance threshold. Empirically, this cross-category perturbation often introduces a slight, beneficial difficulty elevation ( L(piso ) ≥ L(p)), thereby mitigating overfitting and reinforcing gen-eralization across varied mathematical contexts. 
+
+Quality Control and Filtering. To ensure high data quality, we apply a coarse-to-fine filtering pipeline. First, we perform specific formatting checks to filter out malformed samples that lack essential structural tags (e.g., <think> for reason-ing traces). Subsequently, the surviving samples undergo a content-level assessment via a Verifier Agent (see Table 9). This agent evaluates reasoning correctness, ensuring that only valid and logically sound samples are retained for training. 
+
+3.5 Curriculum Co-evolution Data Evolution. The transition of datasets in-volves a strategic allocation of generated samples to either “instruction” or “evaluation” roles. To con-struct the curriculum for phase ( t + 1 ), we enforce three explicit rules: 
+
+1. Error Retention Policy: We maintain a fail-ure counter, ind err (p), for each problem in the hard subset Shard . Instances exceeding a threshold (i.e., ind err (p) > 3) are classified as persistent failures .To break the stalemate of repeated validation er-rors, these samples are transferred directly to the training set for supervised memorization. 
+
+2. Training Set Update (Instructional Scaf-folding): The training set aggregates data in-tended for direct optimization. We include veri-fied samples from the downward-adjustment agents (D(t)
+
+> remedy
+
+) because they serve as intermediate scaf-folding to bridge specific reasoning gaps. 
+
+D(t+1)  
+
+> train
+
+= D(t) 
+
+> remedy
+
+∪ { p ∈ S(t) 
+
+> hard
+
+| ind err (p) > 3}
+
+(7) By training on these simplified or inverse problems, the model explicitly learns the foundational logic required to solve the original hard instances. 
+
+3. Validation Set Renewal (Frontier Expan-sion): The validation set is refreshed to establish the next diagnostic baseline. We incorporate ad-vanced samples generated by upward-expansion agents ( D(t)
+
+> adv
+
+) to serve as a new evaluation frontier. 
+
+D(t+1)  
+
+> val
+
+= {p ∈ S(t) 
+
+> hard
+
+| ind err (p) ≤ 3} ∪ D (t) 
+
+> adv
+
+(8) Placing these harder, unmastered samples in the val-idation set allows us to rigorously assess whether the model’s capability boundary has successfully expanded, rather than prematurely training on them. 
+
+Model Evolution. Once the curriculum D(t+1) 
+
+> train
+
+is established, the student model parameters θ are updated via supervised fine-tuning to minimize the cross-entropy loss. Upon completion, the updated model πθt+1 advances to the next Diagnostic Evalu-ation phase using the renewed validation set D(t+1)  
+
+> val
+
+,thereby closing the loop for continuous iterative re-finement. The integrated workflow, detailing the iterative interaction between diagnostic evaluation, multi-agent generation and model optimization, is pre-sented in Algorithm 1. 
+
+4 Experiments 
+
+4.1 Experimental Settings Benchmarks. To comprehensively assess math-ematical reasoning capabilities, we conduct eval-uations across six diverse benchmarks. We uti-lize GSM8K (Cobbe et al., 2021) and MATH-500 (Lightman et al., 2023) as In-Domain (ID) 
+
+benchmarks to measure performance on fundamen-tal and high-school level problems. For Out-of-Domain (OOD) evaluation, we employ AIME 2024 (of America, 2024), AIME 2025 (of Amer-ica, 2025), Omni-Math (Gao et al., 2024), and OlympiadBench-Math (He et al., 2024), which are designed to test the model’s proficiency in tack-ling novel, competition-level challenges. Together, these datasets provide a robust assessment of rea-soning across varying levels of complexity and do-main specificity. All evaluations are conducted using the OpenDataArena framework (Cai et al., 2025). 
+
+Baselines. We compare our method against competitive open-sourced baselines across two paradigms: (1) Data-Efficient methods, including LIMO (Ye et al., 2025) and FastMATH (Yoshihara et al., 2025), which focus on efficiently selecting high-quality subsets from existing datasets; and (2) Data-Synthetic methods, such as MathFusion (Pei et al., 2025), MegaScience (Fan et al., 2025), QwQ-LongCoT (amphora, 2024), OpenO1-SFT (Xia et al., 2025) and Raiden-DeepSeek-R1 (t.d.a.g., 2025), which leverage LLMs to synthesize new datasets or rewrite original data. 
+
+Model Instantiation and Training. We utilize DeepSeek (Guo et al., 2025) as the backbone for our four data generation agents; the corresponding prompts are detailed in Appendix B. For the stu-dent model, we adopt Qwen3-8B-Base (Yang et al., 2025). To balance exploration and exploitation across training iterations, we employ a decaying hyperparameter schedule: the learning rate is grad-ually reduced from 5 × 10 −6 to 2 × 10 −6, and the training duration is decreased from 6 epochs to 3. This progressive strategy allows the model to capture broad foundational knowledge early on while ensuring stable convergence during later re-finement. Ultimately, this process yields a total of 5,873 high-quality instances. 
+
+4.2 Main Results 
+
+The main results are demonstrated in Table 2. Our analysis reveals several key insights: 
+
+Overall Performance. Our proposed method sig-nificantly outperforms the base model and all open-source baselines after four iterations. With only 5,873 training samples, our model achieves an av-erage score of 60.03 , representing a substantial improvement of 15.53 over the Qwen3-8B-base and surpassing the strongest baseline, Fast-Math, by 4.27. 
+
+Performance Evolution Across Iterations. The iterative rounds demonstrate a clear upward tra-jectory in reasoning capabilities. While the ini-tial Round0 shows a slight performance drop com-pared to the base model due to the extremely small data scale, the performance improves rapidly from Round1 to Round4. Notably, the most significant leap occurs between Round1 and Round3, where the Average score jumps from 47.45 to 58.31. This suggests that our multi-agent synthesis and filter-ing pipeline effectively accumulates high-quality reasoning patterns. 
+
+Superiority of Synthesis Quality over Data Scale. 
+
+Compared to Data-Synthetic methods like Mega-Science, which utilizes a massive 1.25M dataset, our method achieves higher performance (60.03 vs. 52.5) using less than 0.5 of its data volume. This contrast highlights that the logical rigor of syn-thetic data is the primary driver of mathematical reasoning. 
+
+Strong Generalization on OOD Tasks. The most remarkable gains are observed in Out-of-Domain (OOD) competition-level benchmarks. On AIME 2025, our final model reaches 40.0 , nearly doubling the performance of Raiden-DeepSeek-R1 (20.41) and MegaScience (17.9). These results demonstrate that our iterative refinement process successfully fosters deep reasoning robustness that generalizes well to novel, highly challenging math-ematical distributions. 
+
+4.3 Synthetic Data Analysis 
+
+To evaluate the quality of the synthetic data, we visualize the diversity distribution of the generated samples in Figure 3 and their difficulty distribution Model Data Volume GSM8K MATH500 OMNI-MATH OlympiadBench AIME2024 AIME2025 Average 
+
+Qwen3-8B-base - 92.00 79.60 30.60 47.20 6.70 10.80 44.50 
+
+Data Efficient 
+
+LIMO2 800 92.19 82.00 18.14 46.74 13.30 23.30 45.94 Fast-Math 7.9K 92.80 86.60 39.60 61.00 28.80 25.80 55.76 
+
+Data-Synthetic 
+
+Raiden-DeepSeek-R1 62K 92.72 86.00 36.34 58.75 27.50 20.41 53.62 QWQ-LongCoT 130K 92.72 84.20 30.60 54.15 25.41 19.16 51.04 OpenO1-SFT 77K 91.05 76.40 25.34 44.51 12.08 10.00 43.23 MegaScience 1.25M 93.40 84.80 35.80 57.60 25.40 17.90 52.50 MATHFusion 7473 92.42 79.80 27.46 48.22 6.67 13.30 44.64 
+
+Our Method 
+
+Round 0 (Seed Data) 200 91.05 76.80 14.57 34.12 20.00 23.33 43.31 Round 1 850 94.01 82.60 29.29 48.81 16.67 13.33 47.45 Round 2 1,633 94.24 83.20 34.03 51.78 30.0 26.67 53.32 Round 3 4,594 93.93 89.20 47.42 59.35 26.67 33.33 58.31 Round 4 5,873 94.47 89.20 46.43 60.08 30.00 40.00 60.03 
+
+Table 2: Comparison of mathematical reasoning performance across different models and data scales. Data Volume denotes the number of samples used for training. Prealgebra 23.7% 
+
+> Counting & Probability
+> 14.9%
+> Precalculus
+> 13.4%
+> Algebra
+> 12.6%
+> Geometry
+> 12.2%
+> Intermediate Algebra
+> 11.7%
+> Number Theory
+> 11.5%
+> Thematic Diversity Distribution of Dataset
+
+Figure 3: The Diversity distribution about generated datasets 
+
+in Figure 4. Our analysis reveals the following key insights: 
+
+Multi-Domain Semantic Coverage. The the-matic diversity shown in Figure 3 confirms that our multi-agent framework effectively maintains semantic diversity across different domains, which includes seven core mathematical disciplines. No-tably, advanced subjects such as Precalculus 
+
+(13.4%) and Intermediate Algebra (11.7%) are rep-resented with substantial volume, comparable to foundational Algebra . This broad coverage ensures that the reasoning heuristics learned by the model are generalizable across diverse mathematical con-texts, supporting the strong OOD performance ob-served in OMNI-MATH and OlympiadBench. 1 2 3 4 5 6 7 8 9 10     
+
+> Difficulty Level
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> Number of Samples
+> 2407
+> 1144
+> 672
+> 467
+> 308 265 229 202 146
+> 33
+> Difficulty Distribution of Synthesized Dataset
+
+Figure 4: The difficulty distribution of generated datasets 
+
+Hierarchical Difficulty Scaling. As illustrated in Figure 4, our dataset maintains a robust pyra-midal structure. While foundational levels (1-3) provide necessary basic reasoning patterns, our pipeline successfully retains a significant “long-tail” of high-difficulty samples, with over 600 in-stances categorized in the elite competition tiers (levels 7-10). This high-density concentration of challenging problems directly correlates with the model’s breakthrough on the AIME 2025 bench-mark, as it forces the model to move beyond simple pattern matching toward deep, multi-round logical deduction. 
+
+4.4 Ablation Study 
+
+To dissect the efficacy of individual components within our proposed framework, we conducted a comprehensive series of ablation studies including the impact of difficulty agents, the impact of re-verse generation agent, and the impact of diversity Model Data Volume GSM8K OlympiadBench AIME2024 AIME2025 Average                                                       
+
+> ALL 5,873 94.47 60.08 30.00 40.00 56.13
+> Impact of Difficulty Agents
+> Foundational Subset 4,663 93.78 61.72 23.30 33.30 53.02 Advanced Subset 1,210 94.24 55.93 33.30 30.00 53.37
+> Impact of Reverse Generation Agent
+> w/o Reverse Data 3,487 93.86 54.90 36.30 20.00 51.35
+> Impact of Diversity Enhancement Agent
+> w/o Algebra 5,131 94.47 61.28 26.67 30.00 53.10 w/o Geometry 5,158 94.62 60.98 33.33 26.67 53.89 w/o Counting 5,000 94.77 60.68 36.67 23.30 53,80 w/o A,C 4,258 95.38 61.42 26.67 23.30 51.69 w/o A, G, C, P 2,757 94.24 58.01 16.67 20.00 47.23
+> Table 3: The ablation experiments.
+
+enhancement agent. In addition, all model variants are fine-tuned using the Qwen3-8B-Base backbone for a consistent duration of 6 epochs. 
+
+Impact of Difficulty Agents. To validate the necessity of our bidirectional curricu-lum—specifically the roles of difficulty-reduction agents (Gred ) versus difficulty-increase agents (Ginc )—we stratified the curated dataset into two distinct subsets based on the difficulty level L(p).We defined a Foundational Subset ( L(p) < 5,comprising 4,663 samples) representing the output of downward adjustment, and an Advanced Subset ( L(p) ≥ 5, comprising 1,210 samples) representing the output of upward expansion. We trained separate models on each subset under identical hyperparameters and compared them against the full model (“ALL”). The comparative results are summarized in Table 3, yielding the following critical insight: The model trained on the full dataset (“ALL”) achieves the highest average performance (56.13), outperforming the Foundational (53.02) and Advanced (53.37) subsets. This validates our core hypothesis: high-performing mathematical reasoning requires both the scaffolding provided by easier problems and the cognitive stretch provided by complex problems. The bidirectional approach prevents the model from being trapped in low-level reasoning or overwhelmed by high-complexity leaps. 
+
+Impact of Reverse Generation Agent To evalu-ate the contribution of the reverse-generation agent (Grev ), we removed all samples generated through solution-condition inversion, resulting in a training set of 3,487 samples (“w/o Reverse Data”). As shown in Table 3, removing reverse data leads to a noticeable decline in average performance (drop-ping from 56.13 to 51.35). As a result, by forcing the model to reconstruct problem conditions from solutions, the reverse agent encourages a deeper, more symmetrical understanding of mathematical relationships, which is essential for generalization to unseen, high-difficulty problems. 
+
+Impact of diversity enhancement agent We evaluate the Diversity Enhancement Agent by se-lectively removing mathematical domains. Table 3 indicates that reduced data diversity directly im-pairs model performance. Specifically, removing any single domain—Algebra, Geometry, or Count-ing—decreases the average score from the base-line 56.13 to approximately 53.8. This degrada-tion is exacerbated by multi-domain exclusion: re-moving both Algebra and Counting (“w/o A,C") yields an average of 51.69, while excluding four types (“w/o A,G,C,P") causes a steep decline to 47.23. Crucially, while performance on easier tasks (GSM8K) is unaffected, capability on hard bench-marks drops sharply (e.g., AIME 2024 falls from 30.00 to 16.67), validating the agent’s critical role in handling complex reasoning tasks. 
+
+5 Conclusion 
+
+This paper introduces a Bidirectional Curriculum Generation framework to overcome data efficiency bottlenecks in LLM mathematical reasoning. By replacing rigid unidirectional scaling with a multi-agent feedback loop, our system dynamically ad-justs problem difficulty and diversity to match the model’s real-time reasoning frontier. Experimental results confirm that our approach significantly out-performs static baselines. Specifically, we achieve superior performance on complex benchmarks like AIME and Omni-Math using substantially fewer instruction samples. This validates the Optimal Pacing Theorem in practice, demonstrating that adaptive, bidirectional data synthesis is key to ro-bust and efficient cognitive training. Limitations 
+
+Despite its effectiveness, our framework is opti-mized for mathematical reasoning, relying on a competition-based difficulty tagging system and domain-specific agents (e.g., Reverse-Generation). Adapting this bidirectional curriculum to less struc-tured fields, such as creative writing or legal rea-soning, remains challenging due to the difficulty of defining objective difficulty levels and logical failures in those contexts. 
+
+References 
+
+amphora. 2024. Qwq-longcot-130k. Hugging Face dataset. Yoshua Bengio, Jérôme Louradour, Ronan Collobert, and Jason Weston. 2009. Curriculum learning. In 
+
+Proceedings of the 26th annual international confer-ence on machine learning , pages 41–48. Mengzhang Cai, Xin Gao, Yu Li, Honglin Lin, Zheng Liu, Zhuoshi Pan, Qizhi Pei, Xiaoran Shang, Mengyuan Sun, Zinan Tang, and 1 others. 2025. Opendataarena: A fair and open arena for bench-marking post-training dataset value. arXiv preprint arXiv:2512.14051 .Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John Schulman. 2021. Training verifiers to solve math word prob-lems. arXiv preprint arXiv:2110.14168 .Run-Ze Fan, Zengzhi Wang, and Pengfei Liu. 2025. Megascience: Pushing the frontiers of post-training datasets for science reasoning. arXiv preprint arXiv:2507.16812 .Yifan Gao, Wentao Jiao, Shengyu Sun, Ruijun Jiang, Liping Zheng, Zhengzhe Lin, Jianbing Ge, Xuebo Wu, Shuming Feng, Shuyan Shi, and 1 others. 2024. Omni-math: A universal high-level math-ematical reasoning benchmark. arXiv preprint arXiv:2410.07985 .Tao Ge, Xin Chan, Xiaoyang Wang, Dian Yu, Haitao Mi, and Dong Yu. 2024. Scaling synthetic data cre-ation with 1,000,000,000 personas. arXiv preprint arXiv:2406.20094 .Klaus Greff, Francois Belletti, Lucas Beyer, Carl Do-ersch, Yilun Du, Daniel Duckworth, David J. Fleet, Dan Gnanapragasam, Florian Golemo, Charles Her-rmann, Thomas Kipf, Abhijit Kundu, Dmitry La-gun, Issam Laradji, Hsueh-Ti (Derek) Liu, Henning Meyer, Yishu Miao, Derek Nowrouzezahrai, Cengiz Oztireli, and 15 others. 2022. Kubric: A scalable dataset generator. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recog-nition (CVPR) , pages 3749–3761. Xinyu Guan, Li Lyna Zhang, Yifei Liu, Ning Shang, Youran Sun, Yi Zhu, Fan Yang, and Mao Yang. 2025. rstar-math: Small llms can master math rea-soning with self-evolved deep thinking. Preprint ,arXiv:2501.04519. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Ruoyu Zhang, Runxin Xu, Qihao Zhu, Shi-rong Ma, Peiyi Wang, Xiao Bi, and 1 others. 2025. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. arXiv preprint arXiv:2501.12948 .Guy Hacohen and Daphna Weinshall. 2019. On the power of curriculum learning in training deep net-works. In International conference on machine learn-ing , pages 2535–2544. PMLR. Chaoqun He, Renjie Sun, Kai Zheng, Xiaoyu Huang, Can Guo, Bin Qin, Ruikan Wang, Xu Zhang, Jianghui Su, Kan Zhang, and 1 others. 2024. Olympiadbench: A comprehensive multi-level bench-mark for generalist olympiad-level reasoning. arXiv preprint arXiv:2402.14004 .Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Song, and Ja-cob Steinhardt. 2021. Measuring mathematical prob-lem solving with the math dataset. arXiv preprint arXiv:2103.03874 .Sheraz Khan, Subha Madhavan, and Kannan Natarajan. 2025. A comment on" the illusion of thinking": Re-framing the reasoning cliff as an agentic gap. arXiv preprint arXiv:2506.18957 .Chengpeng Li, Guanting Dong, Mingfeng Xue, Ru Peng, Xiang Wang, and Dayiheng Liu. 2024. Dotamath: Decomposition of thought with code assis-tance and self-correction for mathematical reasoning. 
+
+arXiv preprint arXiv:2407.04078 .Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. 2023. Let’s verify step by step. arXiv preprint arXiv:2305.20050 .Zhenghao Lin, Zhibin Gou, Yeyun Gong, Xiao Liu, Yelong Shen, Ruochen Xu, Chen Lin, Yujiu Yang, Jian Jiao, Nan Duan, and 1 others. 2024. Rho-1: Not all tokens are what you need. arXiv preprint arXiv:2404.07965 .Aixin Liu, Aoxue Mei, Bangcai Lin, Bing Xue, Bingx-uan Wang, Bingzheng Xu, Bochao Wu, Bowei Zhang, Chaofan Lin, Chen Dong, and 1 others. 2025. Deepseek-v3. 2: Pushing the frontier of open large language models. arXiv preprint arXiv:2512.02556 .Pan Lu, Liang Qiu, Wenhao Yu, Sean Welleck, and Kai-Wei Chang. 2023. A survey of deep learning for mathematical reasoning. In Proceedings of the 61st annual meeting of the association for computational linguistics (volume 1: long papers) , pages 14605– 14631. Haipeng Luo, Qingfeng Sun, Can Xu, Pu Zhao, Jian-guang Lou, Chongyang Tao, Xiubo Geng, Qingwei Lin, Shifeng Chen, and Dongmei Zhang. 2023. Wiz-ardmath: Empowering mathematical reasoning for large language models via reinforced evol-instruct. 
+
+arXiv preprint arXiv:2308.09583 .Junyu Luo, Bohan Wu, Xiao Luo, Zhiping Xiao, Yiqiao Jin, Rong-Cheng Tu, Nan Yin, Yifan Wang, Jingyang Yuan, Wei Ju, and 1 others. 2025. A survey on ef-ficient large language model training: From data-centric perspectives. In Proceedings of the 63rd An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 30904– 30920. Mathematical Association of America. 2024. American invitational mathematics examination (aime) 2024. Official competition problems. Mathematical Association of America. 2025. American invitational mathematics examination (aime) 2025. Official competition problems. Qizhi Pei, Lijun Wu, Zhuoshi Pan, Yu Li, Honglin Lin, Chenlin Ming, Xin Gao, Conghui He, and Rui Yan. 2025. Mathfusion: Enhancing mathematical problem-solving of llm through instruction fusion. 
+
+arXiv preprint arXiv:2503.16212 .Zhihong Shao, Yuxiang Luo, Chengda Lu, ZZ Ren, Jiewen Hu, Tian Ye, Zhibin Gou, Shirong Ma, and Xiaokang Zhang. 2025. Deepseekmath-v2: To-wards self-verifiable mathematical reasoning. arXiv preprint arXiv:2511.22570 .Yu Sheng, Linjing Li, and Daniel Dajun Zeng. 2025. Learning theorem rationale for improving the mathe-matical reasoning capability of large language mod-els. In Proceedings of the AAAI Conference on Artifi-cial Intelligence , volume 39, pages 15151–15159. t.d.a.g. 2025. Raiden-deepseek-r1 (revision e81443e). Lev S Vygotsky. 1978. Mind in society: The develop-ment of higher psychological processes , volume 86. Harvard university press. Xin Wang, Yudong Chen, and Wenwu Zhu. 2021. A survey on curriculum learning. IEEE transac-tions on pattern analysis and machine intelligence ,44(9):4555–4576. Yizhong Wang, Yeganeh Kordi, Swaroop Mishra, Alisa Liu, Noah A Smith, Daniel Khashabi, and Hannaneh Hajishirzi. 2023. Self-instruct: Aligning language models with self-generated instructions. In Proceed-ings of the 61st annual meeting of the association for computational linguistics (volume 1: long papers) ,pages 13484–13508. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, and 1 others. 2022. Chain-of-thought prompting elic-its reasoning in large language models. Advances in neural information processing systems , 35:24824– 24837. Shijie Xia, Yiwei Qin, Xuefeng Li, Yan Ma, Run-Ze Fan, Steffi Chern, Haoyang Zou, Fan Zhou, Xiangkun Hu, Jiahe Jin, and 1 others. 2025. Generative ai act ii: Test time scaling drives cognition engineering. arXiv preprint arXiv:2504.13828 .Fengli Xu, Qianyue Hao, Zefang Zong, Jingwei Wang, Yunke Zhang, Jingyi Wang, Xiaochong Lan, Jiahui Gong, Tianjian Ouyang, Fanjin Meng, and 1 others. 2025. Towards large reasoning models: A survey of reinforced reasoning with large language models. 
+
+arXiv preprint arXiv:2501.09686 .An Yang, Anfeng Li, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Gao, Chengen Huang, Chenxu Lv, and 1 others. 2025. Qwen3 technical report. arXiv preprint arXiv:2505.09388 .Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Tom Griffiths, Yuan Cao, and Karthik Narasimhan. 2023. Tree of thoughts: Deliberate problem solving with large language models. Advances in neural information processing systems , 36:11809–11822. Yixin Ye, Zhen Huang, Yang Xiao, Ethan Chern, Shijie Xia, and Pengfei Liu. 2025. Limo: Less is more for reasoning. arXiv preprint arXiv:2502.03387 .Hiroshi Yoshihara, Taiki Yamaguchi, and Yuichi Inoue. 2025. A practical two-stage recipe for mathemat-ical llms: Maximizing accuracy with sft and effi-ciency with reinforcement learning. arXiv preprint arXiv:2507.08267 .Longhui Yu, Weisen Jiang, Han Shi, Jincheng Yu, Zhengying Liu, Yu Zhang, James T Kwok, Zhen-guo Li, Adrian Weller, and Weiyang Liu. 2023. Metamath: Bootstrap your own mathematical ques-tions for large language models. arXiv preprint arXiv:2309.12284 .Yiyao Yu, Yuxiang Zhang, Dongdong Zhang, Xiao Liang, Hengyuan Zhang, Xingxing Zhang, Mahmoud Khademi, Hany Hassan Awadalla, Junjie Wang, Yu-jiu Yang, and 1 others. 2025. Chain-of-reasoning: Towards unified mathematical reasoning in large lan-guage models via a multi-paradigm perspective. In 
+
+Proceedings of the 63rd Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 24914–24937. Zhenru Zhang, Chujie Zheng, Yangzhen Wu, Beichen Zhang, Runji Lin, Bowen Yu, Dayiheng Liu, Jin-gren Zhou, and Junyang Lin. 2025. The lessons of developing process reward models in mathematical reasoning. Preprint , arXiv:2501.07301. 
+
+A Theorem Proof 
+
+Theorem 1 (Optimal Pacing Theorem) Let the model’s capability level at time t be ct, and the sample difficulty be d. There exists an optimal difficulty interval [ct − ε, c t + ε], such that when sampling within this interval, the expected gradient norm of the student model parameters θ is maxi-mized, and the convergence speed is fastest. 
+
+Proof 1 Functional Relationship between Gradient Norm and Difficulty 
+
+Let L(θ, x ) be the loss function for sample x.According to the curriculum learning hypothesis (Bengio et al., 2009), the contribution of a sample to model parameter updates (i.e., gradient magni-tude) has a non-monotonic relationship with diffi-culty d. We define the gradient function g(d):
+
+∥∇ θL(θ, x d)∥ ≈ g(d) = A · d · e−d/c t
+
+where ct represents the model’s capability level at iteration t.
+
+When d → 0 (extremely simple sample): the student model M (t) 
+
+> S
+
+has completely mastered the concept, L → 0 leading to ∇θL → 0.
+
+When d → ∞ (extremely difficult sample): the sample resides in the noise region of M (t) 
+
+> S
+
+, where predictions are uncorrelated with labels, causing random gradient directions and vanishing magni-tudes due to Softmax saturation. 
+
+Finding the Extremum (Optimal Zone) 
+
+To maximize learning efficiency, we maximize gradient contribution. Taking the first derivative of 
+
+g(d):
+
+∂g ∂d = A · e−d/c t
+
+
+
+1 − dct
+
+
+
+Setting ∂g ∂d = 0 yields the optimal difficulty d∗ =
+
+ct.
+
+Mapping Effects of Generators Gdown and Gup 
+
+The transformation operators defined in Section 3.4 induce the following mappings: 
+
+Downward mapping: For hard samples p ∈ S(t)
+
+> hard
+
+with d(p) > c t + ε, generator Gdown (comprising 
+
+Gred and Grev ) produces samples with difficulty: 
+
+d(Gdown (p)) = d(p) − ∆d ∈ [ct, c t + ε]
+
+Upward mapping: For easy samples p ∈ S(t)
+
+> easy
+
+with d(p) < c t − ε, generator Gup (comprising Ginc 
+
+and Gdiv ) produces samples with difficulty: 
+
+d(Gup (p)) = d(p) + ∆ d ∈ [ct − ε, c t]
+
+Error Propagation and Risk Bound 
+
+The empirical risk Remp evolves according to: 
+
+Remp (θt+1 ) ≤ Remp (θt) − η∥∇ θL∥2 + O(η2)
+
+where η is the learning rate. When the sample difficulty is constrained to [ct−ε, c t+ε] through the operators, the gradient magnitude ∥∇ θL∥ remains at a high level (i.e., g(d) ≥ g(d∗) − δ, meaning the gradient norm stays within a small tolerance 
+
+δ > 0 of its theoretical maximum g(d∗) at optimal difficulty d∗ = ct), thus ensuring the maximum decrease of the risk function in each iteration. 
+
+Conclusion: 
+
+Through dynamic adjustment by Gdown and Gup ,the training distribution is concentrated in the peak region of g(d). This avoids gradient vanishing from extremely hard samples while eliminating redun-dant computations on easy samples, theoretically proving that [ct − ε, c t + ε] defines the optimal learning pace for student model MS .
+
+B Prompts 
+
+The prompts used in our framework are summa-rized as follows: • Difficulty tagging prompt : Table 4. • Difficulty-reduction agent prompt : Table 5. • Difficulty-increasing agent prompt : Table 6. • Diversity enhancement agent prompt : Ta-ble 7. • Reverse generation agent prompt : Table 8. • Mathematical solution verification agent prompt : Table 9. 
+
+C Case Studies 
+
+• Original Case : Table 10. • Reduce Difficulty : Table 11. • Add Difficulty : Table 12. • Reverse Generation : Table 13. • Add Diversity : Table 14. Prompt for Difficulty Tagging 
+
+## Role 
+
+You are an experienced math olympiad coach responsible for evaluating the difficulty of the given ’math problem’. 
+
+## Goal 
+
+For the given ’math problem’, you need to evaluate its difficulty level from 1 to 10 according to the ’rule’ specified below. 
+
+## Rule (Standard 1-10 Scale) 
+
+The following standard represents a progression from Middle School to Junior High, High School, Challenging High School, and finally Olympiad levels. 
+
+Level 1: Problems strictly for beginners, covering elementary or early middle school content. Involves standard techniques and traditional word problems. e.g., How many integer values of x satisfy |x| < 3π?
+
+Level 2: For motivated beginners. Involves harder instructions, complex word problems, and requires multi-step reasoning beyond basic techniques. e.g., A fair 6-sided die is repeatedly rolled until an odd number appears. Probability of all evens before first odd? 
+
+Level 3: Advanced beginner problems requiring creative thinking and synthesis of multiple concepts. e.g., Triangle ABC with AB = 50 , AC = 10 area 120... find Area of quadrilateral F DBG .
+
+Level 4: Intermediate-level problems involving sequences, functional iteration, or systems of equations. e.g., Sequence xn+1 = x2 
+
+> n+5 xn +4
+> xn +6
+
+, find least m
+
+s.t. xm ≤ 4 + 1220 .
+
+Level 5: High-intermediate problems, including simple proof-based Olympiad-style questions. e.g., Find triples (a, b, c ) s.t. a + b + c = P 1 
+
+> a
+
+and 
+
+a2 + b2 + c2 = P 1 
+
+> a2
+
+.
+
+Level 6: Advanced high-school level to introductory Olympiad level. Requires integration of geometry, algebra, and number theory. e.g., Acute △ABC with orthocenter H... Area is m√n.
+
+Level 7: Mid-tier Olympiad level. Requires technical knowledge, combinatorial constructions, or graph-theoretic reasoning. e.g., Prove existence of a balanced set of n points and determine centre-free conditions. 
+
+Level 8: High-level Olympiad problems. Demands clever constructions or deep insights. e.g., Splitting coins of denomination 1 
+
+> n
+
+with total value 99 + 12 into groups ≤ 1.
+
+Level 9: Expert Olympiad level. Involves advanced number theory, algebraic combinatorics, or functional constraints. e.g., Primes on a circle where neighbor product is x2 + x + k.
+
+Level 10: Historically extreme problems. Exceedingly tedious, technical, or rare. Solved by very few worldwide. e.g., Existence of line separating n points with margin ≥ cn −1/3.
+
+## Output Format (STRICT) 
+
+Return exactly one integer enclosed in <score> tags. No explanation. Example: <score>7 </score> 
+
+### Examples Example (Level 1): Problem: ... |x| < 3π? Respond with: <score>1 </score> 
+
+Example (Level 5): Problem: ... a + b + c = P 1 
+
+> a
+
+... Respond with: <score>5 </score> 
+
+Example (Level 10): Problem: ... at least cn −1/3. Respond with: <score>10 </score> 
+
+Instruction: 
+
+{instruction} 
+
+Respond with: <score>... </score> 
+
+Table 4: The full prompt used for difficulty tagging. Prompt for Difficulty-Reduction Agent 
+
+## Task Definition 
+
+You are an expert mathematics problem designer. Based on the input problem, generate a new problem: • If original difficulty D > 1, generate a new problem at level D − 1.• If D = 1 , generate a similar Level 1 problem with different numbers/context for expansion. 
+
+## Difficulty Calibration Standard (Levels 1–10) Level 1: Problems strictly for beginners, covering elementary or early middle school content. Involves standard techniques and traditional word problems. 
+
+e.g., How many integer values of x satisfy |x| < 3π?
+
+Level 2: For motivated beginners. Involves harder instructions, complex word problems, and requires multi-step reasoning beyond basic techniques. e.g., A fair 6-sided die is repeatedly rolled until an odd number appears. Probability of all evens before first odd? 
+
+Level 3: Advanced beginner problems requiring creative thinking and synthesis of multiple concepts. e.g., Triangle ABC with AB = 50 , AC = 10 area 120... find Area of quadrilateral F DBG .
+
+Level 4: Intermediate-level problems involving sequences, functional iteration, or systems of equations. e.g., Sequence xn+1 = x2 
+
+> n+5 xn +4
+> xn +6
+
+, find least m
+
+s.t. xm ≤ 4 + 1220 .
+
+Level 5: High-intermediate problems, including simple proof-based Olympiad-style questions. e.g., Find triples (a, b, c ) s.t. a + b + c = P 1 
+
+> a
+
+and 
+
+a2 + b2 + c2 = P 1 
+
+> a2
+
+.
+
+Level 6: Advanced high-school level to introductory Olympiad level. Requires integration of geometry, algebra, and number theory. e.g., Acute △ABC with orthocenter H... Area is m√n.
+
+Level 7: Mid-tier Olympiad level. Requires technical knowledge, combinatorial constructions, or graph-theoretic reasoning. e.g., Prove existence of a balanced set of n points and determine centre-free conditions. 
+
+Level 8: High-level Olympiad problems. Demands clever constructions or deep insights. e.g., Splitting coins of denomination 1 
+
+> n
+
+with total value 99 + 12 into groups ≤ 1.
+
+Level 9: Expert Olympiad level. Involves advanced number theory, algebraic combinatorics, or functional constraints. e.g., Primes on a circle where neighbor product is x2 + x + k.
+
+Level 10: Historically extreme problems. Exceedingly tedious, technical, or rare. Solved by very few worldwide. e.g., Existence of line separating n points with margin ≥ cn −1/3.
+
+## Generation Rules (STRICT) 
+
+1. Preserve type & relationship: Maintain original problem type (e.g., Geometry) and core logic (e.g., area ratios). 2. To reduce difficulty: Use friendlier numbers, reduce logical steps, simplify story context, or remove auxiliary constructions. 3. Clarity: The output must be self-contained, have a unique well-defined answer, and use natural mathematical English. 
+
+## Input Data 
+
+Problem: {query} | Answer: {answer} | Level: {difficulty} | Type: {type} 
+
+## Output Instruction 
+
+Output ONLY the new problem statement. No labels, no explanations, no extra text. 
+
+Format: [Your generated problem statement] 
+
+Table 5: The prompt for difficulty-reduction. Prompt for Difficulty Increasing Agent (N → N+1) 
+
+## Task Definition 
+
+You are an expert mathematics problem designer. Based on the input, calibrate and generate a new problem: • If original difficulty D < 10 , generate a new problem at level D + 1 .• If D = 10 , generate a similar Level 10 problem with different structures/objects for expansion. 
+
+## Difficulty Calibration Standard (Levels 1–10) Level 1: Problems strictly for beginners, covering elementary or early middle school content. Involves standard techniques and traditional word problems. 
+
+e.g., How many integer values of x satisfy |x| < 3π?
+
+Level 2: For motivated beginners. Involves harder instructions, complex word problems, and requires multi-step reasoning beyond basic techniques. e.g., A fair 6-sided die is repeatedly rolled until an odd number appears. Probability of all evens before first odd? 
+
+Level 3: Advanced beginner problems requiring creative thinking and synthesis of multiple concepts. e.g., Triangle ABC with AB = 50 , AC = 10 area 120... find Area of quadrilateral F DBG .
+
+Level 4: Intermediate-level problems involving sequences, functional iteration, or systems of equations. e.g., Sequence xn+1 = x2 
+
+> n+5 xn +4
+> xn +6
+
+, find least m
+
+s.t. xm ≤ 4 + 1220 .
+
+Level 5: High-intermediate problems, including simple proof-based Olympiad-style questions. e.g., Find triples (a, b, c ) s.t. a + b + c = P 1 
+
+> a
+
+and 
+
+a2 + b2 + c2 = P 1 
+
+> a2
+
+.
+
+Level 6: Advanced high-school level to introductory Olympiad level. Requires integration of geometry, algebra, and number theory. e.g., Acute △ABC with orthocenter H... Area is m√n.
+
+Level 7: Mid-tier Olympiad level. Requires technical knowledge, combinatorial constructions, or graph-theoretic reasoning. e.g., Prove existence of a balanced set of n points and determine centre-free conditions. 
+
+Level 8: High-level Olympiad problems. Demands clever constructions or deep insights. e.g., Splitting coins of denomination 1 
+
+> n
+
+with total value 99 + 12 into groups ≤ 1.
+
+Level 9: Expert Olympiad level. Involves advanced number theory, algebraic combinatorics, or functional constraints. e.g., Primes on a circle where neighbor product is x2 + x + k.
+
+Level 10: Historically extreme problems. Exceedingly tedious, technical, or rare. Solved by very few worldwide. e.g., Existence of line separating n points with margin ≥ cn −1/3.
+
+## Generation Rules (STRICT) 
+
+1. Preserve type & structure: Maintain core type (e.g., Number Theory) and structure (e.g., recurrence). 2. To increase difficulty ( N → N + 1 ): Introduce one layer of abstraction; add exactly one reasoning step (e.g., a lemma or substitution); or incorporate a related concept (e.g., add modular arithmetic). 3. Constraint: Do not jump to tools typical of Level N + 2 or beyond. 4. Clarity: Phrased rigorously in math English with a unique answer or precise proof statement. 
+
+## Input Data 
+
+Problem: {query} | Answer: {answer} | Level: {difficulty} | Type: {type} 
+
+## Output Instruction 
+
+Output ONLY the new problem statement. 
+
+Format: [Your generated problem statement] 
+
+Table 6: The structured prompt for the Problem Increasing Agent, calibrated for Level N + 1 difficulty escalation. Prompt for diversity enhancement agent 
+
+## Role & Objective 
+
+You are an expert mathematics question designer. Generate a new problem by evolving the input problem to Level {target_level} while explicitly incorporating the [{type}] concept. 
+
+## Official 10-Level Difficulty Scale (Reference) Level 1: Problems strictly for beginners, covering elementary or early middle school content. Involves standard techniques and traditional word problems. 
+
+e.g., How many integer values of x satisfy |x| < 3π?
+
+Level 2: For motivated beginners. Involves harder instructions, complex word problems, and requires multi-step reasoning beyond basic techniques. e.g., A fair 6-sided die is repeatedly rolled until an odd number appears. Probability of all evens before first odd? 
+
+Level 3: Advanced beginner problems requiring creative thinking and synthesis of multiple concepts. e.g., Triangle ABC with AB = 50 , AC = 10 area 120... find Area of quadrilateral F DBG .
+
+Level 4: Intermediate-level problems involving sequences, functional iteration, or systems of equations. e.g., Sequence xn+1 = x2 
+
+> n+5 xn +4
+> xn +6
+
+, find least m
+
+s.t. xm ≤ 4 + 1220 .
+
+Level 5: High-intermediate problems, including simple proof-based Olympiad-style questions. e.g., Find triples (a, b, c ) s.t. a + b + c = P 1 
+
+> a
+
+and 
+
+a2 + b2 + c2 = P 1 
+
+> a2
+
+.
+
+Level 6: Advanced high-school level to introductory Olympiad level. Requires integration of geometry, algebra, and number theory. e.g., Acute △ABC with orthocenter H... Area is m√n.
+
+Level 7: Mid-tier Olympiad level. Requires technical knowledge, combinatorial constructions, or graph-theoretic reasoning. e.g., Prove existence of a balanced set of n points and determine centre-free conditions. 
+
+Level 8: High-level Olympiad problems. Demands clever constructions or deep insights. e.g., Splitting coins of denomination 1 
+
+> n
+
+with total value 99 + 12 into groups ≤ 1.
+
+Level 9: Expert Olympiad level. Involves advanced number theory, algebraic combinatorics, or functional constraints. e.g., Primes on a circle where neighbor product is x2 + x + k.
+
+Level 10: Historically extreme problems. Exceedingly tedious, technical, or rare. Solved by very few worldwide. e.g., Existence of line separating n points with margin ≥ cn −1/3.
+
+## Evolution Guidelines 
+
+1. Type Injection: Explicitly integrate the [ {type} ] mathematical concept into the solution path. 2. Context Preservation: Preserve the core scenario and solution objectives of the original problem as much as possible. 3. Precision Calibration: Adjust difficulty to exactly Level {target_level} . Only increase/decrease complexity as justified by the scale. 4. Constraints: Do not introduce case splits, hidden variables, or multi-concept chaining beyond the norms of the target level. 
+
+## Input Specification Original Problem: {query} | Original Answer: {answer} 
+
+Current Level: {original_level} | Target Level: {target_level} | Target Type: {type} 
+
+## Output Format (STRICT) 
+
+Output ONLY the new problem. No explanations, no extra text. 
+
+Format: query: [Your generated problem] 
+
+Table 7: The structured prompt for diversity enhancement. 
+
+Prompt for reverse generation agent 
+
+## Role & Core Logic 
+
+You are a precise math problem generator. Given a problem and its answer, create a reversed version of the problem by: • Converting one of the original input conditions into the unknown. • Using the original answer (or a value derived from it) as a new given condition. 
+
+## Requirements (STRICT) 
+
+• Consistency: Keep the same mathematical relationship, formula, or logic as the original problem. • Variable Swap: Only swap the role of one variable; treat the original answer as a known quantity. • Complexity Control: Do not change problem type, add new concepts, or increase difficulty. • Integrity: The reversed problem must have a unique, correct solution and use standard mathematical wording. 
+
+## Negative Constraints (Forbidden Content) Do NOT include any extra text, such as: • Meta-language (e.g., "reversed", "original", "Here is the problem"). • Formatting tags like LaTeX \boxed{} or any specific answer formatting. • Explanations, comments, or any text outside the problem statement itself. 
+
+## Input Specification Original Problem: {query} | Original Answer: {answer} 
+
+## Output Instruction 
+
+Output ONLY the generated problem statement. 
+
+Format: [your generated problem] 
+
+Table 8: The structured prompt for generating inverse mathematical problems by swapping known and unknown variables. Prompt for Mathematical Solution Verification Agent 
+
+## Role & Core Task 
+
+You are an expert AI assistant specializing in verifying mathematical solutions for accuracy. Your task is to evaluate only the provided answer to the given mathematical query and determine if it is correct .
+
+## Verification Instructions 
+
+• Comprehensive Check: Verify whether the answer is entirely correct , including reasoning (if present), final results, calculations, and mathematical logic. • Final Result Accuracy: If the answer contains a final result (e.g., a number, expression, or boxed value), it must be exactly correct .• Failure Cases: If the provided answer is missing, empty, or fails to produce an expected final result, treat it as incorrect .
+
+## Strict Output Constraint 
+
+• Output Format: Output ONLY one word: "yes" if the answer is correct, "no" if it is incorrect or contains any error. • Forbidden Content: Do not output any explanation, punctuation, extra text, or formatting. 
+
+## Input Data Query: {query} 
+
+Answer: {answer} 
+
+## Execution Instruction 
+
+Analyze the query and answer according to the logic above. Output exactly one word: yes or no .
+
+Table 9: The structured prompt for the Verification Agent, designed for binary correctness evaluation of mathematical answers. 
+
+Original Problem and Solution 
+
+Query: 
+
+If there is a positive real number x such that cos(arctan( x)) = x, what is the value of x2?
+
+Answer: 
+
+The given equation is cos(arctan( x)) = x for x > 0. Using the identity 
+
+cos(arctan( x)) = 1
+
+√1 + x2 ,
+
+the equation becomes: 
+
+1
+
+√1 + x2 = x. 
+
+Squaring both sides (since x > 0) yields: 
+
+11 + x2 = x2.
+
+Multiplying both sides by 1 + x2 gives: 
+
+1 = x2(1 + x2) = x2 + x4.
+
+Rearranging into a quadratic in y = x2:
+
+y2 + y − 1 = 0 .
+
+Solving for y:
+
+y = −1 ± √52 .
+
+Since y = x2 > 0, we take the positive root: 
+
+x2 =
+
+√5 − 12 .
+
+Thus, the value of x2 is 
+
+√5 − 12 .
+
+√5 − 12
+
+Table 10: The original question and its complete solution. Reduce difficulty by difficulty reduction agent 
+
+Query: 
+
+If there is a positive real number x such that one-half of x plus 6 equals x, what is the value of x2?
+
+Answer: 
+
+The equation described is 12 x + 6 = x. Solving for x:
+
+12 x + 6 = x
+
+6 = x − 12 x
+
+6 = 12 xx = 12 .
+
+Then x2 = 12 2 = 144 .
+
+144 
+
+Table 11: The case reducing the difficulty from the original question. 
+
+Add difficulty by Difficulty Increasing Agent 
+
+Query: 
+
+If there is a positive real number x such that cos(arctan( x)) = tan(arcsin( x)) , what is the value of x2?
+
+Answer: 
+
+The given equation is cos(arctan( x)) = tan(arcsin( x)) for x > 0.• Left-hand side: Let θ = arctan( x), so tan θ = x. Then cos θ = 1
+
+√1 + x2 .• Right-hand side: Let ϕ = arcsin( x), so sin ϕ = x. Then tan ϕ = x
+
+√1 − x2 , valid for 0 < x < 1.Thus the equation becomes: 
+
+1
+
+√1 + x2 = x
+
+√1 − x2 .
+
+Squaring both sides yields: 
+
+11 + x2 = x2
+
+1 − x2 .
+
+Cross-multiplying: 
+
+1 − x2 = x2(1 + x2) = x2 + x4.
+
+Rearranging: 
+
+x4 + 2 x2 − 1 = 0 .
+
+Substitute u = x2:
+
+u2 + 2 u − 1 = 0 .
+
+Solving: 
+
+u = −2 ± √4 + 4 2 = −2 ± 2√22 = −1 ± √2.
+
+Since u > 0, we have u = √2 − 1. Verification shows that this satisfies the original equation. Thus, x2 = √2 − 1.
+
+√2 − 1
+
+Table 12: The case increasing the difficulty from the original question. Reverse Generation 
+
+Query: 
+
+For a positive real number x such that x2 =
+
+√5 − 12 , find the value of cos(arctan( x)) .
+
+Answer: 
+
+Given x > 0 and x2 =
+
+√5 − 12 , we need to find cos(arctan( x)) .Let θ = arctan( x), so tan( θ) = x. Since x > 0, θ ∈ (0 , π 
+
+> 2
+
+). Then, 
+
+cos( θ) = 1
+
+p1 + tan 2(θ) = 1
+
+√1 + x2 .
+
+Substitute x2 =
+
+√5 − 12 :
+
+1 + x2 = 1 + 
+
+√5 − 12 =
+
+√5 + 1 2 .
+
+Thus, 
+
+cos(arctan( x)) = 1
+
+q √5+1 2
+
+=
+
+s
+
+2
+
+√5 + 1 .
+
+Rationalize the expression: s
+
+2
+
+√5 + 1 =
+
+s
+
+2( √5 − 1) (√5 + 1)( √5 − 1) =
+
+s
+
+2( √5 − 1) 4 =
+
+s √5 − 12 = x. 
+
+Therefore, the value is 
+
+s √5 − 12 .
+
+s √5 − 12
+
+Table 13: A reverse case derived from the original problem. 
+
+Add diversity from Prealgebra to Geometry 
+
+Query: 
+
+In right triangle ABC with right angle at B, let AB = 1 and BC = x. Let D be the foot of the altitude from B to hypotenuse AC . If AD = BC , find 
+
+x2.
+
+Answer: 
+
+In right triangle ABC with right angle at B, let AB = 1 and BC = x. The foot of the altitude from B to hypotenuse AC is D, and it is given that 
+
+AD = BC = x.Using similar triangles, AD = AB 2
+
+AC = 1
+
+√1 + x2 . Setting this equal to x gives: 
+
+1
+
+√1 + x2 = x. 
+
+Squaring both sides yields: 
+
+11 + x2 = x2.
+
+Multiply both sides by 1 + x2:
+
+1 = x2(1 + x2) = x2 + x4.
+
+Rearranging: 
+
+x4 + x2 − 1 = 0 .
+
+Let u = x2, then u2 + u − 1 = 0 . Solving the quadratic: 
+
+u = −1 ± √1 + 4 2 = −1 ± √52 .
+
+Since x2 > 0, we take the positive root: 
+
+x2 =
+
+√5 − 12 .
+
+√5 − 12
+
+Table 14: A geometric variant derived from an algebraic original problem. Algorithm 1 Adaptive Bidirectional Curriculum Generation 
+
+Input: Initial seed dataset Dseed ; Initial student model πθ0 ; Maximum iterations T ; Difficulty mapping function Φ( ·); Transformation operators G = {G red , Grev , Ginc , Gdiv }.
+
+Output: Optimized Student Model πθT . 
+
+> 1:
+
+// Stage 1: Seed Initialization (Section 3.2)  
+
+> 2:
+
+D(0)  
+
+> val
+
+← StratifiedSample (Dseed , N = 200) based on subjects and Φ( p) 
+
+> 3:
+
+Initialize failure counter ind err (p) ← 0 for all p ∈ D (0)  
+
+> val
+> 4:
+
+D(0)  
+
+> train
+
+← ∅  
+
+> 5:
+
+// Main Iterative Curriculum Loop  
+
+> 6:
+
+for t = 0 to T − 1 do  
+
+> 7:
+
+// Stage 2: Diagnostic Evaluation (Section 3.3)  
+
+> 8:
+
+S(t)
+
+> hard
+
+, S (t) 
+
+> easy
+
+← Partition (D(t) 
+
+> val
+
+) based on 1corr (p, π θt ) 
+
+> 9:
+
+for p ∈ S(t) 
+
+> hard
+
+do  
+
+> 10:
+
+ind err (p) ← ind err (p) + 1 ▷ Update Error Retention Policy  
+
+> 11:
+
+end for  
+
+> 12:
+
+// Stage 3: Multi-Agent Data Generation (Section 3.4)  
+
+> 13:
+
+D(t) 
+
+> remedy
+
+← ∅ , D(t) 
+
+> adv
+
+← ∅  
+
+> 14:
+
+for p ∈ S(t) 
+
+> hard
+
+do ▷ Downward Adjustment  
+
+> 15:
+
+Generate p′ ← {G red (p), Grev (p)} 
+
+> 16:
+
+D(t) 
+
+> remedy
+
+← D (t) 
+
+> remedy
+
+∪ { p′ | CheckFormat (p′) ∧ Verify (p′)} 
+
+> 17:
+
+end for  
+
+> 18:
+
+for p ∈ S(t) 
+
+> easy
+
+do ▷ Upward Expansion  
+
+> 19:
+
+Generate p′′ ← {G inc (p), Gdiv (p)} 
+
+> 20:
+
+D(t) 
+
+> adv
+
+← D (t) 
+
+> adv
+
+∪ { p′′ | CheckFormat (p′′ ) ∧ Verify (p′′ )} 
+
+> 21:
+
+end for  
+
+> 22:
+
+// Stage 4: Curriculum Co-evolution (Section 3.5)  
+
+> 23:
+
+1. Persistent Failures: Sstubborn ← { p ∈ S(t) 
+
+> hard
+
+| ind err (p) > 3} 
+
+> 24:
+
+2. Training Set Update: D(t+1)  
+
+> train
+
+← D (t) 
+
+> remedy
+
+∪ Sstubborn  
+
+> 25:
+
+3. Validation Set Renewal: D(t+1)  
+
+> val
+
+← { p ∈ S(t) 
+
+> hard
+
+| ind err (p) ≤ 3} ∪ D (t) 
+
+> adv
+> 26:
+
+// Model Optimization  
+
+> 27:
+
+θt+1 ← arg min θ E(x,y )∼D (t+1) 
+
+> train
+
+[− log πθ(y|x)] ▷ Supervised Fine-Tuning  
+
+> 28:
+
+end for  
+
+> 29:
+
+return πθT

@@ -1,0 +1,605 @@
+Title: Confusion-Aware Rubric Optimization for LLM-based Automated Grading
+
+URL Source: https://arxiv.org/pdf/2603.00451v1
+
+Published Time: Tue, 03 Mar 2026 01:30:24 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Confusion-Aware Rubric Optimization for LLM-based Automated Grading 
+
+# Yucheng Chu 
+
+Michigan State University 
+
+# chuyuch2@msu.edu Hang Li 
+
+Michigan State University 
+
+# lihang4@msu.edu Kaiqi Yang 
+
+Michigan State University 
+
+# kqyang@msu.edu Yasemin Copur-Gencturk 
+
+University of Southern California 
+
+# copurgen@usc.edu Joseph Krajcik 
+
+Michigan State University 
+
+# krajcik@msu.edu Namsoo Shin 
+
+Michigan State University 
+
+# namsoo@msu.edu Jiliang Tang 
+
+Michigan State University 
+
+# tangjili@msu.edu 
+
+# ABSTRACT 
+
+Accurate and unambiguous guidelines are critical for large language model (LLM) based graders, yet manually crafting these prompts is often sub-optimal as LLMs can misinterpret expert guidelines or lack necessary domain specificity. Con-sequently, the field has moved toward automated prompt op-timization to refine grading guidelines without the burden of manual trial and error. However, existing frameworks typ-ically aggregate independent and unstructured error sam-ples into a single update step, resulting in “rule dilution” where conflicting constraints weaken the model’s grading logic. To address these limitations, we introduce Confusion-
+
+Aware Rubric Optimization ( CARO ), a novel framework that enhances accuracy and computational efficiency by struc-turally separating error signals. CARO leverages the confu-sion matrix to decompose monolithic error signals into dis-tinct modes, allowing for the diagnosis and repair of spe-cific misclassification patterns individually. By synthesizing targeted “fixing patches” for dominant error modes and em-ploying a diversity-aware selection mechanism, the frame-work prevents guidance conflict and eliminates the need for resource-heavy nested refinement loops. Empirical evalua-tions on teacher education and STEM datasets demonstrate that CARO significantly outperforms existing SOTA meth-ods. These results suggest that replacing mixed-error ag-gregation with surgical, mode-specific repair yields robust improvements in automated assessment scalability and pre-cision. 
+
+# Keywords 
+
+Automatd Grading, Large Language Models, Automated Prompt Optimization, Confusion Matrices. 
+
+# 1. INTRODUCTION 
+
+The rapid shift toward personalized and competency-based learning has placed unprecedented challenges for traditional assessment frameworks. As personalized learning relies on understanding the specific needs for each learner, it neces-sitates high-quality formative assessment. In modern peda-gogy, providing frequent and high-quality assessment feed-back on students’ open-ended work is essential for diagnos-ing misconceptions and fostering deep conceptual under-standing [2, 13, 25]. Yet these benefits are hard to de-liver at scale. Constructed-response tasks, such as short answers or explanations, capture students’ reasoning more directly than multiple-choice formats, but they are substan-tially more time-consuming to assign and evaluate. Further-more, they can exhibit nontrivial scorer disagreement even under rubric-based evaluation [19]. Notably, this disagree-ment often stems from the linguistic diversity and variabil-ity inherent in student answers. This “grading bottleneck” is reflected in teachers’ reported workloads, where scoring and correcting student work consumes a sizable share of working time across education systems [22]. As a result, educational practice often trades off authenticity for scalability by re-ducing the use of open-ended items or returning feedback after long delays. These compromises weaken the instruc-tional value of assessment and motivate automated grading as a way to preserve the pedagogical benefits of constructed responses without prohibitive cost or latency [1, 18]. Traditional methods of automated grading primarily relied on hand-crafted features, such as keyword matching, latent semantic analysis (LSA), or surface-level linguistic metrics [11]. These approaches requires task-specific feature engi-neering and fails to capture the semantic nuances of student reasoning, resulting in rigid evaluations that often penal-ize creative but correct answers [10]. The advent of deep learning introduced fine-tuning techniques using encoder-based models like BERT, which significantly improved se-mantic understanding and scoring accuracy [9, 20]. How-ever, these models require extensive labeled datasets for training before applicable to the new tasks, making them im-practical for dynamic classroom environments where assign-ments change frequently. Recent advancements demonstrate 
+
+> arXiv:2603.00451v1 [cs.AI] 28 Feb 2026
+
+that large language models (LLMs) overcome this data bar-rier. Unlike their predecessors, LLMs can leverage zero-shot and few-shot capabilities (i.e., they can operate effectively with little to no labeled data) to grade open-ended student responses with performance approaching human-to-human agreement levels [4]. Despite this promise, the transition from human grading to LLM-driven assessment is fraught with technical hurdles. In particular, reliability is heavily contingent on the quality of the grading prompt, with the instructions and rubric operationalization constraining the model’s decision-making [4, 14]. Simply treating a human rubric as an instruction for an LLM is often sub-optimal; human rubrics, while intuitive for expert educators, often contain linguistic ambiguities that misalign with the causal reasoning of an LLM. This “alignment gap” necessitates ex-tensive prompt engineering, a process that is often manual and driven by iterative trial and error, making it difficult to scale [6, 28]. Consequently, the field has moved toward auto-mated prompt optimization (APO), where algorithms itera-tively refine instructions based on quantitative performance feedback [29, 6]. While state-of-the-art frameworks like GradeOpt [6] leverage reflective optimization to diagnose errors, they are limited by their naive treatment of the error signal, which incurs sub-stantial computational overhead when searching over large prompt spaces. Specifically, these methods aggregate het-erogeneous error samples into a composite feedback signal, combining distinct failure types such as hallucination, ex-cessive strictness, and rubric misunderstanding into a single optimization step without separation. This confounding of error types leads to rule dilution . That is, by attempting to address a mixture of conflicting signals simultaneously, the optimizer generates generalized, weak instructions that fail to enforce clear decision boundaries. Consequently, to find even a marginally improved prompt, these methods rely on resource-heavy exploration, generating and evaluating large pools of candidates. To address this, we introduce CARO (Confusion-Aware Rubric for Optimization), a framework that achieves superior accu-racy and computational efficiency by structurally separat-ing error signals. We observe that grading errors are not random mixtures, but structured clusters. CARO lever-ages the confusion matrix to decompose the monolithic er-ror signal into distinct error modes , eliminating the inef-ficiency of trying to address conflicting error types simul-taneously. Specifically, CARO targets the single dominant error mode at each step (e.g., a specific tendency to con-fuse a score of 0 with 1), transforming the optimization into a structured diagnosis-and-repair pipeline. By isolating a single, clear failure pattern, CARO generates targeted “rule patches” that are specific and highly effective. Contribut-ing to its precision, CARO produces robust prompts with significantly fewer iterations and lower token usages com-pared to the existing APO baselines. Our empirical results confirm that CARO significantly outperforms these frame-works across multiple datasets while utilizing the same cost-effective backbone ( GPT-4o-mini 1). 
+
+> 1
+
+https://platform.openai.com/docs/models/ gpt-4o-mini 
+
+# 2. RELATED WORK 
+
+## Automated short-answer grading (ASAG). Early ASAG systems relied on hand-crafted lexical features and latent semantic analysis to predict scores [21]. The field later tran-sitioned to neural architectures, utilizing recurrent models and Transformer encoders trained on graded corpora to cap-ture deeper semantic dependencies [26, 12]. Despite their improved accuracy, these supervised pipelines require ex-tensive labeled data for each specific question and lack the interpretability of rubric-based assessment. This limitation motivated the shift toward Large Language Models (LLMs), which offer zero-shot flexibility and the capacity to generate human-readable feedback alongside scores. 
+
+## LLM-based grading and prompt optimization. Recent studies demonstrate that LLMs can achieve high agreement with human graders, though performance remains heavily dependent on rubric specificity and prompt design [14, 3]. While frameworks like RAG can improve domain ground-ing [5], the challenge of manual tuning has accelerated the adoption of Automatic Prompt Optimization (APO). APO treats instructions as trainable parameters, ranging from it-erative meta-optimization in OPRO and DSPy [27, 16] to the “natural-language gradients” used in ProTeGi [23]. In the educational domain, GradeOpt applies these principles to refine grading guidelines via self-reflection [6]. However, these systems generally aggregate heterogeneous errors into a single feedback signal, often obscuring the distinct failure patterns critical for precise assessment. 
+
+# 3. PROBLEM FORMULATION 
+
+We formalize the task of automated rubric optimization as a discrete search problem over the space of natural language instructions. Unlike fine-tuning LLM parameters, which re-quires extensive labeled data and computational resources, we focus on optimizing the rubric prompt in the text space. This approach leverages the in-context learning capability of pre-trained LLMs while maintaining interpretability so that graders can inspect and validate the optimized rubric before deployment. Let D = {(xn, y n)}Nn=1 be a dataset of student responses x and ground-truth scores y ∈ Y , where 
+
+Y = {0, 1, . . . , K − 1} represents an ordinal grading scale. An LLM-based grader can be defined as a function fθ that estimates the probability Pθ (y|x, P) of a score y given a re-sponse x and a rubric prompt P. The predicted score is obtained as ˆ y = arg max y∈Y Pθ (y|x, P). The objective of 
+
+Automated Prompt Optimization (APO) is to identify an op-timal prompt P∗ that maximizes a performance metric M
+
+(e.g., classification accuracy or quadratic weighted kappa) over a validation dataset: 
+
+P∗ = arg max  
+
+> P∈S
+
+M {ˆyn, y n}Nn=1 
+
+ (1) where S denotes the discrete search space of candidate prompts. Since the optimization targets the natural language prompt directly to ensure the rubric remains human-readable, stan-dard differentiable optimization methods applicable to con-tinuous parameters are not viable. Instead, APO methods approximate the gradient by generating textual feedback g
+
+based on the discrepancy between predicted scores ˆ y and true scores y, effectively performing a semantic descent step Training Data        
+
+> (D train )
+> Current
+> Prompt (P t)
+> 1. Confusion -Aware
+> Error Analysis
+> Correct Predictions
+> Error Modes
+> 3. Two -Phase Rule Consolidation
+> Next Prompt (P t+1 )
+> Refiner
+> 3a. Per -Mode Rule
+> Generation
+> 2. Mode -Specific Diagnosis Generation
+> Diagnosis A
+> Dominant Mode A (e.g., 0 -> 1)
+> Local Errors A
+> Contrastive Examples
+> Global Context
+> Reflector
+> Rules A
+> 3b. Priority -Weighted
+> Consolidation
+> Consolidated
+> Rules
+> Consolidator
+> Diagnosis B
+> Dominant Mode B (e.g., 2 -> 1)
+> Local Errors B
+> Contrastive Examples
+> Global Context
+> Reflector
+> Refiner Rules B
+> …
+> …
+> 4. Candidate Expansion & Selection
+> Candidate Pool Evaluation Selection
+> Next Iteration (t<T)
+> Update
+
+Figure 1: Framework of the CARO algorithm. 
+
+Pt+1 ← Update( Pt, g ). The goal of our work is to address the structural inefficiency problem of the feedback signal g when generated from aggre-gated error data. In the context of ordinal grading, errors are not uniform; they constitute distinct directional error modes captured by the confusion matrix C, where an entry 
+
+Cij represents the frequency of true class i being misclassi-fied as j. Existing APO frameworks typically aggregate a batch of heterogeneous error samples by mixing instances of 
+
+i → j confusion with k → l confusion to generate a single, composite feedback signal. We define this aggregation as the source of rule dilution . By exposing multiple error modes si-multaneously, such methods require the optimizer model to solve a multi-objective task that demands high reasoning ca-pacity to disentangle competing patterns. To address this challenge, we adopt a multi-agent decomposition strategy that separates the complex task into focused sub-problems: (1) a Mode-Specific Reflector that analyzes each confusion cell ( i, j ) independently to generate targeted feedback, and (2) a Consolidator that synthesizes per-mode refinements into a coherent, non-redundant rule set while maintaining global consistency. Furthermore, this optimization landscape is characterized by high inter-dependency between grading criteria, leading to mode interference . Addressing a specific error mode Cij 
+
+in isolation can act as a perturbation to the decision bound-ary between classes i and j. Due to the semantic continuity of the rubric, this perturbation often propagates to adja-cent boundaries, inadvertently increasing the error rate in a connected mode Cjk or Cji . This phenomenon creates a non-monotonic optimization trajectory where the reduction of one error type systematically amplifies another. Conse-quently, the optimization objective shifts from merely min-imizing the total error count to identifying a structured se-quence of rule refinements that effectively decomposes the confusion matrix C without causing regression in previously stabilized modes. Our framework addresses this via a de-composition strategy that first generates mode-specific rules with global context awareness, then consolidating them with explicit priority ordering and cross-mode safety checks. 
+
+# 4. METHOD 
+
+We propose CARO ( Confusion-Aware Rubric for Optimization), a framework designed to overcome the limitations of aggre-gating feedback in automated rubric optimization. Existing methods often suffer from rule dilution, where conflicting error signals lead to vague instructions. To address this, CARO structurally decomposes the optimization problem using confusion matrices, treating grading errors not as ran-dom noise but as distinct, diagnosable modes. Our approach operates in three iterative phases: confusion-aware error analysis, mode-specific gradient generation, and priority-weighted rule consolidation. 
+
+# 4.1 Framework Overview 
+
+Figure 1 illustrates the complete CARO pipeline. To ef-ficiently navigate the extensive search space of natural lan-guage prompts, CARO employs an iterative, minibatch-based optimization loop. In each iteration t, rather than evaluating on the entire training set, which is computationally expen-sive and may obscure minority error patterns, we sample a focused subset of data (a minibatch ) to estimate the current rubric’s performance. This iterative design allows the frame-work to progressively refine the rubric, addressing the most prominent error modes in early rounds before fine-tuning for edge cases. The framework operates as a closed-loop optimization sys-tem with four interconnected components. Components 1– 3 form the core optimization loop within a single round: (1) Confusion-Aware Error Analysis grades the minibatch and extracts structured error patterns; (2) Mode-Specific Gradient Generation produces targeted feedback for each confusion cell using a Reflector LLM; and (3) Two-Phase Rule Consolidation synthesizes per-mode rules into a uni-fied rubric. These three components pass information se-quentially within each optimization round. Component 4 
+
+(Candidate Selection and Sampling) operates at a differ-ent granularity as it governs the inter-round dynamics. It acts as a bridge between iterations by determining which candidate prompts survive to round t + 1 and constructing the specific training minibatch that will be used to eval-uate it. This separation reflects the algorithmic structure: Components 1–3 generate candidate prompts within a single round, while Component 4 decides which candidates prop-agate across rounds and what data they will be evaluated on next. The dashed connection in the figure indicates this temporal decoupling. The complete procedure is summarized in Algorithm 1. Given an initial rubric prompt P0, a training dataset Dtrain , and a LLM predictor fθ , our objective is to iteratively optimize the prompt to minimize classification errors while ensuring stability across different score categories. The optimization process functions as a directed search. At each iteration t,we first evaluate the current prompt on a minibatch to gener-ate a confusion matrix C(t) (Algorithm 1, lines 4–7). From this matrix, we identify the top-K error modes, denoted as M = {(i1, j 1), . . . , (iK , j K )}, ranked by frequency (line 8). Unlike standard methods that aggregate these errors, CARO generates distinct gradients for each mode (lines 10– 16), which are subsequently consolidated into coherent rule updates (lines 18–23). This cycle repeats until convergence or a maximum step count T is reached. 
+
+# 4.2 Confusion-Aware Error Analysis 
+
+The diagnostic phase begins by explicitly evaluating the cur-rent rubric P(t) on the sampled minibatch to generate a set of predictions and their corresponding reasoning traces. By comparing these predictions ˆ y against ground truth y,we construct a confusion matrix C(t) (lines 4–7). Based on this performance data, we construct a comprehensive context for the optimizer. For each identified confusion mode ( i, j ) ∈ M , we assemble three distinct types of in-formation to ground the model’s reasoning. First, we ex-tract local error context . This consists of specific examples 
+
+Ei→j = {(x, y, ˆy, r )} where the true label y is i, but the model predicted ˆ y = j, accompanied by the model’s rea-soning trace r (line 12). Second, to establish clear decision boundaries, we sample contrastive correct examples . These are instances correctly classified as i or j but which exhibit high model uncertainty (line 13). We quantify this uncer-tainty using a misconfidence score [6]: misconf( x) = 
+
+(− log Pθ (ˆ y|x) if ˆ y = y     
+
+> log Pθ(ˆ y|x)log Pθ(y|x)
+
+if ˆ y̸ = y (2) where Pθ (c|x) denotes the predicted probability for class c.High misconfidence in correct predictions signals boundary cases that provide high-value discriminative signals. Finally, we provide global context via the full confusion matrix sum-mary, GlobalContext( C). This summary includes the error distribution across all classes, ensuring that the optimizer re-
+
+Algorithm 1 CARO: Confusion-Aware Rubric Optimization 
+
+Require: Initial rubric prompt P0, training data Dtrain ,LLM predictor fθ , rounds T , beam size B, top-K modes, diversity weight λ
+
+Ensure: Optimized rubric prompt P∗
+
+1: P(0) ← {P 0} { Initialize candidate set }
+
+2: for t = 1 to T do 
+
+3: // 1. Confusion-Aware Error Analysis 
+
+4: Minibatch (t) ← SBERTSample(TopMisconf (t−1) , Dtrain )5: for each P ∈ P (t−1) do 
+
+6: Evaluate P on Minibatch (t) to obtain C(t)
+
+> P
+
+7: end for 
+
+8: M ← TopKModes( C(t), K ) {Identify top-K error modes }
+
+9: // 2. Mode-Specific Diagnosis Generation 
+
+10: G ← ∅ 
+
+11: for each mode ( i, j ) ∈ M do 
+
+12: Ei→j ← Extract error examples with true label i,predicted j
+
+13: E+ 
+
+> i
+
+, E+ 
+
+> j
+
+← Sample high-misconfidence correct ex-amples 14: gi→j ← Reflector(Rules (t), Ei→j , E+ 
+
+> i
+
+, E+ 
+
+> j
+
+, C(t), M)15: G ← G ∪ { gi→j }
+
+16: end for 
+
+17: // 3. Two-Phase Rule Consolidation 
+
+18: R ← ∅ 
+
+19: for each ( i, j ) ∈ M do 
+
+20: ri→j ← Refiner(Rules (t), g i→j , M \ { (i, j )}, C(t))21: R ← R ∪ { (ri→j , (i, j )) }
+
+22: end for 
+
+23: rconsolidated ← PriorityConsolidate( R, C(t))24: // 4. Candidate Expansion and Selection 
+
+25: Pnew ← {P ⊕ r : P ∈ P (t−1) , r ∈ R ∪ { rconsolidated }} 
+
+26: Score each P ∈ P new via UCB-based evaluation 27: P(t) ← DiverseSelect( Pnew , B, λ ) {Eq. 5 }
+
+28: end for 
+
+29: return arg max P∈P (T ) κ(P, Dval )mains aware of the global performance landscape and avoids overfitting to a single error type at the expense of others. 
+
+# 4.3 Mode-Specific Feedback Generation 
+
+To repair the identified errors, CARO avoids the “rule dilu-tion” of baseline methods by generating separate diagnosis for each error mode (lines 10–16). We employ a Reflector LLM to analyze the confusion pattern ( i, j ) specifically. The gradient generation process is formalized as: 
+
+gi→j = Reflector(Rules (t), Ei→j , E+ 
+
+> i
+
+, E+ 
+
+> j
+
+, GlobalContext( C), M)(3) Here, E+ 
+
+> i
+
+and E+ 
+
+> j
+
+represent the contrastive correct examples. We have shown a demonstration of the Reflector’s prompt in Figure 2. As exemplified by Figure 3, the resulting gradient gi→j pro-vides a structured diagnosis, identifying the root cause of the confusion, creating discriminative criteria to distinguish score i from j, and performing a safety check to predict po-tential negative side effects on other score categories. 
+
+# 4.4 Two-Phase Rule Consolidation Reflector Prompt for Mode (0 → 1) Confusion                                               
+
+> [GLOBAL CONTEXT]
+> True \Pred 0120625 7
+> 10910
+> 2007
+> Error Distribution:
+> •0→1: 25 errors (59.5%) ←CURRENT FOCUS
+> •1→2: 10 errors (23.8%)
+> •0→2: 7 errors (16.7%)
+> [LOCAL ERROR EXAMPLES] E0→1
+> Example 1: “They understand it partially because I understand what they are doing but I would show them that setting it up as a proportion makes more sense. ”
+> True: 0Pred: 1Reasoning: Teacher acknowledges some understanding but lacks specific analysis...
+> Example 2: “His explanation doesn’t really refer to the equivalent ratios. Although the actual work seems to show he has some understanding. ”
+> True: 0Pred: 1Reasoning: Vague acknowledgment without depth...
+> [CONTRASTIVE CORRECT EXAMPLES] E+0,E+1
+> Correctly Classified as 0 Correctly Classified as 1
+> “Student A has a limited understanding because he based his answer on the dollar amount. ”“The student looked at price versus amount to find the unit rate. ”
+> →Incorrect/generic analysis →Procedural description of student work
+> [TASK] Analyze WHY the 0 →1 confusion occurs. Identify misleading patterns and propose rule fixes.
+
+Figure 2: Example Reflector prompt for analyzing the dominant error mode (0 → 1) . The prompt provides: (1) global context via the full confusion matrix, (2) local error examples with model reasoning traces, and (3) contrastive correct examples to establish decision boundaries. 
+
+A critical innovation of CARO is the consolidation strategy, which converts discrete error diagnostics into a unified, co-herent rubric (lines 18–23). We execute this in two phases to balance specificity with logical consistency. 
+
+## Phase 1: Per-Mode Rule Generation. We translate the gradients into specific rule refinements (lines 19–22). For each mode ( i, j ), a Refiner module generates a rule update 
+
+ri→j . Crucially, the Refiner receives information about all other targeted error modes M\{ (i, j )} as additional context. This cross-mode awareness enables the Refiner to anticipate potential interactions. We show an example of the prompt to Refiner in Figure 4: when generating a rule to prevent 0 → 1 misclassification, it can avoid phrasing that would inadvertently increase 1 → 2 or 0 → 2 errors if these modes are also being addressed in the same round. 
+
+## Phase 2: Priority-Weighted Consolidation. Rather than simply concatenating all new rules, which often leads to bloated or contradictory prompts, we organize rules based on the frequency of the error modes they address (line 23). The consolidated rule set for the next iteration is derived as: Rules (t+1) = Consolidate( {ri→j }(i,j )∈M , C) (4) As shown in Figure 5, the consolidation assigns explicit precedence levels: the dominant error mode (highest Cij )receives Priority 1 with 2–3 detailed rules; secondary modes receive Priority 2+ with single-sentence guards. When rules from different priority levels suggest different scores for an edge case, we insert explicit tie-breaker directives , e.g., “If Priority 1 criteria suggest score X but Priority 2 criteria sug-gest score Y , assign score X unless [specific exception con-dition].” This prioritization ensures that the optimization creates a stable “diagnosis-and-repair” pipeline, systemati-cally eliminating the most significant failure patterns before addressing long-tail errors. 
+
+# 4.5 Candidate Selection and Sampling 
+
+The final phase bridges the current iteration to the next by performing two distinct operations (lines 24–26): (1) can-didate selection , which determines which prompt variants effectively resolved errors and should survive to the next round, and (2) minibatch sampling , which constructs the op-timal training data for the subsequent iteration to prevent overfitting and ensure robust evaluation. 
+
+## Diversity-Aware Candidate Selection. CARO maintains a beam of B candidate prompts across iterations. Each can-didate prompt P generated in “Two-Phase Rule Consolida-tion” is tagged with its target mode m(P) ∈ M , indicating which confusion cell it was designed to address. To prevent the beam from collapsing to variants of a single mode fix, we employ a greedy selection strategy that balances empirical performance with mode coverage: SelectScore( P) = eκ(P) + λ · ⊮[m(P) /∈ S ] (5) where eκ(P) is the min-max normalized Cohen’s κ score [7], 
+
+S represents the set of error modes already covered by pre-viously selected candidates in the current selection round, and λ is a hyperparameter controlling the diversity bonus. The indicator function ⊮[·] awards a bonus to candidates targeting modes not yet represented in the selected set S,encouraging exploration of diverse rule modifications. Reflector Output: Diagnosis g0→1
+
+Root Cause: 
+
+The classifier misinterprets teachers’ acknowledgment of “some understanding” as sufficient for Score 1. Phrases like “valid reasoning” or “understands partially” mislead the classifier despite lacking analytical depth. 
+
+Misleading Patterns: 
+
+• Positive language (“some understanding”, “valid reason-ing”) 
+
+• Missing specific evidence from student work 
+
+• Vague acknowledgments without multiplicative analysis 
+
+Why These Are 0, Not 1: 
+
+Per rubric: Score 0 for responses that provide generic 
+
+or absent analysis. Simply stating “valid reasoning” ̸ =analyzing mathematical thinking. 
+
+Proposed Rule Fix: 
+
+❶ Responses acknowledging partial understanding must 
+
+include specific examples demonstrating multiplicative re-lationships. 
+
+❷ Vague acknowledgments without detailed analysis ⇒
+
+Score 0. 
+
+Safety Check: 
+
+This fix reinforces depth requirements, which aligns with addressing 1 → 2 errors (also require specificity). Will not increase other error modes. 
+
+Figure 3: Structured diagnosis output from the Reflector for mode (0 → 1) . The output identifies root causes, misleading patterns, and proposes targeted rule modifications with safety considerations. 
+
+## Semantic Minibatch Sampling. Instead of random mini-batch construction, we use an SBERT [24]-based similarity selector to focus optimization effort on challenging regions of the input space. We retrieve training examples that are se-mantically similar to the high-misconfidence instances iden-tified in previous rounds: Minibatch (t) = [
+
+> x∈TopMisconf (t−1)
+
+kNN k (x, Dtrain ) (6) where kNN k retrieves the k nearest neighbors based on SBERT embeddings. This ensures that refined rules are stress-tested against examples where the current rubric is most ambigu-ous, accelerating convergence on difficult boundary cases. 
+
+# 4.6 Inference with Optimized Prompt 
+
+Upon the termination of the optimization procedure, we se-lect the rubric prompt P∗ that maximizes the evaluation metric (Cohen’s κ) on the validation set: 
+
+P∗ = arg max  
+
+> P∈P (T)
+
+κ(P, Dval ) (7) This globally optimized prompt serves as the fixed instruc-tion set for the final inference phase on the held-out test dataset Dtest . For a given student response x ∈ D test , the predicted score is obtained as: ˆy = arg max  
+
+> y∈Y
+
+Pθ (y | x, P∗) (8) where Pθ (y | x, P∗) denotes the probability assigned by the LLM predictor fθ to score y given the student response x and the optimized rubric P∗. The model generates a completion 
+
+Refiner Prompt for Rule Generation 
+
+[INPUT] 
+
+• Current rules: Rules (t)
+
+• Diagnosis: g0→1 (from Reflector) 
+
+• Error examples: E0→1
+
+• Other modes: {(1 , 2) , (0 , 2) } ← Cross-mode awareness 
+
+[CONSTRAINTS] 
+
+❶ Fix must target 0 → 1 confusion specifically 
+
+❷ Must NOT break existing correct classifications 
+
+❸ Must be COMPATIBLE with fixes for (1 → 2), (0 → 2) 
+
+❹ Edit budget: medium (2–3 new rules) 
+
+[OUTPUT FORMAT] 
+
+Generate improved rules that: 
+
+• Include clear distinguishing criteria 
+
+• Use specific patterns from error analysis 
+
+• State safety considerations for other modes 
+
+Figure 4: Refiner prompt structure showing how cross-mode awareness is incorporated. The Refiner receives information about all active error modes to generate compatible rule fixes. 
+
+that includes both a reasoning trace r and a final numerical score, extracted via regular expression parsing: (ˆ y, r ) = Parse  fθ (x ⊕ P ∗; τ = 0)  (9) By enforcing the reasoning trace through the structure of 
+
+P∗, the inference process provides not only a quantitative grade but also an interpretable justification that reflects the resolved decision boundaries established during optimiza-tion. 
+
+# 5. EXPERIMENTS 5.1 Experimental Setup 
+
+## Datasets. We evaluate CARO on three educational grad-ing datasets spanning K-12 science education and teacher education: 
+
+Interaction Dataset ( DI ): This dataset contains 252 high school student responses to a physics assessment item on electrical interactions [15]. Each response is evaluated against 11 binary rubric categories (labeled 0/1), where 0 indicates the requirement is “not met” and 1 indicates it is “met.” The categories assess distinct aspects of student understanding, ranging from basic concept recognition to complex reasoning about charge interactions. 
+
+Elementary Item Response Dataset ( DE ): This dataset com-prises elementary student responses to five science assess-ment tasks graded on an ordinal scale {0, 1, 2, 3, 4}. The tasks assess foundational science concepts with varying lev-els of complexity. 
+
+Teacher Education Dataset ( DT ): This dataset evaluates teachers’ pedagogical content knowledge in mathematics ed-ucation [8]. It contains eight grading tasks organized into three knowledge dimensions: 
+
+• KSMT (Knowledge of Students’ Mathematical Think-ing): Tasks T1–T3 assess teachers’ ability to interpret Two-Phase Rule Consolidation 
+
+Phase 1: Per-Mode Rules 
+
+r0→1 (25 errors — Priority 1)        
+
+> ❶Responses with “partial understanding” without specific student work examples ⇒Score 0
+> ❷Vague acknowledgments lacking multiplicative analysis ⇒Score 0
+> ❸Must explicitly connect to proportional reasoning
+
+r1→2 (10 errors — Priority 2)     
+
+> ❶“Strong understanding” without specific calculations ⇒Score 1
+> ❷Must show explicit scaling/proportional evidence for Score 2
+
+r0→2 (7 errors — Priority 3)    
+
+> ❶Generic praise (“good number sense”) without evidence ⇒Score 0
+
+Phase 2: Consolidated Rules rconsolidated 
+
+Priority 1: 0 → 1 Guard (CHECK FIRST)                 
+
+> •Vague acknowledgment (“some understanding”, “valid rea-soning”) without specific student work ⇒Score 0
+> •Must include specific calculations showing multiplicative relationships
+> Priority 2: Score 1 vs 2 Boundary
+> •Procedural description only ⇒Score 1
+> •Explicit proportional reasoning with evidence ⇒Score 2
+> Conflict Resolution:
+> If Priority 1 criteria suggest Score 0 but response mentions correct calculation, apply Score 0 unless the response explic-itly analyzes why the calculation demonstrates proportional understanding.
+
+Figure 5: Two-phase rule consolidation. Phase 1 generates per-mode rules with cross-mode awareness. Phase 2 synthesizes them into a priority-weighted consolidated ruleset with explicit conflict resolution directives. 
+
+student mathematical reasoning. 
+
+• KMT (Knowledge of Mathematical Tasks): Tasks T4– T6 evaluate understanding of task design and cognitive demand. 
+
+• KT (Knowledge of Teaching): Tasks T7–T8 assess ped-agogical decision-making. All tasks in DT use ordinal labels {0, 1, 2}, representing ab-sent, partial, and complete understanding respectively. We partition each dataset into train/validation/test splits using a 7:1:2 ratio following [6]. Dataset statistics are sum-marized in Table 1. 
+
+Table 1: A summary of statistics of the datasets Dataset Domain #Samples Scores 
+
+DI Interaction 252 {0,1 }DT Teacher Education 224 ∼236 {0,1,2 }DE Elementary 199 ∼434 {0,1,2,3,4 }
+
+## Baselines. We compare CARO against two baselines. First is Naive Prompting , which uses direct zero-shot prompting with an expert-written rubric, without any optimization. Secondly, we compare with GradeOpt [6], a state-of-the-art automatic prompt optimization framework that iteratively refines rubrics using aggregated error feedback. 
+
+## Implementation Details. We use GPT-4o-mini as both the grading predictor fθ and the optimization agents (Reflector and Refiner) across all methods for fair comparison. For CARO, we set: top-K error modes K = 4, beam size B = 4, diversity weight λ = 0 .3, and maximum rounds T = 6. The edit budget is set to “medium” (2–3 rule modifications per mode). For GradeOpt, we use the default hyperparameters from [6] and set the maximum rounds to T = 6 to align with computational constraints of CARO. To mitigate the inherent stochasticity of LLM generation and ensure the reli-ability of our findings, we conducted 3 independent runs for all methods (CARO and baselines) across each task. The reported results represent the average performance on the held-out test set across these 3 trials. 
+
+## Evaluation Metrics. We report classification accuracy (Acc) and Cohen’s κ coefficient [7]. While accuracy measures over-all correctness, κ accounts for class imbalance and chance agreement, making it the primary metric for grading reliabil-ity assessment. A κ > 0.6 is generally considered substantial agreement [17]. 
+
+# 5.2 Main Results 
+
+## Teacher Education Dataset ( DT ). Table 2 presents re-sults on the teacher education dataset. CARO achieves con-sistent improvements across all eight tasks, with an average accuracy improvement of +11% over GradeOpt and +41% over Naive prompting. 
+
+Table 2: Performance Comparison for Teacher Education Dataset DT
+
+Type Task Naive GradeOpt CARO Acc κ Acc κ Acc κ
+
+KSMT T1 0.40 0.20 0.61 0.41 0.67 0.47 KSMT T2 0.58 0.42 0.74 0.61 0.79 0.69 KSMT T3 0.39 0.09 0.51 0.25 0.55 0.30 
+
+KSMT Avg 0.46 0.24 0.62 0.42 0.67 0.49 
+
+KMT T4 0.30 0.05 0.55 0.28 0.76 0.57 KMT T5 0.59 0.28 0.60 0.31 0.74 0.46 KMT T6 0.68 0.44 0.76 0.58 0.76 0.59 
+
+KMT Avg 0.52 0.26 0.64 0.39 0.75 0.54 
+
+KT T7 0.45 0.29 0.74 0.60 0.77 0.65 KT T8 0.60 0.34 0.70 0.48 0.72 0.52 
+
+KT Avg 0.52 0.32 0.72 0.54 0.75 0.59 Overall Avg 0.51 0.27 0.65 0.44 0.72 0.53 
+
+The most substantial gains occur on tasks with severe base-line confusion patterns. For instance, on T4 (KMT), CARO improves κ from 0.28 (GradeOpt) to 0.57, which is a relative improvement of 104%. This task exhibits significant 0 → 1confusion in the baseline, which CARO directly addresses through mode-specific gradient generation. Similarly, T5 shows a κ improvement from 0.31 to 0.46, demonstrating CARO’s effectiveness on tasks where GradeOpt’s aggregate feedback fails to resolve specific confusion patterns. No-tably, CARO’s improvements are most pronounced in the KMT dimension, where grading criteria involve subtle dis-tinctions between “no understanding” and “partial under-standing”, which is precisely the type of adjacent-class con-fusion that CARO is designed to resolve. 
+
+## Interaction Dataset ( DI ). Table 3 shows results on the bi-nary classification tasks. Despite the simpler label space, several categories exhibit class imbalance that inflates accu-racy while depressing κ. CARO achieves the highest κ on 10 of 11 categories. The improvements are particularly striking on challenging categories: 
+
+• Category 3 : κ improves from 0.61 (GradeOpt) to 0.89, a 46% relative gain. 
+
+• Category 4 : κ improves from 0.36 to 0.62, resolving severe confusion in this low-agreement task. 
+
+• Category 8 : Accuracy jumps from 0.44 to 0.74 (+68%), with κ improving from 0.04 to 0.12. Categories 6, 8, and 9 exhibit persistently low κ despite high accuracy improvements, indicating extreme class imbalance where the minority class remains difficult to identify. Nev-ertheless, CARO substantially outperforms baselines in ac-curacy, suggesting improved discrimination even when κ is constrained by distributional factors. 
+
+Table 3: Performance Comparison for Interaction Dataset DI
+
+Category Naive GradeOpt CARO Acc κ Acc κ Acc κ
+
+1 0.94 0.79 0.96 0.84 0.98 0.92 2 0.86 0.71 0.88 0.76 0.93 0.87 3 0.82 0.52 0.85 0.61 0.95 0.89 4 0.52 0.19 0.64 0.36 0.81 0.62 5 0.62 0.18 0.95 0.72 0.96 0.78 6 0.42 0.03 0.73 0.09 0.87 0.21 7 0.77 0.11 0.95 0.48 0.97 0.54 8 0.22 0.03 0.44 0.04 0.74 0.12 9 0.15 -0.04 0.27 0.01 0.90 -0.02 10 0.42 0.14 0.72 0.41 0.82 0.47 11 0.60 0.14 0.90 0.50 0.94 0.64 
+
+Avg 0.58 0.25 0.75 0.43 0.90 0.55 
+
+## Elementary Item Response Dataset ( DE ). Table 4 presents results on the elementary response dataset. CARO achieves consistent improvements across all five tasks, with an aver-age κ of 0.59 compared to 0.54 for GradeOpt and 0.14 for Naive prompting. The most notable improvement occurs on T5, where κ increases from 0.46 (GradeOpt) to 0.56, which represents a 22% relative improvement. This task involves distinguishing between partial and complete understanding, a boundary that benefits from CARO’s contrastive example 
+
+Table 4: Performance Comparison for EIR Dataset DE
+
+Task Naive GradeOpt CARE Acc κ Acc κ Acc κ
+
+T1 0.16 -0.08 0.63 0.35 0.63 0.39 T2 0.49 0.30 0.74 0.64 0.75 0.66 T3 0.57 0.25 0.79 0.67 0.81 0.70 T4 0.48 0.20 0.71 0.57 0.74 0.62 T5 0.50 0.04 0.70 0.46 0.73 0.56 
+
+Avg 0.44 0.14 0.71 0.54 0.73 0.59 Table 5: Summary of average performance across datasets. Dataset Naive GradeOpt CARO 
+
+Acc κ Acc κ Acc κ
+
+DI (avg) 0.58 0.25 0.75 0.43 0.90 0.55 
+
+DT (avg) 0.51 0.27 0.65 0.44 0.72 0.53 
+
+DE (avg) 0.44 0.14 0.71 0.54 0.73 0.59 Overall 0.51 0.22 0.70 0.47 0.78 0.56 
+
+selection. 
+
+## Summary of Improvements. Table 5 summarizes the ag-gregated performance across all datasets. On average, CARO improves accuracy from 0.51 (Naive prompting) to 0.78, rep-resenting a 53% increase compared to GradeOpt (37% in-crease from 0.51 to 0.70). CARO achieves an overall av-erage κ of 0.56, representing a 19% relative improvement over GradeOpt (0.47) and a 155% improvement over Naive prompting (0.22). 
+
+# 5.3 Ablation Studies 
+
+We conduct ablation studies to analyze the key design choices and advantages of CARO. 
+
+## Per-Mode vs. Consolidated Rules. As described in Sec-tion 3.4, CARO generates two types of candidate rules dur-ing the Two-Phase Rule Consolidation: (1) per-mode rules 
+
+ri→j that target individual confusion cells, and (2) consol-idated rules rconsolidated that synthesize all per-mode rules into a unified, priority-weighted ruleset via Eq. 4. Both types are included in the candidate pool (Algorithm 1, line 24), and the diversity-aware selection mechanism (Eq. 5) de-termines which candidates propagate to subsequent rounds. Table 6 reports which candidate type achieves the best val-idation κ across all tasks. We observe that per-mode rules are selected as the final best prompt in over 90% of cases across all datasets. This indi-cates that targeted fixes for specific confusion cells typically outperform holistic rewrites that attempt to address multi-ple error patterns simultaneously. The consolidated rules, despite being carefully synthesized with priority weighting and conflict resolution directives, tend to dilute the speci-ficity needed for precise decision boundaries. However, con-solidated rules are occasionally preferred (6–8% of cases) in tasks with strongly interacting error modes, where coherent Table 6: Ablation: Per-mode vs. consolidated rule selection. Values show the percentage of final best prompts using each strategy. Dataset Per-Mode Consolidated Best κ
+
+DI 93.9% 6.1% Per-Mode 
+
+DT 91.7% 8.3% Per-Mode 
+
+DE 93.3% 6.7% Per-Mode 
+
+Avg 93.0% 7.0% -integration prevents the rule conflicts that can arise from independently applying multiple per-mode fixes. 
+
+## Convergence Analysis. Figure 6 shows the optimization trajectory across rounds for a representative task T4 in DI
+
+over three independent runs. Several patterns emerge from this comparison. 
+
+Rapid initial gains. CARO demonstrates substantially faster early-stage improvement, achieving an average accuracy of 0.69 after just one round (from 0.52 baseline), compared to GradeOpt’s 0.58. By Round 2, all CARO runs reach or exceed 0.73 accuracy, while all GradeOpt runs remain below 0.71. 
+
+Stability vs. oscillation. CARO exhibits monotonic or near-monotonic improvement with stable convergence around 0.80 accuracy by Round 3–4. In contrast, GradeOpt displays the oscillation characteristic of aggregate feedback methods: Run 2 drops from 0.55 to 0.51 at Round 2, and Run 1 re-gresses from 0.63 to 0.59 at Round 4. This instability reflects mode interference, where fixing one error pattern inadver-tently amplifies another. 
+
+Final performance gap. After 6 rounds, CARO achieves a final accuracy of 0.80–0.82 across all runs (avg. 0.81), while GradeOpt plateaus at 0.59–0.71 (avg. 0.64). This gap demonstrates that CARO’s mode-specific updates not only converge faster but also reach superior optima by avoiding the destructive interference inherent in consolidated feed-back approaches. 
+
+## API Cost Analysis. Table 7 compares the computational cost of CARO and GradeOpt. Despite using the same num-ber of optimization rounds, CARO requires 80% fewer API calls, translating to approximately 60% cost reduction. This efficiency benefits from CARO’s targeted optimization strat-egy: rather than exhaustively sampling errors across all confusion cells to generate aggregate feedback, CARO fo-cuses gradient generation on only the top-K error modes per round. Additionally, the mode-specific Reflector and Refiner operate on refined subsets of error examples (Eq. 3), whereas GradeOpt’s aggregate approach requires broader sampling to capture diverse error patterns within a single feedback signal. 
+
+# 5.4 Qualitative Analysis 
+
+0 1 2 3 4 5 6
+
+0.4
+
+0.6
+
+0.8
+
+1
+
+Round     
+
+> Accuracy
+> CARO - Run1 CARO - Run2 CARO - Run3
+> GradeOpt - Run1 GradeOpt - Run2 GradeOpt - Run3
+
+Figure 6: Convergence comparison on T4 ( DI ). CARO achieves faster convergence and higher final accuracy. Table 7: API cost comparison (average per task). Costs esti-mated using GPT-4o-mini pricing ($0.15/1M input, $0.60/1M output tokens). Method Rounds API Calls Est. Cost 
+
+GradeOpt 6 ∼40,000 ∼$5 CARO 6 ∼8,000 ∼$2 
+
+Reduction – 80% 60% 
+
+## Case Study: Iterative Error Resolution on T5 ( DE ). We illustrate CARO’s “diagnosis-and-repair” pipeline through a detailed case study on T5 ( DE ), which assesses elementary students’ understanding of how a Peregrine Falcon perceives a rock pigeon through a four-step light perception process (light travels to pigeon → reflects off pigeon → enters fal-con’s eyes → brain processes images). The task uses a 5-point ordinal scale {0, 1, 2, 3, 4} where Score 2 requires men-tioning 1–2 steps, while Score 1 is reserved for responses containing no accurate steps. Figure 7 traces the confusion matrix evolution across optimization rounds, revealing how CARO systematically resolves cascading error patterns. 
+
+Round 0: Identifying the Dominant Mode. The initial classi-fier exhibits severe collapse toward Score 1, with the 2 → 1cell containing 24 errors (53% of all misclassifications, high-lighted in red). Analysis reveals that responses mentioning partial steps, such as “the light source is the sun and the light travels to the eye and that’s how the falcon can see the pigeon” , were incorrectly penalized for omitting steps rather than credited for partial understanding. A secondary 3 → 1 pattern (8 errors) compounds this collapse, resulting in zero correct predictions for Scores 2–4 and a near-chance 
+
+κ = 0 .02. 
+
+Round 2: Resolving the Primary Collapse. CARO’s Reflec-tor diagnoses the root cause: the original rubric lacks ex-plicit guidance for recognizing partial scientific understand-ing. The generated rule states: “If a response includes at least one correct element related to the four steps (e.g., light traveling, reflecting, or entering the eyes), classify as Score 2, provided it does not contain entirely irrelevant informa-Round 0 Round 2 Round 4                                                                      
+
+> 
+> 21001741 000124 0000820001000
+> 
+> 40000435 9000421 000010 0000100
+> 
+> 21001340 5000421 000091000100
+> 
+> Acc = 0.49, κ= 0.02 Acc = 0.68, κ= 0.49 Acc = 0.73, κ= 0.55
+> Dominant error mode Emerging secondary error Improved classification
+
+Figure 7: Confusion matrix progression on T5 (DE ). Rows represent true labels; columns represent predictions. CARO’s iterative refinement first resolves the dominant 2 →
+
+1 collapse (Round 0–2), then addresses the emergent 1 → 2
+
+over-correction (Round 2–4), achieving balanced diagonal im-provement. 
+
+tion.” As shown in the Round 2 matrix, this intervention reduces 2 → 1 errors from 24 to 4 ( −83%, green), while correct Score-2 predictions increase from 0 to 21. Class 0 achieves perfect classification (orange). However, the fix re-veals an emergent secondary pattern: 1 → 2 confusion (9 errors, orange) as the model now over-awards partial credit to responses lacking any valid steps. 
+
+Round 4: Addressing the Secondary Mode. CARO shifts focus to the 1 → 2 over-correction, introducing a discrimi-native rule: “Responses must include at least one identifiable step describing light’s journey; vague statements about ‘see-ing’ without mechanistic detail remain Score 1.” The Round 4 matrix shows this refinement reduces 1 → 2 errors from 9 to 5 while improving Score-1 correct predictions to 40 (up from 35). Crucially, the 2 → 1 gains are preserved (4 errors), and Score 3 achieves its first correct prediction. The final 
+
+κ = 0 .55 reflects balanced diagonal improvement across all classes. This progression exemplifies CARO’s core mechanism. In-stead of treating error reduction as a single, monolithic task, the framework isolates specific confusion patterns within the matrix. This decomposition turns a complex optimization challenge into a sequential and interpretable repair process. Crucially, this step-by-step approach ensures that correc-tions for one error type build upon previous improvements without causing regression in other classes. 
+
+# 6. DISCUSSION 
+
+The experimental results demonstrate that the Confusion-Aware Rubric Optimization (CARO) framework significantly advances the state of automated grading by addressing the structural inefficiencies of prior prompt optimization meth-ods. While existing frameworks such as GradeOpt rely on aggregating heterogeneous error signals, our findings con-firm that such aggregation leads to rule dilution, where the optimizer struggles to satisfy conflicting constraints simul-taneously. By decomposing the optimization context into distinct error modes via the confusion matrix, CARO trans-forms the complex prompt refinement into a series of tar-geted repairs. A primary implication of this study is the relationship be-tween optimization specificity and efficiency. Our analysis reveals that CARO achieves superior performance with ap-proximately 60% lower computational costs compared to baseline methods. This efficiency stems from the mode-specific gradient generation, which prevents the optimiza-tion process from cycling through redundant rule changes. Instead of requiring extensive exploration to find a marginally better prompt, the structured diagnosis allows the model to identify and resolve dominant failure patterns, such as the confusion between partial and complete understanding, with the first few iterations. This suggests that for ordinal grad-ing tasks, structural error analysis (with confusion matrix) is a more resource-efficient method for improvement than simply increasing the volume of feedback or the size of the optimizer model. Furthermore, the pedagogical utility of automated assess-ment relies heavily on interpretability and trust. This dis-tinguishes our approach from traditional automated grading methods, such as latent semantic analysis or BERT-based fine-tuning, which process inputs through high-dimensional vectors and lack visibility into the decision-making process. Unlike these earlier supervised pipelines that function as black-box systems, CARO optimizes the natural language rubric itself. The resulting prompts contain explicit reason-ing traces and priority-weighted decision rules. This trans-parency allows educators to validate the grading criteria before deployment, ensuring that automated system aligns with instructional goals. Despite these strengths, there are limitations to consider. The current framework relies on the capability of the back-bone LLM to self-reflect and generate diagnostic feedback. While our experiments utilized GPT-4o-mini effectively, the performance of CARO on smaller, open-source models re-main an area for future investigation. 
+
+# 7. CONCLUSION 
+
+This study introduced Confusion-Aware Rubric Optimiza-tion (CARO), a novel framework designed to bridge the alignment gap between expert grading criteria and LLM logic. By identifying that grading errors are not random noise but structured clusters, we developed a method that replaces aggregate feedback with mode-specific diagnosis and repair. Through the systematic decomposition of confusion matrices, CARO isolates specific misclassification patterns and generates targeted rule patches that resolve ambiguities without degrading global performance. Our empirical evaluation across three distinct educational datasets confirms that CARO significantly outperforms state-of-the-art prompt optimization methods in both accuracy and inter-rater reliability. Critically, the framework achieves these gains while reducing computational overhead, offering a scalable solution for high-quality formative assessment. By providing a transparent, efficient, and precise method for rubric refinement, CARO represents a substantial step reli-able and scalable automated feedback in complex learning environments. 
+
+# References 
+
+[1] Y. Attali and J. Burstein. Automated essay scoring with e-rater ® v. 2. The Journal of Technology, Learn-ing and Assessment , 2006. [2] P. Black and D. Wiliam. Assessment and classroom learning. Assessment in Education: principles, policy & practice , 1998. [3] I. Chamieh, T. Zesch, and K. Giebermann. Llms in short answer scoring: Limitations and promise of zero-shot and few-shot approaches. In Proceedings of the 19th workshop on innovative use of nlp for building ed-ucational applications (bea 2024) , pages 309–315, 2024. [4] Z. Chen and T. Wan. Grading explanations of problem-solving process and generating feedback using large lan-guage models at human-level accuracy. Physical Review Physics Education Research , 21(1):010126, 2025. [5] Y. Chu, P. He, H. Li, H. Han, K. Yang, Y. Xue, T. Li, J. Krajcik, and J. Tang. Enhancing llm-based short answer grading with retrieval-augmented generation. 
+
+arXiv preprint arXiv:2504.05276 , 2025. [6] Y. Chu, H. Li, K. Yang, H. Shomer, Y. Copur-Gencturk, L. Kaldaras, K. Haudek, J. Krajcik, N. Shin, H. Liu, and J. Tang. A llm-powered automatic grading framework with human-level guidelines optimization. In 
+
+Proceedings of the 18th International Conference on Ed-ucational Data Mining , pages 31–41. International Ed-ucational Data Mining Society, July 2025. [7] J. Cohen. A coefficient of agreement for nominal scales. 
+
+Educational and psychological measurement , 20(1):37– 46, 1960. [8] Y. Copur-Gencturk and T. Tolar. Mathematics teach-ing expertise: A study of the dimensionality of con-tent knowledge, pedagogical content knowledge, and content-specific noticing skills. Teaching and Teacher Education , 114:103696, 2022. [9] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova. Bert: Pre-training of deep bidirectional transformers for language understanding. In Proceedings of the 2019 conference of the North American chapter of the asso-ciation for computational linguistics: human language technologies, volume 1 (long and short papers) , pages 4171–4186, 2019. [10] S. Dikli. An overview of automated scoring of essays. 
+
+The Journal of Technology, Learning and Assessment ,5(1), 2006. [11] P. W. Foltz, D. Laham, and T. K. Landauer. The intel-ligent essay assessor: Applications to educational tech-nology. Interactive Multimedia Electronic Journal of Computer-Enhanced Learning , 1(2):939–944, 1999. [12] S. Haller, A. Aldea, C. Seifert, and N. Strisciuglio. Survey on automated short answer grading with deep learning: from word embeddings to transformers. arXiv preprint arXiv:2204.03503 , 2022. [13] J. Hattie and H. Timperley. The power of feedback. 
+
+Review of educational research , 2007. [14] L. Jiang and N. Bosch. Short answer scoring with gpt-4. In Proceedings of the Eleventh ACM Conference on Learning@ Scale , pages 438–442, 2024. [15] L. Kaldaras, H. Akaeze, and J. Krajcik. Develop-ing and validating next generation science standards-aligned learning progression to track three-dimensional learning of electrical interactions in high school physi-cal science. Journal of Research in Science Teaching ,58(4):589–618, 2021. [16] O. Khattab, A. Singhvi, P. Maheshwari, Z. Zhang, K. Santhanam, S. Haq, A. Sharma, T. T. Joshi, H. Moazam, H. Miller, et al. Dspy: Compiling declara-tive language model calls into state-of-the-art pipelines. In The Twelfth International Conference on Learning Representations , 2024. [17] J. R. Landis and G. G. Koch. The measurement of ob-server agreement for categorical data. biometrics , pages 159–174, 1977. [18] C. Leacock and M. Chodorow. C-rater: Automated scoring of short-answer questions. Computers and the Humanities , 37(4):389–405, 2003. [19] S. A. Livingston. Constructed-response test questions: Why we use them; how we score them. r&d connections. number 11. Educational Testing Service , 2009. [20] E. Mayfield and A. W. Black. Should you fine-tune bert for automated essay scoring? In Proceedings of the fif-teenth workshop on innovative use of NLP for building educational applications , pages 151–162, 2020. [21] M. Mohler and R. Mihalcea. Text-to-text semantic sim-ilarity for automatic short answer grading. In Proceed-ings of the 12th Conference of the European Chapter of the ACL (EACL 2009) , pages 567–575, 2009. [22] OECD. Results from talis 2024: The state of teaching, 2025. [23] R. Pryzant, D. Iter, J. Li, Y. T. Lee, C. Zhu, and M. Zeng. Automatic prompt optimization with” gradient descent” and beam search. arXiv preprint arXiv:2305.03495 , 2023. [24] N. Reimers and I. Gurevych. Sentence-bert: Sen-tence embeddings using siamese bert-networks. arXiv preprint arXiv:1908.10084 , 2019. [25] V. J. Shute. Focus on formative feedback. Review of educational research , 2008. [26] A. Vaswani, N. Shazeer, N. Parmar, J. Uszkoreit, L. Jones, A. N. Gomez, L. Kaiser, and I. Polosukhin. Attention is all you need. Advances in neural informa-tion processing systems , 30, 2017. [27] C. Yang, X. Wang, Y. Lu, H. Liu, Q. V. Le, D. Zhou, and X. Chen. Large language models as optimizers. In The Twelfth International Conference on Learning Representations , 2023. [28] X. Zhang, J. Cao, C. You, and D. Ding. Why prompt design matters and works: A complexity analysis of prompt search space in llms. In Proceedings of the 63rd Annual Meeting of the Association for Compu-tational Linguistics (Volume 1: Long Papers) , pages 32525–32555, 2025. [29] Y. Zhou, A. I. Muresanu, Z. Han, K. Paster, S. Pitis, H. Chan, and J. Ba. Large language models are human-level prompt engineers. In The eleventh international conference on learning representations , 2022.

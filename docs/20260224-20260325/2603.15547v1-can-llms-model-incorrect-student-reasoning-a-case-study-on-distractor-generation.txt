@@ -1,0 +1,599 @@
+Title: Can LLMs Model Incorrect Student Reasoning? A Case Study on Distractor Generation
+
+URL Source: https://arxiv.org/pdf/2603.15547v1
+
+Published Time: Tue, 17 Mar 2026 06:20:41 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# Can LLMs Model Incorrect Student Reasoning? A Case Study on Distractor Generation 
+
+Yanick Zengaffinen 1, Andreas Opedal 1, Donya Rooein 2, Kv Aditya Srivatsa 1,Shashank Sonkar 3, and Mrinmaya Sachan 1 
+
+> 1
+
+ETH Zürich, Switzerland 
+
+yanick.zengaffinen@inf.ethz.ch  
+
+> 2
+
+Bocconi University, Italy  
+
+> 3
+
+University of Central Florida, USA 
+
+Abstract. Modeling plausible student misconceptions is critical for AI in education. In this work, we examine how large language models (LLMs) reason about misconceptions when generating multiple-choice distrac-tors, a task that requires modeling incorrect yet plausible answers by co-ordinating solution knowledge, simulating student misconceptions, and evaluating plausibility. We introduce a taxonomy for analyzing the strate-gies used by state-of-the-art LLMs, examining their reasoning procedures and comparing them to established best practices in the learning sci-ences. Our structured analysis reveals a surprising alignment between their processes and best practices: the models typically solve the prob-lem correctly first, then articulate and simulate multiple potential mis-conceptions, and finally select a set of distractors. An analysis of failure modes reveals that errors arise primarily from failures in recovering the correct solution and selecting among response candidates, rather than simulating errors or structuring the process. Consistent with these re-sults, we find that providing the correct solution in the prompt improves alignment with human-authored distractors by 8%, highlighting the crit-ical role of anchoring to the correct solution when generating plausible incorrect student reasoning. Overall, our analysis offers a structured and interpretable lens into LLMs’ ability to model incorrect student reason-ing and produce high-quality distractors. 4
+
+Keywords: Student Modeling · Distractor Generation · Reasoning ·
+
+Large Language Models for Education 
+
+## 1 Introduction 
+
+Student modeling is a foundational problem in AI for education [31,22], under-pinning a wide range of applications such as test design [3,11], diagnosis of mis-conceptions, teacher training [21,25] and development of targeted instructional interventions [20,38]. A central component of student modeling is the ability to represent not only what students know, but also the systematic errors and mis-conceptions that characterize incorrect but plausible reasoning. Despite rapid   
+
+> 4All code is available at https://github.com/eth-lre/llm-student-modeling-strategies .
+> arXiv:2603.15547v1 [cs.CL] 16 Mar 2026
+
+2 Y. Zengaffinen et al. Task Interpretation               
+
+> Correct Answer Reference The correct simplification is: (6+9m)/3 = 3(2+3m)/3 = 2+3m
+> We are given a question: "Simplify the following if possible: (6+9m)/3". We need to generate TWO incorrect distractor answers.
+> High-Level Error Description Possible Errors: (1) Forgetting to divide both terms by the denominator.
+> Error Simulation e.g., only divide 6 by 3 but not 9m. This gets us (6/3 + 9m) =
+> Incorrect Outcome Instantiation 2 + 9m.
+> Incorrect Outcome Instantiation or 6 + 3m
+> Error Simulation if 3 divides only 9m and not 6.
+> Plausibility Assessment Both count towards the same error, so they are equally likely.
+> High-Level Error Description Next, (2) They might try to combine the constant and variable.
+> Error Simulation So, they might add 6 and 9m to get 15m, simplifying the expression to 15m/3=
+> Incorrect Outcome Instantiation 5m.
+> Final Set Curation This gives us two distractors, one from each error type.
+> Reconsideration But lets think again, are there other errors we should consider? No.
+
+Fig. 1. An LLM reasoning trace for distractor generation, annotated according to our taxonomy (Table 1). Color-coded labels show the model interpreting the task, anchoring in the correct solution, generating candidate distractors based on errors, evaluating their plausibility, and curating the final set-mirroring strategies identified in the learning-science literature (§ 3.1). 
+
+progress in large language model (LLM) capabilities [48,35,9] and a growing fo-cus on using LLMs for student simulation [29,34,26,49], our understanding of 
+
+whether and how LLMs can model incorrect student reasoning remains limited. Modern LLMs are trained not just to output the answer to a query, but to generate intermediate reasoning content that reflects a procedure that eventually produces an answer [48,9]. This makes it possible to analyze how LLMs construct their reasoning: which problem-solving strategies they follow, how these strate-gies unfold across a task, and to what extent the resulting behavior aligns with best-practice cognitive accounts from learning sciences. In this work, we investigate these questions in the context of a task that requires performing reasoning that is incorrect yet plausible : generating incor-rect answer alternatives ( distractors ) for multiple-choice questions (MCQs). Distractor generation is a natural application of student models: if a model can faithfully simulate plausible student reasoning—both correct and incorrect— then distractors can be obtained by sampling from simulated student solutions and selecting common incorrect outcomes. When compared to the task of solving 
+
+problems, distractor generation is strictly more challenging—to produce high-quality distractors, the LLM must be able to not only identify the correct so-lution, but simulate incorrect student reasoning and verify the plausibility of the resulting incorrect answers [15,18]. While past work has investigated using LLMs for automated distractor generation [13,1,10,41,36], they largely focused on performance measured with respect to the final response. We argue that it is of equal importance to evaluate how the models arrive at distractor candidates, considering their strategies and whether those are aligned with best practices among experts in the field. Indeed, explainability has been shown to play a key role for establishing trust in AI-based educational tools among teachers [33,12]. On LLMs’ Student Modeling Strategies 3
+
+To increase our understanding of how modern LLMs perform this task, we introduce a broadly applicable framework for analyzing and comparing reasoning traces. Building on prior work [30], we combine open coding—a method for qual-itative labeling of salient concepts [7]—with guidance from the learning science literature to construct a taxonomy of strategies used in distractor generation. We apply this taxonomy to 240 distractor-generation traces from DeepSeek-V3.2 [9] and GLM-4.7 [16], allowing us to systematically analyze the strategies they use when generating distractors for a dataset of expert-written MCQs [23]. Fig. 1 illustrates the annotation of a single reasoning trace according to the strategies in our taxonomy. Although there remains substantial room for improvement in performance, our analysis reveals a surprising alignment between how modern LLMs generate distractors and best practices from the distractor-generation literature. Specifi-cally, LLMs’ processes closely mirror recommended misconception-based design practices: they typically begin by solving the problem correctly, articulate po-tential student misconceptions, instantiate them through erroneous reasoning, and select plausible incorrect answers from a broader set of candidates. The cor-rect step-by-step solution serves as an anchor from which the model diverges at specific points to generate misconception-aligned distractors. In contrast, modi-fying surface features of the correct answer without modeling underlying student reasoning (i.e., similarity-based heuristics) is only rarely observed. Beyond characterizing LLMs’ processes, our taxonomy also enables a diagno-sis of where and why distractor generation fails. We find that some parts, such as error simulation and the implicit organization of multi-step reasoning, are gen-erally robust. Instead, failures arise more often in recovering the correct solution and downstream selection of distractors. These findings also suggest concrete av-enues for improving distractor generation such as providing additional guidance at test time. Most notably, revealing the correct answer in the prompt signifi-cantly improves performance by 8%. 5 Overall, our results show that LLMs are able to systematically model misconception-based distractor generation when anchored to a correct solution, deepening our understanding of when and how modern LLMs can model plausible incorrect student reasoning. 
+
+## 2 Student Modeling and Distractor Generation 
+
+Student modeling with LLMs. A growing body of work suggests LLMs as promising tools for simulating student behavior—they can generate student re-sponses that expert annotators judge as reflective of common grade-appropriate misconceptions [29] and condition their behavior on a learner’s cognitive level [49] or misconceptions [27]. At the same time, recent literature suggests that LLMs may encode common student error patterns [34,26], but it remains un-clear whether they can effectively leverage this implicit knowledge. While these   
+
+> 5This analysis excludes problems that rely on answer choices, e.g., “Which option out of the fol-lowing four is correct?”. 4Y. Zengaffinen et al.
+
+findings suggest that LLMs can simulate incorrect student reasoning to some ex-tent, prior evaluations focus primarily on the outputs rather than the reasoning processes that produce them. As a result, it remains unclear which reasoning strategies LLMs use to generate incorrect answers. 
+
+Multiple-choice questions and distractor generation. MCQs are widely used to assess student understanding [43,6], but their effectiveness depends on the quality of the distractors . Crafting high-quality distractors (see § 3.1) is costly and time consuming [40,37]. Prior work has therefore explored automat-ing this process with LLMs [1, inter alia ], particularly for mathematical MCQs [13,19,24,36]. Some approaches decompose distractor generation into producing candidate mistakes and applying them to generate plausible answers, reflecting misconception-based methods [14,39], while others rely on overgeneration fol-lowed by ranking [42]. Despite notable performance gains, existing approaches depend on human involvement or large task-specific datasets, limiting practi-cal deployment. In contrast, leveraging LLMs’ reasoning offers a complementary path to effective distractor generation without these dependencies. 
+
+## 3 A Taxonomy of Strategies for Distractor Generation 
+
+Our goal is to characterize the strategies LLMs use to generate distractors with-out access to historical student data [44]. We develop a taxonomy (Table 1) by combining learning-science theory with empirical analysis to capture both ex-pected strategies and observed LLM behaviour. We first review expert’s strate-gies (§ 3.1) and then describe how we construct our taxonomy (§ 3.2). 
+
+3.1 Crafting Effective Distractors Criteria for effective distractor sets. When designing MCQs, distractors must be plausible, i.e., likely to be selected by students with flawed or incomplete understanding [18,15]. Empirical studies link plausibility to both semantic relat-edness to the correct answer and grounding in identifiable misconceptions [15,28]. Additionally, functional distractors should exhibit so-called negative discrimina-tion by preferentially attracting lower-performing students over high-performers [45]. Furthermore, high-quality distractors must function well as a set . Options should be mutually exclusive, homogeneous in form, and free of unintended cues such as grammatical inconsistencies, overlapping content, etc [17]. 
+
+Strategies for crafting effective distractors. The literature identifies two main strategies for crafting high-quality distractors in the absence of historical data. (1) Similarity-based distractors modify surface features of the correct answer without modeling underlying student reasoning. For example, if the cor-rect answer is 43 , a distractor could invert the sign to − 43 . While easy to imple-ment, such distractors do not reveal specific student misconceptions [5,46,44]. On LLMs’ Student Modeling Strategies 5
+
+(2) Misconception-based distractors derive from common student errors ap-plied to the correct solution process. For example, if students forget to invert the divisor when dividing fractions, a distractor can be generated by applying this error (e.g., 13 ÷ 12!
+
+= 16 ). This approach aligns with repair theory, which ex-plains systematic errors as local “repairs” students apply when their procedural knowledge is incomplete or inapplicable [4]. These repairs follow predictable pat-terns [47]. While simulating step-level buggy procedures is labor-intensive and requires knowledge of common errors [15], such distractors are preferred because they expose specific procedural gaps and are diagnostically informative [2,8]. 
+
+3.2 Taxonomy Construction 
+
+Next, we develop a taxonomy that integrates the above theoretical expectations with patterns observed in LLM distractor-generation traces. First, we summarize the relevant theoretical principles, then describe how we collect and analyze LLM reasoning traces, and finally explain how these theoretical and empirical insights are reconciled into a unified taxonomy. 
+
+Grounding in literature. Based on the distractor generation workflow de-scribed in the literature reviewed in § 3.1, we expect the following strategies. Both similarity-based and misconception-based approaches require access to the correct solution ( → CORR ). Misconception-based distractor generation can be decomposed into a three-step process: (i) identifying a common error ( →
+
+ERR_DESC ), (ii) simulating this error within an otherwise correct step-by-step solution procedure ( → ERR_SIM ), and (iii) stating the incorrect outcome that results from instantiating the error ( → INST ). Finally, item-writing guidelines on distractor functioning—such as minimum selection thresholds and negative discrimination—can be operationalized at the level of individual distractors via explicit plausibility checks ( → PLAUS ), while enforcing constraints over the full distractor set requires explicit curation or selection mechanisms ( → CURATE ). 
+
+Observing LLMs’ reasoning. To ground our taxonomy in LLMs’ actual rea-soning, we also collect and analyze traces of their distractor-generation processes. Specifically, we use the Eedi Math MCQ Dataset [23], which contains grade-school level math questions with four answer choices (i.e., three distractors) per problem. We exclude questions referencing images and only consider problems for which high-level errors are available, ensuring a misconception-based strat-egy is applicable. We additionally remove all problems that rely on the answer choices, taking the form “Which of the following is correct?” (see § A.1 for further details). These filtering steps yield a dataset with N = 429 problems. We use two models, DeepSeek-V3.2 [9] and GLM-4.7 [16], both of which are reason-ing models. We consider two ways of prompting: (i) chain-of-thought (CoT) prompting [48], where models are prompted to think step-by-step before gen-erating distractors but reasoning is disabled; (ii) reasoning prompting , where models solve the task by generating additional reasoning tokens but output only 6 Y. Zengaffinen et al. 
+
+the distractors. 6 To capture the models’ natural distractor-generation strategies, we use a simple prompt that avoids biasing the models toward any particular strategy and prompt the models separately for each problem. 7
+
+Grounding in observation. We perform manual open coding [7]—a qualita-tive method for breaking text into discrete concepts without predefined categories— on a curated set of 24 traces from both CoT and reasoning sources, covering both LLMs and varying in distractor generation performance. Half of the traces con-tain at most one matching distractor and half contain two or more, based on Eedi annotations. Because reasoning traces are highly verbose, we scale our anal-ysis with model-assisted open coding. We prompt DeepSeek-V3.2 , in reasoning mode and without providing manually extracted codes, to perform sentence-level open coding over an additional 500 traces and surface recurring strategies in-cluding supporting examples (prompt shown in § A.3). Traces are processed in batches of 10 problems: the model first performs sentence-level coding within each trace and then reports recurring strategies across the batch, using the same stratification as for the manual analysis. 
+
+Table 1. A taxonomy for distractor generation grounded in learning-science literature and empirical observations of LLMs’ reasoning traces, which we use to annotate reasoning traces as shown in Fig. 1.  
+
+> Strategy Definition
+> INTER
+> (Task Interpretation) Clarifying the problem statement / instruc-tions to determine the required output.
+> CORR
+> (Correct Answer Ref.) Computing or referencing the correct solution to the problem.
+> ERR_DESC
+> (Error Description) Describing common misconceptions or proce-dural errors at an abstract level.
+> INST
+> (Outcome Instantiation) Any mention of a candidate distractor or in-correct answer.
+> ERR_SIM
+> (Error Simulation) Any deliberate verbalization of an incorrect procedure.
+> PLAUS
+> (Plausibility Check) Evaluating how likely a candidate incorrect answer is to be chosen by a student.
+> CURATE
+> (Final Set Curation) Selecting and refining a set of distinct, incor-rect, and non-ambiguous distractors.
+> RECON
+> (Reconsideration) Revisiting earlier choices by exploring alter-native interpretations or distractors.
+
+Merging theory and observation. Finally, we manually aggre-gate and reconcile con-cepts derived from the literature, manual coding, and model-generated proposals. Overlapping or re-dundant codes are aligned and mapped to broader strategy categories. 8 This pro-cess yielded a uni-fied taxonomy reflect-ing both established theoretical insights and strategies observed in LLM behavior, presented in Table 1. All the strategies were first identified during manual open coding. Model-assisted coding independently recovered all strategies except RECON and proposed additional codes that were      
+
+> 6We set the token limits to 16k for reasoning and 8k for CoT.
+> 7We use the following system prompt: “You will be given a math question. Please generate 3 incor-rect distractor answers for the question to be used as multiple-choice options in a multiple-choice exam. [TEMPLATE] Distractor1: , Distractor2: , Distractor3:” The user prompt is “Question: . . . ”. For the CoT prompt, we additionally append “Think step-by-step before giving your final answer” before [TEMPLATE].
+> 8For example, we initially obtained separate codes for utterances such as “we need to solve cor-rectly” and “but remember the correct answer is . . . ”. As both refer to the same underlying concept—explicitly referencing the correct answer ( CORR ), we merged them into a single category.
+
+On LLMs’ Student Modeling Strategies 7
+
+excluded post hoc, as they captured problem-specific rather than general strate-gies. Six of the eight strategies are directly supported by distractor-generation literature. The remaining two— INTER and RECON —reflect general reasoning pro-cesses: INTER clarifies item requirements and output constraints according to Evidence-Centered Design’s task model [32], while RECON represents iterative backtracking during expert review. Refer to § A.3 for further information about how strategies were selected. 
+
+## 4 Experiments 
+
+In this section, we analyze LLMs’ distractor-generation strategies. We first es-tablish that LLMs’ reasoning strategies help with distractor generation (§ 4.1). Next, we examine how LLMs use and orchestrate the strategies of our taxon-omy (§ 4.2). Finally, we discuss the extent to which these processes align with established best practices and identify where they fail (§ 4.3). 
+
+4.1 The Impact of Reasoning on LLM Performance 
+
+Before delving into reasoning traces, we first examine what output-level perfor-mance metrics reveal about the usefulness of LLMs for distractor generation. 
+
+Performance metrics. Our dataset {pn}Nn=1 contains N math problems pn =(xn, y n, Zn), where xn is the textual description of the math problem, yn is the correct answer choice, and Zn with |Z n| = 3 is the set of (three) ground-truth distractors. We note that the answer choices are token sequences, i.e., they are not restricted to being numerical. Now, for the problem indexed by n, we sample candidate distractors from an LLM, yielding a multiset ˆZn = ( ˆZn, m n), where 
+
+ˆZn is the underlying set and mn : ˆZn → N is the multiplicity of the elements in 
+
+ˆZn (i.e., their counts). Note that in practice, we restrict | ˆZn| to be 3; see foot-note 7. We use three metrics: proportional match |Z n ∩ ˆZn|/|Z n| [13,14], the number of candidates that equal the correct answer choice ( #correct ) mn(yn)
+
+(max value 3), and the number of redundant candidate choices ( #repetitions )P  
+
+> zn∈ˆZn
+
+m(zn)−| ˆZn| (max value 2). 9 We report the average across all N problem instances and confidence intervals (CIs) based on t-distributions.             
+
+> 9Note that these metrics require checking whether candidate distractors ˆZare equivalent to the annotated distractors Z. Requiring exact matches—while eliminating false positives—would be far too strict: most problems’ answers may be expressed in multiple ways (e.g., 12vs. 1/2) or equivalence may depend on the problem description (e.g., 12is not equivalent to 0.5if the problem asks for it to be converted to decimal). Following prior work, we use an LLM ( gpt-4-1-mini [35], prompted to judge equivalence of two provided answers) to judge semantic equivalence when exact matches come back negative [39]. The LLM achieves 98% precision and 92% recall in equivalence judgements over 500 comparisons. The full prompt is provided in § A.2.
+
+8 Y. Zengaffinen et al. 
+
+Table 2. Proportional match (mean ± 95% CI based on t-distribution) for DeepSeek-V3.2 and 
+
+GLM-4.7 , under different prompting conditions. 
+
+Prompt DeepSeek-V3.2 GLM-4.7 
+
+Direct 0.34 ± 0.03 0.42 ± 0.03 CoT 0.51 ± 0.03 0.50 ± 0.03 Reasoning 0.52 ± 0.03 0.52 ± 0.03 
+
+Results. We find that propor-tional match improves signifi-cantly when moving from di-rect prompting —where rea-soning is disabled and the LLMs are instructed to directly out-put the distractors—to CoT and reasoning settings for both LLMs (Table 2). Furthermore, we observe that for DeepSeek-V3.2 , both #cor-rect and #repetitions decrease substantially when moving from direct prompting to reasoning. Specifically, accidentally correct responses drop from 0.39 ± 0.05 
+
+under direct prompting to 0.02 ± 0.01 with reasoning, and repetitions decrease from 0.19 ± 0.06 to 0.02 ± 0.02 . We observe similar results for GLM-4.7 .
+
+4.2 Analyzing LLMs’ Distractor Generation Process 
+
+We analyze reasoning traces in three ways: frequency of various strategies, tem-poral evolution, and sequential organization. Frequencies show which strategies the LLMs use (Table 3), temporal analysis captures how they unfold (Fig. 2), and transition probabilities reveal how the reasoning is composed of subprocesses (Fig. 3). 
+
+Annotating traces using the taxonomy. To perform these analyses, we first need to identify where and how the strategies in our taxonomy appear in LLM reasoning traces. Accordingly, we annotate all occurrences of each strategy in LLMs’ traces—collected in § 3.2—as depicted in Fig. 1. Because the traces are extremely long (average of ≈6,800 characters for DeepSeek reasoning), we adopt a scalable approach that balances efficiency and annotation quality. Fol-lowing prior work [30], we use an LLM as the primary annotator, 10 but validate manually to ensure reasonable quality. Manual validation is performed on a rep-resentative subset of 32 traces, stratified by model, CoT versus reasoning, and performance (proportional match above vs. below 0.5). It is done by comparing the number of insertions and deletions relative to the human annotations. We report an average precision of 0.97 and recall of 0.95. 11 
+
+Our automatic annotation procedure prompts an LLM with (i) a description of the taxonomy, (ii) a small set of hand-picked general examples for each strat-egy tag in the taxonomy, (iii) the full reasoning trace—corresponding to one LLM’s distractor generation on one math problem—to be annotated, and (iv) an instruction to re-generate the trace while segmenting the text into spans and marking each of the spans with a strategy tag. For example, after the span “Yes, this is a plausible distractor” the model is expected to insert the tag <PLAUS> .           
+
+> 10 We use gpt-4.1 [35] with greedy decoding and maximum output length of 16k tokens.
+> 11 Per-tag averages (precision,recall) across models for both CoT and reasoning. INTER : (0.99, 0.99);
+> CORR : (1.00, 0.98); ERR_DESC : (0.93, 0.92); ERR_SIM : (0.91, 0.96); INST : (1.00, 0.94); PLAUS : (0.97, 0.92); CURATE : (0.86, 0.91); RECON : (0.93, 0.98).
+
+On LLMs’ Student Modeling Strategies 9
+
+Initial experiments showed that annotating the entire trace with all tags in a single pass yields poor results, primarily due to the trace’s length. We therefore split the trace into non-overlapping chunks and annotate all tags jointly within each chunk. The annotated chunks are then merged to reconstruct the complete annotated trace. 12 Because chunks may lack access to critical problem-specific information established earlier in the trace (e.g., “This gets us 2 + 9 m” could be either INST or CORR without knowing the correct answer), we augment the prompt for each chunk with concrete, problem-specific examples for each tag. These clarify the intended meaning of each tag, thereby promoting consistency across chunks. We obtain these grounded examples by prompting the LLM with the taxonomy and the complete trace and instructing it to extract up to three representative examples per tag. Tags that do not appear in the trace are omit-ted from this example set. In total, we apply this annotation pipeline to 240 traces, randomly sampled according to the same stratification criteria used for manual validation. Further details—including prompts—are discussed in § A.4. 
+
+Occurrences of strategies. We analyze the average number of spans anno-tated with each strategy tag from our taxonomy in Table 3. In both the CoT and reasoning settings, the most frequent strategies for DeepSeek-V3.2 are INST 
+
+and ERR_DESC , followed by INTER , CORR , PLAUS , RECON , and ERR_SIM . CURATE oc-curs the least frequently. We observe that LLMs frequently engage in the strate-gies of our taxonomy. In particular, the high prevalence of ERR_DESC suggests that LLMs explicitly base distractors on misconceptions, a point we discuss in more detail in § 4.3. The more concise CoT traces naturally contain fewer strat-egy tags than the reasoning traces. We observe similar trends for GLM-4.7 (see § B). 
+
+Table 3. Average occurrences of taxonomy strategies (Table 1) in CoT and reasoning traces for DeepSeek-V3.2 (mean ± 95% CI based on t-distribution). 
+
+Strategy CoT Reasoning 
+
+Task Interpretation 2.34 ± 0.43 11.37 ± 1.65 Correct Answer Ref. 4.33 ± 1.30 10.25 ± 1.62 Error Description 7.33 ± 1.29 21.58 ± 3.34 Outcome Instantiation 7.32 ± 1.13 37.43 ± 4.98 Error Simulation 2.02 ± 0.84 6.10 ± 1.45 Plausibility Check 1.48 ± 0.46 8.63 ± 1.47 Final Set Curation 0.63 ± 0.15 3.36 ± 0.47 Reconsideration 0.86 ± 0.38 7.36 ± 1.18 
+
+Strategies over time. We track the proportion of each strategy within 5 discrete tem-poral bins, normalized by the total length of each reasoning trace. The resulting graphs in Fig. 2 reveal clear phase tran-sitions in the reasoning process of DeepSeek-V3.2 . Reasoning typically begins with task inter-pretation ( INTER ) and identify-ing the correct answer ( CORR ), followed by error description (ERR_DESC ) and instantiation of  
+
+> 12 Chunks are created by splitting on double line breaks once a segment exceeds 500 characters, or by a hard split if no double line breaks occur within 2000 characters. Double line breaks were chosen because the LLM often uses them to separate semantic units. The thresholds of 500 and 2000 characters were found to balance segment length and annotation quality.
+
+10 Y. Zengaffinen et al. 
+
+incorrect outcomes ( INST ). Toward the end, plausibility assessment ( PLAUS ) and curation of the final set ( CURATE ) become more frequent, while reconsidera-tion ( RECON ) persists throughout the trace. Similar trends appear in CoT, but 
+
+ERR_DESC , INST , ERR_SIM , PLAUS , and CURATE are shifted later in the trace. This reflects more limited exploration, with task interpretation ( INTER ) and correct problem solving ( CORR ) occupying a larger share of the reasoning process. We observe similar patterns for GLM-4.7 (see § B). 0.0 0.2 0.4 0.6 0.8 1.0      
+
+> Normalized Position In Trace
+> 0.0
+> 0.2
+> 0.4
+> Share of Strategies  Chain-of-Thought
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Normalized Position In Trace
+> Reasoning Traces
+> Task Interpretation
+> Correct Answer Ref.
+> Error Description
+> Outcome Instantiation
+> Error Simulation
+> Plausibility Check
+> Final Set Curation
+> Reconsideration
+
+Fig. 2. Indicates how often each strategy in our taxonomy Table 1 was annotated at different stages of DeepSeek-V3.2 ’s reasoning trace. Time is normalized (0 = start of trace, 1 = end). Note that the proportions sum to one for each of the five temporal bins. 
+
+Common sequences of strategies. To analyze the typical sequences in which strategies appear in LLMs’ processes, we examine the transition probabilities be-tween strategies within annotated sequences of up to length 4, shown in Fig. 3. Several consistent patterns emerge. Transitions within and between ERR_DESC 
+
+and INST are common in both CoT and reasoning traces, indicating that error descriptions and instantiations are often tightly coupled. In the validated traces, we identified two common strategies for generating candidate distractors: (i) list multiple ERR_DESC before the corresponding INST , and (ii) iteratively inter-leave ERR_DESC and INST , sometimes with PLAUS . A frequent sequence in CoT is 
+
+ERR_DESC → ERR_SIM → INST , suggesting that LLMs often explicitly verbalize the incorrect reasoning, possibly ensuring consistency between the error and its outcome. Self-transitions for INTER and CORR indicate that these strategies often span multiple segments. GLM-4.7 demonstrates similar patterns (see § B). 13 
+
+4.3 Discussion Understanding LLMs’ distractor-generation process. Our results indi-cate that LLMs predominantly use a solve-first, misconception-based pipeline to generate distractors, rather than surface-level similarity heuristics. This mir-rors recommended human design practices, although it not always executed cor-rectly (see Table 2). Several observations support this interpretation. ERR_DESC     
+
+> 13 For each step and source strategy, we identify the top three transitions exceeding 15% outgoing probability mass and compute the set overlap between DeepSeek-V3.2 and GLM-4.7 , normalized by the smaller set size. Averaged across source strategies and steps, agreement is perfect for reasoning traces (1.00) and near-perfect for CoT traces (0.94), indicating that the dominant transitions are largely identical between models.
+
+On LLMs’ Student Modeling Strategies 11 Chain-of-Thought Step 
+
+> Strategy Task Interpretation
+> Correct Answer Ref.
+> Error Description
+> Outcome Instantiation
+> Error Simulation
+> Plausibility Check
+> Final Set Curation
+> Reconsideration
+> Reasoning Traces Step
+
+Fig. 3. Shows transition probabilities between strategies in DeepSeek-V3.2 ’s traces. Sequences of strategies up to length 4 (left to right). Node height represents strategy share and link widths indicate the transition probabilities between successive strate-gies. Only dominant (>15% outgoing mass) transitions are visualized for simplicity. 
+
+is the most frequent strategy overall, while CORR tends to appear early. More-over, ERR_DESC , ERR_SIM , and INST often occur in sequence, suggesting a pro-cess in which a potential error is articulated, instantiated, and used to produce a distractor. This temporal structure aligns with a solve-first, error-injection ap-proach, but not with similarity-based perturbation. Trace-level analysis further supports this view (refer to § C.1 for methodology). In 92.5% of DeepSeek-V3.2 
+
+traces and 97.8% of GLM-4.7 traces, the model constructs a full step-by-step solution before proposing distractors. 14 In 71.2% ( DeepSeek-V3.2 ) and 76.3% (GLM-4.7 ) of these cases, the model diverges at a specific step to inject an er-ror, closely mirroring misconception-based design. By contrast, similarity-based strategies are rare ( ≈3% of samples) and largely confined to narrow settings such as rounding or magnitude-estimation problems. 15 Beyond misconception generation, LLMs also reason about plausibility and selection. The frequent oc-currence of ERR_DESC beyond the three explicitly requested distractors suggests that the model might often explore more candidate error hypotheses than it ul-timately selects. Manual inspection of 15 randomly selected problems confirms this: DeepSeek-V3.2 in reasoning mode considers an average of 12.6 hypothet-ical student solution paths, compared to 5.9 in CoT. This pattern suggests that distractor construction is not single-shot, but instead resembles an exploratory best-of-N search over candidate misconceptions prior to final selection. Over-all, misconception-based design is a central component of LLMs’ distractor-generation process, alongside plausibility checking, candidate over-generation, and selection. 
+
+Diagnosing failure modes in LLMs’ distractor generation. We analyze multiple stages of the distractor-generation pipeline to determine whether fail-ures stem from (i) improper error simulation, (ii) the absence of a literature-informed reasoning structure, (iii) failure to recover the correct solution, or (iv)                 
+
+> 14 Solving-first and related properties are detected using the same taxonomy-based annotation method, with agreement to manual annotation of κ= 0 .85 (p < 0.001 ).
+> 15 This observation is based on manual inspection of reasoning traces filtered for semantically similar distractor values.
+
+12 Y. Zengaffinen et al. 
+
+inaccurate plausibility assessment and selection. One potential failure point is error simulation, where the model generates an incorrect answer given an error description ( ERR_SIM ). Using Eedi error descriptions, we prompt DeepSeek-V3.2 to solve all 429 problems individually, simulating a student making a spe-cific error sampled from each problem, and manually verify that the resulting answers are consistent with any faithful interpretation of that error (refer to § C.2 for further details). This yields a mean accuracy of 0.92 ± 0.02, suggesting that error simulation failures are rare. 16 Another hypothesis is insufficiently struc-tured reasoning. We compare the simple prompt (0.52 ± 0.03; see Table 2) with one enforcing a multi-step procedure (prompt in § C.3), i.e., solving, enumer-ating errors, simulating them, evaluating outcomes, checking plausibility, and selecting distractors (0.55 ± 0.02). The difference is not statistically significant, suggesting that DeepSeek-V3.2 self-organizes effective reasoning without ex-plicit guidance. By contrast, failures in recovering the correct solution ( CORR )propagate downstream. While most traces initially produce a correct solution, explicitly revealing the final answer significantly improves proportional match over the simple prompt without it (0.56 ± 0.03 vs. 0.52 ± 0.03; see Table 2). This indicates that unreliable solution recovery degrades subsequent distractor generation 17 . Finally, over-generation of candidate errors requires ranking and selection ( PLAUS , CURATE ). A manual analysis of 30 low-performing (proportional match < 0.5) problems shows that models discard an average of 0.97 candidate distractors per problem that are incorrect yet consistent with a plausible error description. Although CURATE reduces correct answers and repetitions, indicating enforcement of incorrectness and diversity, it appears overly conservative. Thus, our analysis rules out error simulation and reasoning structure as pri-mary failure sources, instead identifying failures in correct-solution recovery and misalignment in plausibility assessment or curation as dominant causes for per-formance drops. 
+
+## 5 Conclusion 
+
+In this study, we examined how LLMs model incorrect student reasoning when generating math distractors, developing a taxonomy grounded in learning-science literature and observed model behavior. Although distractor-generation perfor-mance remains imperfect, our analysis shows that LLMs predominantly use a solve-first, error-injection strategy: they first solve the problem correctly, identify potential misconceptions, simulate the resulting errors, and generate correspond-ing distractors. This approach closely mirrors misconception-based methods in the educational literature, where the correct answer serves as a critical anchor.     
+
+> 16 However, a significant proportion of the answers that were manually deemed to be correct dis-tractors conditioned on the error were not annotated as distractors in the Eedi dataset: The LLM-generated answer matched the human annotated Eedi distractor(s) for the same problem and error type in 62% of cases. These results are plausible because the error description does not usually uniquely determine a specific distractor answer for a given problem. More reliable benchmarking on the distractor generation task would therefore require access to a larger set of ground truth distractor answers.
+> 17 This may be due to limited model competence or intrinsic problem ambiguity.
+
+On LLMs’ Student Modeling Strategies 13 
+
+Beyond this, LLMs perform explicit plausibility checking, curate the final dis-tractor set, and employ task-agnostic mechanisms such as overgeneration and candidate ranking. Overall, our findings indicate that LLM reasoning aligns well with learning-science principles, while revealing clear opportunities for improve-ment in correct answer recovery, plausibility assessment, and distractor selec-tion. By isolating specific failure points, our analysis highlights the potential for targeted interventions with implications for automated assessment, intelligent tutoring systems, and scalable creation of high-quality educational content. 
+
+## References 
+
+1. Alhazmi, E., Sheng, Q.Z., Zhang, W.E., Zaib, M., Alhazmi, A.: Distractor gener-ation in multiple-choice tasks: A survey of methods, datasets, and evaluation. In: EMNLP. pp. 14437–14458 (2024) 2. Ashlock, R.B.: Error patterns in computation: Using error patterns to help each student learn. Allyn & Bacon (2010) 3. Benedetto, L., Aradelli, G., Donvito, A., Lucchetti, A., Cappelli, A., Buttery, P.: Using LLMs to simulate students’ responses to exam questions. In: EMNLP. pp. 11351–11368 (2024) 4. Brown, J.S., VanLehn, K.: Repair theory: A generative theory of bugs in procedural skills. Cognitive science 4(4), 379–426 (1980) 5. Chamberlain, D.J., Jeter, R.: Creating diagnostic assessments: Automated dis-tractor generation with integrity. The Journal of Assessment in Higher Education (2020) 6. Chingos, M.: Strength in numbers: State spending on K-12 assessment systems. Brown Center on Education Policy, The Brookings Institution (2012) 7. Corbin, J., Strauss, A.: Basics of qualitative research: Techniques and procedures for developing grounded theory. Sage publications (2014) 8. De La Torre, J.: A cognitive diagnosis model for cognitively based multiple-choice options. Applied Psychological Measurement 33 (3), 163–183 (2009) 9. DeepSeek-AI: DeepSeek-V3.2: Pushing the frontier of open large language models (2025) 10. Doughty, J., Wan, Z., Bompelli, A., Qayum, J., Wang, T., Zhang, J., Zheng, Y., Doyle, A., Sridhar, P., Agarwal, A., Bogart, C., Keylor, E., Kultur, C., Savelka, J., Sakr, M.: A comparative study of AI-generated (GPT-4) and human-crafted MCQs in programming education. In: Proceedings of the 26th Australasian Computing Education Conference. pp. 114–123 (01 2024) 11. Ezzaki, S., Messaoudi, N., Khalid Naciri, J.: Evaluating educational content through virtual student simulations using large language models. In: International Symposium on Generative AI and Education. pp. 241–250. Springer (2025) 12. Feldman-Maggor, Y., Cukurova, M., Kent, C., Alexandron, G.: The impact of explainable AI on teachers’ trust and acceptance of AI EdTech recommendations: The power of domain-specific explanations. International Journal of AIED 35 (5), 2889–2922 (Dec 2025) 13. Feng, W., Lee, J., McNichols, H., Scarlatos, A., Smith, D., Woodhead, S., Ornelas, N., Lan, A.: Exploring automated distractor generation for math multiple-choice questions via large language models. In: NAACL. pp. 3067–3082 (2024) 14 Y. Zengaffinen et al. 14. Fernandez, N., Scarlatos, A., Feng, W., Woodhead, S., Lan, A.: DiVERT: Distrac-tor generation with variational errors represented as text for math multiple-choice questions. In: EMNLP (2024) 15. Gierl, M.J., Bulut, O., Guo, Q., Zhang, X.: Developing, analyzing, and using dis-tractors for multiple-choice tests in education: A comprehensive review. Review of educational research 87 (6), 1082–1116 (2017) 16. GLM-4.5 Team: GLM-4.5: Agentic, reasoning, and coding (ARC) foundation mod-els (2025) 17. Haladyna, T.M., Downing, S.M., Rodriguez, M.C.: A review of multiple-choice item-writing guidelines for classroom assessment. Applied Measurement in Educa-tion (2002) 18. Haladyna, T., Rodriguez, M.: Developing and validating test items. Taylor & Fran-cis (2013) 19. Hang, C.N., Wei Tan, C., Yu, P.D.: MCQGen: A large language model-driven MCQ generator for personalized learning. IEEE Access 12 , 102261–102273 (2024) 20. Jin, H., Yoo, M., Park, J., Lee, Y., Wang, X., Kim, J.: Teachtune: Reviewing pedagogical agents against diverse student profiles with simulated students. In: Proceedings of the 2025 CHI Conference on Human Factors in Computing Systems. pp. 1–28 (2025) 21. Judge, S., Bobzien, J., Maydosz, A., Gear, S., Katsioloudis, P.: The use of visual-based simulated environments in teacher preparation. Journal of Education and Training Studies 1(1) (2013) 22. Käser, T., Alexandron, G.: Simulated learners in educational technology: A sys-tematic literature review and a turing-like test. International Journal of Artificial Intelligence in Education 34 (2), 545–585 (2024) 23. King, J., Burleigh, L., Woodhead, S., Kon, P., Baffour, P., Crossley, S., Reade, W., Demkin, M.: Eedi - Mining misconceptions in mathematics (2024), kaggle 24. Lee, J., Smith, D., Woodhead, S., Lan, A.: Math multiple choice ques-tion generation via human-large language model collaboration. arXiv preprint arXiv:2405.00864 (2024) 25. Lee, U., Lee, S., Koh, J., Jeong, Y., Jung, H., Byun, G., Lee, Y., Moon, J., Lim, J., Kim, H.: Generative agent for teacher training: Designing educational problem-solving simulations with large language model-based agents for pre-service teachers. In: NeurIPS’23 Workshop on Generative AI for Education (GAIED) (2023) 26. Liu, N., Sonkar, S., Baraniuk, R.: Do LLMs make mistakes like students? Explor-ing natural alignments between language models and human error patterns. In: International Conference on AIED. pp. 364–377. Springer (2025) 27. Liu, N., Sonkar, S., Wang, Z., Woodhead, S., Baraniuk, R.G.: Novice learner and expert tutor: Evaluating math reasoning abilities of large language models with misconceptions. arXiv preprint arXiv:2310.02439 (2023) 28. Ludewig, U., Schwerter, J., McElvany, N.: The features of plausible but incor-rect options: Distractor plausibility in synonym-based vocabulary tests. Journal of Psychoeducational Assessment 41 (7), 711–731 (2023) 29. Macina, J., Daheim, N., Chowdhury, S., Sinha, T., Kapur, M., Gurevych, I., Sachan, M.: Mathdial: A dialogue tutoring dataset with rich pedagogical prop-erties grounded in math reasoning problems. In: EMNLP. pp. 5602–5621 (2023) 30. Marjanović, S.V., Patel, A., Adlakha, V., Aghajohari, M., BehnamGhader, P., Bhatia, M., Khandelwal, A., Kraft, A., Krojer, B., Lù, X.H., et al.: DeepSeek-R1 thoughtology: Let’s think about LLM reasoning. arXiv preprint arXiv:2504.07128 (2025) On LLMs’ Student Modeling Strategies 15 31. Matsuda, N., Cohen, W.W., Sewall, J., Lacerda, G., Koedinger, K.R.: Evaluating a simulated student using real students data for training and testing. In: User Modeling 2007. pp. 107–116 (2007) 32. Mislevy, R.J., Almond, R.G., Lukas, J.F.: A brief introduction to evidence-centered design. ETS Research Report Series 2003 (1), i–29 (2003) 33. Nazaretsky, T., Ariely, M., Cukurova, M., Alexandron, G.: Teachers’ trust in AI-powered educational technology and a professional development program to im-prove it. British Journal of Educational Technology 53 (4), 914–931 (2022) 34. Opedal, A., Stolfo, A., Shirakami, H., Jiao, Y., Cotterell, R., Schölkopf, B., Saparov, A., Sachan, M.: Do language models exhibit the same cognitive biases in problem solving as human learners? In: ICML (2024) 35. OpenAI Team: GPT-4 technical report (2024) 36. Parikh, N., Fernandez, N., Scarlatos, A., Woodhead, S., Lan, A.: LookAlike: Con-sistent distractor generation in math MCQs. Proceedings of the 20th Workshop on Innovative Use of NLP for Building Educational Applications (BEA 2025) (2025) 37. Quaigrain, K., Arhin, A.K.: Using reliability and item analysis to evaluate a teacher-developed test in educational measurement and evaluation. Cogent Ed-ucation 4(1), 1301013 (2017) 38. Rooein, D., Chowdhury, S.P., Eremeeva, M., Qin, Y., Nozza, D., Sachan, M., Hovy, D.: PATS: Personality-aware teaching strategies with large language model tutors. Findings of EACL (2026) 39. Ross, A., Andreas, J.: Learning to make MISTAKEs: Modeling incorrect student thinking and key errors (2025) 40. Rudner, L.M.: Implementing the graduate management admission test computer-ized adaptive test. In: Elements of adaptive testing, pp. 151–165. Springer (2009) 41. Säuberli, A., Clematide, S.: Automatic generation and evaluation of reading com-prehension test items with large language models. In: Proceedings of the 3rd Work-shop on Tools and Resources for People with REAding DIfficulties (READI) @ LREC-COLING 2024. pp. 22–37 (2024) 42. Scarlatos, A., Feng, W., Smith, D., Woodhead, S., Lan, A.: Improving automated distractor generation for math multiple-choice questions with overgenerate-and-rank. arXiv preprint arXiv:2405.05144 (2024) 43. Scouller, K.: The influence of assessment method on students’ learning approaches: Multiple choice question examination versus assignment essay. Higher education 
+
+35 (4), 453–472 (1998) 44. Shin, J., Guo, Q., Gierl, M.J.: Multiple-choice item distractor development using topic modeling approaches. Frontiers in psychology 10 , 825 (2019) 45. Tarrant, M., Ware, J., Mohammed, A.M.: An assessment of functioning and non-functioning distractors in multiple-choice questions: a descriptive analysis. BMC medical education 9(1), 40 (2009) 46. Tomás, A.P., Leal, J.P.: Automatic generation and delivery of multiple-choice math quizzes. In: Principles and Practice of Constraint Programming. pp. 848–863 (2013) 47. VanLehn, K.: Mind bugs: The origins of procedural misconceptions. MIT press (1990) 48. Wei, J., Wang, X., Schuurmans, D., Bosma, M., Ichter, B., Xia, F., Chi, E.H., Le, Q.V., Zhou, D.: Chain-of-thought prompting elicits reasoning in large language models. In: NeurIPS (2022) 49. Wu, T., Chen, J., Lin, W., Li, M., Zhu, Y., Li, A., Kuang, K., Wu, F.: Embracing imperfection: Simulating students with diverse cognitive levels using LLM-based agents. arXiv preprint arXiv:2505.19997 (2025) 16 Y. Zengaffinen et al. 
+
+## A Supplementary Material - Experimental Setup 
+
+A.1 Preprocessing the Dataset Removing problems relying on choices. The Eedi dataset contains prob-lems of the form “Which of the following is correct?”, which rely on the provided answer choices to be solvable. This is problematic for distractor generation be-cause it implies an effectively infinite answer space. Therefore, we manually reviewed all problems in the dataset to determine whether they admit a unique solution without the provided choices, and removed those that do not. 
+
+A.2 Prompts for Collecting Reasoning Traces and Evaluating Answer Equivalence 
+
+We provide the prompt used for distractor generation in both the direct and reasoning settings (Table 4), as well as the chain-of-thought prompt that enables the non-reasoning models to generate distractors step-by-step (Table 5). We further include the prompt used to instruct the LLM to judge whether two answer choices are semantically equivalent (Table 6). 
+
+Table 4. Direct prompt for generating distractors for one math problem {prob-lem_formulation} . Parts in blue are shown only when the correct answer {cor-rect_answer} is revealed.   
+
+> System Prompt
+> You will be given a math question along with the correct answer. Please generate 3 incorrect distractor answers for the question to be used as multiple-choice options in a multiple-choice exam.
+> [Template ]
+> Distractor1: ... Distractor3:
+> User Prompt
+> Question: {problem_formulation}
+> Answer: {correct_answer}
+
+Table 5. Chain-of-Thought (CoT) prompt for generating distractors for one math problem {problem_formulation} . 
+
+> System Prompt
+> You will be given a math question. Please generate 3 incorrect distractor answers for the question to be used as multiple-choice options in a multiple-choice exam. Think step-by-step before giving your final answer. Output only your step-by-step reasoning and the final distractors like so:
+> [Step-By-Step ]
+> Let’s think step-by-step, ...
+> [Final Answer ]
+> Distractor1: ... Distractor3:
+> User Prompt
+> Question: {problem_formulation}
+
+On LLMs’ Student Modeling Strategies 17 
+
+Table 6. Prompt for judging equivalence between the two answers {answer_a} and 
+
+{answer_b} to a multiple-choice question {problem_formulation} .
+
+System Prompt 
+
+You are an AI assistant tasked with judging whether two answer choices to a middle-school multiple-choice math problem are semantically the same as one another. You must not solve the problem and not evaluate factual correctness –- only compare the two answers with one another relative to the problem’s formatting requirements. Your output must follow this exact structure: <format> [TRUE/FALSE ] </format> <equivalent> [TRUE/FALSE ] </equivalent> Meaning of <format>: Output TRUE if the problem explicitly requires a specific numeric format, such as: – rounding to a given number of decimal places or significant digits – expressing the answer in scientific notation – expressing the answer as a simplified fraction – expressing the answer in terms of a constant (e.g., “in terms of π”) – any other explicitly stated formatting requirement Ignore unit requirements (e.g., “in cm” does NOT count as a specific format). Output FALSE if the problem does not explicitly specify a numeric format. Meaning of <equivalent>: Determine whether answer_1 and answer_2 represent the same value or concept under the rules: If <format> is FALSE (no required numeric format): Two answers are equivalent if: – they have the same mathematical value (e.g., 3.1 = 31 /10 )– they differ only in non-semantic aspects (e.g., LaTeX wrappers, capitalization, filler words) Examples of equivalent under <format> = FALSE: – 10, 10.0, \(10 \)
+
+– 3.1, 31/10 – fourteen, 14 – Only Bob, Bob If <format> is TRUE (specific format required): Two answers are equivalent only if: 1. They represent the same mathematical value, AND 2. They are both expressed in the required format. This means: – 3.14 vs. 3.140 (when rounding to 2 decimal places required) → not equivalent – 4π vs. 12.56 (when “in terms of π” required) → not equivalent – 3.1 vs. 31/10 (when “round to one decimal place” required) → not equivalent Ignore trivial formatting wrappers (e.g., 31 /10 = \(31 /10 \)). General Rules: – Do not solve the problem. – Do not judge correctness of the answers. – Only compare answer_1 with answer_2. – answer_1 and answer_2 can be equivalent regardless of whether they are correct or not. 
+
+User Prompt 
+
+<math problem> {problem_formulation} </math problem> <answer_1> {answer_a} </answer_1> <answer_2> {answer_b} </answer_2> 18 Y. Zengaffinen et al. 
+
+A.3 Details on Taxonomy Construction 
+
+During taxonomy construction, several additional and potentially complemen-tary strategies were identified but ultimately excluded. Table 7 summarizes these candidates, gives illustrative examples, their origin, and the rationale for exclu-sion. 
+
+Table 7. Discarded candidate strategies during taxonomy construction. Note that both the manual open coding as well as the LLM surfaced many additional strategies that were strictly captured by existing strategies; we only list the ones that might capture complementary aspects compared to the strategies they were merged into. 
+
+Strategy Example / Description Identified By Reason for Exclusion Response For-matting 
+
+“We need to produce them in the format Distrac-tor1:. . . ” Both Reasoning about output for-mat required by our specific prompt rather than a gen-eral reasoning strategy. 
+
+Recall Task-Specific Knowledge 
+
+“First, let’s recall the ba-sic Roman numeral sym-bols . . . ” Both Explicitly observed only once and typically occurred implicitly within CORR or 
+
+ERR_DESC .
+
+Leveraging Domain-Specific Con-straints 
+
+Enumerating limited an-swer space (e.g., “Who out of the two is correct?”). Both Problem-specific enumera-tion strategy; excluded to maintain focus on general reasoning strategies. 
+
+Exploration of Unusual Distractors 
+
+Claim that highly un-usual or creative dis-tractors were intention-ally generated (no citation provided). LLM Conceptually overlaps with 
+
+ERR_DESC and PLAUS ; insuf-ficiently well-defined as astandalone strategy. 
+
+Distractor Source Diver-sification 
+
+Explicit effort to ensure distractors differ in type or origin to avoid similar-ity. LLM Strong overlap with CURATE .
+
+Verification and Self-Correction 
+
+Revisiting earlier step-by-step reasoning towards distractors, potentially correcting issues. LLM Overlaps with RECON and of-ten difficult to distinguish from ERR_SIM .
+
+Detailed Error Description 
+
+Captures specific behav-iors such as incorrectly converting fractions to decimals without broader strategic framing. LLM Overlaps with ERR_SIM .On LLMs’ Student Modeling Strategies 19 
+
+Merging strategies and coverage. Although the final taxonomy does not mirror all proposed labels exactly, conceptual correspondence was always clear. For example, the LLM proposed the strategy “Anchor on Correct Solution” which we merged into CORR . In cases where titles differed, example citations from the traces frequently helped clarify the mapping. For instance, the pro-posed label “Contextualize to Multiple-Choice Format” with citation from the reasoning trace: “Usually, the options are formatted similarly to the correct answer. Since correct is 0.256, options like 2.56, 0.0256, and 1.12 are all in decimal form with a few digits.” is naturally covered by CORR and CURATE .
+
+Granularity of strategies. A key design decision in constructing the taxonomy concerns the level of granularity at which strategies are defined. For instance, 
+
+PLAUS could be subdivided into more specific assessments, such as evaluating how common an error type is or identifying which constraints a distractor’s derivation violates. Although such finer-grained distinctions may offer additional analytical resolution, our objective is to capture general strategy patterns rather than highly specialized variants. Increasing granularity would also likely reduce annotation reliability, as additional categories introduce greater complexity and less sharply defined decision boundaries. 
+
+Automatic open coding. We show the full prompt used to let DeepSeek-V3.2 do open coding in Table 8. 
+
+Overview of literature sources of final taxonomy. The identified strategies largely align with prior literature. INTER and RECON are supported by Evidence-Centered Design [32], while CORR , ERR_DESC , INST , and ERR_SIM correspond to established distractor generation methods, mostly the misconception-based strategy [8,2,46,15,44,5,28] and repair-theory [4,47]. Plausibility checks and final set curation reflect item-writing guidelines that ensure distractors are individu-ally plausible and collectively well-formed [17,18,15,5]. 20 Y. Zengaffinen et al. 
+
+Table 8. Prompt used for open coding of expert reasoning traces. 
+
+{traces_concatenated} is replaced with 10 double-new-line concatenated reason-ing traces of either DeepSeek-V3.2 or GLM-4.7 generating distractors when prompted with the simple prompt, as described in § 3.2. 
+
+System Prompt 
+
+You are an expert in cognitive task analysis, think-aloud protocol analysis, and grounded theory coding. Your task is to derive inductive categories of cognitive processes from reasoning traces of experts that are generating math distractors for a multiple choice exam. Follow qualitative analysis best practices: bottom-up coding, constant comparison, memoing, and grounding all claims in the data. 
+
+User Prompt 
+
+I will provide you with a list of reasoning traces. Your task is to discover common categories of reasoning or cognitive behaviors of the experts that are generating math distractors, using a systematic inductive approach. Your responsibilities: 1. Identify recurring cognitive behaviors or steps. 2. For every category, provide: - A clear definition (1–2 sentences) - A description of what behaviors fall under it 3. Provide 2–3 grounded citations for each category: - Verbatim excerpts from the traces - Include trace ID and step number (or text location) 4. Do not invent anything not present in the traces. 5. Focus only on recurring categories, not one-off behaviors. OUTPUT FORMAT: ## Discovered Categories ### Category 1: [Name] **Definition:** [...] **Example Citations:** - "..." (Trace X, Step Y) - "..." (Trace A, Step B) - "..." (Trace C, Step D) ### Category 2: [Name] **Definition:** [...] (Continue as needed.) After listing categories, include: ## Notes on Method & Coverage Explain how the categories were derived and how representative they are. –-Here are the reasoning traces: 
+
+{traces_concatenated} 
+
+A.4 Annotation of Traces 
+
+As outlined in § 4.2, we annotate all reasoning traces separately. Each trace represents an LLM’s reasoning process as it generated three distractors for a single math problem. 
+
+Automatic annotation. We first extract examples (Table 10) and then anno-tate chunks of the trace individually (Table 9). 
+
+Annotation quality. We report detailed annotation performance—comparing agreement between human and DeepSeek-V3.2 ’s annotations—per strategy for DeepSeek-V3.2 ’s (Table 12) and GLM-4.7 ’s (Table 13) traces. Note that these analyses were performed manually on a total of 8 traces each, covering both high- and low-performance cases. As a result, strategies that the models rarely engage in have very low support. However, the resulting higher uncertainty does not meaningfully affect the analyses in § 4.2, since such strategies are far from playing a dominant role in the frequency analysis or dominant paths in the subprocess analysis. On LLMs’ Student Modeling Strategies 21 
+
+Table 9. Prompt for annotating chunks of an LLM’s reasoning when generating dis-tractors with strategies from our taxonomy. {taxonomy_description} is replaced with the taxonomy description from Table 11 and {extracted_examples} with the examples extracted using the prompt in Table 10. {trace_chunk} is replaced with a chunk of the LLM’s distractor generation reasoning trace. 
+
+System Prompt 
+
+You are annotating a chunk of a thinking-out-loud protocol produced by an expert model with markers of a taxonomy. Context: The text is a verbalized reasoning trace of an expert generating incorrect distractor answers for a mathematics multiple-choice question. The expert’s task was: “You will be given a math question. Please generate 3 incorrect distractor answers for the question to be used as multiple-choice options in a multiple-choice exam.” The protocol contains the expert’s internal reasoning, planning, and candidate generation steps. Your job is to annotate this text by inserting taxonomy tags. Each marker marks the END of the smallest possible span that instantiates the category. TAXONOMY 
+
+{taxonomy_description} 
+
+EXAMPLES: 
+
+{extracted_examples} 
+
+User Prompt 
+
+CHUNK START 
+
+{trace_chunk} 
+
+CHUNK END Return only the annotated chunk (no explanations). 
+
+Table 10. Prompt for extracting short example spans for each strategy of the tax-onomy, if present, from a reasoning trace {trace} . {taxonomy_description} is replaced with the taxonomy description in Table 11. 
+
+System Prompt 
+
+You are a helper that extracts up to 3 short example spans for each taxonomy label from a single reasoning trace. For each tag, return a short examples block (plain text) with one line per tag in the following form: <TAG>: example1; example2 If no examples exist for a tag, use: <TAG>: (none) Return only the plain text block (no JSON, no commentary). TAXONOMY: {taxonomy_description} 
+
+User Prompt 
+
+TRACE START 
+
+{trace} 
+
+TRACE END Return only the examples block as described. 22 Y. Zengaffinen et al. 
+
+Table 11. The description of our taxonomy (Table 1) including rules and examples. We use this description as part of both the annotation (Table 9) and example extraction prompts (Table 10). 
+
+Taxonomy Description 
+
+<INTER> Definition: Reasoning about the task instructions or requirements –- what the question asks for and what counts as valid answers. Rules: - Only mark when the expert revisits the task description and subsequently tries to gain clarity about the task itself. - Do NOT mark execution steps, calls to produce output, or listing candidates (e.g., "I’ll produce:", "Let’s do:", "Distractor1: 0.4<INST>"). Examples: - "We are given the question: ..." - "However<RECON>, the task is to generate three incorrect distractors, not the correct answer<INTER>" <CORR> Definition: Correct computation or reasoning toward the correct solution for the question. Rules: - Mark whenever correct reasoning or the correct answer is referenced. - If correct reasoning and errors are discussed together, mark both. Examples: - "2 ÷ 1/5 = 10<CORR>" - "Multiplying both sides by 4 gives 20 = k<CORR>, but a student might only multiply the numerator<ERR_DESC>" <ERR_DESC> Definition: High-level verbal description of a common mistake or misconception. Rules: - Mark every description of an error. Examples: - "A common mistake is forgetting to flip the fraction<ERR_DESC>" - "46 <INST>(forgetting to add 2)<ERR_DESC>" - "(x,y)=(-2,15)<INST>[from sign error<ERR_DESC>]" - "Mis-handling the negative<ERR_DESC>: -10 + 8 <ERR_SIM>= 2<INST>" <ERR_SIM> Definition: Explicitly simulating incorrect reasoning. Rules: - Mark when the expert simulates an incorrect calculation. - Single incorrect equations can be marked if they represent erroneous reasoning. - Mark the final incorrect outcome with <INST>. - ERR_DESC = a high level error description; ERR_SIM = a specific execution of an error Examples: - "5 - 2 = 3, then add 1 = <ERR_SIM>4<INST>" - "9 + 3 = 12, write down 2, forget to carry the 1... final result <ERR_SIM>82<INST>" - "Convert the fraction incorrectly <ERR_DESC>: compute: 1 2/3 <ERR_SIM><INST>" <INST> Definition: Any incorrect outcome (number, symbol, expression). Rules: - Mark every candidate, even if later rejected. - Mark candidate values even when they appear inside task interpretation or reconsideration spans, as long as they name concrete answer options - Each value in an enumeration of candidates is marked separately; enumeration markers like 1., 2., 3. are NOT tagged. Examples: - "0.4<INST>, 0.1<INST>, 2.5<INST>" - "Possible answers could be Alice <INST>, Bob <INST>, etc" - "980<INST>might work" - "(x,y)=(-2,15)<INST>[from sign error<ERR_DESC>]" <PLAUS> Definition: Judgment of how likely a student would choose an error or candidate. Rules: - Mark plausibility comparisons or checks for incorrectness. - If also about final set, mark both PLAUS and CURATE. Examples: - "0.4<INST>is more plausible than 0.1<INST><PLAUS>" - "The student forgets to add?<ERR_DESC>Plausibly<PLAUS>" - "0.4<INST>is not a good distractor<PLAUS>" - "But is a student going to make that mistake?<PLAUS>" <CURATE> Definition: Evaluation or selection of the final set of distractors (coverage, diversity, redundancy). Rules: - Only mark when reasoning explicitly concerns the final set. - Otherwise, mark PLAUS. Examples: - "Keep 0.4<INST>and 2.5<INST>, drop 0.1<INST>to cover error types<CURATE>" -"0.4<INST>seems plausible<PLAUS>, keep that<CURATE>" <RECON> Definition: Reconsideration of a previous interpretation, candidate, plausibility judgment, or curation decision. Rules: - Place <RECON>immediately after the cue word indicating reconsideration. - Marks the act of reconsidering, not the outcome. - Common cues: "actually", "alternatively", "instead", "however", "but wait", "on second thought", "reconsider" Examples: - "Actually<RECON>, ..." - "Alternatively<RECON>, 980<INST>could work<PLAUS>" - "On second thought<RECON>, that distractor is not likely<PLAUS>" On LLMs’ Student Modeling Strategies 23 
+
+Table 12. Performance of LLM-based annotations per taxonomy strategy (Table 1) for DeepSeek-V3.2 with CoT vs. reasoning. Note that RECON and CURATE have very little support in the Non-Thinking setting. 
+
+CoT Reasoning Component # Precision Recall # Precision Recall 
+
+Task Interpretation 12 1.00 1.00 102 0.99 1.00 Correct Answer Ref. 33 1.00 0.92 79 1.00 1.00 Error Description 32 0.97 0.89 112 0.83 0.85 Outcome Instantiation 49 1.00 0.94 299 1.00 0.99 Error Simulation 19 1.00 1.00 55 0.95 0.95 Plausibility Check 13 1.00 0.93 53 0.91 0.94 Final Set Curation 4 1.00 0.80 29 0.93 0.90 Reconsideration 4 0.75 1.00 60 0.98 0.98 
+
+Table 13. Performance of LLM-based annotations per taxonomy strategy (Table 1) for GLM-4.7 with CoT vs. reasoning. Note that RECON and CURATE have very little support in the Non-Thinking setting. 
+
+CoT Reasoning Component # Precision Recall # Precision Recall 
+
+Task Interpretation 11 1.00 1.00 30 0.97 0.97 Correct Answer Ref. 37 1.00 1.00 78 0.99 1.00 Error Description 38 0.95 0.97 159 0.97 0.96 Outcome Instantiation 34 1.00 0.87 200 1.00 0.97 Error Simulation 10 0.80 1.00 51 0.88 0.88 Plausibility Check 7 1.00 1.00 26 0.96 0.81 Final Set Curation 4 0.50 1.00 25 1.00 0.93 Reconsideration 1 1.00 1.00 15 1.00 0.94 24 Y. Zengaffinen et al. 
+
+## B GLM-4.7 Results 
+
+Here we present all the detailed results of GLM-4.7 for the experiments in § 4.2 and briefly compare them to DeepSeek-V3.2 ’s results. 
+
+Occurrences of strategies. Table 14 shows the occurrences of strategies for 
+
+GLM-4.7 . Compared to DeepSeek-V3.2 (Table 3), we observe that: (i) for both models, occurrences are higher in reasoning traces than in CoT. However, 
+
+GLM-4.7 has on average 0.55 more occurrences than DeepSeek-V3.2 in CoT, whereas in reasoning traces DeepSeek-V3.2 exceeds GLM-4.7 by 2.54 occur-rences on average. (ii) The average ratios between CoT and reasoning are of sim-ilar magnitude for both models, except for RECON , ERR_SIM , and PLAUS , where the ratio between CoT and reasoning is significantly larger for DeepSeek-V3.2 
+
+than for GLM-4.7 .
+
+Strategies over time. Results are shown in Fig. 4. Overall trends largely match those of DeepSeek-V3.2 (Fig. 2), e.g., INTER and CORR are initially frequent but decrease in relative share toward the end of the traces. Two differences are notable: (i) RECON accounts for a larger share of strategies in DeepSeek-V3.2 
+
+than in GLM-4.7 , and (ii) ERR_SIM is more common in GLM-4.7 ’s CoT. 
+
+Common sequences of strategies. Fig. 5 shows the common sequences of strategies in GLM-4.7 ’s traces. While we reported overlap in the top dominant outgoing edges, we observe several minor differences compared to DeepSeek-V3.2 (Fig. 3): (i) The ordering of outgoing dominant edges may differ, e.g., the most dominant outgoing edge of GLM-4.7 in CoT from ERR_DESC is to ERR_SIM ,whereas for DeepSeek-V3.2 it is to ERR_DESC . The former corresponds to iter-atively listing an error and directly simulating it, whereas the latter corresponds to listing multiple errors at once. (ii) Even when the ordering of dominant edges is consistent, the ratios between transition masses can differ. For instance, for 
+
+INST in CoT, the ratio of transitions to ERR_DESC compared to INST is much larger for GLM-4.7 than for DeepSeek-V3.2 . (iii) The number of dominant edges may vary, e.g., CORR has 4 dominant outgoing edges in DeepSeek-V3.2 ’s reasoning traces compared to just 2 in GLM-4.7 ’s. On LLMs’ Student Modeling Strategies 25 
+
+Table 14. Average occurrences of taxonomy strategies (Table 1) in CoT and reasoning traces for GLM-4.7 (mean ± 95% CI based on t-distribution). 
+
+Strategy CoT Reasoning 
+
+Task Interpretation 1.11 ± 0.26 4.36 ± 0.79 Correct Answer Ref. 4.09 ± 0.69 11.47 ± 3.62 Error Description 9.02 ± 2.05 19.54 ± 2.73 Outcome Instantiation 8.80 ± 2.43 32.51 ± 8.62 Error Simulation 4.74 ± 1.80 7.19 ± 2.16 Plausibility Check 1.43 ± 0.55 4.67 ± 0.77 Final Set Curation 0.64 ± 0.28 3.46 ± 0.70 Reconsideration 0.90 ± 0.38 2.54 ± 0.51 0.0 0.2 0.4 0.6 0.8 1.0      
+
+> Normalized Position In Trace
+> 0.0
+> 0.2
+> 0.4
+> Share of Strategies  Chain-of-Thought
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> Normalized Position In Trace
+> Reasoning Traces
+> Task Interpretation
+> Correct Answer Ref.
+> Error Description
+> Outcome Instantiation
+> Error Simulation
+> Plausibility Check
+> Final Set Curation
+> Reconsideration
+
+Fig. 4. Indicates how often each strategy in our taxonomy Table 1 was annotated at different stages of GLM-4.7 ’s reasoning trace. Time is normalized (0 = start of trace, 1 = end). Note that the proportions sum to one for each of the five temporal bins. Chain-of-Thought Step 
+
+> Strategy
+
+Task Interpretation 
+
+Correct Answer Ref. 
+
+Error Description 
+
+Outcome Instantiation 
+
+Error Simulation 
+
+Plausibility Check 
+
+Final Set Curation 
+
+Reconsideration 
+
+Reasoning Traces Step 
+
+Fig. 5. Shows transition probabilities between strategies in GLM-4.7 ’s traces. Sequences of strategies up to length 4 (left to right). Node height represents strategy share and link widths indicate the transition probabilities between successive strate-gies. Only dominant (>15% outgoing mass) transitions are visualized for simplicity. 26 Y. Zengaffinen et al. 
+
+## C Details on Discussion Experiments 
+
+This section provides a detailed description of the experiments performed as part of the discussion (§ 4.3). 
+
+C.1 Solve-First and Error Injection 
+
+To measure how frequently the LLM first solves a problem correctly and then injects an error into the solution, we annotate the LLMs’ step-by-step traces at scale. Following the approach used in our main analysis, we first define the following taxonomy: 
+
+– SOLVE_FIRST : Does the model systematically solve the problem to reach the correct final answer? 
+
+– INJECT_FROM_SOLUTION : Does the model refer to the correct solution or in-termediate steps to generate plausible errors, misconceptions, or distractors? We limit the analysis to problems where the LLM generated at least two steps in a step-by-step solution, ensuring that error injection is possible. Step-by-step solutions are generated using the prompt in Table 15. 
+
+Table 15. Prompt for solving a math problem {problem_formulation} step-by-step, in a manner that is consistent with the ground truth answer {final_answer} .
+
+> System Prompt
+> You are a helpful assistant.
+> User Prompt
+> Solve the math problem. Output format (exact): [STEP-1]... ... [STEP-N]... [FINAL ANSWER]... Constraints: no fluff; only one reasoning/arithmetic step at a time; show key work. Final answer MUST equal: "{final_answer} "Problem: "{problem_formulation} "
+
+Automatic annotation. GPT 5.2 is used to automatically annotate both 
+
+SOLVE_FIRST and INJECT_FROM_SOLUTION for all traces. Explanations or rele-vant excerpts from the distractor-generation trace are also extracted to support the assigned labels (Table 18). 
+
+Annotation quality. A stratified subset of 50 samples are labeled manually. Agreement between manual and automatic annotations yields κ = 0 .85 (p < 
+
+0.001 ). On LLMs’ Student Modeling Strategies 27 
+
+C.2 Error Simulation Simulation prompt. Errors are simulated using the prompt in Table 16, with 
+
+DeepSeek-V3.2 in reasoning mode. 
+
+Table 16. Prompt for generating an incorrect student answer conditioned on a specific misconception {error} on one math word problem {problem_formulation} .  
+
+> System Prompt
+> You will be given a math question and specific student error. Please generate the incorrect answer that a student would give on the current question if they made the specified error. At the end, give the student’s final concise answer preceded with ‘Incorrect Student Answer:’
+> User Prompt
+> Question: {problem_formulation}
+> Student Error: {error}
+
+Manual analysis for consistency. To evaluate consistency with any reason-able interpretation of the provided error, we first compare the generated answer against all available distractors for the same question that are sourced from the same error. For cases where the answer does not match any available distrac-tor, we inspect the reasoning trace step-by-step to verify whether the error was correctly implemented. Albeit rarely the case, we consider examples consistent if the error is correctly implemented but is combined with a second error. Most instances are straightforward to evaluate; for example, errors such as “rounds too much” are trivial to classify. 
+
+C.3 Literature-Informed Reasoning Structure 
+
+We use the prompt in Table 17 to enforce a reasoning structure informed by the literature, with DeepSeek-V3.2 in reasoning mode. 28 Y. Zengaffinen et al. 
+
+Table 17. Prompt for enforcing an ideal—learning science informed—distractor gen-eration procedure for a single math problem {problem_formulation} .
+
+System Prompt 
+
+You will be given a math question. Please generate {n} incorrect distractor answers for the question to be used as multiple-choice options in a multiple-choice exam. **RULES** Solve correctly first: 1. First, solve the problem correctly and treat the most likely correct solution as fixed. 2. Identify the key concepts involved in the correct solution. 3. Specify the exact conditions that an answer must violate to be a valid distractor. Error modeling: 4. Enumerate at most 7 common error primitives relevant to this problem. Each error primitive must be either: (a) a buggy rule (an incorrect transformation or procedure), or (b) a buggy commitment (a false assumption or misclassification treated as true). 5. Each error primitive must be specific, stable, and capable of producing a concrete deterministic answer. Error simulation: 6. For each error primitive, assume the student fully commits to that single error and reasons correctly in all other respects. 7. Derive the final incorrect answer that results from that single error and collect it as a distractor candidate. - If the question is non-numerical, output the final incorrect conclusion, classification or choice that follows from the error primitive. Plausibility Assessment: 8. For each distractor candidate you assess its discriminative power: - check if the candidate can be derived deterministically - check if the candidate is truly incorrect under any reasonable interpretation - quantify how likely students are to stop here and select this candidate - make sure it is unambiguous and well-formed Selection: 9. From the remaining candidates, select the {n} most distinct plausible distractors. Output rules: 10. You should only output the final concise distractor values in the following template: 
+
+[Template ]
+
+Distractor1: ... Distractor{n}: 
+
+User Prompt 
+
+Question: {problem_formulation} On LLMs’ Student Modeling Strategies 29 
+
+Table 18. Prompt for annotating solve-first and inject-from-solution behavior in LLMs’ traces {trace} when generating distractors. 
+
+System Prompt 
+
+You will be given a reasoning trace whose purpose is to generate *plausible incorrect distractor answers* for a math problem (i.e., simulate student mistakes). Your job is to label two independent properties: **1. SOLVE_FIRST:** Does the trace *attempt to solve the original problem correctly step-by-step* (compute the correct answer path), even if it later discusses mistakes/distractors? - YES if it tries to lay out a solution procedure and/or computes intermediate results toward the true answer. - NO if it jumps straight to distractors/misconceptions without first doing a solution attempt. **2. INJECT_FROM_SOLUTION:** Does the trace *use the correct solution path as scaffolding* by referencing a specific step/intermediate quantity from the correct solution and then “branching off” by applying an incorrect operation/value there, propagating that error to a final distractor? - YES only if you can point to a concrete “branch point” tied to the correct solution (e.g., “Up to step X it’s correct; then it miscomputes X or applies the wrong operation to X, yielding distractor Y”). - NO if distractors are proposed without an explicit branch point from the correct solution (e.g., “a possible distractor is 30 m/s” with no tie to a specific intermediate step), OR if it only lists misconceptions abstractly without anchoring them to a step in the correct solution. These labels are **independent**: A can be YES while B is NO (solves correctly first, then proposes distractors without branching). B is unlikely if A is NO, but still label based on the text. Return output in EXACTLY this format (for regex parsing): SOLVE_FIRST_DISCUSSION: <short quote or paraphrase from trace that is relevant for SOLVE_FIRST; or “N/A”> SOLVE_FIRST_LABEL: YES|NO INJECT_FROM_SOLUTION_DISCUSSION: <short quote or paraphrase from trace that is relevant for INJECT_FROM_SOLUTION; or “N/A”> INJECT_FROM_SOLUTION_LABEL: YES|NO **Mini-examples (for guidance only):** Example 1 (SOLVE_FIRST=YES, INJECT_FROM_SOLUTION=YES): Reasoning Trace: “Let’s solve: 30min=0.5h; v=60/0.5=120km/h; /3.6=33.3m/s. Student might incorrectly compute 60/0.5 as 30km/h, then convert...” Expected Output: “SOLVE_FIRST_DISCUSSION: Correct problem solving present. SOLVE_FIRST_LABEL: YES INJECT_FROM_SOLUTION_DISCUSSION: Branches off at the 60/0.5 step with a calculation mistake. INJECT_FROM_SOLUTION_LABEL: YES” Example 2 (SOLVE_FIRST=NO, INJECT_FROM_SOLUTION=NO): Reasoning Trace: “A potential distractor is 30 m/s.” Expected Output: “SOLVE_FIRST_DISCUSSION: No problem solving attempted. SOLVE_FIRST_LABEL: NO INJECT_FROM_SOLUTION_DISCUSSION: N/A INJECT_FROM_SOLUTION_LABEL: NO” Example 3 (SOLVE_FIRST=YES, INJECT_FROM_SOLUTION=NO): Reasoning Trace: “The correct solution is: 30min=0.5h; v=60/0.5=120km/h; /3.6=33.3m/s. One potential distractor is 45m/s.” Expected Output: “SOLVE_FIRST_DISCUSSION: Question is first solved correctly. SOLVE_FIRST_LABEL: YES INJECT_FROM_SOLUTION_DISCUSSION: No solution step is referenced and no related branching off takes place. INJECT_FROM_SOLUTION_LABEL: NO” Now label the following reasoning trace. 
+
+[BEGIN TRACE ]
+
+{trace} 
+
+[END TRACE ]30 Y. Zengaffinen et al. 
+
+## D Additional Experiments 
+
+D.1 Coverage of strategies. 
+
+Beyond the characterization of LLMs’ distractor generation process in § 4.2, it is also informative to examine not only how frequently each strategy occurs on average within a trace, but also how many traces contain at least one instance of that strategy. 
+
+Results. In Table 19, we observe that across both GLM-4.7 and DeepSeek-V3.2 , reasoning traces show substantially higher coverage of taxonomy strategies than CoT traces, especially for evaluative and iterative behaviors such as PLAUS ,
+
+CURATE , and RECON . Core generative steps (e.g., CORR , ERR_DESC , INST ) are nearly universal across models and prompting styles, suggesting they are structural components of distractor generation. Compared to DeepSeek-V3.2 , GLM-4.7 
+
+exhibits less frequent RECON but relatively stronger ERR_SIM in CoT, indicating minor differences between models. 
+
+D.2 Less capable models. 
+
+Our study focuses on highly capable models that enable the collection of reason-ing traces. Nevertheless, it is useful to examine whether smaller models exhibit similar patterns. We therefore evaluate GPT-oss-20b with deterministic sam-pling. The proportional match in reasoning with the simple prompt (0.30 ±
+
+0.03) is significantly lower than with the literature-informed reasoning structure (0.35 ± 0.03), suggesting that smaller models may adhere less strictly to the misconception-based process than larger models.

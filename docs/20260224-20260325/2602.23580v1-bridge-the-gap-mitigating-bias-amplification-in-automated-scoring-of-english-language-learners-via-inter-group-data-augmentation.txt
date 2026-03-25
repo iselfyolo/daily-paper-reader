@@ -1,0 +1,354 @@
+Title: BRIDGE the Gap: Mitigating Bias Amplification in Automated Scoring of English Language Learners via Inter-group Data Augmentation
+
+URL Source: https://arxiv.org/pdf/2602.23580v1
+
+Published Time: Mon, 02 Mar 2026 01:20:25 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# BRIDGE the Gap: Mitigating Bias Amplification in Automated Scoring of English Language Learners via Inter-group Data Augmentation 
+
+Yun Wang 1*, Xuansheng Wu 1*, Jingyuan Huang 1, Lei Liu 2, Xiaoming Zhai 3,and Ninghao Liu 4 
+
+> 1
+
+School of Computing, University of Georgia, Athens, GA, USA  
+
+> 2
+
+Educational Testing Service, Princeton, NJ, USA  
+
+> 3
+
+AI4STEM Education Center, University of Georgia, Athens, GA, USA  
+
+> 4
+
+The Hong Kong Polytechnic University, Hong Kong, China 
+
+Xiaoming.Zhai@uga.edu, ninghliu@polyu.edu.hk 
+
+Abstract. In the field of educational assessment, automated scoring systems increasingly rely on deep learning and large language models (LLMs). However, these systems face significant risks of bias amplifica-tion, where model prediction gaps between student groups become larger than those observed in training data. This issue is especially severe for underrepresented groups such as English Language Learners (ELLs), as models may inherit and further magnify existing disparities in the data. We identify that this issue is closely tied to representation bias: the scarcity of minority (high-scoring ELL) samples makes models trained with empirical risk minimization favor majority (non-ELL) linguistic pat-terns. Consequently, models tend to under-predict ELL students who even demonstrate comparable domain knowledge but use different lin-guistic patterns, thereby undermining the fairness of automated scor-ing outcomes. To mitigate this, we propose BRIDGE, a Bias-Reducing 
+
+Inter-group Data GE neration framework designed for low-resource as-sessment settings. Instead of relying on the limited minority samples, BRIDGE synthesizes high-scoring ELL samples by “pasting” construct-relevant (i.e., rubric-aligned knowledge and evidence) content from abun-dant high-scoring non-ELL samples into authentic ELL linguistic pat-terns. We further introduce a discriminator model to ensure the quality of synthetic samples. Experiments on California Science Test (CAST) datasets demonstrate that BRIDGE effectively reduces prediction bias for high-scoring ELL students while maintaining overall scoring perfor-mance. Notably, our method achieves fairness gains comparable to using additional real human data, offering a cost-effective solution for ensuring equitable scoring in large-scale assessments. 
+
+Keywords: Automated Scoring · Bias Amplification · English Language Learners · Algorithmic Fairness · LLM-based Data Augmentation. * These authors contributed equally.  
+
+> arXiv:2602.23580v1 [cs.CL] 27 Feb 2026 2Y. Wang et al.
+
+## 1 Introduction 
+
+Automated scoring systems powered by deep learning and large language mod-els (LLMs) have been increasingly deployed in educational assessment [11, 30], demonstrating strong performance and promising scalability for large-scale eval-uations [10, 31]. These systems are inherently data-driven, with predictive per-formance heavily dependent on the quality and representativeness of the training data [6, 33]. However, such reliance creates a critical vulnerability in which im-balances in the training data are not just inherited but potentially amplified in model predictions [16, 22]. This phenomenon, known as bias amplification ,can widen group-level performance disparities in predicted scores beyond those warranted by actual proficiency differences [4, 18, 20]. It thereby undermines the fairness of automated scores in educational settings, particularly for underrep-resented subgroups such as English Language Learners (ELLs) [29]. Such bias amplification can arise from the interaction between data-level rep-resentation bias and the empirical risk minimization (ERM) objective used to train deep models [13, 16]. Representation bias occurs when certain parts of the target population are severely underrepresented in the training data [23]. In ed-ucational assessment datasets, ELLs constitute only a small proportion of the student population, with high-scoring ELL responses being even rarer [28, 29]. This places high-performing ELL students in an extremely sparsely supervised region of the data distribution. Under the ERM paradigm, models prioritize majority patterns to minimize average loss, effectively down-weighting learning signals from underrepresented subgroups [13, 21]. As a result, models may pri-marily learn scoring criteria from non-ELL exemplars, potentially assigning lower scores to ELL responses that employ different but valid linguistic strategies, even when their responses demonstrate comparable domain knowledge. This system-atic underprediction can distort predictions for high-performing ELL students and widen group-level disparities beyond those present in the training data. To mitigate bias amplification and its downstream fairness impacts, a natu-ral strategy is to enlarge the training data for underrepresented subgroups [23]. Given that manually collecting new high-scoring ELL responses is difficult in practice, targeted synthetic data generation becomes a practical alternative. However, existing augmentation methods offer limited leverage when the tar-get subgroup is extremely underrepresented, precisely the regime where aug-mentation is most needed. Most existing methods implicitly assume access to a non-trivial pool of subgroup examples to enable resampling or rewriting [2, 5, 7]. When such samples are scarce, classical resampling approaches can lead models to overfit the few minority samples rather than learning generalizable patterns [2, 19]. Similarly, simple paraphrasing methods, including those based on LLMs, can increase apparent sample diversity, but they face a trade-off be-tween diversity and fidelity [5, 7]. Mild paraphrases often yield near-duplicate responses with limited additional learning signal, whereas aggressive rewrites can drift in meaning and inadvertently alter rubric-relevant content or normal-ize away subgroup-specific language patterns [24]. Moreover, such paraphrastic transformations are typically weakly constrained, making it hard to audit which Mitigating Bias Amplification via Inter-group Data Augmentation 3
+
+aspects of the response are preserved or changed. This lack of transparency raises concerns about controllability and interpretability in assessment settings. To address these challenges, we propose BRIDGE, an inter-group data aug-mentation framework designed for extreme underrepresentation scenarios, as il-lustrated in Fig. 1. Unlike resampling or paraphrasing methods whose effective-ness depends on having sufficient examples from the target subgroup, BRIDGE can generate high-quality training data even when the subgroup contains only a handful of samples. Our key insight, grounded in a modular view of stu-dent responses [1, 17], is that semantic content indicates proficiency (i.e., high scores) while linguistic patterns reflect group status (e.g., ELL vs. non-ELL). Thus, although high-scoring ELL responses may be nearly absent, we have ac-cess to two abundant and complementary resources: high-scoring non-ELL re-sponses that demonstrate group-invariant construct-relevant content, and other ELL responses that exhibit group-specific linguistic patterns. BRIDGE leverages construct-relevant content from high-scoring non-ELL responses and reformu-lates it within linguistic patterns characteristic of ELL students. This process generates synthetic responses that adhere to the scoring rubric while reflecting the linguistic characteristics of ELL, offering a more controlled and interpretable augmentation procedure than generic paraphrasing. To ensure the quality of the synthetic data, we further train a discriminator model to automatically filter candidate responses. The main contributions of this work are as follows: 1. Revealing and quantifying bias amplification in automated scoring models on high-scoring ELLs, with theoretical analysis from an ERM perspective. 2. Proposing BRIDGE, an inter-group data augmentation framework that mit-igates extreme underrepresentation by blending high-score content with sub-group specific linguistic patterns without requiring additional real data. 3. Demonstrating on real educational datasets that BRIDGE reduces predic-tion bias while maintaining scoring performance, achieving fairness gains comparable to real-data augmentation. 
+
+## 2 Bias Amplification in Automated Scoring 
+
+This section formally defines the automated scoring task and the associated phe-nomenon of bias amplification. Section 2.1 formalizes the scoring task and intro-duces the Empirical Risk Minimization (ERM) paradigm. Section 2.2 introduces the concept of representation bias and analyzes how it interacts with ERM to impede learning from underrepresented groups. Finally, Section 2.3 characterizes the mechanism of bias amplification and defines a metric to quantify it. 
+
+2.1 Problem Formulation 
+
+We consider an automated scoring task where each example consists of a student response x ∈ X , a holistic score y ∈ Y = {0, 1, . . . , K } assigned by human raters, 4 Y. Wang et al. (a) Educational feedback loop with bias                             
+
+> •Measurement bias
+> •Representation bias
+> •… …
+> Assessment Data
+> •Behavioral bias
+> •Content Production bias
+> •… …
+> Student Interaction
+> •Algorithm bias
+> •Evaluation bias
+> •… …
+> Scoring Algorithm
+> Count
+> Score y012
+> Non -ELL ELL
+> Skewed decision
+> boundary
+> ොy=2
+> Sparse ELL ×
+> high -score region
+> □: y=0 △: y=1 ○: y=2
+> gray = Non -ELL orange = ELL
+> Bias Amplification
+> (b) ERM Training on Biased Data
+> Group -wise score distribution
+> Non -ELL high -score
+> responses
+> evidence
+> reasoning Thing is
+> ELL responses
+> (linguistic patterns )
+> writtting
+> Intuition: paste high -score content into ELL linguistic patterns
+> LLM Generator
+> Synthetic high -scoring ELL responses
+> Discriminator
+> (c) BRIDGE: Inter -group Stylistic
+> Reformulation & Discriminative Filtering
+> Augment
+
+Fig. 1. Overview of the bias amplification loop and the BRIDGE framework. (a) Bias Propagation: Representation bias in training data creates a feedback loop that re-inforces educational disparities. (b) ERM Vulnerability: Under ERM, the decision boundary for high scores is skewed by the majority non-ELL group, causing system-atic underprediction of the sparse ELL high-score subgroup. (c) BRIDGE Frame-work: Our approach mitigates this by performing inter-group stylistic reformulation, extracting construct-relevant content from high-scoring non-ELL samples and injecting ELL-specific linguistic patterns, followed by a discriminator for quality control. 
+
+and a binary group label g ∈ G = {EL , NE } indicating the student’s English learner status, where K is the maximum score level, EL refers to ELLs, and NE to non-ELLs. Let P denote the data distribution over X ×Y ×G . The training set consists of n i.i.d. examples D = {(xi, y i, g i)}ni=1 drawn from P . We write nEL 
+
+and nNE for the number of ELL and non-ELL responses in the training data. A scoring model fθ : X → R maps an arbitrary response x to a predicted score ˆy = fθ (x) that approximates the human annotation y, where θ denotes the model parameters. The parameters are learned by minimizing the empirical risk over the training set: 
+
+ˆR(fθ ) = 1
+
+n
+
+nX
+
+i=1 
+
+ℓ fθ (xi), y i
+
+, (1) where ℓ denotes a standard loss function. This objective corresponds to the usual ERM paradigm [25]. From a fairness perspective, we are particularly interested in performance for high-scoring ELL students. Let τ denote a high-score threshold (for example, the top score level). We define the target subgroup as SEL,high = {i | gi =
+
+EL , y i ≥ τ }. Under the ERM objective in Equation (1), all training examples are weighted equally in the loss. When |S EL,high | is very small, the contribution of this subgroup to the overall objective becomes negligible. Mitigating Bias Amplification via Inter-group Data Augmentation 5
+
+2.2 Representation Bias under ERM 
+
+Building on the ERM formulation in Section 2.1, we now analyze how repre-sentation bias in the training distribution interacts with ERM and impedes the model’s learning from underrepresented groups. Informally, we say the training data exhibit representation bias when some subgroups are severely underrep-resented [23], such as ELL students and in particular high-scoring ELL students, who constitute only a tiny fraction of the data. As we show below, the losses from these subgroups contribute only weakly to the ERM objective and its gradient. We view each example (x, y, g ) as drawn from a joint data distribution P . For a given scoring function f , the population risk is R(f ) = E(x,y,g )∼P
+
+ℓ(f (x), y ).Using the group label g, the population risk decomposes into a mixture of group-wise risks: 
+
+R(f ) = X
+
+> g∈{ EL ,NE }
+
+P (g) Eℓ(f (x), y ) | g = X
+
+> g∈{ EL ,NE }
+
+πg Rg (f ), (2) where πg = P (g) is the population ratio of group g and Rg (f ) = Eℓ(f (x), y ) | g
+
+is the group-wise risk. Given the training set D of size n introduced in Section 2.1, the empirical risk in Equation (1) admits a similar decomposition. Let ng = {i | gi = g} denote the number of examples from group g, and define the empirical group-wise risk 
+
+ˆRg (fθ ) = 1
+
+ngnX
+
+> i=1
+
+1{gi = g}ℓ fθ (xi), y i
+
+. (3) Then 
+
+ˆR(fθ ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ℓ fθ (xi), y i
+
+ = X
+
+> g∈{ EL ,NE }
+
+ng
+
+n ˆRg (fθ ). (4) The gradient of the ERM objective decomposes accordingly: 
+
+∇θ ˆR(fθ ) = X
+
+> g∈{ EL ,NE }
+
+ng
+
+n ∇θ ˆRg (fθ ). (5) Under i.i.d. sampling, ng /n is a consistent estimator of πg . Equation (5) shows that each group’s contribution to the ERM gradient is proportional to its sample fraction. When a group is underrepresented, its gradient term is naturally down-weighted, and optimization is driven primarily by the majority group. Similar observations have been made in prior work on fairness under ERM and distribu-tional robustness [13, 15]. In our setting, this phenomenon is particularly severe for the high-scoring ELL subgroup SEL,high , which in our dataset constitutes only about 3.76% of ELL responses and less than 1% of all responses (see Section 4.1). As a result, its learning signal contributes negligibly to ERM optimization, and the high-score decision boundary is shaped largely by non-ELL examples. 6 Y. Wang et al. 
+
+2.3 From Representation Bias to Bias Amplification 
+
+Having established that ERM down-weights learning signals from underrepre-sented subgroups, we now characterize how this imbalance can lead to bias am-plification. We define bias amplification as the phenomenon in which the dis-parities between groups in model predictions exceed those present in the training data [26, 32]. To quantify bias amplification in automated scoring, we follow the idea of the directional bias amplification metric BiasAmp → [26] and focus on the direction 
+
+A → T , i.e., how the protected attribute A affects the prediction of the task outcome T beyond what is present in the labeled data. In our setting, the English group label g ∈ { EL , NE } serves as the protected attribute A, and the task is to predict whether a student will get a high score, formalized as the binary indicator T = 1[y ≥ τ ]. Given a scoring model f , we obtain predicted scores 
+
+ˆy = f (x) and define the predicted high-score indicator ˆT = 1[ˆ y ≥ τ ]. For each group g ∈ { EL , NE }, we define the high-score rate in the labeled data and in the model predictions as ptrue (g) = Pr( T = 1 | g), ppred (g) = Pr( ˆT = 1 | g).The group disparity in high-score rates in the labeled data and model is then ∆data = ptrue (NE) − ptrue (EL) , and ∆model = ppred (NE) − ppred (EL) , re-spectively. We define our bias amplification metric as the change in this disparity induced by the model training process: 
+
+BiasAmp( f ) = ∆model − ∆data . (6) Here BiasAmp( f ) > 0 means that the model amplifies the bias in the same direc-tion as in the labeled data. BiasAmp( f ) ≈ 0 indicates that the model largely pre-serves the disparity present in the labeled distribution, whereas BiasAmp( f ) < 0
+
+corresponds to attenuation or even reversal of this disparity. To theoretically substantiate how representation bias leads to bias amplifica-tion, we decompose BiasAmp( f ) into its constituent classification error terms. For each group g, define the joint false-positive and false-negative rates FP g =Pr( T = 0 , ˆT = 1 | g), FN g = Pr( T = 1 , ˆT = 0 | g). Within a fixed group g, the true and predicted high-score rates can be expressed in terms of these quantities: 
+
+ptrue (g) = Pr( T = 1 | g) = Pr( T = 1 , ˆT = 1 | g) + FN g , (7) 
+
+ppred (g) = Pr( ˆT = 1 | g) = Pr( T = 1 , ˆT = 1 | g) + FP g . (8) Hence ppred (g) − ptrue (g) = FP g − FN g . Intuitively, FP g is the fraction of low-scoring responses in group g that the model “upgrades” to high scores (over-predictions), whereas FN g is the fraction of truly high-scoring responses that it “downgrades” (underpredictions). Thus ppred (g) − ptrue (g) is exactly the net upward shift in the high-score rate induced by the model for group g.Substituting ppred (g) − ptrue (g) = FP g − FN g for g ∈ { NE , EL } into the definition of BiasAmp( f ) yields 
+
+BiasAmp( f ) = FP NE − FN NE 
+
+ − FP EL − FN EL 
+
+ (9) 
+
+= FP NE − FP EL 
+
+ + FN EL − FN NE 
+
+. (10) Mitigating Bias Amplification via Inter-group Data Augmentation 7
+
+This decomposition shows that bias amplification arises when the model assigns more false-positive high scores to non-ELLs ( FP NE > FP EL ), while pro-ducing more false-negative errors for ELLs ( FN EL > FN NE ). This pattern is expected under representation bias and ERM-dominated training. Under the representation bias characterized in Section 2.2, the high-score decision boundary is shaped predominantly by non-ELL responses [13]. During training, the model may conflate construct-relevant content with linguis-tic patterns typical of high-scoring non-ELL responses, effectively treating these group-specific patterns as a proxy for high proficiency. In contrast, high-scoring ELL responses often exhibit valid but sparsely represented linguistic features [8, 27], so the model tends to under-predict high-scoring ELL responses at test time [13]. This mechanism naturally induces FP NE > FP EL and FN EL > FN NE ,and, combined with the decomposition above, implies BiasAmp( f ) > 0.
+
+## 3 Mitigating Bias Amplification with BRIDGE 
+
+Our analysis in Section 2 demonstrates that bias amplification arises from skewed decision boundaries under ERM. Left unaddressed, such biased predictions risk perpetuating a feedback loop (Fig. 1(a)) in which underprediction discourages minority students, leading to behavioral and content production biases that fur-ther reinforce representation bias. To break this cycle, we propose BRIDGE, a framework designed to intervene at the data level by augmenting the sparse 
+
+SEL,high subgroup. BRIDGE (Fig. 1(c)) operates in two stages: (i) an LLM-based generator performs inter-group stylistic reformulation to “paste” high-score con-tent into ELL linguistic patterns; (ii) a discriminator filters synthetic candidates to ensure they are indistinguishable from authentic student responses. 
+
+3.1 Stage 1: Inter-group Stylistic Reformulation 
+
+The primary objective of the first stage is to synthesize high-quality responses that occupy the sparse SEL,high region. While high-scoring ELL samples are rare, the complementary abundance of high-scoring non-ELL content and rep-resentative ELL linguistic patterns offers a viable path for synthesis. However, effectively leveraging these resources requires a principled decoupling justified by construct validity, which holds that domain-specific assessments should primar-ily target construct-relevant proficiency while minimizing construct-irrelevant variance arising from extraneous linguistic barriers [1, 3, 17]. Motivated by this principle, we conceptualize a student response x as a modular composition of construct-relevant content C(·) and linguistic style S(·).Empirical analyses of five datasets support this conceptualization. Even at the same score level, ELL responses xEL and non-ELL responses xNE remain linearly discriminable in the BERT latent space [9] (ROC AUC: 0.794–0.830). Crucially, identical scores are intended to reflect comparable content performance between ELL and non-ELL, and any residual content variations would typically average out across large samples. Thus, the persistent discriminability we observe 8 Y. Wang et al. 
+
+suggests that the distinction resides not in the construct-relevant content, but in group-specific stylistic distributions. Building on this, BRIDGE formalizes the synthesis of high-quality ELL samples as a conditional generation task: 
+
+xsyn = G C(xNE ), S (xEL ), (11) where xNE ∈ S NE,hi is the content donor and xEL is drawn from the ELL popula-tion. Specifically, the generator G is instructed to “paste” the construct-relevant content of xNE into the authentic ELL linguistic patterns of xEL , bridging the representation gap without introducing construct-irrelevant bias. 
+
+3.2 Stage 2: Discriminative Filtering for Authenticity 
+
+While Stage 1 reformulates high-score content into ELL patterns, outputs may still contain artifacts that deviate from the authentic distribution. Thus, we in-troduce a Discriminative Filtering stage to ensure authenticity of the augmented data. Specifically, we train a discriminator D to distinguish between authentic responses and the synthetic candidates generated in Stage 1. For each candidate 
+
+xsyn , the discriminator outputs an authenticity score D(xsyn ) ∈ [0 , 1] , represent-ing the probability that the response originates from a real student rather than an LLM. We retain samples that exceed a predefined confidence threshold γ:
+
+S∗ 
+
+> syn
+
+= { xsyn | D(xsyn ) > γ }. (12) By filtering out overly polished or hallucinated responses, this stage helps the augmented set S∗ 
+
+> syn
+
+better match the linguistic profile of the ELL population while providing the necessary high-score evidence. 
+
+## 4 Experiments 
+
+In this section, we evaluate the performance of the BRIDGE framework across five diverse science assessment items. Our experiments are guided by the follow-ing three research questions: RQ1: Does the ERM-based scoring model amplify prediction disparity for the sparse SEL,high subgroup? RQ2: To what extent can BRIDGE reduce this bias amplification compared to existing augmentation methods? RQ3: Can BRIDGE maintain competitive overall scoring accuracy while improving fairness for the SEL,high subgroup? 
+
+4.1 Datasets 
+
+Following prior work [12], we use Grade 8 student constructed-response data from the California Science Test (CAST), a state-administered assessment of science knowledge. Students write short answers that are scored by human raters on a 0/1/2 scale. We collapse the original seven English proficiency categories into a binary group label: the ELL group and the Non-ELL group. Across items, ELL students account for about 14.2% of responses (range ≈ 11.7%–17.0%). Mitigating Bias Amplification via Inter-group Data Augmentation 9
+
+The Sparsity Challenge. We focus on the intersectional subgroup SEL,high 
+
+(ELL students achieving score 2). This subgroup is rare, accounting for a median of 3.76% (mean = 8.28%) within the ELL population. In typical small to medium items containing about 200 ELL responses, about 60% of the items contain 10 or fewer SEL,high samples. Consequently, a standard train/validation/test split (e.g., 60/20/20) would yield a test set with only a few SEL,high samples (typically ≤ 3
+
+samples), making subgroup metrics statistically unreliable or even undefined. 
+
+Simulated Low-Resource Scenario. To investigate extreme sparsity during training while maintaining reliable evaluation, we select five large-scale items, each containing roughly 200,000 responses (30,000 ELL responses). For these items, the absolute count of SEL,high samples is sufficient for testing (ranging from 
+
+713 to 3, 658 ), while their within-ELL proportions mirror the sparse distributions of smaller items. For each item, we perform a two-stage stratified random split. Data are first divided into training ( 70% ), validation ( 15% ), and test ( 15% ) sets. We then subsample 1% of the training data to simulate an extreme low-resource scenario. The remaining 99% of the training pool is reserved solely as a donor source for real-data (oracle) augmentation experiments. The validation and test sets remain fixed across all conditions to ensure reliable performance estimation. 
+
+4.2 Experimental Setup Scoring Models. We fine-tune bert-base-uncased as a three-way sequence classifier over score level 0/1/2, with a maximum input length of 256 tokens. The model is trained with cross-entropy loss and optimized using AdamW (learning rate 2×10 −5, weight decay 0.01 , batch size 16 ) and a linear learning-rate schedule with warm-up for up to 20 epochs. We employ early stopping with a patience of 3 epochs (minimum improvement: 0.001), retaining the checkpoint with the highest validation accuracy for test-set evaluation. All experiments are repeated over 10 random seeds to ensure statistical stability. 
+
+BRIDGE Implementation. To synthesize additional SEL,high samples, we uti-lize GPT-4o [14] ( T = 0 .8) to perform the inter-group stylistic reformulation on the training split. Following the framework described in Section 3, we extract construct-relevant content from non-ELL high-scoring responses and reformulate it using ELL-specific linguistic patterns. Candidates are then passed through a lightweight discriminator trained on a mixture of authentic and synthetic re-sponses for up to 10 epochs. We retain only synthetic samples exceeding an authenticity threshold of γ = 0 .6, which are assigned the SEL,high label and used as augmented training data in the subsequent experiments. 
+
+Baselines. We compare BRIDGE against three augmentation strategies while keeping the scoring architecture and optimization constant. (i) Real-data aug-mentation (Oracle): Adds additional authentic SEL,high samples, drawn from the held-out 99% pool, to the 1% training set up to a fixed budget. This serves as an Oracle upper bound, representing the model’s potential when provided with additional real human data. (ii) Oversampling: A standard baseline for address-ing class imbalance. Randomly replicates existing SEL,high samples within the 
+
+1% training set with replacement to meet the budget without introducing new 10 Y. Wang et al. 
+
+linguistic content. (iii) Paraphrasing : An intra-group baseline using GPT-4o to rewrite available SEL,high samples, relying solely on existing minority patterns without leveraging external content. All baselines differ exclusively in the con-struction of the additional SEL,high training instances, ensuring observed perfor-mance gains are attributable to the augmentation strategy. 
+
+Evaluation Metrics. We evaluate models across two dimensions: scoring per-formance and group fairness. Scoring performance is measured by Accuracy ,
+
+Quadratic Weighted Kappa (QWK) , Mean Absolute Error (MAE) , and Macro-F1 , providing a holistic view of agreement and robustness. To quantify fairness, we report: (i) MSG Gap: Defined as the difference between the model’s Non-ELL vs. ELL Mean Score Gap (MSG) and the corresponding MSG under human scores. Positive values indicate that the model widens the human MSG. (ii) Bi-asAmp: As defined in Section 2.3, this metric measures bias amplification for the 
+
+SEL,high subgroup by capturing the change in the Non-ELL vs. ELL disparity at the score 2 level between human and model scores. All metrics are reported as mean ± standard deviation over 10 random seeds. 
+
+4.3 Results and Analysis Quantification of Bias Amplification (RQ1) To evaluate RQ1, we examine whether the vanilla scoring model (baseline) amplifies the Non-ELL vs. ELL disparity for the high-scoring subgroup SEL,high . For each dataset, we compute the high-score disparity in the training data, ∆data , and in the model predictions, 
+
+∆model , and obtain the bias amplification measure BiasAmp = ∆model − ∆data 
+
+defined in Section 2.3. As shown in Table 1, across the five datasets, the baseline model consistently exhibits positive bias amplification: BiasAmp ranges from 
+
+0.0073 to 0.0156 (mean = 0.0119 ). In other words, the model further widens the between-group disparity in the probability of receiving the top score by about 3.4–9.0% relative to the disparity already present in the training data. To ensure these findings are statistically meaningful rather than artifacts of random initialization, we perform significance tests over all runs for each dataset. We test the null hypothesis H0 : BiasAmp = 0 against the one-sided alternative 
+
+H1 : BiasAmp > 0. Following normality checks, we apply either one-sample t-tests or Wilcoxon signed-rank tests as appropriate. Across all five datasets, the baseline model consistently exhibits significant bias amplification (all p < 0.01 ). These results provide robust evidence that scoring models systematically amplify existing group disparities for the SEL,high subgroup under data sparsity. 
+
+Comparative Analysis of Mitigation Strategies (RQ2) To address RQ2, we compare the mitigation efficacy of BRIDGE against all baseline strategies. As summarized in Table 1, BRIDGE reduces both group-level disparity (MSG Gap) and high-score amplification (BiasAmp) across the majority of datasets. For instance, in Dataset 5, BRIDGE reduces the MSG Gap from 0.0134 to 0.0009, a 93.28% reduction in group-level disparity. Similarly, in Dataset 1, our method reduces the BiasAmp from 0.0097 to -0.0014, indicating that the model Mitigating Bias Amplification via Inter-group Data Augmentation 11 
+
+Table 1. Bias mitigation performance of different data augmentation methods on five CAST datasets, each with 20 additional SEL,high samples per method. Mean ± standard deviation over 10 random seeds. Best and second-best MSG Gap and BiasAmp are highlighted in bold and underlined, respectively. Fairness Performance Dataset Aug. Method MSG Gap ↓ BiasAmp ↓ Acc.(%) ↑ MAE ↓ QWK(%) ↑ F1(%) ↑
+
+Dataset 1 Baseline (no aug.) 0.0279 ±0.0134 0.0097 ±0.0081 90.17 ±0.48 0.0988 ±0.0053 89.77 ±0.64 88.68 ±0.50 
+
++ Real-data (oracle) 0.0100 ±0.0129 0.0025 ±0.0093 90.19 ±0.48 0.0993 ±0.0046 89.68 ±0.34 88.58 ±0.59 
+
++ Oversampling 0.0279 ±0.0092 0.0107 ±0.0054 90.41 ±0.42 0.0962 ±0.0043 90.05 ±0.40 89.01 ±0.40 
+
++ Paraphrasing 0.0268 ±0.0137 0.0082 ±0.0094 90.31 ±0.32 0.0974 ±0.0035 89.86 ±0.39 88.77 ±0.33 
+
++ Ours 0.0079 ±0.0139 -0.0014 ±0.0085 90.22 ±0.27 0.0994 ±0.0031 89.53 ±0.38 88.63 ±0.27 
+
+Dataset 2 Baseline (no aug.) 0.0125 ±0.0045 0.0132 ±0.0039 94.32 ±0.32 0.0568 ±0.0032 96.15 ±0.21 92.81 ±0.41 
+
++ Real-data (oracle) 0.0120 ±0.0089 0.0088 ±0.0072 94.38 ±0.25 0.0564 ±0.0024 96.17 ±0.16 92.86 ±0.33 
+
++ Oversampling 0.0145 ±0.0056 0.0121 ±0.0038 94.48 ±0.18 0.0553 ±0.0018 96.26 ±0.12 92.99 ±0.26 
+
++ Paraphrasing 0.0155 ±0.0056 0.0132 ±0.0024 94.32 ±0.32 0.0569 ±0.0032 96.15 ±0.21 92.78 ±0.41 
+
++ Ours 0.0094 ±0.0086 0.0097 ±0.0056 94.39 ±0.41 0.0562 ±0.0042 96.18 ±0.27 92.89 ±0.62 
+
+Dataset 3 Baseline (no aug.) 0.0032 ±0.0092 0.0073 ±0.0066 91.28 ±0.32 0.0874 ±0.0033 93.43 ±0.20 87.76 ±0.51 
+
++ Real-data (oracle) -0.0034 ±0.0183 0.0034 ±0.0130 91.27 ±0.39 0.0876 ±0.0039 93.39 ±0.34 87.83 ±0.53 
+
++ Oversampling -0.0006 ±0.0156 0.0036 ±0.0111 91.41 ±0.29 0.0861 ±0.0030 93.47 ±0.27 88.04 ±0.40 
+
++ Paraphrasing 0.0033 ±0.0130 0.0075 ±0.0109 91.38 ±0.33 0.0864 ±0.0033 93.48 ±0.31 87.93 ±0.47 
+
++ Ours -0.0037 ±0.0117 0.0031 ±0.0080 91.24 ±0.28 0.0880 ±0.0026 93.40 ±0.20 87.70 ±0.46 
+
+Dataset 4 Baseline (no aug.) 0.0140 ±0.0225 0.0156 ±0.0126 88.71 ±0.60 0.1131 ±0.0060 92.79 ±0.41 86.32 ±0.71 
+
++ Real-data (oracle) 0.0111 ±0.0143 0.0170 ±0.0092 88.78 ±0.48 0.1126 ±0.0047 92.84 ±0.26 86.23 ±0.83 
+
++ Oversampling 0.0172 ±0.0140 0.0200 ±0.0069 89.00 ±0.43 0.1104 ±0.0042 92.97 ±0.23 86.58 ±0.74 
+
++ Paraphrasing 0.0176 ±0.0154 0.0223 ±0.0069 88.70 ±0.39 0.1133 ±0.0037 92.79 ±0.22 86.19 ±0.66 
+
++ Ours 0.0128 ±0.0157 0.0170 ±0.0050 88.92 ±0.44 0.1111 ±0.0043 92.93 ±0.27 86.45 ±0.55 
+
+Dataset 5 Baseline (no aug.) 0.0134 ±0.0154 0.0135 ±0.0102 91.46 ±0.29 0.0865 ±0.0030 94.25 ±0.21 88.35 ±0.54 
+
++ Real-data (oracle) 0.0122 ±0.0088 0.0131 ±0.0043 91.41 ±0.29 0.0868 ±0.0029 94.22 ±0.22 88.43 ±0.45 
+
++ Oversampling 0.0113 ±0.0081 0.0119 ±0.0054 91.51 ±0.26 0.0858 ±0.0027 94.32 ±0.16 88.37 ±0.51 
+
++ Paraphrasing 0.0194 ±0.0064 0.0142 ±0.0027 91.42 ±0.28 0.0870 ±0.0029 94.23 ±0.19 88.22 ±0.62 
+
++ Ours 0.0009 ±0.0173 0.0050 ±0.0087 91.36 ±0.27 0.0878 ±0.0031 94.12 ±0.25 88.25 ±0.53 
+
+Note. F1 denotes the macro-averaged F1 score over score levels. 
+
+no longer under-predicts high-scoring ELLs. For datasets with larger initial bias amplification (e.g., Datasets 1 and 5), these reductions are statistically significant (p < 0.01 ), whereas for items with smaller baseline bias (e.g., Dataset 3), the nu-merical improvements are directionally consistent but statistically inconclusive. Beyond these general improvements, BRIDGE demonstrates competitive per-formance against the Real-data aug. (Oracle), achieving numerically superior fairness metrics in Datasets 1, 3, and 5. For instance, in Dataset 5, BRIDGE achieves a BiasAmp of 0.0050 , representing a 61 .83% further reduction in high-score bias compared to the oracle ( 0.0131 ). We attribute this superiority to the fact that BRIDGE creates controlled examples by injecting prototypical Non-ELL high-score logic into ELL linguistic patterns. This targeted intervention helps the model learn to decouple surface-level language features from content quality, providing a more concentrated debiasing signal than the naturally oc-curring variations in authentic ELL samples. Compared to intra-group baselines, BRIDGE exhibits crucial robustness in challenging scenarios. Oversampling and Paraphrasing show marginal or even 12 Y. Wang et al. 
+
+negative effects across most datasets, confirming that intra-group augmentation lacks sufficient signal diversity when the target subgroup is sparse. Notably, in the most challenging scenario, Dataset 4, Oversampling and Paraphrasing yield “adverse effects”, increasing BiasAmp by 28 .21% and 42 .95% respectively. In contrast, BRIDGE maintains comparable performance to the oracle baseline. 
+
+Trade-off between Fairness and Scoring Performance (RQ3) Regarding RQ3, Table 1 demonstrates that the substantial fairness gains of BRIDGE do not compromise overall scoring performance. Across all five datasets, BRIDGE intro-duces negligible changes to all performance metrics: Accuracy varies by −0.11% 
+
+to +0 .24% , QWK by −0.27% to +0 .15% , Macro F1 by −0.11% to +0 .15% , and MAE by −1.77% to +1 .50% . These variations fall within the standard deviation of the baseline model, indicating that BRIDGE effectively mitigates bias ampli-fication without degrading the model’s scoring capability. This suggests that the fairness-performance tradeoff, a common bottleneck in bias mitigation methods, is not a significant concern for BRIDGE. 
+
+4.4 Ablation Study 
+
+To investigate the contribution of the Discriminative Filtering (Stage 2), we compare the full BRIDGE framework against a “generation-only” variant (w/o Stage 2). Our results indicate that Stage 1 (Inter-group Stylistic Reformulation) serves as the primary driver for bias mitigation, while Stage 2 provides critical quality control and robustness gains. For instance, in Dataset 5, Stage 1 alone achieves a 90 .78% reduction in MSG Gap (from 0.0134 to 0.0012 ), with Stage 2 contributing a marginal further improvement to 0.0009 , yielding an additional absolute improvement of 0.0003 (about 2.5% of the baseline). The necessity of Stage 2 becomes more apparent in scenarios where Stage 1’s initial gains are con-strained. For Dataset 1, Stage 1 reduces the MSG Gap by 44 .90% (from 0.0279 to 0.0154), but Stage 2 is required to reach the final 0.0079 level, representing an additional 26 .88% reduction relative to the baseline. In Dataset 3, Stage 1 alone yields negligible improvements to BiasAmp ( 0.0073 → 0.0071 ). Manual spot-checks suggest that the proportion of high-quality synthetic samples in Dataset 3 is lower than in other items. Consequently, the noise from low-fidelity outputs counteracts the augmentation signal. By filtering out such low-quality samples, Stage 2 enables a significant reduction in BiasAmp to 0.0031 . In satu-rated scenarios like Dataset 2, the marginal impact of Stage 2 (a delta of only 
+
+0.0001 in MSG Gap and 0.0003 in BiasAmp) confirms its role as a reliability mechanism rather than a primary signal generator. Overall, these findings sup-port our two-stage design: Stage 1 establishes the debiasing foundation, while Stage 2 ensures stylistic authenticity and stability. 
+
+## 5 Conclusion and Discussion 
+
+This work reveals and quantifies the phenomenon of bias amplification in ERM-based automated scoring models. To mitigate this, we propose BRIDGE, an Mitigating Bias Amplification via Inter-group Data Augmentation 13 
+
+inter-group data augmentation framework designed for extreme low-resource scenarios. By “pasting” construct-relevant content from high-scoring non-ELL responses into authentic ELL linguistic patterns and employing a discrimina-tive filter to eliminate low-fidelity candidates, BRIDGE effectively fills the gaps in the training data distribution. Our experiments on real-world CAST datasets demonstrate that BRIDGE significantly reduces both group-level disparities and high-score bias amplification while maintaining overall scoring performance. No-tably, BRIDGE achieves fairness performance comparable to augmentation using additional real data. This suggests that in practical settings where high-scoring ELL responses are inherently difficult to obtain, educational institutions can achieve bias mitigation without the prohibitive cost of collecting rare samples. These results highlight BRIDGE as a scalable, controllable, and cost-effective solution for ensuring algorithmic fairness in large-scale educational assessments. Despite its efficacy, BRIDGE relies on the disentanglement of content and style, which may not fully hold in assessments where linguistic expression is part of the core construct. Additionally, this study is limited to short-answer science items, and its generalizability to long essays remains to be tested. Future research will extend BRIDGE to other data scarce educational contexts, explore finer-grained stylistic control, and investigate synergies with other fairness-enhancing strategies to build a more robust and equitable scoring ecosystem. 
+
+## References 
+
+1. Abedi, J.: Psychometric issues in the ell assessment and special education eligibility. Teachers College Record 108 (11), 2282–2303 (2006) 2. Alkhawaldeh, I.M., Albalkhi, I., Naswhan, A.J.: Challenges and limitations of syn-thetic minority oversampling techniques in machine learning. World journal of methodology 13 (5), 373 (2023) 3. American Educational Research Association, American Psychological Association, National Council on Measurement in Education: Standards for Educational and Psychological Testing. American Educational Research Association, Washington, DC (2014) 4. Andersen, N., Mang, J., Goldhammer, F., Zehner, F.: Algorithmic fairness in au-tomatic short answer scoring. International Journal of Artificial Intelligence in Education pp. 1–38 (2025) 5. Chai, Y., Xie, H., Qin, J.S.: Text data augmentation for large language models: A comprehensive survey of methods, challenges, and opportunities. arXiv preprint arXiv:2501.18845 (2025) 6. Chaudhari, R., Patel, M.: Deep learning in automated short answer grading: A comprehensive review. In: ITM Web of Conferences. vol. 65, p. 03003. EDP Sciences (2024) 7. Chen, D., Yin, C.: Data augmentation for intent classification (2022), https://arxiv.org/abs/2206.05790 8. Crossley, S.A., McNamara, D.S.: Predicting second language writing proficiency: The roles of cohesion and linguistic sophistication. Journal of Research in Reading 
+
+35 (2), 115–135 (2012) 9. Devlin, J., Chang, M.W., Lee, K., Toutanova, K.: Bert: Pre-training of deep bidirec-tional transformers for language understanding. In: Proc. of NAACL-HLT (2019) 14 Y. Wang et al. 10. Dikli, S., Bleyle, S.: Automated essay scoring feedback for second language writers: How does it compare to instructor feedback? Assessing writing 22 , 1–17 (2014) 11. Emirtekin, E.: Large language model-powered automated assessment: A systematic review. Applied Sciences 15 (10), 5683 (2025) 12. Guo, S., Wang, Y., Yu, J., Wu, X., Ayik, B., Watts, F.M., Latif, E., Liu, N., Liu, L., Zhai, X.: Artificial intelligence bias on english language learners in automatic scoring. In: International Conference on Artificial Intelligence in Education. pp. 268–275. Springer (2025) 13. Hashimoto, T., Srivastava, M., Namkoong, H., Liang, P.: Fairness without demo-graphics in repeated loss minimization. In: International Conference on Machine Learning. pp. 1929–1938. PMLR (2018) 14. Hurst, A., Lerer, A., Goucher, A.P., Perelman, A., Ramesh, A., Clark, A., Os-trow, A., Welihinda, A., Hayes, A., Radford, A., et al.: Gpt-4o system card. arXiv preprint arXiv:2410.21276 (2024) 15. Leino, K., Black, E., Fredrikson, M., Sen, S., Datta, A.: Feature-wise bias amplifi-cation. arXiv preprint arXiv:1812.08999 (2018) 16. Mehrabi, N., Morstatter, F., Saxena, N., Lerman, K., Galstyan, A.: A survey on bias and fairness in machine learning. ACM computing surveys (CSUR) 54 (6), 1–35 (2021) 17. Messick, S.: Validity. ETS research report series 1987 (2), i–208 (1987) 18. Palermo, C.: Rater characteristics, response content, and scoring contexts: Decom-posing the determinates of scoring accuracy. Frontiers in Psychology 13 , 937097 (2022) 19. Park, S., Hong, Y., Heo, B., Yun, S., Choi, J.Y.: The majority can help the minority: Context-rich minority oversampling for long-tailed classification. In: Proceedings of the IEEE/CVF conference on computer vision and pattern recognition. pp. 6887–6896 (2022) 20. Plecko, D., Bareinboim, E.: Mind the gap: A causal perspective on bias amplifica-tion in prediction & decision-making. Advances in Neural Information Processing Systems 37 , 84384–84408 (2024) 21. Sagawa, S., Koh, P.W., Hashimoto, T.B., Liang, P.: Distributionally robust neu-ral networks for group shifts: On the importance of regularization for worst-case generalization. arXiv preprint arXiv:1911.08731 (2019) 22. Schwartz, R., Schwartz, R., Vassilev, A., Greene, K., Perine, L., Burt, A., Hall, P.: Towards a standard for identifying and managing bias in artificial intelligence, vol. 3. US Department of Commerce, National Institute of Standards and Tech-nology . . . (2022) 23. Shahbazi, N., Lin, Y., Asudeh, A., Jagadish, H.: Representation bias in data: A sur-vey on identification and resolution techniques. ACM Computing Surveys 55 (13s), 1–39 (2023) 24. Sourati, Z., Ziabari, A.S., Dehghani, M.: The homogenizing effect of large language models on human expression and thought. arXiv preprint arXiv:2508.01491 (2025) 25. Vapnik, V.: Principles of risk minimization for learning theory. Advances in neural information processing systems 4 (1991) 26. Wang, A., Russakovsky, O.: Directional bias amplification. In: International Con-ference on Machine Learning. pp. 10882–10893. PMLR (2021) 27. Weigle, S.C.: English language learners and automated scoring of essays: Critical considerations. Assessing Writing 18 (1), 85–99 (2013) 28. Welch, C., Dunbar, S., Ji, J., Vernon, A., Park, J.: Response time for english learners on large-scale writing assessments. Assessing writing 66 , 100979 (2025) Mitigating Bias Amplification via Inter-group Data Augmentation 15 29. Wilson, J., Huang, Y.: Validity of automated essay scores for elementary-age en-glish language learners: Evidence of bias? Assessing Writing 60 , 100815 (2024) 30. Xu, H., Gan, W., Qi, Z., Wu, J., Yu, P.S.: Large language models for education: A survey. arXiv preprint arXiv:2405.13001 (2024) 31. Zhai, X., Pellegrino, J.W.: Large-scale assessment in science education. In: Hand-book of research on science education, pp. 1045–1097. Routledge (2023) 32. Zhao, J., Wang, T., Yatskar, M., Ordonez, V., Chang, K.W.: Men also like shop-ping: Reducing gender bias amplification using corpus-level constraints. arXiv preprint arXiv:1707.09457 (2017) 33. Zhu, X., Wu, H., Zhang, L.: Automatic short-answer grading via bert-based deep neural networks. IEEE Transactions on Learning Technologies 15 (3), 364–375 (2022). https://doi.org/10.1109/TLT.2022.3175537

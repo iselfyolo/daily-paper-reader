@@ -1,0 +1,414 @@
+Title: Optimizing In-Context Demonstrations for LLM-based Automated Grading
+
+URL Source: https://arxiv.org/pdf/2603.00465v1
+
+Published Time: Tue, 03 Mar 2026 01:31:27 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Optimizing In-Context Demonstrations for LLM-based Automated Grading 
+
+Yucheng Chu 1, Hang Li 1, Kaiqi Yang 1, Yasemin Copur-Gencturk 2, Kevin Haudek 1, Joseph Krajcik 1, and Jiliang Tang 1 
+
+> 1
+
+Michigan State University  
+
+> 2
+
+University of Southern California 
+
+Abstract. Automated assessment of open-ended student responses is a critical capability for scaling personalized feedback in education. While large language models (LLMs) have shown promise in grading tasks via in-context learning (ICL), their reliability is heavily dependent on the selection of few-shot exemplars and the construction of high-quality ra-tionales. Standard retrieval methods typically select examples based on semantic similarity, which often fails to capture subtle decision bound-aries required for rubric adherence. Furthermore, manually crafting the expert rationales needed to guide these models can be a significant bot-tleneck. To address these limitations, we introduce GUIDE (Grading 
+
+Using Iteratively Designed Exemplars), a framework that reframes ex-emplar selection and refinement in automated grading as a boundary-focused optimization problem. GUIDE operates on a continuous loop of selection and refinement, employing novel contrastive operators to iden-tify “boundary pairs” that are semantically similar but possess different grades. We enhance exemplars by generating discriminative rationales that explicitly articulate why a response receives a specific score to the exclusion of adjacent grades. Extensive experiments across datasets in physics, chemistry, and pedagogical content knowledge demonstrate that 
+
+GUIDE significantly outperforms standard retrieval baselines. By focus-ing the model’s attention on the precise edges of rubric, our approach shows exceptionally robust gains on borderline cases and improved rubric adherence. GUIDE paves the way for trusted, scalable assessment sys-tems that align closely with human pedagogical standards. 
+
+Keywords: Automated Grading · Large Language Models · Exemplar Optimization · In-Context Learning · Science Education · Teacher Edu-cation 
+
+## 1 Introduction 
+
+Automated assessment is a central goal in artificial intelligence in education (AIED), offering the potential for timely feedback and scalable support in large, diverse classrooms [3]. Within this domain, automatically grading open-ended short answers remains technically demanding. Unlike keyword matching, valid assessment requires interpreting semantic nuances, evaluating causal reasoning  
+
+> arXiv:2603.00465v1 [cs.AI] 28 Feb 2026 2Y. Chu et al.
+
+and handling the immense linguistic variability students use to express identi-cal concepts. Traditional supervised models, which rely on task-specific features and large annotated datasets often struggle to transfer effectively across chang-ing curricula or distinct student populations due to overfitting [3]. Large lan-guage models (LLMs) have transformed this landscape by enabling in-context learning (ICL), allowing models to perform complex assessments given only a rubric and labeled demonstrations [2, 11]. This paradigm is particularly appeal-ing for educational assessments as it leverages the model’s pre-trained world knowledge to generalize across different topics and question types without exten-sive, task-specific feature engineering. Despite these advantages, the reliability of LLM-based in-context graders is often compromised by their sensitivity to the selection and ordering of exemplars [20, 13]. This sensitivity is exacerbated by the noise inherent in authentic classroom data, where student responses exhibit various writing styles and partial reasoning that are difficult to separate [3, 7]. This in part reflects developmental learning, as learners take up new ideas and gradually develop more sophisticated understanding of disciplinary topics. To systematically enhance reliability, we approach the problem through two complementary perspectives: enriching the informational content of individual exemplars and optimizing the discriminative composition of the exemplar set. The first perspective addresses the ambiguity inherent in mapping noisy student text to a score. Augmenting examples with high-quality chain-of-thought (CoT) rationales can significantly improve model performance by explicitly breaking down the grading process [19]. In educational contexts, expert-written ratio-nales are particularly valuable, as they not only justify the score but also model the specific pedagogical tone and rubric adherence required for valid assessment. However, manual curation of such expert explanations is labor-intensive and often prohibitively expensive to scale. To address this bottleneck, we seek to synthesize these high-quality rationales. By pairing existing responses with gen-erated reasoning, we can construct robust exemplars without sole reliance on human experts. The second pathway focuses on defining the precise decision boundaries within the context window. We posit that the reliability issue often stems from suboptimal context composition, where the selected examples fail to clarify edge cases. Standard selection strategies, such as similarity-based retrieval [10], often fail in this domain because they prioritize semantic proximity over pedagogical utility. In a grading context, retrieving an example that is semantically simi-lar to the student’s response is insufficient. Effective grading prompts require not merely representative examples, but contrastive pairs that appear seman-tically similar but receive different scores. This forces the model to attend to the nuanced differences that define the grade. While research in other domains has attempted to enhance ICL [18, 16], they have significant limitations when applied to automated grading. For example, BRIDGE [18] treats exemplars as in-dependent discrete units and optimizes a set to maximize global accuracy. While effective for tasks like mathematical problem solving where answers are defini-tive, this approach often fails to capture subtle distinctions required for rubric Optimizing In-Context Demonstrations for LLM-based Automated Grading 3
+
+adherence in educational settings. These challenges raise a pivotal question re-garding how we can automatically construct and refine in-context exemplars that attend to boundary cases to maximize grading reliability under realistic constraints. To address this challenge, we present GUIDE (Grading Using Iteratively 
+
+Designed Exemplars), an automated framework that reframes exemplar opti-mization in grading as a boundary definition problem. Unlike prior work that relies solely on global accuracy signals to select independent demonstrations, 
+
+GUIDE enhances optimization process with the focus on discriminative inter-action between examples. The framework operates on an iterative loop of “selec-tion” and “refinement”. First, to select the most effective set of exemplars, we introduce novel contrastive operators within a constrained Bayesian optimiza-tion framework. Instead of randomly mutating the exemplar set, the contrastive operators actively seek boundary pairs that are semantically similar but possess different grades. The operators attempt to swap or insert these boundary cases into context window, forcing the optimizer to select exemplars that clearly de-lineates the decision boundary rather than just illustrating typical cases. Since selecting boundary examples is insufficient if the model does not understand 
+
+why they differ, we adopt discriminative rationale generation . We prompt the LLM to generate contrastive rationales that explicitly articulate why a response receives a specific score and not its adjacent neighbors (for instance, explaining why a response is a score of 1 rather than 0 or 2). By automating the construction of these pedagogical boundary pairs, GUIDE not merely shows what the typical examples are, but teaches where the precise boundaries between distinct score levels are drawn. The optimized boundary pairs and their rationales are used as seeds to generate new synthetic rationales and select the ideal boundary cases for the next iteration. Finally, this optimal exemplar set with synthetic rationales can clarify the decision space while significantly reduce manual effort. We vali-date our approach through extensive empirical analysis on diverse educational datasets spanning the domains of physics science, chemistry, and pedagogical knowledge. Our research demonstrates that GUIDE consistently outperforms baselines by prioritizing the resolution of borderline cases, thereby offering a more robust and pedagogically valid foundation for automated grading. 
+
+## 2 Related Work 
+
+2.1 Automated Grading of Open-Ended Responses 
+
+Automated grading for short-answer and essay scoring has evolved significantly over the past decades. Early systems relied heavily on hand-crafted features, which are fed into traditional supervised classifiers [3]. The deep learning era shifted the paradigm toward pre-trained language models like BERT and RoBERTa, which achieved state-of-the-art performance by fine-tuning on labeled datasets [5, 12]. Most recently, the field has adopted LLMs via ICL, where the model grades responses given only a rubric and a few examples [2]. While ICL reduces the labeling burden, recent studies highlight that off-the-shelf LLMs can be in-consistent, struggling with specific rubric constraints or exhibiting unsatisfactory performance based on student writing styles [14]. 4 Y. Chu et al. 
+
+2.2 Prompt and Exemplar Optimization in ICL 
+
+In-context learning (ICL) performance is highly sensitive to the formatting and ordering of demonstrations, often requiring careful engineering to maximize model accuracy [20]. Dominant selection heuristics typically retrieve examples from a fixed pool based on semantic similarity or distribution coverage [10, 17]. Similarity metrics in grading often fail to distinguish between correct reasoning and plausible-sounding misconceptions that share high lexical overlap [16]. Fur-thermore, relying on a static pool prevents the correction of noisy or unclear student responses [3]. To address the fragility of fixed retrieval, recent research has shifted toward automating the design of instructions and demonstrations. Techniques like APE and the “optimize-generate” paradigm treat the prompt as a variable to be optimized, iteratively synthesizing or refining exemplars to improve performance [21, 18]. 
+
+## 3 Problem Statement 
+
+We formulate automated grading as a classification task that maps a student response x ∈ X to a discrete score y ∈ Y (e.g., Y = {0, 1, 2}). We utilize a frozen large language model M to perform in-context learning, where predictions are conditioned on a context window composed of a task instruction I, a grading rubric R, and a set of demonstrations E = {e1, . . . , e k}. Each demonstration is a tuple ej = ( xj , y j , r j ), containing a reference response, its ground-truth score, and a rationale explaining the grading logic. The model predicts the score for a query response x according to: 
+
+ˆy = argmax 
+
+> y∈Y
+
+PM(y | x, I, R, E)
+
+In practice, we assume access to a training dataset S = {(xi, y i)}Ni=1 . Op-tionally, a small subset of training examples Sexp ⊆ S is associated with expert-annotated rationales (where Sexp may be ∅), while the remainder lacks reasoning annotations. Our objective is to optimize the demonstration set E for grading performance on a held-out validation set V. Specifically, we seek to select a sub-set of training examples and generate effective rationales for them, forming an optimal demonstration set E∗ = {(xj , y j , r j )}kj=1 where (xj , y j ) ∈ S , to maximize the prediction accuracy of M.
+
+## 4 Method 
+
+We propose GUIDE (Grading Using Iteratively Designed Exemplars), an it-erative framework that constructs optimal in-context demonstration sets by tar-geting decision boundaries where nuanced grading errors occur. As illustrated in Fig. 1 and Algorithm 1, GUIDE alternates between two phases over T rounds. In the selection phase, constrained Bayesian optimization identifies a boundary-focused demonstration set E∗ from a candidate pool P. In the generation phase, discriminative rationale generation synthesizes rubric-compliant rationales via contrastive infilling, thereby enriching P for the subsequent iteration. Optimizing In-Context Demonstrations for LLM-based Automated Grading 5Expert Seeds  
+
+> (S exp )
+> Training
+> Data (S)
+> Validation
+> Data (V)
+> Initial
+> Discriminative
+> Infill
+> Initial
+> Candidate
+> Pool (P o)
+> Candidate
+> Pool (P t)
+> Constrained
+> Candidate
+> Generation
+> Evaluate
+> Candidates on
+> Validation Set
+> Select
+> Optimal
+> Subset (E *t)
+> Discriminative
+> Infill
+> Generation
+> New
+> Discriminative
+> Rationales
+> Update Pool
+> (P t+1 )
+> Next Round (t+1)
+> Final Grader
+> Prompt (E *T)
+> After T Rounds
+> PHASE 1: CONSTRAINED OPTIMIZATION PHASE 2: TEACHER -FORCED EXPANSION
+> Bayesian
+> Optimization
+
+Fig. 1: An overview of the GUIDE algorithm. 
+
+4.1 Phase 0: Candidate Pool Initialization 
+
+GUIDE operates over a dynamic candidate pool P, which augments the train-ing set S with generated rationales. Each exemplar in the pool is a triplet e =(x, y, r ), where r is a rationale explaining why input x warrants label y. Unlike the static training set, the pool evolves across rounds as new rationales are generated. We initialize the pool by retaining expert exemplars with their human-authored rationales (if available) and generating initial rationales for all remaining training examples (Algorithm 1 Line 1): P0 ← P exp ∪ { (xi, y i, r (0)  
+
+> i
+
+) : ( xi, y i) ∈ S \ S exp }
+
+where Pexp = {(xi, y i, r exp  
+
+> i
+
+)}(xi,y i)∈S exp denotes the expert exemplars with their human-authored rationales, and r(0)  
+
+> i
+
+is generated by the LLM conditioned on the expert exemplars as context. 
+
+4.2 Phase 1: Bayesian Optimization with Contrastive Selection 
+
+Given the pool Pt at round t, we seek an optimal subset E∗ 
+
+> t
+
+⊆ P t that, when used as the few-shot context, yields the highest alignment with the ground truth rubric. Direct optimization is computationally intractable due to the exponential search space of potential subsets and the high cost of executing an LLM inference pass for every evaluation. To address this, we employ Bayesian optimization (BO) to efficiently navigate the search space (Lines 4–18). This approach maintains a probabilistic surrogate model to approximate the mapping between an exemplar subset and its grading quality, allowing us to identify promising candidates with minimal computational expense. 6 Y. Chu et al. 
+
+Algorithm 1 GUIDE Framework 
+
+Require: S, Sexp , V, rounds T , budget neval 
+
+Ensure: E∗
+
+> T
+
+1: Initialize P0 ← P exp ∪ { (xi, y i, r (0)  
+
+> i
+
+)}(xi,y i)∈S\S exp 
+
+2: for t = 1 to T do 
+
+3: Phase 1: Selection 
+
+4: D ← ∅ ▷ Observation history 5: for i = 1 to ninit do ▷ GP Initialization 6: E ← RandomSubset (Pt)
+
+7: D ← D ∪ { (E, Evaluate (E, V)) }
+
+8: end for 
+
+9: Fit GP on D
+
+10: for j = 1 to neval − ninit do ▷ BO Iterations 11: Generate candidates C via contrastive operators 12: Enext ← arg max E∈C EI (GP , E)
+
+13: D ← D ∪ { (Enext , Evaluate (Enext , V)) }
+
+14: Refit GP on D
+
+15: end for 
+
+16: a∗ ← max (E,·)∈D Acc (E) ▷ Best accuracy 17: D∗ ← { (E, ·) ∈ D : Acc (E) = a∗} ▷ Tie candidates 18: E∗ 
+
+> t
+
+← arg max E∈D ∗ (Contrastive (E), −|E| ) ▷ Lexicographic 19: if t < T then 
+
+20: Phase 2: Generation 
+
+21: for (xi, y i) ∈ S do 
+
+22: r(t) 
+
+> i
+
+← ContrastiveInfill (xi, y i, E∗ 
+
+> t
+
+)
+
+23: end for 
+
+24: Pt+1 ← Merge&Cap (Pt, {(xi, y i, r (t) 
+
+> i
+
+)})
+
+25: end if 
+
+26: end for 
+
+27: return E∗
+
+> T
+
+Optimization Objective To operationalize the concept of grading quality, we define a multi-objective function g(E) that balances global accuracy with the structural properties of the context window. While high validation accuracy is the primary signal of success, relying on it alone can lead to unstable results due to the stochastic nature of LLMs. Therefore, we incorporate regularization terms that prioritize sparsity and pedagogical discriminability. Overall, we optimize three objectives simultaneously: (1) validation accuracy Acc (E, V), (2) sparsity 
+
+−|E| to encourage the selection of concise subsets that reduce token usage and inference latency, and (3) contrastive density Contrastive (E) to reward boundary pair coverage. Rather than manually tuning fixed weights, we adopt Tchebycheff scalarization with randomized weights [1], which converts the multi-objective problem into a sequence of single-objective problems: 
+
+g(E) = max ( w1 · (Acc (E, V) − Acc ∗), w 2 · (−|E| )) + w3 · Contrastive (E)
+
+where Acc ∗ is the best accuracy observed so far, and the weights (w1, w 2, w 3) are randomly sampled at each BO iteration. This randomization enables exploration Optimizing In-Context Demonstrations for LLM-based Automated Grading 7
+
+of diverse trade-offs on the Pareto front without requiring manual hyperparame-ter tuning. The crucial component for enhanced reliability is the Contrastive (E)
+
+term, which quantifies the subset’s ability to define decision boundaries. We cal-culate this score based on the density of “boundary pairs” within the selected subset. A pair of exemplars (ei, e j ) is considered a boundary pair if they possess high semantic similarity yet carry distinct ground truth labels. Formally, this is defined where sim (ei, e j ) ≥ τ and ℓ(ei)̸ = ℓ(ej ) (sim (·)3 denotes cosine similarity and ℓ(·) represents the ground truth label). By maximizing this term, the objec-tive function explicitly rewards subsets that present the model with boundary scenarios (i.e., instances where adjacent scores are separated by subtle linguis-tic or logical nuances) thereby teaching the model to distinguish between grade levels rather than merely recognizing surface patterns. 
+
+Candidate Generation via Contrastive Operators To effectively navigate the combinatorial search space, we approach candidate generation from two complementary perspectives: greedy exploitation and global exploration. The greedy component focuses on iteratively refining the currently best-performing subset, Ebest , by generating slightly different candidates yet with structurally significant modifications. This local refinement is driven by our novel Con-trastive Operators , which are designed to actively manipulate the decision bound-aries within the context window. For each exemplar ei ∈ E best , we first iden-tify a set of boundary candidates Ci from the broader pool Pt defined by: 
+
+Ci = {ej ∈ P t \ E best | sim (ei, e j ) ≥ τ ∧ | ℓ(ei) − ℓ(ej )| = 1 }. This constraint ensures that we focus exclusively on candidates that are semantically proximal to existing demonstrations yet belong to a strictly adjacent label. We utilize this set through two distinct operations that alter the decision space in different ways. First, the Contrastive-Add operator inserts a candidate 
+
+ej ∈ C i into the existing subset alongside ei. By placing two semantically similar but distinctly labeled examples side-by-side, this operation increases the resolu-tion of the context, forcing the model to attend to the specific micro-features that distinguish the grades, effectively sharpening the decision boundary. However, relying solely on addition would cause the subset to grow monotonically, eventu-ally exceeding the context window or inflating inference costs. To mitigate this, we employ the Contrastive-Swap operator, which replaces ei with ej . This opera-tion recalibrates the location of the decision boundary within the semantic space, allowing the optimizer to test whether shifting the local standard for a specific concept improves global accuracy. We also allow standard One-Flip perturba-tions to further fine-tune the subset [8]. Conversely, the exploration component prevents the algorithm from stagnating in local optima through Random Sam-pling , which introduces subsets drawn independently from the entire pool Pt.Finally, to ensure the search is continually anchored by high-quality pedagogical priors, the manually curated expert subset is invariably added to the candidate pool in every iteration.   
+
+> 3Cosine similarity between embeddings from text-embedding-3-small . Embeddings are computed for each exemplar by concatenating the input response and rationale.
+
+8 Y. Chu et al. 
+
+Efficient Evaluation and Selection To select the best candidate from the generated pool without running expensive inferences on all of them, we utilize a Gaussian process (GP) surrogate. Since exemplar subsets are discrete com-binatorial objects, we encode them as binary membership vectors and project them into a continuous latent space. The GP is fitted on historically observed pairs of (subset, objective value), allowing it to predict the mean quality μ and uncertainty σ for all new candidates. We employ the Expected Improvement (EI) acquisition function to select the most promising candidate for actual LLM evaluation: EI (E) = ( μ(E) − g+)Φ(z) + σ(E)ϕ(z), where g+ represents the best objective value observed so far, and Φ, ϕ are the standard normal CDF and PDF. The EI criterion naturally balances the exploitation of high-performing regions with the exploration of uncertain configurations. Once the chosen candidate is evaluated via the LLM, the result is used to update the GP, and the cycle repeats (Lines 10–15). Upon the exhaustion of the evaluation budget, the final subset is selected using a lexicographic criterion (Lines 16–18) that prioritizes validation accuracy first, followed by the contrastive score, ensuring that the final output is not only accurate but pedagogically robust. 
+
+4.3 Phase 2: Discriminative Rationale Generation The student effectively explains the relationship      
+
+> between potential energy and repulsive force due to
+> like charges, demonstrating an understanding of
+> Coulomb's law. They correctly state that potential
+> energy builds up between the charges and
+> transforms to kinetic energy, allowing the carts to
+> move away from each other. Additionally, the
+> explanation … shows an integration of energy
+> concepts with … Therefore, the response merits a
+> score of 1…
+> The teacher's response implies an issue with
+> proportionality in a long -term context and
+> mentions discussion, which suggests an awareness
+> of maintaining relationships in ratios. However,
+> it does not explicitly address the need for
+> students to jump at a constant rate , which is
+> necessary to provide a strong analysis of the
+> task's appropriateness for teaching equivalent
+> ratios, leading to a score of 1.
+> At the proximity illustrated, their electric fields
+> may be interacting with each other. Being the
+> same charges means they will repel, so in between
+> them in their fields is potential energy build up.
+> Once the wedges are removed, it will convert to
+> kinetic allowing them to move but the repulsive
+> force will dictate them to do so away from each
+> other. Once they are far enough to not feel each
+> other's impact, they will stop.
+> Students must use equivalent ratios to convert
+> to the increased time. Their competitiveness will
+> shine as they discuss who had the most jumps
+> and the teacher could discuss if the relationship
+> would be proportional in a long -term real -world
+> situation.
+
+GUIDE 
+
+GUIDE 
+
+> Expert
+> Label: 1
+> Expert
+> Label: 1
+
+Example 1: Physics 
+
+Example 2: Pedagogy 
+
+Fig. 2: Illustrative examples of demonstrations (student response, expert label, and synthetic rationale) generated by GUIDE. The second phase creates a feedback loop to improve the quality of the can-didate pool Pt itself. The logic driving this iteration is that the quality of a generated rationale is strictly dependent on the quality of the context provided during its generation. The optimal subset E∗
+
+t identified in Phase 1 is, by defini-tion, highly effective at distinguishing grade boundaries. We utilize this subset to regenerate rationales for the training data S, thereby creating higher-quality candidates for subsequent optimization rounds (Lines 21–24). Optimizing In-Context Demonstrations for LLM-based Automated Grading 9
+
+Discriminative Rationale Generation GUIDE employs discriminative ra-tionale generation via contrastive infill . For each training example (xi, y i) ∈ S ,we perform teacher-forced infilling where the LLM is prompted to generate the rationale ri conditioned on the correct label yi and the optimal exemplar set E∗
+
+> t
+
+as context. As shown in Fig. 3, the prompt explicitly requires the model to distin-guish the true score from adjacent grades. This forces the articulation of specific rubric constraints and produces the high-quality semantic vectors necessary for contrastive operators. 
+
+Size Regulation After each round t, the generated rationales form a new batch of exemplars that are merged into the existing pool: 
+
+Pt+1 ← P t ∪ { (xi, y i, r (t) 
+
+> i
+
+) : ( xi, y i) ∈ S} 
+
+New exemplars are merged via deduplication, where two exemplars are con-sidered duplicates only if they share identical input, label, and rationale triplets after normalization. This allows the pool to contain multiple rationale variants for the same input-label pair, enabling the optimizer to discover the most effec-tive phrasing. To maintain tractable optimization, we enforce a maximum pool size Nmax . If |P t+1 | > N max , we apply a reduction procedure (Line 24) that partitions the pool into protected expert exemplars Pexp and generated exem-plars Pgen . We retain all expert exemplars and sample Nmax − |P exp | generated exemplars uniformly at random. This ensures that pedagogical priors are never discarded while maintaining diversity among the generated candidates.        
+
+> Instruction for Score 0:
+> “Explain why this deserves a 0 (not a 1 or 2). Specifically mention what is
+> missing that would be needed for a higher score.”
+> Instruction for Score 1:
+> “Explain why this deserves a 1 (not a 0 or 2). Mention what prevents it from being a 0, and what is missing for a 2."
+> Instruction for Score 2:
+> “Explain why this deserves a 2 (not a 0 or 1). Specifically mention what makes this sufficient for the highest score.”
+
+Fig. 3: Sample prompts for discriminative rationale generation. The model is prompted to articulate specific boundary conditions based on the label. 
+
+4.4 Inference 
+
+After T rounds of optimization, the framework converges on the final optimal demonstration set E∗ 
+
+> T
+
+. During inference, this frozen set serves as the static in-context prompt for all incoming test instances: 
+
+ˆy = argmax 
+
+> y∈Y
+
+PM(y | xtest , I, R, E∗ 
+
+> T
+
+)
+
+Unlike dynamic retrieval methods that select different examples for each query, GUIDE relies on the optimized E∗ 
+
+> T
+
+to provide a generalized decision surface. This ensures that the discriminative criteria learned during optimization are consistently applied to grading new submissions. 10 Y. Chu et al. 
+
+## 5 Experiments 
+
+This section evaluates whether GUIDE improves automated grading. Our pri-mary focus is on rubric boundaries where a student response falls between two adjacent score levels. These are the most difficult cases to grade and are most likely to be misgraded by exactly one point. 
+
+5.1 Experimental Setup Datasets We conduct experiments on three datasets that represent different grading contexts in science education and teacher education. The first dataset 
+
+DI contains 314 high school student responses to one assessment item associated with 11 rubrics. This dataset tests students’ knowledge of electrical interactions in high school physical science [9]. DI is assessed with binary labels {0, 1}, where 0 denotes requirement ‘not met’ and 1 denotes requirement being ‘met’ for each of the 11 ideas targeted in the rubric. As DI lacks expert rationales, GUIDE initializes by synthesizing rationales from scratch. The second dataset DC is a chemistry education dataset developed within the 3DLP framework [6]. DC con-tains two tasks, each assessed along two dimensions: DCI (disciplinary core ideas) and SEP (science and engineering practices). DC is graded with ordinal labels 
+
+{0, 1, 2}, where 0 denotes the requirement is ‘not met’, 1 denotes requirement is ‘partially met’, and 2 denotes requirement is ‘fully met’. The third dataset DT is a more complex teacher education dataset, which assesses teacher’s nuanced in-terpretations regarding pedagogical knowledge in teaching mathematics [4]. DT
+
+contains four grading tasks, each using ordinal labels {0, 1, 2}. Overall, we divide each dataset into train, validation, and test sets using a ratio of 3:1:1. The full statistical details of these datasets are in Table 1. Table 1: A summary of statistics of all datasets.                 
+
+> Dataset Domain #Samples Scores #Expert Examples
+> DIInteraction 314 {0,1} 0
+> DTTeacher Education 229 ∼236 {0,1,2} 3∼5 per category
+> DCChemistry 163 ∼184 {0,1,2} 3 per category
+
+Model and Prompt We utilize GPT-4o-mini 4 as the backbone for all grading, rationale generation, and inference tasks. To support the contrastive selection mechanism described in Section 4, we employ text-embedding-3-small 5 to compute the pairwise similarity matrix required for the contrastive operators and the Contrastive (E) objective. The optimization process is configured to run for T = 5 rounds. During Bayesian optimization in each round, the Gaussian process evaluates Neval = 32 
+
+candidate subsets. To maintain a balance between context richness and a concise demonstration subset, we constrain the demonstration set size |E| to [4 , 16] . The semantic similarity threshold for constituting a boundary pair τ = 0 .7. The high threshold ensures that the Contrastive (E) objective only rewards pairs that are semantically very close yet possess divergent labels. The candidate pool for the acquisition function is set to 256, and the maximum size of global exemplar pool   
+
+> 4https://platform.openai.com/docs/models/gpt-4o-mini
+> 5https://platform.openai.com/docs/models/text-embedding-3-small
+
+Optimizing In-Context Demonstrations for LLM-based Automated Grading 11 
+
+Table 2: Dataset-level averages (arithmetic mean over categories/tasks).                                                                                    
+
+> DI(11 categories) DC(4 tasks) DT(4 tasks) Method Acc QWK AdjErr Acc QWK AdjErr NonAdjErr Acc QWK AdjErr NonAdjErr Random 0.75 0.43 0.25 0.58 0.32 0.40 0.03 0.59 0.54 0.38 0.03 KNN SBERT 0.78 0.44 0.21 0.58 0.26 0.40 0.05 0.52 0.52 0.42 0.02 Vote-K0.73 0.45 0.27 0.62 0.38 0.36 0.03 0.60 0.58 0.38 0.01 Naive 0.74 0.42 0.26 0.69 0.39 0.31 0.00 0.59 0.54 0.37 0.04 BRIDGE 0.90 0.57 0.19 0.76 0.53 0.24 0.00 0.66 0.65 0.32 0.02 GUIDE 0.92 0.62 0.08 0.80 0.59 0.20 0.00 0.71 0.67 0.28 0.02
+> Notes: red / green / blue denote the best / second-best / third-best method for each metric.
+
+P is capped at Nmax = 512 to ensure computational tractability. For GUIDE experiments, we use Tchebycheff scalarization with weights sampled at each it-eration: w1 ∼ Uniform (0 .25 , 1.0) , w2 = 0 .8 · (1 − w1), and w3 = 0 .2 · (1 − w1).This eliminates the need for manual weight tuning while enabling exploration of diverse accuracy-parsimony-contrastive trade-offs. The temperature is set to 0.2 for all generation and evaluation calls to ensure stability while allowing for slight variations. All inputs are formatted using a fixed prompt template across all experi-ments. The prompt structure begins with system instruction and full rubric, followed by the selected in-context demonstrations, and ends with the target stu-dent response. Each demonstration contains student response, expert-assigned score, and an expert or generated rationale. All methods use the same task in-struction and rubric and only differ in the selection of in-context demonstrations. 
+
+Baseline Methods We compare our framework with five representative ex-emplar selection baselines, including static strategies (fixed sets for all queries), dynamic strategies (query-specific retrieval), and optimization-based methods. All baselines use the same initial candidate pool and underlying LLM as our main method. The baseline details are as follows: (a) Naive uses a fixed demonstra-tion set without optimization or selection beyond directly including the provided exemplars. This represents the standard “few-shot” or “zero-shot” performance. (b) Random randomly samples a fixed set of k exemplars from the training pool, keeping the subset constant for all test queries. This verifies whether so-phisticated selection strategies outperforms chance selection. (c) KNN SBERT 
+
+dynamically retrieves the top-k most semantically similar exemplars for each query using all-MiniLM-L6-v2 (SBERT) [15] and cosine similarity. This tests the hypothesis that semantic similarity alone yields the most relevant rubric context for grading specific inputs. (d) Vote-k constructs a diverse static set of 
+
+k exemplars by maximizing the minimum distance between selected examples, ensuring broad coverage of the semantic space rather than clustering around the query. (e) BRIDGE [18] uses an optimize-generate loop to find demonstra-tions that maximizes general validation performance. Unlike GUIDE , it does not explicitly target rubric boundaries or generate discriminative rationales. 
+
+Metrics To ensure a comprehensive evaluation, we use three specific metrics. First, accuracy (exact match) measures the percentage of times the model pre-dicts the exact correct score. Second, the quadratic weighted kappa (QWK) is 12 Y. Chu et al. 
+
+particularly relevant for ordinal scales (like 0, 1, 2) because it penalizes disagree-ments based on their distance. In this metric, confusing a 0 with a 2 is penalized much more heavily than confusing a 0 with a 1. Thirdly, to directly diagnose boundary failures, we compute confusion matrix-based error rates. For ordinal labels {0, 1, 2} (DT and DC ), we define the adjacent error rate (AdjErr) as the function of predictions that are off by exactly one level (e.g., instances where the model predicts a 1 when the truth is 2). The non-adjacent error rate (NonAdjErr) measures predictions that skip a level, such as predicting 0 when the truth is 2, which represents a severe failure of logic. For the binary dataset DI , NonAdjErr is always zero by definition, and AdjErr captures all misclassifications. 
+
+5.2 Results Overall grading quality Table 2 presents the aggregate performance across all datasets. On the ordinal datasets DC and DT , GUIDE consistently outper-forms the baselines. As shown in the dataset-level averages, GUIDE achieves the highest accuracy and QWK across the board. On DT , Naive baseline strug-gles with an accuracy of 0.59 and QWK of 0.54 , while GUIDE achieves sub-stantial gains with an accuracy of 0.71 and QWK of 0.67 . This represents a relative accuracy improvement of approximately 20% over the naive baseline. On DC , GUIDE similarly dominates with an accuracy of 0.80 and QWK of 
+
+0.59 , compared to the Naive accuracy of 0.69 and QWK of 0.39 . On the in-teraction dataset DI , GUIDE demonstrates robust generalization to authentic student language, achieving the highest accuracy of 0.92 and QWK of 0.62 ,significantly surpassing standard baselines like Random (accuracy= 0.75 ) and 
+
+Naive (accuracy= 0.74 ). 
+
+Boundary error decomposition A central hypothesis of GUIDE is that boundary-focused exemplars reduce confusion between adjacent scores. The error decomposition in Table 2 confirms this. Across all three datasets, GUIDE yields the lowest AdjErr among all methods. On DI , GUIDE reduces AdjErr to 0.08 ,a massive reduction compared to 0.26 for Naive . On DT and DC , GUIDE 
+
+similarly achieves the lowest adjacent error rates of 0.28 and 0.20 respectively. Crucially, this reduction in AdjErr does not come at the cost of increased gross errors. The NonAdjErr remains negligible ( 0.00 and 0.02 ) for GUIDE , indicating that the primary challenge in these datasets is indeed boundary disambiguation, which the method effectively addresses. 
+
+Performance comparison vs. BRIDGE Comparing GUIDE directly to 
+
+BRIDGE highlights the value of boundary-targeted optimization over general metric optimization. While BRIDGE consistently improves over Naive , GUIDE 
+
+achieves further gains across all metrics. For DT , BRIDGE reaches an accuracy of 0.66 , whereas GUIDE advances this to 0.71 . Similarly, on DC , GUIDE out-performs BRIDGE with an accuracy of 0.80 compared to 0.76 . The distinction is also evident in boundary errors; on DI , GUIDE achieves an AdjErr of 0.08 
+
+compared to 0.19 for BRIDGE . This suggests that explicitly contrasting adja-cent labels and generating discriminative rationales provides a stronger learning signal for the LLM than simply optimizing for validation accuracy. Optimizing In-Context Demonstrations for LLM-based Automated Grading 13 
+
+## 6 Discussion 
+
+The Importance of Boundary-Focused Learning Our findings suggest that one key challenge in automated grading lies in distinguishing between ad-jacent scores. Standard retrieval methods prioritize semantic similarity, which retrieve keyword-heavy examples that fail to clarify the grading criteria. By ex-plicitly optimizing for “contrastive density,” GUIDE forces the model to confront “boundary pairs” that look similar but earn different scores. Experimental results demonstrate that focusing on these specific edge cases significantly sharpens its ability to apply the rubric correctly. This implies that effective ICL for grading requires examples that act as counterpoints rather than just representatives. 
+
+The Role of Discriminative Rationales A critical component of GUIDE is the generation of discriminative rationales. Our ablation studies reveal that standard expert rationales are not always sufficient for disambiguation. The ef-fectiveness of GUIDE lies in its “boundary” reasoning capability. By prompting the model to explain not only why a score is appropriate but also why adjacent scores are inappropriate, we provide the grader with a clearer decision surface. 
+
+Efficiency and Scalability in Educational Contexts From a practical per-spective, GUIDE offers a solution to the “cold-start” problem in automated grading bypassing the thousands of labeled examples required by traditional supervised learning. GUIDE can achieve high reliability with a small, optimized context window of 4 to 16 examples. Furthermore, the framework’s ability to synthesize rationales releases educators from manually writing detailed feedback for every training example. This allows the system to bootstrap from a small set of grades, making high-quality automated assessment accessible for new courses or changing curricula with minimal human effort. 
+
+Budget Although optimization relies on an iterative loop with multiple LLM calls during training, the financial cost remains highly accessible. Utilizing the cost-effective GPT-4o-mini model minimizes the optimization budget, with single-item optimization typically costing $5-8. This represents a manageable one-time investment, as the resulting optimized prompt can be deployed indefinitely for inference at a minimal marginal cost. 
+
+Limitations and Future Directions Future work should explore this boundary-focused optimization to multimodal tasks, such as grading diagrams or mathe-matical derivations, where the definition of a semantic neighbor may be complex. 
+
+## 7 Conclusion 
+
+In this work, we addressed the reliability in LLM-based automated grading by shifting the focus from general accuracy to boundary precision with GUIDE. This framework iteratively selects and refines in-context demonstrations using novel contrastive operators, targeting semantically similar examples with differ-ent grades to clarify decision boundaries. Experiments across physics, chemistry, and teacher education datasets demonstrate that GUIDE significantly reduces adjacent grading errors and shows potential for high-quality, human-aligned au-tomated assessment. 14 Y. Chu et al. 
+
+## References 
+
+1. Bowman Jr, V.J.: On the relationship of the tchebycheff norm and the efficient frontier of multiple-criteria objectives. In: Multiple Criteria Decision Making: Pro-ceedings of a Conference (1976) 2. Brown, T., et al.: Language models are few-shot learners. NeurIPS (2020) 3. Burrows, S., Gurevych, I., Stein, B.: The eras and trends of automatic short answer grading. IJAIED (2015) 4. Copur-Gencturk, Y., Tolar, T.: Mathematics teaching expertise: A study of the dimensionality of content knowledge, pedagogical content knowledge, and content-specific noticing skills. Teaching and Teacher Education (2022) 5. Devlin, J., et al.: Bert: Pre-training of deep bidirectional transformers for language understanding. In: NAACL (2019) 6. He, P., et al.: Predicting student science achievement using post-unit assessment performances in a coherent high school chemistry project-based learning system. Journal of Research in Science Teaching (2023) 7. Horbach, A., Zesch, T.: The influence of variance in learner answers on automatic content scoring. In: Frontiers in education (2019) 8. Johnson, D.S., Papadimitriou, C.H., Yannakakis, M.: How easy is local search? Journal of computer and system sciences (1988) 9. Kaldaras, L., Akaeze, H., Krajcik, J.: Developing and validating next generation science standards-aligned learning progression to track three-dimensional learning of electrical interactions in high school physical science. Journal of Research in Science Teaching (2021) 10. Liu, J., et al.: What makes good in-context examples for gpt-3? arXiv preprint arXiv:2101.06804 (2021) 11. Liu, P., et al.: Pre-train, prompt, and predict: A systematic survey of prompting methods in natural language processing. ACM computing surveys (2023) 12. Liu, Y., et al.: Roberta: A robustly optimized bert pretraining approach. arXiv preprint arXiv:1907.11692 (2019) 13. Min, S., et al.: Rethinking the role of demonstrations: What makes in-context learning work? arXiv preprint arXiv:2202.12837 (2022) 14. Mizumoto, A., Eguchi, M.: Exploring the potential of using an ai language model for automated essay scoring. RMAL (2023) 15. Reimers, N., Gurevych, I.: Sentence-bert: Sentence embeddings using siamese bert-networks. arXiv preprint arXiv:1908.10084 (2019) 16. Rubin, O., Herzig, J., Berant, J.: Learning to retrieve prompts for in-context learn-ing. In: NAACL (2022) 17. Su, H., et al.: Selective annotation makes language models better few-shot learners. arXiv preprint arXiv:2209.01975 (2022) 18. Wan, X., et al.: From few to many: Self-improving many-shot reasoners through iterative optimization and generation. arXiv preprint arXiv:2502.00330 (2025) 19. Wei, J., et al.: Chain-of-thought prompting elicits reasoning in large language mod-els. NeurIPS (2022) 20. Zhao, Z., et al.: Calibrate before use: Improving few-shot performance of language models. In: ICML (2021) 21. Zhou, Y., et al.: Large language models are human-level prompt engineers. In: ICLR (2022)

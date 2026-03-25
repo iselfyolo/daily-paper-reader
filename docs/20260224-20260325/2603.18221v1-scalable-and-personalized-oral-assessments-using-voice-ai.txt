@@ -1,0 +1,265 @@
+Title: Scalable and Personalized Oral Assessments Using Voice AI
+
+URL Source: https://arxiv.org/pdf/2603.18221v1
+
+Published Time: Fri, 20 Mar 2026 00:13:51 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Scalable and Personalized Oral Assessments Using Voice AI 
+
+PANOS IPEIROTIS, New York University, USA 
+
+KONSTANTINOS RIZAKOS, New York University, USA Large language models have broken take-home exams. Students generate polished work they cannot ex-plain under follow-up questioning. Oral examinations are a natural countermeasure—they require real-time reasoning and cannot be outsourced to an LLM—but they have never scaled. Voice AI changes this. We describe a system that conducted 36 oral examinations for an undergraduate AI/ML course at a total cost of $15 ($0.42 per student), low enough to attach oral comprehension checks to every assignment rather than reserving them for high-stakes finals. Because the LLM generates questions dynamically from a rubric, the entire examination structure can be shared in advance: practice is learning, and there is no exam to leak. A multi-agent architecture decomposes each examination into structured phases, and a council of three LLM families grades each transcript through a deliberation round in which models revise scores after reviewing peer evidence, achieving inter-rater reliability (Krippendorff’s 𝛼 = 0.86 ) above conventional thresholds. But the system also broke in instructive ways: the agent stacked questions despite explicit prohibitions, could not randomize case selection, and a cloned professorial voice was perceived as aggressive rather than familiar. The recurring lesson is that behavioral constraints on LLMs must be enforced through architecture, not prompting alone. Students largely agreed the format tested genuine understanding (70%), yet found it more stressful than written exams (83%)—unsurprising given that 83% had never taken any oral examination. We document the full design, failure modes, and student experience, and include all prompts as appendices. CCS Concepts: • Social and professional topics → Student assessment ; • Human-centered computing 
+
+→ Natural language interfaces ; • Computing methodologies → Natural language processing .Additional Key Words and Phrases: oral examination, voice agents, educational assessment, large language models, automated grading, academic integrity, LLM-as-judge 
+
+1 The Problem 
+
+In our AI/ML Product Management course, we noticed a pattern we suspect is now common across higher education: pre-class written submissions appeared thoughtful and well-structured, yet when students were called upon randomly during discussion, many could not explain basic choices in their own submissions after follow-up questions. The gap between written artifact quality and demonstrated understanding was too consistent to attribute to performance anxiety. The problem was compounded by the capstone group project: when students distribute work across teammates and polish contributions with an LLM, written artifacts reveal almost nothing about comprehension. This is a measurement problem. If students cannot defend their written work in real time, the written artifact is measuring something other than what we think it measures [ 2 , 8 , 11 ]. And it is a structural problem, not a cheating problem. LLM-generated text is difficult to distinguish from human writing even by expert raters [ 7 ], and detection tools produce unacceptable false-positive and false-negative rates with systematic bias against non-native speakers. The detection arms race is not one educators can win. Reverting to proctored in-class written exams is one response, but it forecloses exactly the open-ended, project-specific assessment that courses like ours require. Oral examinations sidestep the problem entirely—a point increasingly recognized as educators confront generative AI [ 4 , 5]. They require real-time reasoning, application of knowledge to novel prompts, and defense of specific decisions. They have been used for centuries (the Latin “viva voce” tradition dates to medieval universities), and research consistently shows that structured oral formats achieve high validity    
+
+> Authors’ Contact Information: Panos Ipeirotis, panos@stern.nyu.edu, New York University, New York, New York, USA; Konstantinos Rizakos, konstantinos.rizakos@nyu.edu, New York University, New York, New York, USA. , Vol. 1, No. 1, Article . Publication date: March 2026.
+> arXiv:2603.18221v1 [cs.CY] 18 Mar 2026 2Panos Ipeirotis and Konstantinos Rizakos Examination Pipeline Grading Pipeline
+> Student
+> (voice call)
+> Dynamic Vars
+> (NetID, project) 1. Auth Agent
+> 2. Project Agent
+> 3. Case Agent
+> Transcript
+> (JSON + text)
+> Claude
+> Gemini
+> GPT-5
+> Round 1
+> (independent)
+> Claude
+> Gemini
+> GPT-5
+> Round 2
+> (deliberation)
+> Chair
+> (Claude)
+> Final grade + feedback
+> Human Audit
+> (if flagged)
+
+Fig. 1. End-to-end system architecture. Left: The examination pipeline decomposes each oral exam into three agent phases, with per-student context injected via dynamic variables. Right: The grading pipeline scores each transcript through two rounds of multi-model assessment followed by chair synthesis. Cases flagged for high disagreement are routed to human audit. 
+
+and reliability, with Cronbach’s 𝛼 of 0.75–0.80 versus 0.50 for unstructured formats [ 10 , 12 ]. The reason they fell out of favor is not that they don’t work. It’s that they don’t scale. A 25-minute oral examination for a class of 36 students, evaluated by two graders, requires 30 hours of faculty or teaching assistant time. For a class of 36, human-administered orals are feasible; for a class of 100, they are challenging. Bayley et al. [ 1] addressed this by having 600+ students simultaneously record video responses through an LMS—scaling the examination itself, though with pre-set questions and human grading. The value proposition of AI automation goes further: it reduces the marginal cost enough to make oral exams routine , deployable across courses multiple times per semester, including low-stakes practice that no department would staff with human examiners. Conversational AI platforms now bundle the components required for natural spoken interaction (speech-to-text, text-to-speech, turn-taking, and interruption handling) into systems that are good enough to conduct a structured examination [ 3]. Nitze [ 13 ] explored text-based LLM oral exam simulations in STEM but without voice interaction or automated grading. Concurrently, Jabarian and Henkel [ 6 ] showed that AI-conducted voice interviews in hiring can match or exceed human-administered interview quality, suggesting the technology is mature enough for high-stakes spoken evaluation. We decided to find out if voice AI could deliver both the examination and the grading. 
+
+2 System Design 2.1 Platform Requirements and Architecture 
+
+A voice examination system requires six core capabilities: (1) speech-to-text with adequate accuracy for domain terminology, (2) text-to-speech with natural prosody, (3) turn-taking that tolerates think-ing pauses without interpreting silence as disconnection, (4) multi-agent workflows to decompose the examination into phases, (5) per-session variable injection to personalize each conversation with student-specific context, and (6) transcript export for downstream grading. These can be assembled from individual components (an LLM API paired with a separate speech pipeline and custom orchestrator) or obtained from integrated conversational AI platforms. We used ElevenLabs Conversational AI [ 3 ], where capabilities (4) and (5) mapped to platform-native features: workflow capabilities for multi-agent routing and dynamic variables for per-student context injection. The architecture itself is platform-independent; what matters is that these six capabilities are present. Figure 1 shows the end-to-end flow. Rather than having one agent handling the entire examination, we decomposed it into three:  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. Scalable and Personalized Oral Assessments Using Voice AI 3
+
+(1) Authentication Agent: Requests and validates student identification before proceeding. (In production, this would integrate with institutional single sign-on.) (2) Project Discussion Agent: Receives the student’s capstone project context via parameters and conducts structured questioning about their specific work: goals, data choices, modeling decisions, evaluation approaches, and failure modes. This targets the gap between LLM-generated written work and genuine understanding: students cannot improvise consistent answers about decisions in work they did not personally complete. (3) Case Discussion Agent: Selects a case study from the semester and asks questions spanning course topics. Questions are generated dynamically during the examination. The decomposition prevents conversational drift and simplifies debugging. When something fails in Phase 2, it does not contaminate Phase 3. Prompts are available in the supplementary materials. 
+
+2.2 Grading: A Council of LLMs 
+
+We implemented a “council of LLMs” (three models from different families that independently score the same transcript, then revise after seeing each other’s reasoning) using Claude, Gemini, and GPT-5. This “LLM-as-judge” approach, where language models evaluate open-ended work in place of human raters [ 15 , 16 ], extends a long history of automated scoring [ 14 ] to oral examination transcripts. The process has three steps: (1) Round 1 (Independent): Each model receives the full examination transcript and the grading rubric, then independently scores it on five dimensions (Problem Framing, Metrics & Economics, Risk & Ethics, Experimentation, Communication), each 0–4, with verbatim transcript evidence for each score. The three models run in parallel with no shared context. (2) Round 2 (Deliberation): Each model receives a compiled summary of all three Round 1 assessments (scores, justifications, and cited evidence) and is asked to revise its evaluation in light of the other models’ reasoning. Models may change scores or reaffirm them, but must justify either decision with transcript evidence. (3) Chair Synthesis: A designated chair model (Claude) receives all Round 1 and Round 2 outputs and produces the final grade: one score per dimension, a total score (0–20), and a structured feedback report with strengths, weaknesses, and verbatim evidence. Why not use a single model? Because initial independent assessments showed poor agreement. The deliberation phase proved essential: without it, the system does not produce reliable grades. A known risk of this design is anchoring bias : when models see each other’s Round 1 scores, they may converge toward a shared (possibly wrong) answer rather than genuinely revising their assessments. We cannot fully rule this out. However, deliberation transcripts show substantive engagement (models citing specific transcript evidence to argue for score changes, not merely splitting differences), suggesting the convergence reflects reasoning rather than pure anchoring. More on this in Section 3. The full grading prompt is included in the supplementary materials. 
+
+3 Deployment and Results 
+
+We deployed the system as the final examination for an undergraduate AI/ML Product Management course at NYU Stern. Thirty-six students completed the examination over nine days (Table 1), scheduling their own times, a logistical property worth emphasizing. Even with only 36 students and two instructors, human-administered orals generated accommodation conflicts: flights, overlapping finals, family events, time zones. The AI system eliminated scheduling as a constraint; students chose any time during the nine-day window. Students recorded themselves (webcam and audio) during the examination to discourage outsourcing or real-time assistance.                   
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. 4Panos Ipeirotis and Konstantinos Rizakos
+> Table 1. Examination Statistics
+> Metric Value
+> Students examined 36 Exam period 9 days Mean duration 22 min Duration range 9–41 min Mean messages 58 Total cost $15 ($0.42/st.)
+> Table 2. Grading Agreement Before/After Deliberation
+> Metric (0–20) R1 R2
+> ≤0 pt diff (exact) 3% 25%
+> ≤1 pt difference 3% 64%
+> ≤2 pt difference 28% 86% Mean max difference 3.69 1.33
+
+3.1 Cost 
+
+The total marginal cost was $15: Claude (grading chair) $8, Gemini $2, OpenAI $0.30, ElevenLabs voice minutes approximately $5. The comparable human cost (36 students, 25 minutes each, two graders at $25/hour) would be approximately $750. This represents a roughly 50 × reduction in per-administration cost, though initial deployment required significant engineering effort for prompt design, debugging, and pipeline construction. These fixed costs amortize across semesters and courses (the infrastructure is reusable), but they are not zero. 
+
+3.2 Grading Reliability 
+
+Initial independent grading revealed a problem. Gemini averaged 16.3/20 while Claude averaged 13.0/20, a gap of 3.3 points (OpenAI fell between at 13.7/20, within one point of Claude on 64% of students). Without deliberation, the council was useless. After the deliberation phase, convergence was asymmetric: Gemini dropped its mean by 1.3 points after seeing stricter peer assessments, while Claude rose by 0.9 points and OpenAI by 0.3 points, all three converging toward the 14–15 range. That the largest shift came from the most lenient model suggests genuine revision rather than simple score-splitting. Overall, grades converged substantially (Table 2). At the dimension level (5 dimensions × 36 students = 180 assessments), agreement was even stronger: 74% perfect agreement, 25% within one point, and only 1% (2 of 180) with two-or-more-point disagreement. Figure 2 illustrates this distribution. To enable comparison with human inter-rater reliability benchmarks, we computed Krippendorff’s alpha [ 9 ] on the ordinal 0–4 dimension scores. Before deliberation, 𝛼 = 0.52 (dimension-level), indicating poor agreement. After delibera-tion, 𝛼 = 0.86 (dimension-level) and 𝛼 = 0.83 (overall 0–20 score), both above the 0.80 threshold conventionally considered “good reliability.” These reliability metrics (Krippendorff’s alpha, agreement rates, convergence after deliberation) measure consistency among raters , not correctness against ground truth . The distinction matters: 
+
+reliability (do raters agree?) is necessary but not sufficient. Validity (do grades reflect actual student competence?) requires comparison to expert human judgment. Three models agreeing on a wrong grade is still a wrong grade. We conducted a partial validity check. The instructor and teaching assistant independently graded all 36 examinations and compared their scores to the council output. The instructor’s holistic grades aligned with the most lenient model (Gemini), but upon reviewing the stricter models’ evidence (verbatim transcript excerpts supporting each deduction), conceded most of the stricter scores. The strict grading surfaced teaching deficiencies (particularly in Experimentation, Section 3) that the instructor’s own grading had obscured: when you grade your own students, it is easy to give credit for what you know they understood rather than what they demonstrated .Only two students requested regrading, and neither challenge succeeded; the transcript evidence backing each grade was too specific to dispute. This comparison was informal, not a controlled validation study; the instructor’s leniency was partly driven by awareness of teaching gaps, a confound we did not control for. Rigorous validation  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. Scalable and Personalized Oral Assessments Using Voice AI 5Perfect
+> Agreement
+> Within
+> 1 Point
+> (not perfect)
+> 2+ Point
+> Disagreement
+> 0
+> 50
+> 100
+> 150
+> Dimension-level Grades  133
+> (74%)
+> 45
+> (25%)
+> 2
+> (1%)
+> LLM Grading Agreement After Deliberation
+> (180 dimension-level assessments)
+
+Fig. 2. Dimension-level grading agreement after deliberation (180 assessments). Only 2 of 180 dimension-level grades showed disagreement of 2 or more points. Problem   
+
+> Framing
+> Metrics &
+> Econ.
+> Risk &
+> Ethics
+> Experiment. Commun.
+> 0
+> 1
+> 2
+> 3
+> 4
+> Mean Score (0 4 scale)
+> 3.39
+> 3.03 2.92
+> 1.94
+> 2.81
+> Performance by Topic
+
+Fig. 3. Mean scores by examination topic. The Exper-imentation gap (1.94 vs. 3.39 for Problem Framing) reflected insufficient class coverage of A/B testing, a teaching deficiency that written exams had not revealed. 
+
+would require blinded expert re-grading of a random subset with pre-defined scoring criteria. A practical interim safeguard is flagging examinations for human review when council disagreement is high. In our data, 2 of the 180 dimension-level assessments with 2+ point disagreement and 14% of students (5/36) with overall scores diverging by 3+ points are natural candidates for audit. This threshold-based approach—AI handles volume, humans handle edge cases—provides a deployment safeguard and a path toward accumulating formal validation data. Agreement varied by topic in a revealing way: after deliberation, Problem Framing, Metrics, Risk/Ethics, and Communication all reached 100% agreement within 1 point, while Experimentation (the topic where students performed worst) lagged at 94%. Before deliberation, the gap was starker: Experimentation agreement was 64% in Round 1 versus 100% for Problem Framing. Vague responses create legitimate disagreement about partial credit, whether the graders are human or artificial. 
+
+3.3 Diagnostic Power 
+
+Scores by topic revealed significant variation (Figure 3): Experimentation (A/B testing) averaged 1.94/4, compared to Problem Framing at 3.39/4. The Experimentation breakdown was striking: 8% of students scored 0 (unable to discuss the topic at all), 19% scored 1 (superficial understanding), 42% scored 2 (basic understanding), and zero students demonstrated mastery. This was a mirror held up to the instructor, not just the students. A/B testing had received insufficient class time—easy to overlook with written exams, where students can produce plausible-sounding answers by rephrasing textbook content. The oral format made the teaching gap impossi-ble to ignore. 
+
+3.4 Duration and Performance 
+
+Duration showed no meaningful correlation with score (Figure 4; 𝑟 = −0.09 , 95% CI [− 0.41 , 0.25 ],
+
+𝑝 = 0.60 ). The shortest exam (9 minutes) received the highest score (19/20); the longest (41 minutes) received 12/20. Confident understanding manifests as efficient communication; duration reflects articulation difficulty, not thoroughness. 
+
+4 What Broke 
+
+This is the section we wish we had read before deploying. 
+
+Question Stacking. The most damaging issue. The agent regularly fired off compound questions. From an actual examination transcript: “Tighten it up for me: who is the user, and what decision            
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. 6Panos Ipeirotis and Konstantinos Rizakos 510 15 20 25 30 35 40 45
+> Exam Duration (minutes)
+> 7.5
+> 10.0
+> 12.5
+> 15.0
+> 17.5
+> 20.0
+> Overall Score (0 20)  Shortest exam,
+> highest score
+> Duration vs. Score ( r=0.09 , no correlation)
+
+Fig. 4. Examination duration vs. overall score. The shortest exam (9 min) received the highest score (19/20). Duration reflects articulation difficulty, not depth of understanding. Dec 12 17 
+
+> (n=7)
+> Dec 18
+> (n=7)
+> Dec 19 20
+> (n=22)
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> Number of Exams
+> Removed Zillow
+> from prompt
+> Case Selection Over Time
+> (LLMs Are Not Random)
+> Zillow
+> Predictive Policing
+> Other Cases
+
+Fig. 5. Case selection over time. Despite instructions to “randomly select” a case, the agent chose Zillow 86% of the time in December 12–17. Removing Zil-low caused it to fixate on Predictive Policing (64% of exams December 19–20). LLMs cannot randomize. 
+
+do they make differently because of your product? And what is your North Star metric, plus one counter metric that might get worse if you over-optimize?” This creates excessive cognitive load in a high-pressure oral context. Over half of the student improvement suggestions mentioned this problem. We addressed it in two ways. First, we strengthened the prompt language. This helped but did not eliminate the behavior; prompt-level instructions are necessary but insufficient for constraining LLM behavior in extended conversations. Second, we built an “interference protocol” into the grading rubric: when the agent stacked questions, and the student answered only some, graders were instructed to assess only what the student actually answered, without penalizing for unanswered parts. The grading prompt (included in supplementary materials) documents this protocol in detail. The lesson: enforce behavioral constraints through system architecture, not just prompting. A future implementation should use programmatic turn validation (e.g., rejecting responses with multiple question marks) rather than relying on the LLM to police itself. 
+
+Paraphrasing During Clarification. When students asked the agent to repeat a question, it would paraphrase rather than repeat verbatim, inadvertently changing the question. This is the LLM doing what it was trained to do (being helpful by rephrasing), but exactly wrong in an examination context. We added explicit prompt instructions (“repeat the exact previous question”) which reduced but did not eliminate the behavior. 
+
+Silence Handling. The default platform timeout interpreted the student’s thinking as a problem. After 5 seconds of silence, the agent would ask “Are you there?”, precisely when the student was formulating an answer. We increased the timeout to 10 seconds. Thinking time is not silence; it is cognition. 
+
+Non-Random Case Selection. This was the most instructive failure (Figure 5). The examination prompt listed eight case studies and instructed the agent to “randomly select ONE case.” From December 12–17, when Zillow was on the list, the agent selected it in 6 of 7 examinations (86%). At the end of December 18, we removed Zillow from the prompt. The agent immediately shifted to Predictive Policing, selecting it for 14 of 22 examinations on December 19–20 (64%), better than Zillow’s fixation but far from the 12.5% expected with eight options. The fundamental issue: LLMs cannot perform true randomization. They have ordering biases that are invisible until you examine the distribution of outputs. The fix is simple (pass a random seed as a dynamic variable and map it to a case deterministically in code), but the failure illustrates  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. Scalable and Personalized Oral Assessments Using Voice AI 7
+
+Table 3. Design Patterns for Voice AI Assessment Systems      
+
+> Pattern Failure Prevented Implementation
+> Constrain in code, not prompts Question stacking, paraphrase drift, non-random selection Programmatic turn validator rejects multi-question re-sponses; exact-repeat cache for clarifications; determin-istic case mapping from random seed State-machine decompo-sition Conversational drift across exam phases; cascading prompt failures Separate agents per phase (auth, project, case); phase transitions enforced by orchestrator, not LLM discretion Multi-model consensus with deliberation Single-model grading bias; silent mis-calibration Independent scoring (Round 1), cross-review with cited evidence (Round 2), chair synthesis; flag high-disagreement cases for human audit
+
+a broader principle. Any behavior that requires uniformity or randomness should be implemented in code, not delegated to the LLM. 
+
+Voice Characteristics. We cloned the voice of a course professor from conference keynote record-ings, reasoning that a familiar voice would feel more natural. The opposite happened: students described the agent as “aggressive,” “condescending,” and “shouting.” One called the tone a “sports coach” style “absolutely not appropriate for classroom use”; another reported it “felt like talking to an angry AI customer agent.” Keynote delivery (fast-paced, projected, designed to talk at a large audience) is the wrong register for a one-on-one examination where students need space to think. A high-fidelity clone of an authority figure, delivered without the softening cues of face-to-face interaction, was experienced as intimidating rather than familiar. Voice characteristics are a design parameter that warrants the same attention as question design. We did not A/B test voices, and we should have. 
+
+Design Patterns. Table 3 distills these failure modes into three reusable design patterns. Each identifies a class of LLM misbehavior and proposes an architectural remedy that is independent of prompt compliance. 
+
+5 Student Experience 
+
+We surveyed students after the examination but before grade release ( 𝑛 = 30 , 83% response rate). The 17% who did not respond may differ systematically: dissatisfied students may have avoided a post-exam survey, or satisfied students may not have felt the need to respond. The headline finding is a tension between assessment validity and user experience: 70% agreed the exam “tested my actual understanding” (the highest-rated item), but only 33% found questions clear, and 83% found it more stressful than written exams. Notably, 83% had never taken an oral exam in any course, so it is unclear how much stress reflects the AI format versus the oral format itself. Format preferences were revealing: 57% preferred traditional written exams, 27% preferred human-administered oral exams, and 13% preferred AI-administered oral exams. That 40% were open to oral formats despite documented problems suggests that fixing the failure modes could shift acceptance. Sentiment and behavior also diverged: despite the survey numbers, we received only two regrading requests, and did not concede a single point in either case. The transcript-backed evidence for each grade was specific enough that students could see exactly what they said (or failed to say) and why it earned the score it did. Actions around grades (which were strict but documented) paint a different picture than pre-grade survey sentiment. The most praised feature was scheduling flexibility: students valued choosing their own time and location (“The fact that you could take it regardless of time zone or day during finals week”). The most common complaint was question stacking. Several students noted the format felt appropriate  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. 8Panos Ipeirotis and Konstantinos Rizakos
+
+for an AI course (“It was pretty fun; it is an AI class, so the exam format matches the class content”). Students with disabilities in the class found the format less stressful than typical exams, suggesting AI-administered orals could serve as an accommodation for test anxiety. The format also exposed an underappreciated challenge for international students: “I found the AI oral exam more challenging as an international student. At times, the difficulty wasn’t in knowing the material but in articulating my thoughts under pressure in English.” And the student who completed the exam in 9 minutes, and received the highest score, reported afterward: “I was personally freaked out when I finished my exam in 9 minutes, and was hoping to get some reassurance from a secondary source.” Both reactions underscore the need for better expectation-setting. Full survey results are in the supplementary materials. 
+
+6 Discussion 6.1 Transparency and Incentive Alignment 
+
+The most underappreciated property of this approach is full transparency. Because the system is powered by guidelines rather than specific secret questions, we shared the entire examination structure with students beforehand: the format, the skills being assessed, the types of questions. The LLM generates questions dynamically, so there is no exam to leak. This inverts the traditional incentive structure. Students can practice repeatedly, and such practice 
+
+is legitimate learning. Articulating your understanding out loud (to a practice partner, to an AI, to yourself) is one of the most effective study techniques we know. The assessment rewards the preparation behavior we want to encourage. This is not a technological fix to cheating but a redesign of assessment that makes cheating structurally difficult while rewarding genuine understanding. 
+
+6.2 Feedback Quality 
+
+The grading council produced feedback exceeding what human graders typically deliver in both structure and specificity. Each evaluation included strengths, weaknesses, and action items with verbatim evidence from the transcript. For the highest-scoring student: “Your understanding of metric trade-offs and Goodhart’s Law risks was exceptional; the hot tub example perfectly illustrated how optimizing for one metric can corrupt another.” For a lower-performing student: “Practice articulating complete A/B testing designs: state a hypothesis, define randomization unit, specify guardrail metrics, and establish decision criteria for shipping or rolling back.” Human graders rarely generate such detailed, evidence-linked feedback for every student. The automated system produces it as a byproduct. 
+
+6.3 What Is Lost 
+
+Automating assessment is not a free lunch. A human examiner develops real-time intuition about student understanding—noticing by the third or fourth exam which topics the class systematically struggles with. Our Experimentation gap (Section 3) was only visible after analyzing aggregate scores from the AI system; a human examiner might have noticed it sooner. That said, this concern can be mitigated by other feedback channels. In our course, students complete a brief exit survey after every session (what they learned, already knew, and found unclear), and an LLM analyzes responses to generate pedagogical recommendations within minutes. We apply the same approach to assignments before grading, identifying class-wide patterns early enough to address in subsequent sessions. These mechanisms are orthogonal to the exam format and provide the continuous pedagogical feedback that automated assessment alone lacks. There is also real value in the human relationship between examiner and student. A professor can read body language, offer encouragement, and exercise contextual judgment that no rubric  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. Scalable and Personalized Oral Assessments Using Voice AI 9
+
+fully captures. We do not claim AI-administered assessment is superior to well-resourced human assessment. The claim is narrower: it is superior to no oral assessment, the realistic alternative for most courses. 
+
+6.4 What This System Cannot Do 
+
+Several caveats are important for anyone considering adoption. We compared AI oral exams to written assessments, not human-administered orals, so we cannot claim equivalence with faculty orals—only that the format provides assessment properties unavailable through written exams at dramatically lower cost. As discussed in Section 3, the grading council’s high agreement establishes reliability (consistency among AI raters), not validity (correctness against expert judgment); our informal instructor comparison is encouraging but is not a formal validation study. The self-recorded video requirement deters but does not prevent cheating; the format is more resistant than take-home written work but not immune. Voice-based assessment introduces accessibility challenges that institutions must address before deployment, not after. Students with speech-related disabilities or conditions affecting verbal fluency face barriers that written formats avoid; non-native speakers face compounded difficulty: as the international student quoted in Section 5 reported, the challenge was articulating knowledge under time pressure in a second language, not lacking the knowledge itself. Students should be informed in advance about how the system works, what is recorded, and who accesses their transcripts. The format is not uniformly exclusionary, however: students with anxiety-related accommodations found the AI examiner less stressful than facing a senior professor, suggesting voice AI may simultaneously create and remove accessibility barriers depending on the population. Finally, data governance deserves attention. The system transmits student voice recordings and transcripts to four third-party vendors. FERPA and GDPR impose requirements on such arrangements: data processing agreements, retention limits, and deletion rights. We operated under IRB approval with informed consent, but broader deployment will require alignment with institutional data governance policies. 
+
+6.5 Beyond Education 
+
+The architecture described here is not specific to university courses. Technical hiring is an obvious application: phone screens follow structured formats similar to our examination, recruiter time is expensive, scheduling is a bottleneck, and multi-model grading could provide more consistent evaluation than individual interviewers. Jabarian and Henkel [ 6 ] demonstrated in a field experiment with 70,000 applicants that AI-conducted interviews increased job offers by 12% and retention by 16–18%, with 78% of applicants preferring the AI interviewer. Professional certification (medical boards, legal competency, regulatory compliance) presents similar opportunities. The key insight transfers: decompose the interaction into phases, enforce behavioral constraints in code, and use multi-model consensus to reduce individual model biases. 
+
+7 What’s Next 
+
+Four extensions seem most immediately valuable. First, retrieval-augmented examination : the agent receives project summaries as parameters but cannot access student-submitted artifacts. If it could reference specific slides or code, it could ask “On slide 7, you claim 94% accuracy. Walk me through how you validated that number.” This would further close the gap between artifact quality and demonstrated understanding. Second, formative deployment : the same infrastructure could support low-stakes practice exami-nations throughout the semester, letting students test understanding before high-stakes assessment. At $0.42 per session, a more immediate application is attaching a short oral comprehension check  
+
+> , Vol. 1, No. 1, Article . Publication date: March 2026. 10 Panos Ipeirotis and Konstantinos Rizakos
+
+to every written assignment, a pass/fail conversation verifying that the student can explain what they submitted. This converts the system from a semester-end assessment tool into a continuous authenticity layer. Third, human-in-the-loop audit : the grading council should flag edge cases for human review: high disagreement among models, large deviations from prior student performance, or transcripts suggesting technical difficulties. The goal is a hybrid where AI handles the volume and humans handle the judgment calls. Fourth, accessibility by design : future deployments should offer ungraded practice examinations so students can familiarize themselves with the voice interface before the stakes are real, configurable time limits for students with accommodations, a choice of agent voice and speaking pace, and a text-based alternative for students unable to use the voice format. Our experience (students with anxiety accommodations found the AI format less stressful) suggests that thoughtful accessibility design could make AI-administered orals more inclusive than human-administered ones for some populations. 
+
+8 Conclusion 
+
+The spread of LLMs has disrupted traditional assessment. Rather than pursuing a detection arms race, we can adopt assessment formats that inherently reward genuine understanding. Oral examinations have always had this property but never had scalability. Voice AI restores scalability. Our deployment demonstrates feasibility: 36 students examined at $0.42 each, with grading validated against every transcript, diagnostic feedback exceeding typical human output, and well-characterized, fixable failure modes. Student experience was mixed: effective at testing understand-ing but stressful and unfamiliar, particularly for a cohort where 83% had never taken any oral exam. The documented problems (voice tone, question stacking, thinking time) are engineering issues, not fundamental limitations. The full prompts are included in the supplementary materials as the core deliverable. Adapt them, improve them, and share what breaks. 
+
+Acknowledgments 
+
+We thank Brian Jabarian for early discussions on AI-administered interviews, Foster Provost for voice contribution, and Andrej Karpathy for the council-of-LLMs concept. This study was approved by the NYU Institutional Review Board (IRB-FY2023-7595). 
+
+References                  
+
+> [1] Tiffany Bayley, Kyle D. S. Maclean, and Tessa Weidner. 2024. Back to the Future: Implementing Large-Scale Oral Exams. Management Teaching Review 11, 1 (2024), 159–170. doi:10.1177/23792981241267744 [2] Paul Denny, James Prather, Brett A. Becker, James Finnie-Ansley, Arto Hellas, Juho Leinonen, Andrew Luxton-Reilly, Brent N. Reeves, Eddie Antonio Santos, and Sami Sarsa. 2024. Computing Education in the Era of Generative AI.
+> Commun. ACM 67, 2 (Jan. 2024), 56–67. doi:10.1145/3624720 [3] ElevenLabs. 2024. Conversational AI Platform. https://elevenlabs.io/docs/conversational-ai/overview. Accessed January 2025. [4] Andrea Fenton. 2025. Reconsidering the Use of Oral Exams and Assessments: An Old Way to Move Into a New Future.
+> Educational Researcher 54, 7 (2025), 430–436. doi:10.3102/0013189X251333638 [5] Catherine Hartmann. 2025. Oral Exams for a Generative AI World: Managing Concerns and Logistics for Undergraduate Humanities Instruction. College Teaching (2025). doi:10.1080/87567555.2025.2558563 [6] Brian Jabarian and Léa Henkel. 2025. Voice AI in Firms: A Natural Field Experiment on Automated Job Interviews. doi:10.2139/ssrn.5395709 SSRN 5395709. [7] Yang Jiang, Jiangang Hao, Michael Fauss, and Chen Li. 2024. Detecting ChatGPT-generated essays in a large-scale writing assessment: Is there a bias against non-native English speakers? Computers and Education 217 (2024), 105070. doi:10.1016/j.compedu.2024.105070 [8] Enkelejda Kasneci, Kathrin Sessler, Stefan Küchemann, Maria Bannert, Daryna Dementieva, Frank Fischer, Urs Gasser, Georg Groh, Stephan Günnemann, Eyke Hüllermeier, Stephan Krusche, Gitta Kutyniok, Tilman Michaeli, Claudia , Vol. 1, No. 1, Article . Publication date: March 2026.
+
+Scalable and Personalized Oral Assessments Using Voice AI 11 
+
+Nerdel, Jürgen Pfeffer, Oleksandra Poquet, Michael Sailer, Albrecht Schmidt, Tina Seidel, Matthias Stadler, Jochen Weller, Jochen Kuhn, and Gjergji Kasneci. 2023. ChatGPT for good? On opportunities and challenges of large language models for education. Learning and Individual Differences 103 (2023), 102274. doi:10.1016/j.lindif.2023.102274 [9] Klaus Krippendorff. 2011. Computing Krippendorff’s Alpha-Reliability. Departmental Papers (ASC) (2011). University of Pennsylvania. [10] Muhammed Ashraf Memon, Gordon Rowland Joughin, and Breda Memon. 2010. Oral assessment and postgraduate medical examinations: establishing conditions for validity, reliability and fairness. Advances in Health Sciences Education 
+
+15, 2 (2010), 277–289. doi:10.1007/s10459-008-9111-9 [11] Ethan Mollick and Lilach Mollick. 2023. Assigning AI: Seven Approaches for Students, with Prompts. arXiv:2306.10052 [cs.CY] https://arxiv.org/abs/2306.10052 [12] Shashi Nallaya, Sheridan Gentili, Scott Weeks, and Katherine Baldock. 2024. The validity, reliability, academic integrity and integration of oral assessments in higher education: A systematic review. Issues in Educational Research 34, 2 (2024), 629–646. http://www.iier.org.au/iier34/nallaya.pdf [13] André Nitze. 2024. Future-proofing Education: A Prototype for Simulating Oral Examinations Using Large Language Models. arXiv:2401.06160 [cs.CY] https://arxiv.org/abs/2401.06160 [14] Mark D. Shermis and Jill Burstein (Eds.). 2013. Handbook of Automated Essay Evaluation: Current Applications and New Directions . Routledge, New York. [15] Pat Verga, Sebastian Hofstatter, Sophia Althammer, Yixuan Su, Aleksandra Piktus, Arkady Arkhangorodsky, Minjie Xu, Naomi White, and Patrick Lewis. 2024. Replacing Judges with Juries: Evaluating LLM Generations with a Panel of Diverse Models. arXiv:2404.18796 [cs.CL] https://arxiv.org/abs/2404.18796 [16] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P. Xing, Hao Zhang, Joseph E. Gonzalez, and Ion Stoica. 2023. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. arXiv:2306.05685 [cs.CL] https://arxiv.org/abs/2306.05685 , Vol. 1, No. 1, Article . Publication date: March 2026.
