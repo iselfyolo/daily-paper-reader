@@ -1,0 +1,799 @@
+Title: KA2L: A Knowledge-Aware Active Learning Framework for LLMs
+
+URL Source: https://arxiv.org/pdf/2603.17566v1
+
+Published Time: Thu, 19 Mar 2026 01:06:05 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+## Haoxuan Yin a, Bojian Liu a, Chen Tang b, Yangfan Wang a, Lian Yan a and Jingchi Jiang a,c ,∗
+
+> a
+
+Faculty of Computing, Harbin Institute of Technology, Harbin, 150001, China 
+
+> b
+
+Institute for Advanced Algorithms Research, Shanghai, 201306, China 
+
+> c
+
+National Key Laboratory of Smart Farm Technologies and Systems, Harbin, 150001, China 
+
+A R T I C L E I N F O 
+
+Keywords :Large Language Models Active Learning LLM Hallucination Detection Knowledge Boundary 
+
+A B S T R A C T 
+
+Fine-tuning large language models (LLMs) with high-quality knowledge has been shown to enhance their performance effectively. However, there is a paucity of research on the depth of domain-specific knowledge comprehension by LLMs and the application of targeted active learning to improve their expertise. To address this gap, we introduce the Knowledge-Aware Active Learning (KA2L) framework. This framework assesses LLMs’ mastery of specific knowledge points to aid in constructing unanswerable or unknowable questions through latent space analysis. This active learning strategy enhances training efficiency by focusing on knowledge the model has yet to master, thereby minimizing redundancy in learning already acquired information. This study innovatively employs a knowledge distribution probing technique to examine the hidden states of specific Transformer layers and identify the distribution of known and unknown knowledge within the LLM. Additionally, a hidden-state decoding method is proposed to generate numerous unknown questions in natural language from the latent knowledge space. In our experiments, we selected nine open-source LLMs to validate the effectiveness of the proposed framework. Results indicate that KA2L not only significantly reduces 50% annotation and computation costs across two open-domain and one vertical-domain dataset but also achieves better performance, offering valuable insights into active learning strategies for LLMs. The code is available at https://anonymous.4open.science/r/KA2L-F15C .
+
+## 1. Introduction 
+
+Large Language Models (LLMs) such as GPT-4 and Llama-3 have demonstrated remarkable capabilities across a wide range of NLP tasks (Zhao et al., 2025), and there is a growing demand for applying them to specific do-mains (Jiang et al., 2025b). Enhancing the domain-specific knowledge of LLMs primarily relies on techniques such as Supervised Fine-Tuning (SFT) (Zhao et al., 2025) and Retrieval Augmented Generation (RAG) (Gao et al., 2024). These methods typically require substantial amounts of high-quality annotated data or external knowledge bases. However, in practical applications, two significant chal-lenges arise: (1) The knowledge mastered by LLMs is often invisible, making it necessary to train on the entire domain knowledge during each SFT process, leading to significant resource waste. (2) Without visibility into the model’s knowledge, it is difficult to explicitly ascertain the new knowledge required by the LLM. This results in a "black-box" learning process, where incremental learning of new knowledge is prone to noise due to the typically low proportion of new knowledge in the overall training set, ultimately affecting the model’s learning efficiency. There-fore, this paper proposes a novel active learning framework that focuses on detecting the distribution of known and unknown knowledge within LLMs. By directing training toward under-learned or unknown knowledge, the frame-work avoids redundant annotation and repetitive learning 
+
+> ∗
+
+Corresponding author  
+
+> 25S103196@stu.hit.edu.cn
+
+(H. Yin); liubojian.ai@gmail.com (B. Liu); tangc@iaar.ac.cn (C. Tang); yf.wang@stu.hit.edu.cn (Y. Wang);  
+
+> 23b903008@stu.hit.edu.cn
+
+(L. Yan); jiangjingchi@hit.edu.cn (J. Jiang) 
+
+> ORCID
+
+(s): 0009-0001-7250-5951 (H. Yin); 0000-0001-7010-2203 (C. Tang); 0009-0008-1695-2467 (L. Yan); 0000-0003-2167-4082 (J. Jiang) 
+
+on already-acquired concepts, enabling more efficient and targeted knowledge acquisition. Traditional active learning (AL) aims to identify a small subset of high-value samples from a large data pool, al-lowing a model to approximate the performance attain-able with full-dataset training. Prominent strategies include uncertainty-based, diversity-based, and gradient-based ap-proaches. For instance, diversity-based methods like Coreset (Sener and Savarese, 2018) select samples that are maxi-mally different from one another to enhance model gener-alization. Hybrid approaches such as BADGE (Ash et al., 2020) leverage gradients on models like ResNet (He et al., 2016), embodying the core principle of selecting samples based on a combination of uncertainty and diversity. How-ever, directly applying these methods to modern LLMs is challenging due to prohibitive computational costs and a paradigm mismatch, as they were primarily designed for classification rather than generative tasks. Consequently, current AL research for LLM has largely shifted toward distillation-based (e.g. FreeAL (Xiao et al., 2023)) or in-context learning optimization methods (Margatina et al., 2023). A key limitation is that they do not assess the model’s mastery of learned and to-be-learned content nor analyze the correlation between the model’s latent space distribution and the semantic features of upcoming knowledge. This hinders the controllable training of LLMs and the incremental ex-pansion of its unmastered knowledge. To address these issues, we introduces the Knowledge-Aware Active Learning (KA2L) framework, which pioneers a new paradigm based on semantic consistency. Within this paradigm, we operationally define an LLM’s "unknown knowledge" as its inability to stably generate semantically consistent answers to a factual question. This phenomenon 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 1 of 15 
+
+> arXiv:2603.17566v1 [cs.CL] 18 Mar 2026 KA2L: A Knowledge-Aware Active Learning Framework for LLMs
+
+is quantified by high Semantic Entropy (SE) (Farquhar et al., 2024; Kuhn et al., 2023), a metric at the heart of our approach. The core objective of this framework is thus to accurately assess this knowledge boundary, thereby effi-ciently guiding the construction of SFT datasets. Specifi-cally, the KA2L framework employs a Knowledge Distri-bution Probing mechanism that utilizes hidden states from specific Transformer layers. It performs clustering based on semantic entailment and uses SE to unsupervisedly train a Multi-Layer Perceptron (MLP) as a classifier, which catego-rizes the question set into "Known" and "Unknown" parts. Furthermore, the KA2L framework utilizes a "hidden-state decoding" technique to "reverse engineer" a large volume of natural-sounding questions from the hidden-space represen-tations corresponding to knowledge points identified within the "Unknown" regions. By incorporating these questions into the training data, the KA2L framework establishes an active learning closed loop, enabling the model to concen-trate on learning knowledge it has not yet mastered and thereby minimizing repetitive learning and annotation re-dundancy. The main contributions of this paper can be summarized as follows: 1. We propose a novel Knowledge-Aware Active Learn-ing framework (KA2L) that can accurately assess an LLM’s degree of knowledge mastery and, by integrat-ing hidden state decoding techniques, actively mine the model’s unknown knowledge to guide efficient incremental learning. 2. We innovatively integrate the problem of LLM knowl-edge distribution probing with the concepts of hallu-cination detection, proposing methods for probing and decoding based on hidden states, thereby offering new avenues for understanding and shaping the internal knowledge representations of LLMs. 3. Through extensive experiments on nine open-source LLMs and three datasets, we demonstrate that KA2L not only achieves performance comparable to fine-tuning on the full dataset while reducing annotation and computational costs by approximately 50% , but also significantly outperforms adapted classic active learning methods, including Coreset and BADGE, providing a novel and cost-effective solution for fine-tuning LLMs. 
+
+## 2. Related Work 
+
+2.1. Active Learning for LLMs 
+
+Active learning is a well-established field for reducing data annotation costs, with classic strategies primarily piv-oting on principles of uncertainty, diversity, or a hybrid of both. Prominent methods include uncertainty sampling (e.g., using prediction entropy), diversity-based approaches like Coreset (Sener and Savarese, 2018) which selects a representative subset of data, and hybrid methods such as BADGE (Ash et al., 2020) that unify both principles via gradient embeddings. However, transplanting these meth-ods, originally designed for models like CNNs, to mod-ern generative LLMs presents significant challenges. For instance, gradient-based methods like BADGE or Fisher information-based methods like BAIT (Ash et al., 2021) become computationally prohibitive due to the immense scale of LLM parameters, and their core logic does not straightforwardly apply to generative tasks. To our knowl-edge, systematic adaptation and evaluation of these classic methods for LLM fine-tuning has been limited. In our work, we implement practical adaptations of these strategies to compare with our methods. In addition, active learning theory has also demonstrated efficacy in complex tasks such as meta-reinforcement learning (Jiang et al., 2022) and causal structure discovery (Jiang et al., 2025a). However, within the specific context of LLMs, research has focused on alternative goals, such as collaborative learning without human supervision (Xiao et al., 2023), utilizing knowledge graph feedback to reduce annotation dependence (Yan et al., 2025), or optimizing demonstrations for in-context learning (Margatina et al., 2023). In contrast to these approaches, our work introduces a fundamentally different selection signal, semantic entropy, derived from the semantic consistency across multiple model generations. This allows us to directly probe the model’s knowledge stability, bypassing the com-putational hurdles of classic methods while offering a more direct proxy for knowledge gaps in generative tasks. 
+
+2.2. LLM Hallucination Detection 
+
+Given that hallucinations (Shuster et al., 2021) are a direct manifestation of an LLM’s unknown knowledge, we define the problem of identifying LLM knowledge distri-bution as a hallucination detection task, also termed output uncertainty quantification (Li et al., 2023). Current methods fall into two main categories. Output-based methods assess uncertainty from surface features like text or logits. Exam-ples include sampling-based consistency checks (Manakul et al., 2023) and Semantic Entropy (SE) (Farquhar et al., 2024; Kuhn et al., 2023), which quantifies semantic simi-larity across multiple outputs to handle linguistic variations. However, these methods often incur high computational costs due to repeated sampling (Kossen et al., 2024). In contrast, probing methods leverage internal hidden states, training a classifier to predict output uncertainty (Azaria and Mitchell, 2023; Li et al., 2023). Azaria and Mitchell (2023) demonstrated that hidden states contain veracity sig-nals, enabling efficient detection. More recently, Semantic Entropy Probes (SEP) (Kossen et al., 2024) were proposed, training a classifier to predict SE values directly from hidden states. By using SE as an unsupervised learning target, SEP achieves performance comparable to surface SE methods but with significantly lower computational cost and improved generalization. 
+
+2.3. LLM Hidden State Decoding 
+
+One of the core ideas of this research is to leverage LLM hidden state decoding techniques to mine potential related knowledge from the internal representations generated when   
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 2 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs
+
+the model processes specific questions (particularly those in the "Unknown" region)(Lv et al., 2024; Tang et al., 2025). This allows for the generation of new questions that are diverse in form yet related in terms of knowledge points, effectively augmenting the set of unknown questions. To elucidate the foundation and existing advancements of the techniques adopted in this study, this section will re-view relevant hidden state decoding methods. nostalgebraist (2020); Sakarvadia et al. (2023); Belrose et al. (2023); Pal et al. (2023), based on "lens" methods, proposed an approach for directly decoding hidden states by applying minor transformations and utilizing the model’s pre-trained unembedding module to convert hidden states directly into logits. The Patchscope (Ghandeharioun et al., 2024) and SelfIE (Chen et al., 2024) methods patch hidden states into another model, whose output serves as the decoded result, offering higher readability than lens methods. Morris et al. (2023, 2024) introduced the Vec2Text method, which trains a T5 (Raffel et al., 2020) model as a decoder to transform hidden state vectors into natural language text. Experiments demonstrated high accuracy and readability when decoding later-layer hidden state vectors from the LLaMA2 model. 
+
+## 3. Method 
+
+3.1. Problem Formulation 
+
+Given the abstract nature of knowledge, this study con-siders "questions" as external manifestations of knowledge; i.e., a model’s ability to correctly answer a question signifies its possession of the knowledge represented by that question. Given an LLM, denoted as 𝑀 , and a set of questions 
+
+𝑄 = { 𝑞 1, 𝑞 2, … , 𝑞 𝑛 }, the knowledge distribution of model 
+
+𝑀 over 𝑄 , denoted 𝐾 𝑀,𝑄 , is defined as a partition of 𝑄 
+
+into (𝑄 𝑘 , 𝑄 𝑢𝑛𝑘 ). Here, 𝑄 𝑘 represents the set of questions the model can answer correctly with high confidence, while 
+
+𝑄 𝑢𝑛𝑘 represents the set of questions for which the model’s answers are uncertain. 𝑄 𝑢𝑛𝑘 will guide knowledge mining, as well as dataset annotation and model fine-tuning in down-stream tasks. To mitigate the risk that 𝑄 𝑢𝑛𝑘 may be too small to effectively support downstream fine-tuning, this study fur-ther investigates a question augmentation strategy grounded in the model’s internal representations. For any question 
+
+𝑞 𝑖 ∈ 𝑄 𝑢𝑛𝑘 , its internal hidden states generated by model 
+
+𝑀 during processing are utilized. A new set of questions 
+
+{𝑞 (1)  
+
+> 𝑖
+
+, 𝑞 (2)  
+
+> 𝑖
+
+, … , 𝑞 (𝑘 𝑖 ) 
+
+> 𝑖
+
+} (𝑘 𝑖 ≥ 0), similar in domains and knowl-edge points, is then generated through hidden state decoding techniques. The augmented set of unknown questions is represented as 𝑄 𝑎𝑢𝑔 = ⋃ 
+
+> 𝑞 𝑖 ∈𝑄 𝑢𝑛𝑘
+
+({ 𝑞 𝑖 } ∪ { 𝑞 (1)  
+
+> 𝑖
+
+, … , 𝑞 (𝑘 𝑖 ) 
+
+> 𝑖
+
+}) .Downstream tasks include SFT dataset construction and model fine-tuning. Dataset construction can be defined as creating 𝑢𝑛𝑘 = {⟨𝑞 𝑖 , 𝑎 𝑖 ⟩| 𝑞 𝑖 ∈ 𝑄 𝑎𝑢𝑔 }, where 𝑎 𝑖 is the ground-truth answer to 𝑞 𝑖 . The objective of model fine-tuning is formulated as follows: 
+
+𝜃 𝑓 𝑡 = arg min 
+
+> 𝜃
+
+1
+
+𝑁 
+
+∑
+
+> (𝑞 𝑖 ,𝑎 𝑖 )∈ 𝑢𝑛𝑘
+
+𝐿𝑜𝑠𝑠 (𝑀 (𝑞 𝑖 ; 𝜃 ), 𝑎 𝑖 ) (1) 
+
+Algorithm 1 Training Process of KA2L Framework 
+
+Require: Large Language Model , Unlabeled Question Pool , Initial Question Set 𝑖𝑛𝑖𝑡 
+
+Ensure: Fine-tuned Model 𝑓 𝑡  
+
+> 1:
+
+Stage 1: Knowledge Distribution Probing  
+
+> 2:
+
+for each question 𝑞 𝑖 ∈ 𝑖𝑛𝑖𝑡 do  
+
+> 3:
+
+Sample hidden states 𝐻 𝑖 from  
+
+> 4:
+
+Sample multiple outputs 𝑆 𝑖 and calculate Semantic Entropy (SE)  
+
+> 5:
+
+Generate label 𝑦 𝑖 based on SE thresholding (Eq. 4-5)  
+
+> 6:
+
+end for  
+
+> 7:
+
+Train MLP Classifier  using {( 𝐻 𝑖 , 𝑦 𝑖 )}  
+
+> 8:
+
+Stage 2: Unknown Knowledge Mining  
+
+> 9:
+
+𝑢𝑛𝑘 ← {𝑞 ∈  ∣ (GetHidden (𝑞 )) = Unknown } 
+
+> 10:
+
+Initialize Augmented Set 𝑎𝑢𝑔 ← ∅ 
+
+> 11:
+
+for each 𝑞 𝑢 ∈ 𝑢𝑛𝑘 do  
+
+> 12:
+
+Extract hidden state ℎ𝑢  
+
+> 13:
+
+Decode ℎ𝑢 into new questions {𝑞 ′
+
+> 𝑢
+
+} using Hidden-State Decoder  
+
+> 14:
+
+𝑎𝑢𝑔 ← 𝑎𝑢𝑔 ∪ { 𝑞 𝑢 } ∪ { 𝑞 ′
+
+> 𝑢
+
+} 
+
+> 15:
+
+end for  
+
+> 16:
+
+Stage 3: Targeted Fine-tuning  
+
+> 17:
+
+Annotate 𝑎𝑢𝑔 to get pairs {( 𝑞, 𝑎 )}  
+
+> 18:
+
+Fine-tune  on {( 𝑞, 𝑎 )} to obtain 𝑓 𝑡 (Eq. 1)  
+
+> 19:
+
+return 𝑓 𝑡 
+
+where 𝜃 𝑓 𝑡 are the fine-tuned model parameters, 𝜃 are the parameters to be optimized during fine-tuning, 𝑁 is the size of the dataset 𝑢𝑛𝑘 , 𝐿𝑜𝑠𝑠 is the loss function, and 𝑀 is the model. Downstream tasks are not the primary focus of this study. 
+
+3.2. Knowledge Distribution Probing 
+
+The objective of knowledge distribution probing is to identify the intrinsic distribution of "known" and "unknown" questions for an LLM 𝑀 over a specific question set 𝑄 .This task is highly correlated with the goal of LLM hallu-cination detection. As illustrated in Figure 1 (a), our probing framework utilizes semantic entropy (Farquhar et al., 2024; Kuhn et al., 2023) as a metric for quantifying uncertainty in model outputs and employs a Multi-Layer Perceptron (MLP) as the classifier to distinguish whether the knowledge corresponding to the hidden state is mastered by the model. The main workflow includes hidden state and model output sampling, semantic entropy calculation and label construc-tion, classifier training, and inference. 
+
+3.2.1. Hidden State and Model Output Sampling 
+
+As shown in Figure 1 (a), for each question 𝑞 𝑖 in the question set 𝑄 , the hidden states 𝐻 𝑖 = { ℎ𝑙 𝑖 }𝐿 𝑙 =1 of the last token across all 𝐿 layers are obtained from LLM 𝑀 at a low temperature (e.g., temperature= 0.1). Subsequently, for the same question 𝑞 𝑖 , multiple independent samples are drawn at a higher decoding temperature, yielding a set of output sentences 𝑆 𝑖 = { 𝑠 (1)  
+
+> 𝑖
+
+, 𝑠 (2)  
+
+> 𝑖
+
+, … , 𝑠 (𝑘 ) 
+
+> 𝑖
+
+}. This process constructs   
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 3 of 15
+
+KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Figure 1: KA2L Workflow : (a) Knowledge Distribution Probing : Training Phase : For each question in the sampled question set, sample its hidden state once and its textual outputs multiple times. Perform semantic clustering on the textual outputs to calculate Semantic Entropy (SE). The SE is then binarized using a dynamic threshold to serve as labels for the classifier. An MLP classifier is trained using these hidden states and the binarized SE (BiSE). Inference Phase : For a new set of questions, sample their 𝑙 -th layer hidden states. These are then classified by the MLP classifier, representing the knowledge distribution as "Known" and "Unknown" knowledge. (b) Unknown Question Augmentation : Sample the hidden states ( ℎ𝑢𝑛𝑘 ) of questions identified as "Unknown" from the knowledge distribution. These are then transformed and decoded into multiple similar questions. 
+
+(c) Downstream Tasks : This knowledge distribution guides dataset construction and model fine-tuning. Many existing methods can be applied, such as LoRA (Hu et al., 2022) and P-tuning (Liu et al., 2022). 
+
+the dataset  = { ⟨𝑞 𝑖 , 𝐻 𝑖 , 𝑆 𝑖 ⟩}𝑞 𝑖 ∈𝑄 for subsequent classifier training. 
+
+3.2.2. Semantic Entropy Calculation and Label Construction 
+
+The calculation of semantic entropy (SE) follows the methodology proposed in Farquhar et al. (2024); Kuhn et al. (2023). It involves performing semantic clustering on the multiple sampled outputs 𝑆 𝑖 for the same question 𝑞 𝑖 and quantifying the consistency of the output content based on the clustering results. A lower SE value indicates higher semantic consistency across multiple outputs; conversely, a higher value suggests greater semantic divergence, in-dicating that the model has not mastered the knowledge associated with the question. Semantic clustering employs a pre-trained Natural Language Inference (NLI) model (e.g., DeBERTa (He et al., 2021)) to determine semantic equiv-alence between sentences: if sentence A entails sentence B and sentence B entails sentence A, they are considered semantically equivalent. For the output set 𝑆 𝑖 of question 𝑞 𝑖 , let the set of semantic equivalence classes be 𝑞 𝑖 = { 𝑐 1, 𝑐 2, … , 𝑐 |𝑞 𝑖 |}, where 𝑐 𝑘 
+
+is an equivalence class, |𝑐 𝑘 | is the number of sentences in that class, and 𝑁 = ∑𝑘 |𝑐 𝑘 | = |𝑆 𝑖 | is the total number of samples. The semantic entropy SE( 𝑆 𝑖 ) can be estimated as: 
+
+SE( 𝑆 𝑖 ) ≈ −  
+
+> |𝑞 𝑖 |
+
+∑
+
+> 𝑘 =1
+
+|𝑐 𝑘 |
+
+𝑁 ln |𝑐 𝑘 |
+
+𝑁 (2) To obtain binary labels (known/unknown) for classifier training, a dynamic thresholding method is applied to bina-rize the calculated SE( 𝑆 𝑖 ). Specifically, let  = { 𝜏 1, 𝜏 2, … , 𝜏 𝐾 }
+
+be 𝐾 candidate thresholds selected within the range of all sample SE values [min({SE 𝑖 }|𝑄 |
+
+> 𝑖 =1
+
+), max({SE 𝑖 }|𝑄 |
+
+> 𝑖 =1
+
+)] . For any candidate threshold 𝜏 ∈  , each sample’s SE 𝑖 is binarized, and the mean-square error (MSE) between its binarized result and the original continuous semantic entropy is cal-culated: 
+
+MSE( 𝜏 ) = 1
+
+|𝑄 |
+
+> |𝑄 |
+
+∑
+
+> 𝑖 =1
+
+(SE 𝑖 − 𝕀 (SE 𝑖 ≥ 𝜏 )) 2 (3) where 𝕀 (⋅) is the indicator function, which is 1 if the condition is true and 0 otherwise. Subsequently, the optimal threshold 
+
+𝛾 ∗ is computed, and SE 𝑖 is binarized to obtain BiSE 𝑖 . (See discussion 6.2 for a detailed robustness analysis demonstrat-ing the effectiveness of this dynamic thresholding method). 
+
+𝛾 ∗ = arg min  
+
+> 𝜏 ∈
+
+MSE( 𝜏 ) (4) 
+
+BiSE 𝑖 =
+
+{
+
+0 if 𝑆𝐸 𝑖 < 𝛾 ∗ (representing known )1 if 𝑆𝐸 𝑖 ≥ 𝛾 ∗ (representing unknown ) (5) Finally, the classifier training dataset clf = { ⟨𝐻 𝑖 , BiSE 𝑖 ⟩}𝑞 𝑖 ∈𝑄 
+
+is constructed. 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 4 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+3.2.3. Classifier Training and Inference 
+
+The dataset clf is partitioned into training, validation, and test sets in a 7:2:1 ratio. To effectively discriminate the knowledge states of the LLM, we design a Multi-Layer Perceptron (MLP) as the hidden state classifier. The archi-tectural design of this MLP is informed by efficient MLP components found in modern large language models, such as Llama3, comprising 4 linear layers and 1 SiLU activation function. Considering the high dimensionality and poten-tially complex non-linear features of LLM hidden states, we opted for an MLP structure, aiming for stronger representa-tion learning and pattern recognition capabilities compared to traditional linear classifiers (e.g., logistic regression). The classifier’s input dimension matches the hidden state dimen-sion ℎ𝑙 𝑖 of the LLM 𝑀 under test, the output dimension is 2, and the intermediate layer dimension is set to 14336 .Training utilizes the standard CrossEntropyLoss function and Adam optimizer (Kingma and Ba, 2017), with a learning rate of 1.0𝑒 − 5 for 20 epochs. For all 𝐿 hidden layers of each LLM 𝑀 , 𝐿 independent classifiers are trained. The best-performing classifier 𝐶 and its corresponding hidden layer number 𝑙 are selected based on their performance on the test set. For each question in a new question set 𝑄 𝑛𝑒𝑤 , we extract the hidden state of the last token at the selected layer 𝑙 .This hidden state is then fed into the trained classifier 𝐶 for classification, yielding a determination of whether the ques-tion is "known" or "unknown," ultimately constructing the knowledge distribution over 𝑄 𝑛𝑒𝑤 . The classifier 𝐶 is char-acterized by its fast operational speed and high paralleliz-ability, rendering its performance overhead on the overall active learning framework negligible. Questions identified as falling within the "Unknown" region of the knowledge distribution are collected and subsequently directed to the hidden state decoding process. 
+
+3.3. Unknown Question Augmentation via Hidden State Decoding 
+
+To further augment the set of questions in the "Un-known" region of the model’s knowledge distribution, this study introduces latent space decoding techniques from LLM interpretability research. The advantage of using hid-den state decoding for question augmentation is its ability to transcend the surface-level textual limitations of the original "Unknown" questions and mine deeper knowledge associations. The model’s hidden states are considered deep, abstract representations of its pre-training data and input information, containing richer semantic and contextual information than the original text (Morris et al., 2024; Geva et al., 2021). By decoding these hidden states, rather than simply paraphrasing the original questions, this method aims to generate new questions that are highly relevant in terms of knowledge points and domain but are more diverse in form. These questions represent the same knowledge point from different perspectives, thereby more comprehensively identifying the model’s knowledge deficiencies. To achieve this objective, this study adapts the vec2text method from Morris et al. (2024), training a decoder from hidden states to text for each model on each dataset, as shown in Figure 1 (b). The base model for the decoder is t5-base (Raffel et al., 2020), which is an encoder-decoder archi-tecture Transformer model. The training process employed end-to-end training, simultaneously training the weights of the transformation linear layers and t5 (see section 4.3.2 for detailed training dataset composition and decoder parame-ters), enabling the decoder to learn the ability to reconstruct the original text from the source model’s hidden states. The decoding process is as follows: the hidden state ℎ𝑢𝑛𝑘 from the "Unknown" region of the knowledge distribution is input; it is transformed into t5’s hidden state representation via two Linear layers and a GeLU layer, with Gaussian noise added; and then the trained t5-base model is used for inference to obtain natural language text results, thereby augmenting the "Unknown" region of the knowledge distribution. 
+
+3.4. Downstream Tasks 
+
+Downstream tasks include constructing question-answer pairs based on the augmented unknown question set 𝑄 𝑎𝑢𝑔 ,as well as model fine-tuning and evaluation, as shown in Figure 1 (c). Downstream tasks are not the primary focus of this paper. The methods are diverse; for example, con-structing question-answer pairs can involve methods such as knowledge distillation (Xu et al., 2024), web search, and manual annotation, while model fine-tuning can utilize techniques like LoRA (Hu et al., 2022) and P-tuning (Liu et al., 2022). 
+
+## 4. Experimental Setup 
+
+To rigorously evaluate the effectiveness and efficiency of our proposed KA2L framework, we conducted a series of experiments. This section details the datasets, models, experimental design, and implementation specifics. 
+
+4.1. Models, Datasets, and Evaluation Metrics 
+
+The experiments selected nine open-source large lan-guage models, including Llama (Touvron et al., 2023), Mis-tral (Jiang et al., 2023), Phi (Abdin et al., 2024), Qwen (Qwen et al., 2025), and GLM (GLM et al., 2024), covering different model architectures and parameter scales. To ensure the breadth of the evaluation, the experiments utilized two open-domain question-answering datasets, Triv-iaQA (Joshi et al., 2017) and NQ_Open (Lee et al., 2019), and one medical domain dataset, MedMCQA (Pal et al., 2022). These datasets cover different knowledge domains and question types. Evaluation metrics including BLEU (Papineni et al., 2002), ROUGE (Lin, 2004), METEOR (Lavie and Agarwal, 2007), and BERTScore (Zhang* et al., 2020), were adopted to comprehensively assess the fluency, accuracy, and seman-tic similarity of the generated answers. It is important to note that all our experiments are con-ducted in a closed-book setting. This means the models rely solely on their internal, parametric knowledge to answer   
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 5 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs
+
+questions, without access to any external information re-trieval system during inference. 
+
+4.2. Experimental Design and Data Construction 
+
+The core of our experimental design involves training a knowledge distribution probe for each LLM-dataset pair on a held-out data sample. This trained probe then partitions a separate, larger data pool to construct our primary fine-tuning datasets: 
+
+𝐷 unk Contains questions identified by the probe as "un-known". This set represents the high-value data ac-tively selected by our KA2L framework. 
+
+𝐷 k Contains questions identified as "known", serving as a baseline to evaluate the utility of data already mas-tered by the model. 
+
+𝐷 combine A balanced mix of samples from 𝐷 unk and 𝐷 k,simulating a standard, unfiltered dataset collected without an active learning strategy. Based on these partitions, we constructed three specific experimental sets for fine-tuning comparisons: 
+
+10k Unknown: Consists of 10 , 000 selected unknown sam-ples from 𝐷 unk .
+
+5k Unknown: A random 5, 000 -sample subset of the 10k Unknown set. 
+
+10k Combine: Constructed by mixing 5, 000 unknown samples with 5, 000 known samples. Additionally, to evaluate our data augmentation module, we created a 10k Augmented dataset by generating 5, 000 
+
+new questions from the hidden states of the 5k Unknown set and combining them with the original samples. 
+
+4.3. Implementation Details 
+
+All experiments were conducted on NVIDIA A100 GPUs. The implementation of KA2L consists of the follow-ing three key components. 
+
+4.3.1. Knowledge Distribution Probe 
+
+For each model, we trained a Multi-Layer Perceptron (MLP) as the probe. As detailed in Section 3.2, the probe takes the hidden states of a specific layer as input. To determine the optimal layer for each model, we conducted a layer-wise performance analysis (comprehensive results are discussed in Section 6.1.2). Based on this analysis, we selected the layer with the highest probing accuracy (e.g., layer 31 for Llama-3-8B) for the final experiments (see Table 1). The MLP was trained for 20 epochs with a learning rate of 1 × 10 −5 .
+
+4.3.2. Hidden-State Decoder 
+
+For the data augmentation module, we employed a T5-base model 1 (Raffel et al., 2020) as the decoder. 
+
+Dataset : We used 250 , 000 data entries for training. Among these, 200 , 000 entries are fixed, sampled from one-million-instructions (Morris et al., 2024), to ensure its ca-pability in decoding fundamental questions. An additional 
+
+50 , 000 entries originate from the TriviaQA (Joshi et al., 2017), NQ_Open (Lee et al., 2019), and MedMCQA (Pal et al., 2022) datasets used in the experiments of this paper. This subset of data was not used in any other experiments and was solely dedicated to training the decoder for each model on its corresponding dataset. 
+
+Training Parameters : All experiments utilized a fully fine-tuned T5-base model as the decoder. The training in-volved 40 epochs, a learning rate of 2.0 × 10 −4 , and 100 , 000 
+
+warmup steps. The dataset for training the decoder was selected based on the model being decoded and the spe-cific dataset context. The layer numbers for hidden state extraction, presented in Table 1, were not chosen arbitrarily. Instead, they were empirically determined for each model-dataset pair by selecting the layer that yielded the high-est classifier performance (AUROC) in our comprehensive layer-wise analysis (discussed in Section 6.1.2). 
+
+Decoding Process : The decoding process leverages the trained T5-base to generate new questions. Specifically, a hidden state ℎunk from the "Unknown" region is first trans-formed into the T5’s latent space via two linear layers and a GeLU activation function, with Gaussian noise added to promote diversity. The resulting vector is then fed into the trained T5-base model, which generates the new question in natural language. 
+
+4.3.3. Supervised Fine-Tuning (SFT). 
+
+We employed the LLaMA-Factory framework (Zheng et al., 2024) to fine-tune all models. The fine-tuning param-eters adopted recommended values to simulate real-world fine-tuning scenarios. A total of 9 models were fine-tuned 
+
+5 times each across 3 datasets, resulting in 135 fine-tuning runs. For a given model, the only parameter difference when fine-tuning on different datasets was the dataset itself; all other parameters remained consistent. All fine-tuning was performed using LoRA (Hu et al., 2022), with lora_target set to "all" for all modules. Bf16,  
+
+> FlashAttention-2
+
+(Dao, 2024), and fast_tokenizer were used to accelerate the fine-tuning process. The number of epochs was set to 3 for all runs. Other parameters are detailed in Table 2 below. For generating outputs from the fine-tuned models dur-ing the evaluation phase, a consistent decoding strategy was employed. We used a low temperature of 0.1 for sampling. This encourages the model to produce more factual and deterministic outputs by reducing randomness, which is ap-propriate for the question-answering tasks in our evaluation. Other decoding parameters, such as top-p and top-k, were kept at their default values.   
+
+> 1https://hf-mirror.com/google-t5/t5-base
+> H. Yin et al.: Preprint submitted to Elsevier Page 6 of 15
+
+KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Table 1 
+
+Model-specific layer index choices based on probing accuracy. 
+
+Model Hidden-State Layer Index TriviaQA Mix NQ-Open Mix MedMCQA Mix 
+
+DeepSeek-R1-Distill-Qwen-7B 28 28 28 glm4-9b-chat 38 38 24 Llama-2-7b-chat-hf 31 30 30 Llama-3.1-8B-Instruct 31 32 31 Mistral-7B-Instruct-v0.1 31 31 30 Mistral-7B-Instruct-v0.3 31 31 31 Phi-3.5-mini-instruct 32 32 32 Qwen1.5-7B-Chat 32 26 19 Qwen2.5-7B-Instruct 22 19 28 
+
+Table 2 
+
+SFT training parameters for different models. 
+
+Model Learning Rate Template Batch Size Gradient Accumu-lation Steps  
+
+> DeepSeek-R1-Distill-Qwen-7B
+
+5.0e-5 qwen 4 4 
+
+> glm4-9b-chat
+
+1.0e-4 glm4 2 8 
+
+> Llama-2-7b-chat-hf
+
+1.0e-4 llama2 4 2 
+
+> Llama-3.1-8B-Instruct
+
+1.0e-4 llama3 4 2 
+
+> Mistral-7B-Instruct-v0.1
+
+1.0e-4 mistral 4 4 
+
+> Mistral-7B-Instruct-v0.3
+
+1.0e-4 mistral 4 4 
+
+> Phi-3.5-mini-instruct
+
+1.0e-4 phi 4 8 
+
+> Qwen1.5-7B-Chat
+
+5.0e-5 qwen 4 4 
+
+> Qwen2.5-7B-Instruct
+
+5.0e-5 qwen 4 4
+
+4.4. Research Questions 
+
+Guided by the experimental design above, this study aims to answer the following three research questions: 
+
+RQ1: Cost-Efficiency. Can KA2L achieve comparable performance to a full, unfiltered dataset while using only a fraction (e.g., 50% ) of the annotation and computational budget? We answer this by comparing fine-tuning on 5k Unknown data against the 10k Combine baseline. 
+
+RQ2: Selection Effectiveness. Given an identical data budget, does KA2L’s strategy of selecting "unknown" data yield superior performance compared to a naive, unfiltered approach? We investigate this by comparing 10k Unknown 
+
+against 10k Combine .
+
+RQ3: Augmentation Utility. In scenarios with a limited pool of original "unknown" data, can our hidden-state de-coding method effectively augment the training set to further boost performance? We evaluate this by comparing the per-formance of the 10k Augmented set against the 5k Unknown 
+
+and 10k Unknown sets. 
+
+4.5. Compairson with Adapted Traditional Active Learning Methods 
+
+To situate KA2L in the broader research context, we performed a comparative analysis against several traditional active learning methods. This comparative experiment was performed on the LLaMA-3.1-8B-Instruct model across all three datasets, where each method was tasked with selecting a 5, 000 -sample subset from the 10 𝑘 Combine set. Since methods such as Entropy (Wang and Shang, 2014), Coreset (Sener and Savarese, 2018), and BADGE (Ash et al., 2020) were originally designed for classification tasks, not for generative LLMs, it is necessary to develop practical adaptations for them, primarily by using prediction entropy as a proxy for uncertainty and final-layer hidden states as embeddings for diversity. Our full adaptation methodology for these strategies is as follows. Our adaptation strategy centers on a single, efficient pass over the unlabeled data pool to pre-calculate two key metrics for each prompt: an uncertainty score and a diversity embedding. This pre-computation, while resource-intensive, is performed only once, and its results are reused across all comparative methods, ensuring both efficiency and a fair comparison. 
+
+Uncertainty Score. Traditional gradient-based uncer-tainty metrics are infeasible for LLMs. We instead use pre-diction entropy as a computationally efficient and effective proxy. Specifically, for each prompt, we perform a standard forward pass (temperature= 1.0) to obtain the next-token logits and calculate the entropy of the resulting probabil-ity distribution, 𝐻 (𝑝 ) = − ∑𝑖 𝑝 𝑖 log 𝑝 𝑖 . This captures the model’s intrinsic confidence and serves as the uncertainty score. 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 7 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Diversity Embedding. To measure diversity, we lever-age the semantic representation of each prompt from the LLM itself. Instead of computationally prohibitive gradient embeddings (as in the original BADGE), we extract the hidden-state representation of the final prompt token from a deep model layer (see Table 1). This high-dimensional vector captures the prompt’s semantic essence, enabling a meaningful measure of diversity. Using these two pre-computed metrics, we implement the comparative strategies as follows: 
+
+Random Sampling : Uniformly samples a subset of data from the pool. 
+
+Uncertainty Sampling : Selects samples with the high-est prediction entropy scores. 
+
+Coreset Sampling : This diversity-focused method is implemented using a standard k-Center-Greedy algorithm on the hidden-state embeddings, iteratively selecting the data point furthest from its nearest neighbor in the already selected set. 
+
+BADGE (Adapted) : Our adaptation preserves BADGE’s hybrid principle by using a weighted k-MEANS++ seeding procedure. The probability of selecting a new sample is proportional to its squared distance to the nearest selected center, multiplied by its uncertainty score (entropy), balanc-ing diversity and uncertainty. 
+
+## 5. Experimental Results 
+
+In this section, we present the main experimental results to answer the proposed research questions. We first ana-lyze the cost-efficiency and selection effectiveness of KA2L across three datasets (RQ1 and RQ2). Next, we evaluate the utility of our hidden-state decoding augmentation strategy (RQ3). Finally, we compare KA2L with adapted traditional active learning methods to demonstrate its superiority in the context of LLM fine-tuning. 
+
+5.1. KA2L-Guided Fine-tuning Achieves Superior Cost-Efficiency and Effectiveness 
+
+To validate the cost-efficiency (RQ1) and selection effec-tiveness (RQ2) of our framework, we conducted extensive experiments on MedMCQA, NQ-Open, and TriviaQA. The main results are summarized in Table 3, Table 4, and Table 5, respectively. 
+
+Cost-Efficiency (RQ1). A central finding is that fine-tuning with 5𝑘 Unknown samples, actively selected by KA2L, achieves performance comparable to the 10 𝑘 Com-bine setting while using only half the data. For instance, on the MedMCQA dataset (Table 3), Llama-3.1-8B-Instruct 
+
+trained on 5k Unknown data reaches a ROUGE-L score of 29.96, which is nearly identical to the 30.17 achieved with the full 10k Combine set. Similarly, on the open-domain NQ-Open dataset (Table 4), glm4-9b-chat achieves 45.91 ROUGE-L on 5k Unknown , effectively matching the 45.94 of the 10k Combine baseline. This pattern consistently validates RQ1: KA2L can effectively cut annotation and computational costs by approximately 50% while main-taining high performance, confirming the high density of information within the selected "unknown" samples. 
+
+Selection Effectiveness (RQ2). When comparing datasets of the same size, the superiority of KA2L’s targeted selection becomes evident. The 10k Unknown setting consistently outperforms the 10k Combine baseline across almost all models and metrics. Taking TriviaQA (Table 5) as an example, DeepSeek-R1-Distill-Qwen-7B shows a significant leap from 23.65 ( 10k Combine ) to 27.00 ( 10k Unknown )in ROUGE-L. On MedMCQA, Mistral-7B-Instruct-v0.3 
+
+improves from 27.55 to 35.28. These results provide a strong affirmative answer to RQ2, illustrating that for a fixed budget, intelligently selecting data that addresses a model’s specific knowledge gaps is far more effective than an indiscriminate, unfiltered training approach. It also implies that fine-tuning on "known" data offers diminishing returns and can be considered redundant. 
+
+5.2. Effectiveness of Data Augmentation 
+
+We further investigate whether our hidden-state decod-ing method can generate valuable training samples to boost performance when original data is scarce. The results for the 10k Augmented setting are presented alongside the main results in the tables mentioned above. The experiments reveal that the 10k Augmented set con-sistently provides a significant performance boost over the 
+
+5k Unknown set. For example, with Phi-3.5-mini on MedM-CQA, the 10k Augmented set improves the ROUGE-L score to 29.18, compared to 27.85 for the 5k Unknown set. Notably, in several cases, the augmented data performs on par with the unfiltered 10k Combine set (e.g., 29.18 vs. 27.70 for 
+
+> Phi-3.5-mini
+
+). This confirms RQ3: when acquiring more original "unknown" data is costly or infeasible, our hidden-state decoding method offers a practical way to enrich the training data and improve model generalization. However, it is worth noting that the performance of augmented data generally does not reach the ceiling set by real 10k Unknown 
+
+data, as synthetic samples may lack the full informational depth of ground-truth data. 
+
+5.3. Comparison with Traditional Active Learning Strategies 
+
+To situate KA2L in the broader research context, we compared it against adapted versions of traditional active learning methods, including Entropy (Wang and Shang, 2014), Coreset (Sener and Savarese, 2018), and BADGE (Ash et al., 2020). The results, presented in Table 6, highlight a significant performance gap. On the NQ-Open dataset, KA2L ( 5k Un-known ) achieves a ROUGE-L score of 44.96, significantly outperforming all traditional baselines (e.g., Coreset at 38.69 and BADGE at 38.70). In fact, our method approaches the performance of the full dataset (45.18), whereas traditional methods struggle to surpass random sampling significantly. Results on other two datasets, presented in Tables 7 and 8, consistently corroborate this finding, demonstrating   
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 8 of 15
+
+KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Table 3 Active learning performance on MedMCQA. KA2L-selected data (Unknown) is compared against Known data and a mixed Combine setting. 
+
+Model SFT Dataset BLEU ROUGE-L METEOR BS(%) SFT Dataset BLEU ROUGE-L METEOR BS(%) 
+
+DeepSeek-R1-Distill-Qwen-7B None 0.02 0.52 1.31 76.29 10k Combine 2.44 12.55 7.92 83.70 5k Known 1.85 10.41 6.50 83.19 10k Unknown 2.85 14.53 9.20 84.00 
+
+5k Unknown 1.91 11.99 7.54 83.62 10k Augmented 2.62 13.55 8.91 84.00 
+
+glm4-9b-chat None 0.08 1.71 4.21 78.48 10k Combine 6.90 28.27 19.67 86.80 5k Known 4.17 20.62 13.86 85.17 10k Unknown 9.82 36.02 25.50 88.30 
+
+5k Unknown 6.61 28.44 19.87 86.73 10k Augmented 8.48 29.92 21.67 87.13 Llama-2-7b-chat-hf None 0.06 0.99 2.54 77.33 10k Combine 5.37 23.76 15.80 85.90 5k Known 3.34 16.13 10.45 84.35 10k Unknown 7.99 29.78 20.14 87.15 
+
+5k Unknown 5.91 23.25 15.54 85.79 10k Augmented 5.56 23.77 16.06 85.92 Llama-3.1-8B-Instruct None 0.10 2.34 5.01 78.58 10k Combine 8.21 30.17 21.11 87.14 5k Known 5.72 23.29 16.18 85.71 10k Unknown 10.82 36.55 25.97 88.49 
+
+5k Unknown 8.49 29.96 20.84 87.20 10k Augmented 8.81 30.54 21.36 87.31 Mistral-7B-Instruct-v0.1 None 0.12 3.17 6.29 79.60 10k Combine 7.06 27.86 19.16 86.70 5k Known 3.35 18.09 12.03 84.74 10k Unknown 9.71 36.11 25.20 88.37 
+
+5k Unknown 6.97 27.33 18.82 86.65 10k Augmented 7.43 28.85 20.29 86.92 Mistral-7B-Instruct-v0.3 None 0.11 2.10 5.19 79.22 10k Combine 6.88 27.55 19.29 86.76 5k Known 4.32 19.17 13.11 85.03 10k Unknown 9.58 35.28 25.08 88.30 
+
+5k Unknown 6.71 27.02 18.79 86.63 10k Augmented 8.24 28.94 20.86 87.07 Phi-3.5-mini-instruct None 0.09 1.59 4.10 78.44 10k Combine 7.42 27.70 18.57 86.74 5k Known 6.63 25.40 16.90 86.30 10k Unknown 8.05 29.69 19.95 87.21 
+
+5k Unknown 7.61 27.85 18.59 86.81 10k Augmented 8.30 29.18 20.05 87.07 Qwen1.5-7B-Chat None 0.08 1.64 4.03 78.63 10k Combine 4.60 19.65 13.12 85.00 5k Known 3.11 15.09 9.95 84.10 10k Unknown 5.46 23.72 15.78 85.84 
+
+5k Unknown 4.13 19.34 12.86 84.90 10k Augmented 4.85 21.55 14.84 85.40 Qwen2.5-7B-Instruct None 0.09 1.80 4.34 78.35 10k Combine 6.30 24.13 16.80 85.93 5k Known 4.67 20.30 13.85 85.06 10k Unknown 6.63 27.16 18.79 86.54 
+
+5k Unknown 6.80 24.07 16.58 85.95 10k Augmented 5.92 24.65 17.73 86.14 
+
+Table 4 Active learning performance on the NQ_Open dataset. 
+
+Model SFT Dataset BLEU ROUGE-L METEOR BS(%) SFT Dataset BLEU ROUGE-L METEOR BS(%) 
+
+DeepSeek-R1-Distill-Qwen-7B None 0.02 0.46 1.26 76.39 10k Combine 6.10 13.17 9.68 86.45 5k Known 4.69 11.15 7.87 86.19 10k Unknown 7.48 16.05 11.84 86.98 
+
+5k Unknown 4.05 12.19 8.78 86.37 10k Augmented 2.85 13.56 10.04 86.49 glm4-9b-chat None 0.22 3.68 8.63 79.94 10k Combine 28.78 45.94 36.50 91.33 5k Known 19.55 35.78 27.67 89.62 10k Unknown 39.54 57.89 46.91 93.27 
+
+5k Unknown 28.61 45.91 36.47 91.31 10k Augmented 22.49 46.00 36.62 91.34 Llama-2-7b-chat-hf None 0.12 1.92 4.70 78.66 10k Combine 21.29 39.10 31.04 90.25 5k Known 12.23 25.65 19.71 88.06 10k Unknown 33.56 52.14 41.94 92.45 
+
+5k Unknown 23.47 39.25 31.15 90.23 10k Augmented 17.78 38.69 30.72 90.24 Llama-3.1-8B-Instruct None 0.15 3.49 7.93 79.12 10k Combine 24.46 45.15 35.35 91.09 5k Known 16.57 32.56 24.69 89.07 10k Unknown 38.91 58.84 46.97 93.35 
+
+5k Unknown 22.32 44.94 35.04 91.08 10k Augmented 21.90 44.29 34.53 91.03 Mistral-7B-Instruct-v0.1 None 0.31 5.44 10.85 80.48 10k Combine 21.21 35.27 27.16 89.76 5k Known 13.35 26.88 20.29 88.39 10k Unknown 38.70 58.51 46.23 93.49 
+
+5k Unknown 20.44 34.59 26.69 89.56 10k Augmented 14.05 35.07 27.20 89.70 Mistral-7B-Instruct-v0.3 None 0.28 3.26 8.21 79.99 10k Combine 28.64 46.53 36.27 91.37 5k Known 16.17 33.89 25.37 89.31 10k Unknown 39.45 59.72 47.23 93.65 
+
+5k Unknown 28.30 46.28 35.99 91.44 10k Augmented 24.32 46.99 36.72 91.51 Phi-3.5-mini-instruct None 0.15 2.11 5.42 79.18 10k Combine 14.30 27.85 20.88 88.52 5k Known 12.83 24.73 18.19 88.03 10k Unknown 20.01 34.98 26.71 89.66 
+
+5k Unknown 14.28 27.83 20.87 88.55 10k Augmented 12.57 28.59 21.55 88.57 Qwen1.5-7B-Chat None 0.20 2.72 6.51 79.55 10k Combine 14.97 31.62 24.45 88.89 5k Known 10.12 22.56 16.98 87.31 10k Unknown 23.39 39.90 31.31 90.21 
+
+5k Unknown 17.05 30.86 23.66 88.78 10k Augmented 12.98 33.72 26.53 89.28 Qwen2.5-7B-Instruct None 0.21 3.43 7.99 79.73 10k Combine 16.23 29.57 23.12 88.34 5k Known 9.81 24.26 18.68 87.51 10k Unknown 17.42 34.76 27.37 89.25 
+
+5k Unknown 15.90 29.91 23.32 88.41 10k Augmented 12.79 31.67 25.10 88.70 
+
+that KA2L’s semantic-uncertainty-based approach is more effective at identifying informative samples for knowledge-intensive tasks than strategies based on general uncertainty, diversity, or adapted gradients. 
+
+## 6. Analysis and Discussion 
+
+While the previous section established the superior per-formance of KA2L, this section delves deeper into the in-ternal mechanisms that drive its success. We analyze the behavior of the knowledge distribution probe, assess the 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 9 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Table 5 Active learning performance on the TriviaQA dataset. 
+
+Model SFT Dataset BLEU ROUGE-L METEOR BS(%) SFT Dataset BLEU ROUGE-L METEOR BS(%) 
+
+DeepSeek-R1-Distill-Qwen-7B None 0.02 0.49 1.24 76.13 10k Combine 9.98 23.65 16.38 87.05 5k Known 7.79 18.77 12.82 86.32 10k Unknown 14.20 27.00 18.86 87.56 
+
+5k Unknown 9.41 22.22 15.39 86.85 10k Augmented 6.68 24.46 17.11 87.16 glm4-9b-chat None 0.15 3.62 8.16 79.13 10k Combine 21.51 41.26 30.71 88.18 5k Known 14.68 31.65 23.03 86.34 10k Unknown 11.68 55.80 42.43 91.00 
+
+5k Unknown 19.62 40.28 29.85 87.97 10k Augmented 15.21 40.47 30.07 88.09 Llama-2-7b-chat-hf None 0.09 2.30 5.24 78.23 10k Combine 26.36 49.16 36.84 89.37 5k Known 19.67 41.86 31.33 88.06 10k Unknown 33.25 58.91 44.77 91.58 
+
+5k Unknown 24.57 48.90 36.69 89.33 10k Augmented 21.97 47.57 35.75 89.14 Llama-3.1-8B-Instruct None 0.12 5.67 11.11 79.26 10k Combine 23.59 49.78 36.37 89.65 5k Known 14.81 43.14 31.54 88.50 10k Unknown 30.84 63.38 47.05 92.39 
+
+5k Unknown 18.96 49.23 35.95 89.61 10k Augmented 22.05 49.56 36.23 90.12 Mistral-7B-Instruct-v0.1 None 0.32 15.73 17.64 81.85 10k Combine 18.41 46.51 33.61 89.08 5k Known 13.20 39.35 28.41 87.88 10k Unknown 32.77 63.64 47.43 92.42 
+
+5k Unknown 15.93 45.52 32.98 88.92 10k Augmented 15.67 45.86 33.21 89.01 Mistral-7B-Instruct-v0.3 None 0.16 3.14 7.11 79.07 10k Combine 22.75 47.65 34.81 89.12 5k Known 16.87 40.87 29.36 87.94 10k Unknown 36.84 62.41 46.66 92.21 
+
+5k Unknown 21.21 47.21 34.42 89.02 10k Augmented 16.63 47.13 34.27 88.99 Phi-3.5-mini-instruct None 0.11 2.41 5.85 78.86 10k Combine 22.93 43.39 31.60 89.01 5k Known 18.13 39.10 28.31 88.29 10k Unknown 25.72 47.15 34.19 89.73 
+
+5k Unknown 23.26 42.94 31.24 88.98 10k Augmented 19.26 42.98 31.27 88.99 Qwen1.5-7B-Chat None 0.14 3.84 8.18 79.28 10k Combine 20.78 38.85 28.16 88.39 5k Known 20.04 39.05 28.53 88.40 10k Unknown 25.91 48.38 35.80 90.03 
+
+5k Unknown 19.89 39.02 28.54 88.40 10k Augmented 13.85 38.06 27.56 88.24 Qwen2.5-7B-Instruct None 0.15 4.07 8.79 78.92 10k Combine 11.37 32.52 24.36 85.65 5k Known 11.72 32.24 24.18 85.63 10k Unknown 14.49 35.88 27.07 86.49 
+
+5k Unknown 11.72 32.30 24.20 85.63 10k Augmented 5.82 31.99 24.24 85.80 
+
+Table 6 Performance comparison of active learning methods on the NQ_Open dataset. Our method, KA2L ( 5𝑘 Unknown ), significantly outperforms all adapted traditional AL method, approaching the performance of the Full Dataset (10 𝑘 ) with only half the data budget. Results are reported as mean ± std over 4 runs. 
+
+Method BLEU ROUGE-L METEOR BertScore(%) 
+
+Traditional Methods ( 5𝑘 samples selected from 10 𝑘 pool) 
+
+Random 21 .75 ± 0 .03 38 .53 ± 0 .02 29 .65 ± 0 .02 90 .01 ± 0 .01 
+
+Entropy 19 .59 ± 1 .15 37 .91 ± 0 .10 29 .38 ± 0 .07 89 .91 ± 0 .01 
+
+Coreset 22 .04 ± 0 .07 38 .69 ± 0 .05 29 .81 ± 0 .03 90 .16 ± 0 .01 
+
+BADGE (adapted) 19 .64 ± 0 .15 38 .70 ± 0 .05 29 .73 ± 0 .05 90 .06 ± 0 .01 
+
+Our Method ( 5𝑘 samples) 
+
+KA2L 5k Known 16 .68 ± 0 .09 32 .58 ± 0 .03 24 .68 ± 0 .03 89 .07 ± 0 .01 
+
+KA2L 5k Unknown 22.29 ± 0.08 44.96 ± 0.04 35.01 ± 0.04 91.08 ± 0.01 
+
+Upper Bound 
+
+Full Dataset (10k) 24 .51 ± 0 .04 45 .18 ± 0 .04 35 .35 ± 0 .04 91 .09 ± 0 .01 
+
+robustness of our dynamic thresholding, and provide a qual-itative visualization of knowledge boundaries. Finally, we discuss the limitations of the current framework. 
+
+6.1. Knowledge Distribution Probing Analysis 
+
+The efficacy of KA2L hinges on the probe’s ability to accurately distinguish between "known" and "unknown" knowledge. To validate this, we evaluated our MLP-based probe against strong baselines (including SE Probe , P(True) ,and Semantic Entropy ) using Area Under the ROC Curve (AUROC) as the metric. 
+
+Table 7 Performance comparison of active learning methods on the MedMCQA dataset. 
+
+Method BLEU ROUGE-L METEOR BertScore(%) 
+
+Traditional Methods (5k samples selected from 10k pool) 
+
+Random 7.19 ± 0 .22 26 .67 ± 0 .05 18 .55 ± 0 .05 86 .44 ± 0 .02 
+
+Entropy 6.85 ± 0 .09 26 .66 ± 0 .07 18 .46 ± 0 .05 86 .40 ± 0 .01 
+
+Coreset 8.11 ± 0 .11 28 .48 ± 0 .08 19 .86 ± 0 .03 86 .83 ± 0 .01 
+
+BADGE (adapted) 6.68 ± 0 .12 26 .76 ± 0 .06 18 .64 ± 0 .07 86 .41 ± 0 .01 
+
+Our Method (5k samples) 
+
+KA2L 5k Known 5.67 ± 0 .06 23 .35 ± 0 .05 16 .23 ± 0 .03 85 .73 ± 0 .01 
+
+KA2L 5k Unknown 8.47 ± 0.14 29.96 ± 0.02 20.84 ± 0.01 87.19 ± 0.01 
+
+Upper Bound 
+
+Full Dataset (10k) 8.17 ± 0 .04 30 .14 ± 0 .03 21 .08 ± 0 .02 87 .13 ± 0 .01 
+
+Table 8 Performance comparison of active learning methods on the TriviaQA dataset. 
+
+Method BLEU ROUGE-L METEOR BertScore(%) 
+
+Traditional Methods (5k samples selected from 10k pool) 
+
+Random 12 .33 ± 0 .14 45 .25 ± 0 .01 32 .96 ± 0 .02 88 .95 ± 0 .01 
+
+Entropy 22.34 ± 0.08 46 .25 ± 0 .09 33 .91 ± 0 .06 89 .10 ± 0 .01 
+
+Coreset 20 .37 ± 1 .80 45 .64 ± 0 .07 33 .31 ± 0 .04 89 .02 ± 0 .00 
+
+BADGE (adapted) 20 .58 ± 0 .22 45 .50 ± 0 .06 33 .15 ± 0 .03 88 .98 ± 0 .01 
+
+Our Method (5k samples) 
+
+KA2L 5k Known 15 .88 ± 1 .65 43 .19 ± 0 .05 31 .55 ± 0 .03 88 .51 ± 0 .01 
+
+KA2L 5k Unknown 18 .92 ± 0 .41 49.21 ± 0.03 35.93 ± 0.02 89.61 ± 0.00 
+
+Upper Bound 
+
+Full Dataset (10k) 23 .50 ± 0 .35 49 .76 ± 0 .06 36 .33 ± 0 .05 89 .65 ± 0 .01 
+
+6.1.1. Probe Performance 
+
+As shown in the Table 9, our probe consistently achieves state-of-the-art performance across all evaluated LLMs. For instance, on the TriviaQA dataset, it attains an AUROC of up to 0.91 (on Phi-3.5-mini ). Notably, our MLP-based approach 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 10 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs                                                                    
+
+> Table 9 Performance comparison of knowledge distribution probes (AUROC) on TriviaQA dataset. Our method achieves the highest score.
+> Models Ours SE Probe Accuracy Probe Log-Likeli hood Regular Entropy P(True) Semantic Entropy
+> DeepSeek-R1-Distill-Qwen-7B 0.89 0.85 0.81 0.61 0.84 0.83 0.86 glm4-9b-chat 0.83 0.81 0.72 0.56 0.76 0.82 0.80 Llama-2-7b-chat-hf 0.85 0.78 0.70 0.55 0.73 0.71 0.77 Llama-3.1-8B-Instruct 0.89 0.85 0.73 0.57 0.75 0.79 0.79 Mistral-7B-Instruct-v0.1
+> 0.88 0.83 0.76 0.62 0.75 0.78 0.81 Mistral-7B-Instruct-v0.3
+> 0.90 0.86 0.78 0.68 0.73 0.84 0.78 Phi-3.5-mini-instruct 0.91 0.88 0.81 0.77 0.82 0.79 0.84 Qwen1.5-7B-Chat 0.81 0.78 0.74 0.46 0.77 0.78 0.81
+> Qwen2.5-7B-Instruct 0.86 0.82 0.75 0.54 0.79 0.86 0.80
+
+significantly outperforms the linear SE Probe , underscoring the necessity of capturing non-linear relationships in hidden states to detect subtle uncertainty signals. Similar trends are observed on MedMCQA and NQ Open. 
+
+6.1.2. Layer-wise Analysis 
+
+To determine the optimal source of uncertainty sig-nals, we analyzed the classifier performance across different Transformer layers. Figure 2 visualizes the AUROC scores across layers for different models. We observed a consistent trend: classifier performance generally improves with increasing layer depth, suggesting that deeper layers contain more semantic-level information relevant to output uncertainty. However, there are distinct architectural signatures. For example, Llama-3.1-8B shows a steady rise, whereas Phi-3.5-mini plateaus earlier. This analysis not only guided our layer selection in Section 4.2 but also confirms that knowledge uncertainty is encoded deeply within the model’s high-level representations. 
+
+6.2. Robustness of Dynamic Thresholding 
+
+Our framework utilizes a dynamic thresholding mecha-nism (minimizing MSE) to binarize Semantic Entropy la-bels. To assess whether our method is overly sensitive to this hyperparameter, we conducted a perturbation analysis on Llama-3.1-8B . We perturbed the optimal threshold 𝛾 ∗
+
+by increments of ±0 .05 , ±0 .10 , ±0 .20 and re-evaluated the probe’s accuracy. The results shown in Table 10 demonstrate that the classifier consistently achieves the highest AUROC score precisely at the optimal threshold 𝛾 ∗ across all three datasets. This empirically validates that our MSE-based method is effective at identifying an optimal cut-off point. Further-more, the performance degrades gracefully as the threshold deviates from the optimum. Even with a significant perturba-tion, the performance does not collapse, indicating that our framework is not overly sensitive to the exact threshold value and demonstrates practical robustness. 
+
+6.3. Qualitative Analysis: Visualizing Knowledge Boundaries 
+
+To provide an intuitive understanding of what KA2L considers "Unknown," we present a qualitative case study in Table 11. 
+
+• Low Entropy (Known): For questions with SE ≈ 0 ,such as "How many keys are on Microsoft Windows standard keyboard?", the model consistently generates "104" across all samples. This stability indicates mas-tered knowledge, which KA2L correctly filters out to avoid redundant training. 
+
+• High Entropy (Unknown): For questions with high SE ( ≈ 2.3), like "Who holds the record for most knockouts in boxing?", the model hallucinates diver-gent answers (e.g., "Rocky Marciano", "Ali", "Fore-man"). KA2L identifies these as high-value targets. 
+
+• The Boundary: Interestingly, intermediate SE val-ues capture the "knowledge boundary"—where the model might know the concept broadly (e.g., "United States") but hallucinates specific details (e.g., "Poland"). We also performed PCA analysis on the 10k Combine 
+
+dataset and Mistral-7B-Instruct-v0.3 model based on Se-mantic Entropy values. The results are shown in Figure 3, where purple represents the "Known" region and yellow represents the "Unknown" region. It can be seen that there is an overlapping area between the two distributions; this is the Knowledge Boundary region, which acts as a boundary separating the "Unknown" and "Known" regions. This visu-alization substantiates that our semantic-consistency-based definition of "unknown" aligns well with the model’s actual epistemic uncertainty. 
+
+6.4. Limitations 
+
+While our KA2L framework effectively identifies ques-tions representing unmastered knowledge to guide SFT dataset construction, its current functionality has several limitations. Firstly, the framework’s scope is confined to                                           
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 11 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs
+> Figure 2: Classifier AUROC score across different hidden layers (embedding layer excluded) on the Trivia_QA dataset.
+> Table 10
+> AUROC scores of the knowledge distribution probe under perturbed binarization thresholds for LLaMA-3.1-8B-Instruct (Layer 31 ). The optimal threshold 𝛾 ∗is determined by minimizing MSE. The highest score in each row is highlighted in bold.
+> Dataset 𝛾 ∗− 0 .20 𝛾 ∗− 0 .10 𝛾 ∗− 0 .05 𝛾 ∗𝛾 ∗+ 0 .05 𝛾 ∗+ 0 .10 𝛾 ∗+ 0 .20
+> TriviaQA 0.8543 0.8602 0.8623 0.8853 0.8847 0.8784 0.8721 NQ_Open 0.8232 0.8290 0.8277 0.8307 0.8265 0.8248 0.8247 MedMCQA 0.8281 0.8267 0.8323 0.8345 0.8285 0.8238 0.8333
+
+question classification and prioritization; it does not extend to the automatic generation of complete question-answer pairs for the identified unknown questions, a step that still necessitates external mechanisms or human annotation. Secondly, as a white-box approach, KA2L requires access to the model’s internal hidden states, rendering it incompatible with commercial, closed-source models accessible only via APIs. Lastly, the initiation of the KA2L framework is contingent upon a pre-existing, domain-specific question set to probe the LLM’s knowledge distribution. The collection and curation of this initial, comprehensive corpus can pose a significant practical challenge, particularly in niche or emerging domains where such resources are scarce, thereby potentially limiting the immediate applicability or bootstrap-ping of our method in these scenarios. 
+
+## 7. Conclusion and Future Works 
+
+In this paper, we introduced the Knowledge-Aware Ac-tive Learning (KA2L) framework, a novel approach for efficiently fine-tuning Large Language Models. By probing the model’s internal hidden states to identify “unknown" knowledge, KA2L guides a more targeted and cost-effective data selection process. Our extensive experiments demon-strate that fine-tuning with KA2L-selected data not only reduces annotation and computation costs by approximately 
+
+50% but also achieves superior performance compared to both unfiltered datasets and classic active learning methods like Coreset and BADGE. The core of our framework, a highly accurate knowledge probe, effectively pinpoints a model’s knowledge boundaries, while our hidden-state de-coding offers a practical solution for data augmentation in   
+
+> H. Yin et al.: Preprint submitted to Elsevier Page 12 of 15
+
+KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Table 11 
+
+Qualitative Case Study: Examples of Low, Medium, and High Entropy Samples 
+
+SE Question Ground Truth Generated Answers (10 Samples) 
+
+≈ 0 how many keys are on microsoft windows standard keyboard 104 104 , 104 , 104 , 104 , 104 104 , 104 , 104 , 104 , 104 
+
+≈ 1 .5 the haagen-dazs brand of ice cream originated in which country United States 
+
+> United States
+
+, Poland , United States Scandinavia , Poland , Poland scandinavian , Belgium , Poland , Jamaica 
+
+≈ 2 .3 who holds the record for most knockouts in boxing Archie Moore 
+
+> Rocky Marciano &...
+
+, Chris Byrd doesn’t Muhammad Ali , Jabbar Ali , Tyson Joe Louis , Joe Louis *482*... Partinello Wolf , George Foreman , Yvon Neptune 
+
+Figure 3: PCA Analysis on Mistral-7B-Instruct-v0.3 
+
+low-resource scenarios. Ultimately, KA2L presents a prac-tical and robust solution for targeted LLM enhancement, highlighting the significant value of leveraging a model’s internal knowledge distribution for more efficient learning. Our work leads to two main future research directions. A key challenge that warrants further investigation is the inherent difficulty for semantic consistency-based methods, including Semantic Entropy, to fully disambiguate between genuine knowledge gaps (i.e., the model truly does not know) and responses to questions with intrinsic ambiguity or controversy. Although our current study mitigates this issue by focusing on factual question-answering datasets, address-ing this distinction in more general and open-ended scenar-ios remains a significant open problem. Another promising direction involves moving beyond the empirical selection of the optimal layer for uncertainty quantification. Future work could delve into the information flow mechanisms within diverse LLM architectures to develop a more principled understanding of why specific layers are more sensitive to representing knowledge uncertainty. This line of inquiry not only promises to enhance the robustness and theoretical grounding of our framework but also contributes valuable insights to the broader field of model interpretability. 
+
+## Acknowledgments 
+
+This study was supported in part by a grant from the National Key Research and Development Program of China [2025YFE0209200], the Key R&D Program of Heilongjiang Province (China)[2024ZX01A07], and the Key R&D Pro-gram of Heilongjiang Province (China)[JD2023GJ01]. 
+
+## CRediT authorship contribution statement 
+
+Haoxuan Yin: Methodology, Investigation, Software, Formal analysis, Writing - original draft. Bojian Liu: Writ-ing - review & editing. Chen Tang: Writing - review & editing. Yangfan Wang: Visualization, Writing - review & editing. Lian Yan: Writing - review & editing. Jingchi Jiang: Conceptualization, Supervision, Resources, Writing - review & editing. 
+
+## Declaration of Generative AI Usage 
+
+During the preparation of this work the authors used 
+
+Gemini-2.5-pro in order to assist with language translation and polishing to improve grammatical clarity. After using this tool/service, the authors reviewed and edited the content as needed and take full responsibility for the content of the published article. 
+
+## Declaration of competing interests 
+
+The authors declare that they have no known competing financial interests or personal relationships that could have appeared to influence the work reported in this paper. 
+
+## References 
+
+> Abdin, M., Aneja, J., Awadalla, H., Awadallah, A., Awan, A. A., Bach, N., Bahree, A., Bakhtiari, A., Bao, J., Behl, H., Benhaim, A., Bilenko, M., Bjorck, J., Bubeck, S., Cai, M., Cai, Q., Chaudhary, V., Chen, D., Chen, D., Chen, W., Chen, Y.-C., Chen, Y.-L., Cheng, H., Chopra, P., Dai, X., Dixon, M., Eldan, R., Fragoso, V., Gao, J., Gao, M., Gao, M., Garg, A., Giorno, A. D., Goswami, A., Gunasekar, S., Haider, E., Hao, J., Hewett, R. J., Hu, W., Huynh, J., Iter, D., Jacobs, S. A., Javaheripi, M., Jin, X., Karampatziakis, N., Kauffmann, P., Khademi, M., Kim, D., Kim, Y. J., Kurilenko, L., Lee, J. R., Lee, Y. T., Li, Y., Li, Y., Liang, C., Liden, L., Lin, X., Lin, Z., Liu, C., Liu, L., Liu, M., Liu, W., Liu, X.,
+
+H. Yin et al.: Preprint submitted to Elsevier Page 13 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Luo, C., Madan, P., Mahmoudzadeh, A., Majercak, D., Mazzola, M., Mendes, C. C. T., Mitra, A., Modi, H., Nguyen, A., Norick, B., Patra, B., Perez-Becker, D., Portet, T., Pryzant, R., Qin, H., Radmilac, M., Ren, L., de Rosa, G., Rosset, C., Roy, S., Ruwase, O., Saarikivi, O., Saied, A., Salim, A., Santacroce, M., Shah, S., Shang, N., Sharma, H., Shen, Y., Shukla, S., Song, X., Tanaka, M., Tupini, A., Vaddamanu, P., Wang, C., Wang, G., Wang, L., Wang, S., Wang, X., Wang, Y., Ward, R., Wen, W., Witte, P., Wu, H., Wu, X., Wyatt, M., Xiao, B., Xu, C., Xu, J., Xu, W., Xue, J., Yadav, S., Yang, F., Yang, J., Yang, Y., Yang, Z., Yu, D., Yuan, L., Zhang, C., Zhang, C., Zhang, J., Zhang, L. L., Zhang, Y., Zhang, Y., Zhang, Y., and Zhou, X. (2024). Phi-3 technical report: A highly capable language model locally on your phone. Ash, J. T., Goel, S., Krishnamurthy, A., and Kakade, S. M. (2021). Gone fishing: Neural active learning with fisher embeddings. In Beygelzimer, A., Dauphin, Y., Liang, P., and Vaughan, J. W., editors, Advances in Neural Information Processing Systems .Ash, J. T., Zhang, C., Krishnamurthy, A., Langford, J., and Agarwal, A. (2020). Deep batch active learning by diverse, uncertain gradient lower bounds. In International Conference on Learning Representations .Azaria, A. and Mitchell, T. (2023). The internal state of an LLM knows when it‘s lying. In Bouamor, H., Pino, J., and Bali, K., editors, Findings of the Association for Computational Linguistics: EMNLP 2023 , pages 967–976, Singapore. Association for Computational Linguistics. Belrose, N., Furman, Z., Smith, L., Halawi, D., Ostrovsky, I., McKinney, L., Biderman, S., and Steinhardt, J. (2023). Eliciting latent predictions from transformers with the tuned lens. Chen, H., Vondrick, C., and Mao, C. (2024). SelfIE: Self-interpretation of large language model embeddings. In Forty-first International Conference on Machine Learning .Dao, T. (2024). FlashAttention-2: Faster attention with better parallelism and work partitioning. In International Conference on Learning Repre-sentations (ICLR) .Farquhar, S., Kossen, J., Kuhn, L., and Gal, Y. (2024). Detecting hal-lucinations in large language models using semantic entropy. Nature ,630(8017):625–630. Gao, Y., Xiong, Y., Gao, X., Jia, K., Pan, J., Bi, Y., Dai, Y., Sun, J., Wang, M., and Wang, H. (2024). Retrieval-augmented generation for large language models: A survey. Geva, M., Schuster, R., Berant, J., and Levy, O. (2021). Transformer feed-forward layers are key-value memories. In Moens, M.-F., Huang, X., Specia, L., and Yih, S. W.-t., editors, Proceedings of the 2021 Con-ference on Empirical Methods in Natural Language Processing , pages 5484–5495, Online and Punta Cana, Dominican Republic. Association for Computational Linguistics. Ghandeharioun, A., Caciularu, A., Pearce, A., Dixon, L., and Geva, M. (2024). Patchscopes: A unifying framework for inspecting hidden repre-sentations of language models. In Forty-first International Conference on Machine Learning .GLM, T., Zeng, A., Xu, B., Wang, B., Zhang, C., Yin, D., Rojas, D., Feng, G., Zhao, H., Lai, H., Yu, H., Wang, H., Sun, J., Zhang, J., Cheng, J., Gui, J., Tang, J., Zhang, J., Li, J., Zhao, L., Wu, L., Zhong, L., Liu, M., Huang, M., Zhang, P., Zheng, Q., Lu, R., Duan, S., Zhang, S., Cao, S., Yang, S., Tam, W. L., Zhao, W., Liu, X., Xia, X., Zhang, X., Gu, X., Lv, X., Liu, X., Liu, X., Yang, X., Song, X., Zhang, X., An, Y., Xu, Y., Niu, Y., Yang, Y., Li, Y., Bai, Y., Dong, Y., Qi, Z., Wang, Z., Yang, Z., Du, Z., Hou, Z., and Wang, Z. (2024). Chatglm: A family of large language models from glm-130b to glm-4 all tools. He, K., Zhang, X., Ren, S., and Sun, J. (2016). Deep residual learning for image recognition. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 770–778. He, P., Liu, X., Gao, J., and Chen, W. (2021). Deberta: Decoding-enhanced bert with disentangled attention. Hu, E. J., yelong shen, Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., and Chen, W. (2022). LoRA: Low-rank adaptation of large language models. In International Conference on Learning Representations .Jiang, A. Q., Sablayrolles, A., Mensch, A., Bamford, C., Chaplot, D. S., de las Casas, D., Bressand, F., Lengyel, G., Lample, G., Saulnier, L., Lavaud, L. R., Lachaux, M.-A., Stock, P., Scao, T. L., Lavril, T., Wang, T., Lacroix, T., and Sayed, W. E. (2023). Mistral 7b. Jiang, J., Shen, R., Zhao, C., Guan, Y., Yu, X., and Fu, X. (2025a). Causal discovery based on hierarchical reinforcement learning. Expert Systems with Applications , 279:127466. Jiang, J., Yan, L., Liu, H., Xia, Z., Wang, H., Yang, Y., and Guan, Y. (2025b). Knowledge assimilation: Implementing knowledge-guided agricultural large language model. Knowledge-Based Systems , 314:113197. Jiang, J., Yan, L., Yu, X., and Guan, Y. (2022). Contextual policy transfer in meta-reinforcement learning via active learning. In Zhao, X., Yang, S., Wang, X., and Li, J., editors, Web Information Systems and Applications ,pages 354–365, Cham. Springer International Publishing. Joshi, M., Choi, E., Weld, D., and Zettlemoyer, L. (2017). TriviaQA: A large scale distantly supervised challenge dataset for reading comprehension. In Barzilay, R. and Kan, M.-Y., editors, Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 1601–1611, Vancouver, Canada. Association for Computational Linguistics. Kingma, D. P. and Ba, J. (2017). Adam: A method for stochastic optimiza-tion. Kossen, J., Han, J., Razzak, M., Schut, L., Malik, S., and Gal, Y. (2024). Semantic entropy probes: Robust and cheap hallucination detection in llms. Kuhn, L., Gal, Y., and Farquhar, S. (2023). Semantic uncertainty: Linguistic invariances for uncertainty estimation in natural language generation. In 
+
+The Eleventh International Conference on Learning Representations .Lavie, A. and Agarwal, A. (2007). METEOR: An automatic metric for MT evaluation with high levels of correlation with human judgments. In Callison-Burch, C., Koehn, P., Fordyce, C. S., and Monz, C., editors, 
+
+Proceedings of the Second Workshop on Statistical Machine Translation ,pages 228–231, Prague, Czech Republic. Association for Computational Linguistics. Lee, K., Chang, M.-W., and Toutanova, K. (2019). Latent retrieval for weakly supervised open domain question answering. In Proceedings of the 57th Annual Meeting of the Association for Computational Linguis-tics , pages 6086–6096, Florence, Italy. Association for Computational Linguistics. Li, K., Patel, O., Viégas, F., Pfister, H., and Wattenberg, M. (2023). Inference-time intervention: Eliciting truthful answers from a language model. In Thirty-seventh Conference on Neural Information Processing Systems .Lin, C.-Y. (2004). ROUGE: A package for automatic evaluation of sum-maries. In Text Summarization Branches Out , pages 74–81, Barcelona, Spain. Association for Computational Linguistics. Liu, X., Ji, K., Fu, Y., Tam, W., Du, Z., Yang, Z., and Tang, J. (2022). P-tuning: Prompt tuning can be comparable to fine-tuning across scales and tasks. In Muresan, S., Nakov, P., and Villavicencio, A., editors, 
+
+Proceedings of the 60th Annual Meeting of the Association for Com-putational Linguistics (Volume 2: Short Papers) , pages 61–68, Dublin, Ireland. Association for Computational Linguistics. Lv, B., Tang, C., Zhang, Y., Liu, X., Yu, Y., and Luo, P. (2024). Specfuse: Ensembling large language models via next-segment prediction. arXiv preprint arXiv:2412.07380 .Manakul, P., Liusie, A., and Gales, M. (2023). SelfcheckGPT: Zero-resource black-box hallucination detection for generative large language models. In The 2023 Conference on Empirical Methods in Natural Language Processing .Margatina, K., Schick, T., Aletras, N., and Dwivedi-Yu, J. (2023). Active learning principles for in-context learning with large language models. In Bouamor, H., Pino, J., and Bali, K., editors, Findings of the Associ-ation for Computational Linguistics: EMNLP 2023 , pages 5011–5034, Singapore. Association for Computational Linguistics. Morris, J. X., Kuleshov, V., Shmatikov, V., and Rush, A. M. (2023). Text embeddings reveal (almost) as much as text. In The 2023 Conference on Empirical Methods in Natural Language Processing .Morris, J. X., Zhao, W., Chiu, J. T., Shmatikov, V., and Rush, A. M. (2024). Language model inversion. In The Twelfth International Conference on Learning Representations .nostalgebraist (2020). Interpreting gpt: The logit lens. [Online]. 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 14 of 15 KA2L: A Knowledge-Aware Active Learning Framework for LLMs 
+
+Pal, A., Umapathi, L. K., and Sankarasubbu, M. (2022). Medmcqa: A large-scale multi-subject multi-choice dataset for medical domain question an-swering. In Flores, G., Chen, G. H., Pollard, T., Ho, J. C., and Naumann, T., editors, Proceedings of the Conference on Health, Inference, and Learning , volume 174 of Proceedings of Machine Learning Research ,pages 248–260. PMLR. Pal, K., Sun, J., Yuan, A., Wallace, B., and Bau, D. (2023). Future lens: Anticipating subsequent tokens from a single hidden state. In Jiang, J., Reitter, D., and Deng, S., editors, Proceedings of the 27th Conference on Computational Natural Language Learning (CoNLL) , pages 548–560, Singapore. Association for Computational Linguistics. Papineni, K., Roukos, S., Ward, T., and Zhu, W.-J. (2002). Bleu: a method for automatic evaluation of machine translation. In Isabelle, P., Charniak, E., and Lin, D., editors, Proceedings of the 40th Annual Meeting of the Association for Computational Linguistics , pages 311– 318, Philadelphia, Pennsylvania, USA. Association for Computational Linguistics. Qwen, :, Yang, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Li, C., Liu, D., Huang, F., Wei, H., Lin, H., Yang, J., Tu, J., Zhang, J., Yang, J., Yang, J., Zhou, J., Lin, J., Dang, K., Lu, K., Bao, K., Yang, K., Yu, L., Li, M., Xue, M., Zhang, P., Zhu, Q., Men, R., Lin, R., Li, T., Tang, T., Xia, T., Ren, X., Ren, X., Fan, Y., Su, Y., Zhang, Y., Wan, Y., Liu, Y., Cui, Z., Zhang, Z., and Qiu, Z. (2025). Qwen2.5 technical report. Raffel, C., Shazeer, N., Roberts, A., Lee, K., Narang, S., Matena, M., Zhou, Y., Li, W., and Liu, P. J. (2020). Exploring the limits of transfer learning with a unified text-to-text transformer. Journal of Machine Learning Research , 21(140):1–67. Sakarvadia, M., Khan, A., Ajith, A., Grzenda, D., Hudson, N., Bauer, A., Chard, K., and Foster, I. (2023). Attention lens: A tool for mechanisti-cally interpreting the attention head information retrieval mechanism. Sener, O. and Savarese, S. (2018). Active learning for convolutional neural networks: A core-set approach. In International Conference on Learning Representations .Shuster, K., Poff, S., Chen, M., Kiela, D., and Weston, J. (2021). Retrieval augmentation reduces hallucination in conversation. Tang, C., Lv, B., Zheng, Z., Yang, B., Zhao, K., Liao, N., Wang, X., Xiong, F., Li, Z., Liu, N., et al. (2025). Graphmoe: Amplifying cognitive depth of mixture-of-experts network via introducing self-rethinking mechanism. arXiv preprint arXiv:2501.07890 .Touvron, H., Lavril, T., Izacard, G., Martinet, X., Lachaux, M.-A., Lacroix, T., Rozière, B., Goyal, N., Hambro, E., Azhar, F., Rodriguez, A., Joulin, A., Grave, E., and Lample, G. (2023). Llama: Open and efficient foundation language models. Wang, D. and Shang, Y. (2014). A new active labeling method for deep learning. In 2014 International Joint Conference on Neural Networks (IJCNN) , pages 112–119. Xiao, R., Dong, Y., Zhao, J., Wu, R., Lin, M., Chen, G., and Wang, H. (2023). FreeAL: Towards human-free active learning in the era of large language models. In Bouamor, H., Pino, J., and Bali, K., editors, 
+
+Proceedings of the 2023 Conference on Empirical Methods in Natural Language Processing , pages 14520–14535, Singapore. Association for Computational Linguistics. Xu, X., Li, M., Tao, C., Shen, T., Cheng, R., Li, J., Xu, C., Tao, D., and Zhou, T. (2024). A survey on knowledge distillation of large language models. Yan, L., Tang, C., Guan, Y., Wang, H., Wang, S., Liu, H., Yang, Y., and Jiang, J. (2025). RLKGF: Reinforcement learning from knowledge graph feedback without human annotations. In Che, W., Nabende, J., Shutova, E., and Pilehvar, M. T., editors, Findings of the Association for Computational Linguistics: ACL 2025 , pages 6619–6633, Vienna, Austria. Association for Computational Linguistics. Zhang*, T., Kishore*, V., Wu*, F., Weinberger, K. Q., and Artzi, Y. (2020). Bertscore: Evaluating text generation with bert. In International Conference on Learning Representations .Zhao, W. X., Zhou, K., Li, J., Tang, T., Wang, X., Hou, Y., Min, Y., Zhang, B., Zhang, J., Dong, Z., Du, Y., Yang, C., Chen, Y., Chen, Z., Jiang, J., Ren, R., Li, Y., Tang, X., Liu, Z., Liu, P., Nie, J.-Y., and Wen, J.-R. (2025). A survey of large language models. Zheng, Y., Zhang, R., Zhang, J., Ye, Y., Luo, Z., Feng, Z., and Ma, Y. (2024). Llamafactory: Unified efficient fine-tuning of 100+ language models. In Proceedings of the 62nd Annual Meeting of the Associa-tion for Computational Linguistics (Volume 3: System Demonstrations) ,Bangkok, Thailand. Association for Computational Linguistics. 
+
+H. Yin et al.: Preprint submitted to Elsevier Page 15 of 15

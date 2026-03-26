@@ -6,100 +6,106 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-25
-- 运行时间：2026-03-25 20:00:29 UTC
+- 最新运行日期：2026-03-26
+- 运行时间：2026-03-26 20:43:13 UTC
 - 运行状态：成功
-- 本次总论文数：26
-- 精读区：14
+- 本次总论文数：28
+- 精读区：16
 - 速读区：12
 
 ### 今日简报（AI）
-今日深度研读 26 篇 AI 论文，聚焦生成式 AI 在数字设计教育与多语种教学中的落地应用。
-重点推荐 GUIDE 框架对设计教学的重构，以及 Duolingo 案例中学生对 AI 生成课程的真实反馈。
-建议关注 AI 社交机器人与分布式图灵测试等前沿实验，探索人机协作学习的新边界。
-- 详情：[/202603/25/README](/202603/25/README)
+今日精选 28 篇前沿成果，深度复盘合成数据训练与 AI 时代测评设计的重大突破。
+核心结论指出合成混合训练能让模型知识获取超越 RAG 限制，并提出区分人机差异的测评新准则。
+建议普通读者重点关注如何利用合成数据强化模型内化知识，并警惕 AI 环境下的评估偏差。
+- 详情：[/202603/26/README](/202603/26/README)
 
 ### 精读区论文标签
-1. [GUIDE: GenAI Units In Digital Design Education](/202603/25/2603.17296v1-guide-genai-units-in-digital-design-education)  
+1. [Synthetic Mixed Training: Scaling Parametric Knowledge Acquisition Beyond RAG](/202603/26/2603.23562v1-synthetic-mixed-training-scaling-parametric-knowledge-acquisition-beyond-rag)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：用于扩展大模型知识获取的合成数据增强
+2. [Assessment Design in the AI Era: A Method for Identifying Items Functioning Differentially for Humans and Chatbots](/202603/26/2603.23682v1-assessment-design-in-the-ai-era-a-method-for-identifying-items-functioning-differentially-for-humans-and-chatbots)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：数字设计教育中的生成式AI单元
-2. [Evaluating LLM-Generated Lessons from the Language Learning Students' Perspective: A Short Case Study on Duolingo](/202603/25/2603.18873v2-evaluating-llm-generated-lessons-from-the-language-learning-students-perspective-a-short-case-study-on-duolingo)  
+   evidence：大语言模型的教育评估设计与心理测量理论
+3. [LLMs Do Not Grade Essays Like Humans](/202603/26/2603.23714v1-llms-do-not-grade-essays-like-humans)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：评估语言学习应用中大模型生成的课程
-3. [Assessing Data Literacy in K--12 Education: Challenges and Opportunities](/202603/25/2603.21382v1-assessing-data-literacy-in-k--12-education-challenges-and-opportunities)  
+   evidence：评估大语言模型在自动作文评分中与人工评分的对比
+4. [CodeExemplar: Example-Based Scaffolding for Introductory Programming in the GenAI Era](/202603/26/2603.23830v1-codeexemplar-example-based-scaffolding-for-introductory-programming-in-the-genai-era)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：评估K-12教育环境中的数据素养
-4. [Practitioner Voices Summit: How Teachers Evaluate AI Tools through Deliberative Sensemaking](/202603/25/2603.22588v1-practitioner-voices-summit-how-teachers-evaluate-ai-tools-through-deliberative-sensemaking)  
+   evidence：生成式人工智能用于初级编程的示例支架教学
+5. [From Untamed Black Box to Interpretable Pedagogical Orchestration: The Ensemble of Specialized LLMs Architecture for Adaptive Tutoring](/202603/26/2603.23990v1-from-untamed-black-box-to-interpretable-pedagogical-orchestration-the-ensemble-of-specialized-llms-architecture-for-adaptive-tutoring)  
+   标签：评分：10.0/10、query:profile-3
+   evidence：用于自适应辅导和教学编排的专业化大模型集成
+6. [The First Generation of AI-Assisted Programming Learners: Gendered Patterns in Critical Thinking and AI Ethics of German Secondary School Students](/202603/26/2603.24197v1-the-first-generation-of-ai-assisted-programming-learners-gendered-patterns-in-critical-thinking-and-ai-ethics-of-german-secondary-school-students)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：K-12数学教师评估课堂AI工具
-5. [Three Years with Classroom AI in Introductory Programming: Shifts in Student Awareness, Interaction, and Performance](/202603/25/2603.22672v1-three-years-with-classroom-ai-in-introductory-programming-shifts-in-student-awareness-interaction-and-performance)  
+   evidence：中学生的AI伦理与批判性思维
+7. [Towards Reward Modeling for AI Tutors in Math Mistake Remediation](/202603/26/2603.24375v1-towards-reward-modeling-for-ai-tutors-in-math-mistake-remediation)  
+   标签：评分：10.0/10、query:q13
+   evidence：利用合成数据为数学纠错AI导师进行奖励建模
+8. [When AI Meets Early Childhood Education: Large Language Models as Assessment Teammates in Chinese Preschools](/202603/26/2603.24389v1-when-ai-meets-early-childhood-education-large-language-models-as-assessment-teammates-in-chinese-preschools)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：生成式AI对学生学习成果影响的纵向研究
-6. [Design Implications for Student and Educator Needs in AI-Supported Programming Learning Tools](/202603/25/2603.22673v1-design-implications-for-student-and-educator-needs-in-ai-supported-programming-learning-tools)  
-   标签：评分：10.0/10、query:edu-llm
-   evidence：面向学生和教育者的AI辅助编程学习工具
-7. [Designing a Meta-Reflective Dashboard for Instructor Insight into Student-AI Interactions](/202603/25/2603.22674v1-designing-a-meta-reflective-dashboard-for-instructor-insight-into-student-ai-interactions)  
-   标签：评分：10.0/10、query:edu-llm
-   evidence：用于教师洞察学生与AI在课程作业中互动的仪表盘
-8. [How LLMs Distort Our Written Language](/202603/25/2603.18161v1-how-llms-distort-our-written-language)  
+   evidence：大模型在幼儿教育环境中的评估应用
+9. [Representation Learning to Study Temporal Dynamics in Tutorial Scaffolding](/202603/26/2603.24535v1-representation-learning-to-study-temporal-dynamics-in-tutorial-scaffolding)  
+   标签：评分：10.0/10、query:q13
+   evidence：测量辅导对话中的自适应支架式教学
+10. [Co-Designing a Peer Social Robot for Young Newcomers' Language and Cultural Learning](/202603/26/2603.18804v2-co-designing-a-peer-social-robot-for-young-newcomers-language-and-cultural-learning)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：大语言模型对人类写作论文及学生声音的影响
-9. [Evaluating LLM-Generated Lessons from the Language Learning Students' Perspective: A Short Case Study on Duolingo](/202603/25/2603.18873v1-evaluating-llm-generated-lessons-from-the-language-learning-students-perspective-a-short-case-study-on-duolingo)  
+   evidence：用于语言和文化学习的社交机器人
+11. [Implicit Turn-Wise Policy Optimization for Proactive User-LLM Interaction](/202603/26/2603.23550v1-implicit-turn-wise-policy-optimization-for-proactive-user-llm-interaction)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：评估语言学习应用中大模型生成的课程
-10. [BenchBench: Benchmarking Automated Benchmark Generation](/202603/25/2603.20807v1-benchbench-benchmarking-automated-benchmark-generation)  
+   evidence：优化了包括自适应辅导在内的多轮人机协作应用。
+12. [Aesthetics of Robot-Mediated Applied Drama: A Case Study on REMind](/202603/26/2603.23816v1-aesthetics-of-robot-mediated-applied-drama-a-case-study-on-remind)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：用于社交情感学习的教育社交机器人
+13. [Generative AI User Experience: Developing Human--AI Epistemic Partnership](/202603/26/2603.23863v1-generative-ai-user-experience-developing-human--ai-epistemic-partnership)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：教育中的生成式人工智能用户体验
+14. [ConceptKT: A Benchmark for Concept-Level Deficiency Prediction in Knowledge Tracing](/202603/26/2603.24073v1-conceptkt-a-benchmark-for-concept-level-deficiency-prediction-in-knowledge-tracing)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：建模学生知识以支持个性化学习和诊断性反馈
+15. [A Deep Dive into Scaling RL for Code Generation with Synthetic Data and Curricula](/202603/26/2603.24202v1-a-deep-dive-into-scaling-rl-for-code-generation-with-synthetic-data-and-curricula)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：使用大语言模型自动生成基准测试数据集
-11. [Unified-MAS: Universally Generating Domain-Specific Nodes for Empowering Automatic Multi-Agent Systems](/202603/25/2603.21475v1-unified-mas-universally-generating-domain-specific-nodes-for-empowering-automatic-multi-agent-systems)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：用于复杂推理任务的自动多智能体系统生成
-12. [Research on Individual Trait Clustering and Development Pathway Adaptation Based on the K-means Algorithm](/202603/25/2603.22302v1-research-on-individual-trait-clustering-and-development-pathway-adaptation-based-on-the-k-means-algorithm)  
+   evidence：使用教师-学生模型优化的多轮合成数据生成流水线
+16. [Usability Evaluation and Improvement of a Tool for Self-Service Learning Analytics](/202603/26/2603.24321v1-usability-evaluation-and-improvement-of-a-tool-for-self-service-learning-analytics)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：利用机器学习实现教育中的个性化发展路径
-13. [Reliable Classroom AI via Neuro-Symbolic Multimodal Reasoning](/202603/25/2603.22793v1-reliable-classroom-ai-via-neuro-symbolic-multimodal-reasoning)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：用于课堂分析和教学质量评估的神经符号框架
-14. [Can Language Models Pass Software Testing Certification Exams? a case study](/202603/25/2603.23142v1-can-language-models-pass-software-testing-certification-exams-a-case-study)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：评估LLM在软件测试认证考试中的表现
+   evidence：自助式学习分析工具的可用性评估
 
 ### 速读区论文标签
-1. [GASP: Guided Asymmetric Self-Play For Coding LLMs](/202603/25/2603.15957v1-gasp-guided-asymmetric-self-play-for-coding-llms)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：利用自我博弈从无人工数据中引导开放式数据生成
-2. ["You've got a friend in me": Co-Designing a Peer Social Robot for Young Newcomers' Language and Cultural Learning](/202603/25/2603.18804v1-youve-got-a-friend-in-me-co-designing-a-peer-social-robot-for-young-newcomers-language-and-cultural-learning)  
+1. [When Only the Final Text Survives: Implicit Execution Tracing for Multi-Agent Attribution](/202603/26/2603.17445v2-when-only-the-final-text-survives-implicit-execution-tracing-for-multi-agent-attribution)  
+   标签：评分：8.0/10、query:profile-3
+   evidence：多智能体语言系统中的归因与拓扑重建
+2. [SpecZoo: An AI-Powered Platform for Spectral Analysis and Visualization in Science and Education](/202603/26/2603.19555v1-speczoo-an-ai-powered-platform-for-spectral-analysis-and-visualization-in-science-and-education)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：用于导师介导的语言和文化学习的社交辅助机器人
-3. [Book your room in the Turing Hotel! A symmetric and distributed Turing Test with multiple AIs and humans](/202603/25/2603.18981v1-book-your-room-in-the-turing-hotel-a-symmetric-and-distributed-turing-test-with-multiple-ais-and-humans)  
-   标签：评分：8.0/10、query:q12
-   evidence：大模型与人类混合群体中的协作交互
-4. [Cooperation and Exploitation in LLM Policy Synthesis for Sequential Social Dilemmas](/202603/25/2603.19453v1-cooperation-and-exploitation-in-llm-policy-synthesis-for-sequential-social-dilemmas)  
-   标签：评分：8.0/10、query:q14
-   evidence：用于多智能体协作的大模型策略合成
-5. [MAC: Multi-Agent Constitution Learning](/202603/25/2603.15968v1-mac-multi-agent-constitution-learning)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：用于学习结构化规则的多智能体网络
-6. [CoDesignAI: An AI-Enabled Multi-Agent, Multi-User System for Collaborative Urban Design at the Conceptual Stage](/202603/25/2603.16008v1-codesignai-an-ai-enabled-multi-agent-multi-user-system-for-collaborative-urban-design-at-the-conceptual-stage)  
-   标签：评分：7.0/10、query:q18
-   evidence：用于协作设计和利益相关者参与的多智能体系统
-7. [ARISE: Agent Reasoning with Intrinsic Skill Evolution in Hierarchical Reinforcement Learning](/202603/25/2603.16060v1-arise-agent-reasoning-with-intrinsic-skill-evolution-in-hierarchical-reinforcement-learning)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：包含技能管理和执行智能体的分层强化学习框架
-8. [A Scoping Review of AI-Driven Digital Interventions in Mental Health Care: Mapping Applications Across Screening, Support, Monitoring, Prevention, and Clinical Education](/202603/25/2603.16204v1-a-scoping-review-of-ai-driven-digital-interventions-in-mental-health-care-mapping-applications-across-screening-support-monitoring-prevention-and-clinical-education)  
+   evidence：用于科学教育中光谱分析的AI平台
+3. [Hear Both Sides: Efficient Multi-Agent Debate via Diversity-Aware Message Retention](/202603/26/2603.20640v1-hear-both-sides-efficient-multi-agent-debate-via-diversity-aware-message-retention)  
+   标签：评分：8.0/10、query:profile-3
+   evidence：用于提高推理能力的多智能体辩论框架
+4. [RubricRAG: Towards Interpretable and Reliable LLM Evaluation via Domain Knowledge Retrieval for Rubric Generation](/202603/26/2603.20882v1-rubricrag-towards-interpretable-and-reliable-llm-evaluation-via-domain-knowledge-retrieval-for-rubric-generation)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：用于大模型评估的自动评分器和评分细则生成
+5. [When Only the Final Text Survives: Implicit Execution Tracing for Multi-Agent Attribution](/202603/26/2603.17445v1-when-only-the-final-text-survives-implicit-execution-tracing-for-multi-agent-attribution)  
+   标签：评分：7.0/10、query:q17
+   evidence：多智能体系统中的归因与交互拓扑
+6. [Humans and transformer LMs: Abstraction drives language learning](/202603/26/2603.17475v1-humans-and-transformer-lms-abstraction-drives-language-learning)  
    标签：评分：7.0/10、query:edu-llm
-   evidence：映射AI在心理健康临床教育中的应用
-9. [The Agentic Researcher: A Practical Guide to AI-Assisted Research in Mathematics and Machine Learning](/202603/25/2603.15914v1-the-agentic-researcher-a-practical-guide-to-ai-assisted-research-in-mathematics-and-machine-learning)  
+   evidence：Transformer语言模型学习语言类别与人类习得的比较
+7. [In Trust We Survive: Emergent Trust Learning](/202603/26/2603.17564v1-in-trust-we-survive-emergent-trust-learning)  
+   标签：评分：7.0/10、query:q14
+   evidence：基于信任的多智能体协作控制
+8. [KA2L: A Knowledge-Aware Active Learning Framework for LLMs](/202603/26/2603.17566v1-ka2l-a-knowledge-aware-active-learning-framework-for-llms)  
+   标签：评分：7.0/10、query:edu-llm
+   evidence：通过主动学习提高大模型在特定领域的专业知识
+9. [Detecting the Machine: A Comprehensive Benchmark of AI-Generated Text Detectors Across Architectures, Domains, and Adversarial Conditions](/202603/26/2603.17522v1-detecting-the-machine-a-comprehensive-benchmark-of-ai-generated-text-detectors-across-architectures-domains-and-adversarial-conditions)  
    标签：评分：6.0/10、query:edu-llm
-   evidence：学术界中的人工智能辅助研究与智能体工具
-10. [Interpretable Context Methodology: Folder Structure as Agentic Architecture](/202603/25/2603.16021v1-interpretable-context-methodology-folder-structure-as-agentic-architecture)  
-   标签：评分：6.0/10、query:q19
-   evidence：AI智能体编排与顺序工作流方法论
-11. [ARISE: Agent Reasoning with Intrinsic Skill Evolution in Hierarchical Reinforcement Learning](/202603/25/2603.16060v2-arise-agent-reasoning-with-intrinsic-skill-evolution-in-hierarchical-reinforcement-learning)  
-   标签：评分：6.0/10、query:edu-llm
-   evidence：通过分层强化学习提高语言模型的数学推理能力
-12. [AdaMem: Adaptive User-Centric Memory for Long-Horizon Dialogue Agents](/202603/25/2603.16496v1-adamem-adaptive-user-centric-memory-for-long-horizon-dialogue-agents)  
-   标签：评分：6.0/10、query:edu-llm
-   evidence：大语言模型智能体的个性化辅助与自适应记忆
+   evidence：跨领域检测机器生成的文本
+10. [MALLES: A Multi-agent LLMs-based Economic Sandbox with Consumer Preference Alignment](/202603/26/2603.17694v1-malles-a-multi-agent-llms-based-economic-sandbox-with-consumer-preference-alignment)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：基于大模型的多智能体模拟框架
+11. [Learning to Reason with Curriculum I: Provable Benefits of Autocurriculum](/202603/26/2603.18325v1-learning-to-reason-with-curriculum-i-provable-benefits-of-autocurriculum)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：使用合成生成器训练推理模型的自动课程学习
+12. [D-Mem: A Dual-Process Memory System for LLM Agents](/202603/26/2603.18631v1-d-mem-a-dual-process-memory-system-for-llm-agents)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：大语言模型智能体的双过程记忆系统
 
 
 <div class="dpr-home-promo-card">
