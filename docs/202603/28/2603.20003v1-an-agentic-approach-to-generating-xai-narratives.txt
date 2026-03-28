@@ -1,0 +1,781 @@
+Title: An Agentic Approach to Generating XAI-Narratives
+
+URL Source: https://arxiv.org/pdf/2603.20003v1
+
+Published Time: Mon, 23 Mar 2026 01:04:17 GMT
+
+Number of Pages: 33
+
+Markdown Content:
+# An Agentic Approach to Generating XAI-Narratives 
+
+## Yifan He 1 and David Martens 11University of Antwerp, Belgium 
+
+Abstract 
+
+Explainable AI (XAI) research has experienced substantial growth in recent years. Existing XAI methods, however, have been criticized for being technical and expert-oriented, motivating the development of more inter-pretable and accessible explanations. In response, large language model (LLM)-generated XAI narratives have been proposed as a promising approach for translating post-hoc explanations into more accessible, natural-language explanations. In this work, we propose a multi-agent framework for XAI narrative generation and refinement. The framework comprises the Narrator , which generates and revises narratives based on feedback from multiple Critic Agents on faithfulness and coherence metrics, thereby enabling narrative improvement through iteration. We design five agentic systems ( Basic Design, Critic Design, Critic-Rule Design, Coherent Design , and Coherent-Rule Design ) and systematically evaluate their effectiveness across five LLMs on five tabular datasets. Results validate that the Basic Design , the Critic Design , and the Critic-Rule Design are effective in improving the faithfulness of narratives across all LLMs. Claude-4.5-Sonnet on Basic Design performs best, reducing the number of unfaithful narratives by 90% after three rounds of iteration. To address recurrent issues, we further introduce an ensemble strategy based on majority voting. This approach consistently enhances performance for four LLMs, except for DeepSeek-V3.2-Exp. These findings highlight the potential of agentic systems to produce faithful and coherent XAI narratives. 
+
+Key word XAI Narratives, Agentic Approach, Multi-Agent System 
+
+# 1 Introduction 
+
+With the rapid development of black-box machine learning models, growing concern about transparency and account-ability, and increasing regulatory and compliance requirements in high-stakes domains, explainable AI research has seen a substantial rise in recent years [1, 2]. However, as early as 2017, scientists had already argued that predominant explainable AI methods are too technical-driven, which pose limitations on lay-users’ understanding [3]. SHAP, as one of the most widely used approaches among existing XAI techniques [4], is no exception to this issue [5, 6]. As a feature-attribution explanation tool, SHAP quantifies feature contribution to a model’s prediction at an abstract numerical level, hindering users’ understanding of model behavior. Recently, LLM-generated XAI narratives have been proposed as a promising solution that transforms technical XAI explanations into human-readable narratives [5]. This is based on science communication theory, which attributes narratives as persuasive, accessible, and effective in engaging non-experts [7]. More importantly, advances in LLMs enable this approach, transforming XAI explanations into narratives in an automatable, scalable way with little to no human input [8]. Some studies directly use LLMs to generate post-hoc explanations [9, 10]. However, such approaches have been criticized for introducing more uncontrollable faithfulness issues to the prediction model [11]. In this study, we primarily review work that transforms post-hoc XAI outputs into natural-language narratives using LLMs. By different data types, prior studies explore narrative generation, including graphs [12, 13], images [5, 14], and tabular datasets [5, 15, 16, 11, 17]. Specifically, Martens et al. [5] investigated both SHAP-based narratives for tabular data and counterfactual-based narratives for images. Zytek et al. [11] concentrated on SHAP narrative generation by introducing Narrator and Grader , where the former generates SHAP narratives and the latter evaluates them using an LLM-as-a-judge approach. In addition, Giorgi et al. [17] generate narratives for counterfactual explanations. 1
+
+> arXiv:2603.20003v1 [cs.CL] 20 Mar 2026
+
+In 2024, both industry commentary and academic discussions highlighted Agentic AI as a promising research direction [18, 19]. This trend introduces an alternative paradigm for XAI narrative research. Recent studies have explored agentic system approaches for XAI, some of which do not rely on existing post-hoc explanation methods [20], while others do, yet remains limited [21, 22]. Most of them focus on an interactive, natural-language explanations through conversational interface [23, 24, 25, 26, 21]. For example, Slack et al. [23] proposed TalkToModel, an interactive dialogue system that allows users to ask further questions on explanations through conversations. A closely related study is presented by Serafim et al. [21], who proposed MAINLE, a four-agent architecture for generating XAI narratives. This multi-agent architecture automate the full process of narrative generation, yet without an agent designed to identify the possible issues and refine them. To summarize, while several studies have successfully generated XAI narratives using LLMs, only a small subset uses an agentic approach. Among these, most focus primarily on user interaction and conversational deployment, and they typically experiment with a single LLM without comparing performance across models. Moreover, in existing studies employing multi-agent architectures, automated and real-time refinement is not incorporated; instead, all assessments occur only after generation, via human feedback. Another central challenge in this field lies in evaluating natural-language narratives. In the context of the intersec-tion between LLMs and XAI, the survey by Bilal et al. [27] categorizes the evaluation of LLM-generated explanations into two broad categories: (1) qualitative evaluations, such as comprehensibility and controllability, and (2) quanti-tative evaluations, such as faithfulness and plausibility. Focusing more specifically on LLM-generated XAI narratives, a systematic review by Silvestri et al. [28] argues that XAI narratives, due to its linguistic nature, are expected to not only accurately convey information from the underlying explainer, but also ensure fluency, grammatical correct-ness, and other essential linguistic quality characteristics. Accordingly, three evaluation dimensions are identified as mainstream metrics: faithfulness to the explainer, linguistic realization (such as fluency), and human utility (such as cognitive fit). We observe that current studies choose different dimensions depending on their research objectives, often covering more than one. For example, some assess faithfulness [16, 11, 21, 8], linguistic quality [16, 11, 17, 21, 8], and others more on human utility, such as comprehensibility [23, 5, 17, 21]. With respect to evaluation methods, researchers typically adopt either automatic approaches [8], human-centered methods such as user surveys [16, 23, 5, 17, 21], or LLM-based approaches, especially the emerging paradigm of LLM-as-a-judge [11, 21], in which an LLM grades a narrative according to a predefined rubric. In the next section, we will discuss two evaluation metrics — faithfulness and coherence, the reasons we finally use them in this study, and why we use coherence as an umbrella concept when evaluating linguistic quality. Faithfulness is one of the foundational metrics of a high-quality XAI narrative. If a narrative contains information that conflicts with the output of the underlying explainer, it can hardly be considered reliable or useful [28]. Faith-fulness measures the degree of alignment between the information conveyed in the narrative and the XAI method’s explanation [28], with the assumption that the explanation itself is fully faithful to the prediction model [8]. For ex-ample, when the XAI method is SHAP, a narrative that mentions a feature not present in the SHAP table constitutes a faithfulness-related issue. Based on a Likert scale or pre-defined rubric for scoring, some studies leverage either LLM-as-a-judge [11, 21] or a user study [16, 13, 21] to grade the faithfulness of a narrative. Although few, other studies implement an automatic assessment of faithfulness. For instance, Ichmoukhamedov et al. [8] first extract faithfulness-related information from the narrative through LLMs. They use three downstream metrics, namely Rank Agreement , Sign Agreement , and Value Agreement , to compare against the ground-truth information in the SHAP input. This type of quantitative, automated evaluation of faithfulness is particularly useful and necessary for studies that require an uninterrupted process, such as an agentic approach. On the linguistic quality side, fluency is an important component. It measures the grammatical correctness, the natural flow, and sometimes even the readability level [28, 29]. Some paper specially distinguish fluency from coherence, by arguing that fluency is at the sentence level while coherence is the collective quality of all sentences [29]. In contrast, other works use several terms, such as fluency, conciseness, coherence, among others, in a collective or overlapping manner, to assess the overall linguistic quality of a narrative [17, 22, 11, 16]. Beyond surface-level linguistic quality, plausibility is regarded as an important evaluation dimension in the XAI explanation field. Given that LLMs can introduce assumptions regarding feature influence on prediction outcomes, plausibility evaluates whether such explanations are logically consistent and aligned with domain knowledge. Ichmoukhamedov et al. [8] evaluate plausibility using averaged perplexity scores computed over injected feature assumptions, based on the 2assumption that lower perplexity corresponds to smoother and more plausible explanations. However, their results indicate that perplexity is an ineffective plausibility proxy when assumptions are embedded within full narrative paragraphs instead of in isolation. Another study uses perplexity to evaluate fluency and coherence [30], being a measure that complements correctness (faithfulness). All in all, given the complex overlap among several concepts and the limitations of perplexity as a plausibility proxy, we adopt coherence as an umbrella concept in this study. This concept encompasses fluency, grammatical correctness, and logical flow to represent the overall linguistic quality of XAI narratives. 
+
+Present Work As discussed earlier, although LLM-generated XAI narratives have been explored in prior work, the use of agentic approaches in this context remains underexplored. Existing agentic systems are typically tested on a single LLM, without further comparisons across different models’ performance, and tend to emphasize user conversational interfaces as their primary objectives. At the same time, the evaluation of XAI narratives is largely post hoc, with no integration of real-time feedback into the generation process. Researchers also rely mainly on user surveys or LLM-based graders, with automated methods insufficiently explored. This work proposes a multi-agent architecture for generating and improving SHAP-based narratives 1. Specifically, this study: 1. Proposes a fully-automated multi-agent framework capable of both generating and refining SHAP-based nar-ratives. 2. Integrates quantitative and qualitative evaluation processes into the iterative loop, enabling real-time refinement on two key metrics: the faithfulness and coherence of XAI narratives. 3. Validates the effectiveness of the agentic approach across five LLMs (GPT-5, Claude Sonnet 4.5, DeepSeek-V3.2-Exp, Mistral Medium 3.1, and Llama 3.3 70B Instruct), five agentic system designs (Basic Design, Critic Design, Critic-Rule Design, Coherent Design, and Coherent-Rule Design), and two architectures (original and ensemble). 4. Examine the effectiveness conditions of the agentic approach across several key concepts, including the maxi-mum number of refinement rounds, the number of features in the narrative, the quality of baseline narratives, and the no-baseline setting. The agentic system schematic is shown in Figure 1. First, the baseline narratives (Round 0 2) are fed into the 
+
+Faithful Evaluator and the Coherence Agent . The Faithful Evaluator extracts feature information from the narrative, compares it with the original SHAP input table, and outputs the existing errors, including “rank”, “sign”, and “value” errors. Based on the Faithful Evaluator ’s work, the Faithful Critic offers directional and actionable feedback about how to fix those errors. On the other side, the Coherence Agent identifies coherence-related issues, such as awkward transitions and logical inconsistencies, and outputs modification suggestions. Subsequently, the Narrator receives both feedback and generates an updated version of the narrative (Round 1). This narrative is then fed back into the 
+
+Faithful Evaluator and the Coherence Agent again, as the start of round 1. The iterative process continues until a stopping criterion is met, either when the maximum number of rounds is reached or when the narrative is judged 100% faithful. Depending on the design of the agentic system, not all agents are included in every version (agents shown in dashed boxes are optional); however, the Narrator and the Faithful Evaluator are always present as fixed components. 
+
+# 2 Methodology 
+
+## 2.1 Agent Players and Roles 
+
+The purpose of this task is to autonomously generate and refine a narrative, and output an upgraded version for a given instance. In this proposed multi-agent system, different agents interact with each other to complete this task,   
+
+> 1All the code, experiments, and the results can be found in this GitHub link: https://github.com/ADMAntwerp/SHAPnarrative-agents
+> 2We start the round from “0” to better signal the generated narratives before any feedback or refinement. It is not part of the iterative improvement loop yet. The first set of narratives generated by the Narrator is called “round-1 narratives”.
+
+3Faithful Evaluator              
+
+> Faithful
+> Critic
+> Round 1
+> Narrative
+> Round 0
+> Faithfulness
+> Feedback
+> Round 0Faithfulness
+> Errors
+> Round 0Coherence
+> Feedback
+> Round 1
+> Narrative
+> Baseline
+> Narrative
+> (Round 0)
+> Narrator
+> Repeat until the specified number of rounds is reached
+> Agentic System Framework
+> Coherence
+> Agent
+
+Figure 1: The baseline narratives are fed into the Faithful Evaluator and the Coherence Agent in the beginning. Based on the Faithful Evaluator ’s output, the Faithful Critic offers revision suggestions to the Narrator . On the other side, the Coherence Agent identifies coherence-related issues and provides revision suggestions to the Narrator . The 
+
+Narrator then generates an updated version of the narrative and continues the iteration until the stopping criterion is met. with each agent focusing on a specific one, either generating a narrative or giving feedback based on their evaluation goal. Four agents are present in this system: Narrator , Faithful Evaluator , Faithful Critic , and Coherence Agent . We also design a non-LLM variant for the Faithful Critic , denoted as the Faithful Critic (Rule) . Different sets of agents are employed in five agentic system designs for further comparison (Section 2.2). In this section, we describe each agent’s responsibilities, inputs and outputs, and preparatory steps. In the following section, we present a schematic illustrating how these agents interact. 
+
+Prompt The main content of the Narrator and the Faithful Evaluator ’s prompts are largely based on [8] 3. We refer to [11] for the overall prompt structure, and also follow the prompt design principles outlined in [31] to refine the wording. The prompt structure for all agents is consistent: it starts with the context , which includes background information and their own roles and tasks, then the input text (e.g., the narrative and feedback from that round), and ends with the output requirements and additional guidelines. We will further discuss some details in the following for each agent, while the full content of the prompts is provided in Appendix A.1. 
+
+Preparation Some necessary information should be prepared before the introduction of the agentic system. We implement a Class named “prompt” that is equipped with several built-in methods to prepare them all. Given the dataset information and a single instance, it predicts the target class, probability scores, and the SHAP input table. The SHAP table is derived from the SHAP tree explainer 4, with every row containing a feature name, a SHAP value, a feature value, the averaged feature value of all instances, and a feature description. The feature ranking in the SHAP table follows the absolute SHAP values, with the most important feature (either positive or negative influence) listed in the first row. All of the above information, together with explicit generation guidelines (e.g., format and content constraints), is formulated into a base prompt , which is subsequently used by the Narrator . Following the 
+
+base prompt , the generated narrative should start with a clear prediction of results, with the explanation of the four 
+
+> 3The prompt content can be found in each agent’s script: https://github.com/ADMAntwerp/SHAPnarrative-agents/tree/clean/ shapnarrative_agents/agents
+> 4https://github.com/shap/shap
+
+4most important features and their influence, ending with a summary. The formulation of the base prompt content is adapted from the method proposed in [8] (long version) 5.They allow control over the maximum narrative length and the number of features included in the explanation. They ultimately limit narratives to at most 10 sentences and include only the four most important features (n=4) to ensure brevity. We thus directly follow the same settings in our main experiments. 
+
+The Narrator The Narrator is designed to generate and revise narratives. In round 0, the baseline narratives are directly fed into the system, as shown in Figure 1. Under the no-baseline setting, the Narrator responds to the 
+
+base prompt and generates the round-0 narrative. In subsequent rounds, the Narrator receives a new prompt that combines the base prompt , the last round narrative, and feedback provided by the other agents, such as the Faithful Evaluator , and the Coherence Agent (if present). In response, it revises the narrative and generates an updated version. An example of the Narrator’s response to the prompt is shown in Figure 2.                       
+
+> The Narrator Prompt Structure (base prompt)
+> Explanation goal: Description of goal.
+> SHAP description: Brief explanation on the meaning of SHAP values.
+> Dataset context: Description of dataset, target, task and each feature.
+> Feature and SHAP values: Feature Feature Val SHAP Feature Ave Feature Desc
+> goout 4-0.05 2Going out with friends (from 1 - very low to 5... failures 00.04 1.2 Number of past class failures (from 0 to 3) Walc 1-0.03 0.9 Weekend alcohol consumption (from 1 - very low... Mjob other 00.02 0.37 One-hot encode for mothers’s job – other . . .
+> Prediction description: The model predicted with a 74.00% probability that the student would pass.
+> Narrative
+> The model predicted with a 74.00% probability that the student would pass the final year. The most influential factor is the absence of past class failures, which significantly boosted the likelihood of passing, as it suggests a consistent academic performance. The second most influ-ential factor is the student’s frequency of going out with friends (5 times). This hurts the prob-ability of passing, as excessive socializing de-tracts from study time and focus. Additionally, the student’s low weekend alcohol consump-tion further contributed positively, indicating a lifestyle that supports academic success. Lastly, the fact that the mother’s job was not catego-rized as ’other’ had a slight positive influence, possibly reflecting a more stable or supportive family environment. In summary, ...
+
+Figure 2: Left: This is an example of the base prompt for the Narrator . The instance is from the Student dataset. 
+
+Right: The Narrator generates a narrative based on the given SHAP input. However, in this example, it injects multiple faithfulness-related issues, including the wrong feature value on “goout” (being 5 times instead of 4 times in the given SHAP input), the wrong feature sign on “Walc” (being “positive” instead of “negative”), and the interchanged feature importance ranking between “goout” and “failures”. These issues are marked in red. 
+
+The Faithful Evaluator The Faithful Evaluator is designed to output faithfulness-related errors that exist. In the first step, we use a prompt that allows an LLM to extract the related information from a narrative into a dictionary. The prompt contains the Faithful Evaluator ’s role and task, the narrative to be revised, the necessary background information (e.g., description of the dataset and features), and explicit output structure and guidelines. The expected output is a dictionary in which feature names serve as keys, each with three inner keys: “rank”, “sign”, and “value”, and their associated values. Given all input features F, for each feature fj ∈ F : j ∈ { 0, ..., n − 1} (Figure 3, step 1): 
+
+• Rank : natural numbers 0 ≤ rj ≤ n − 1 represents the importance rank of feature fj as implied in the narrative. 
+
+r = 0 represents the most important feature, which has the largest absolute SHAP values, regardless of positive or negative influence. As stated, we adopt the setting from [8] and include only the four most important features from the SHAP, therefore n=4 in the main experiments of this study. Typically, the extracted rj follows the 
+
+> 5Their work evaluates two prompt variants (a long version and a short version) where the long version includes more detailed explana-tions of SHAP, task descriptions, and related context. The results demonstrate that the long prompt consistently outperforms the short one, leading us to adopt the long version in our study.
+
+5appearance order of a feature in a narrative, hence rj = j. In rare cases, they are different due to inappropriate description terms, which are discussed in Section 3.1.2. 
+
+• Sign: sj ∈ {− 1, 1}. The feature fj represents either a negative or positive influence on the prediction, respectively. 
+
+• Value: vj ∈ R ∪ { ϕ}. The value field represents the feature’s actual value as described in the narrative. For a discrete feature, the feature value can either be 0 or 1 due to the dummy encoding. For a continuous feature, the feature value can be any real number. The extraction of a feature value is also flexible: if a value is not explicitly stated in the narrative, the LLM is allowed to not extract any feature value, thus returning a null value ϕ.Afterwards, the Faithful Evaluator compares the extracted values under each key against the original SHAP input and reports any mismatches as faithfulness errors (Figure 3, step 2). Without using an LLM at this stage, a simple rule-based method compares the differences and outputs a Boolean value indicating whether a mismatch is detected. The final feedback provided by the Faithful Evaluator is in a fixed format: “Feature {feature name } contains (an) errors in [‘rank’]/[‘sign’]/[‘value’] value.”, depending on the type of error. When there is no mistake in the narrative, the output is: “After checking, the narrative is 100% faithful to the SHAP table.”                         
+
+> The Faithful Evaluator Prompt Structure
+> Context: The Faithful Evaluator ’s role, task, and other background in-formation, such as the description of the dataset, target class, and features’ meaning.
+> Input text: The given {narrative }
+> from the Narrator .
+> Output Structure: Explain the pieces of information to be extracted and the format in which to return them.
+> Guidelines: Constraints and impor-tant rules of the output.
+> An Extraction Result (intermediate result)
+> Feature Rank Sign Value
+> failures 0+1 0gout 1−15Walc 2+1 1Mjob other 3+1 0
+> The Faithful Evaluator’s Feedback
+> Feature failures contains (an) errors in [‘rank’] value. Feature goout contains (an) errors in [‘rank’] and [‘value’] value. Feature Walc contains (an) errors in [‘sign’] value.
+> Step 1 Step 2
+
+Figure 3: Left: The Faithful Evaluator ’s prompt that we use to extract information from a narrative. The narrative from Figure 2 is fed into the prompt. Middle: The Faithful Evaluator extracts the information into a dictionary, including the rank, sign, and value information for each feature. This is an intermediate output, which can be reused by the Faithful Critic . Right: The output from the Faithful Evaluator . The errors contained in the narrative are captured and reported by the Faithful Evaluator , shown in red. 
+
+The Faithful Critic The Faithful Critic is designed to provide directional revision guidance based on the reported errors from the Faithful Evaluator . Given the comparison result generated by the Faithful Evaluator , the Faithful Critic refers to the original SHAP table for the corresponding correct rank, sign, and value, and then provides clear and directional feedback. For example, when there is a rank problem identified in the narrative, the Faithful Critic 
+
+specifies how to relocate sentences to the correct place. It also guides the Narrator to flip the influence from positive to negative (or vice versa) and to revise feature values to match those in the SHAP output when inconsistencies are detected. If no violation is detected, the Faithful Critic returns the same message as the Faithful Evaluator : “After checking, the narrative is 100% faithful to the SHAP table.” An example is shown in Figure 4. In principle, the formulation of the Faithful Critic ’s feedback does not require an LLM due to its rule-based nature. However, when multiple errors occur within a single narrative, the resulting feedback can become verbose and repetitive. Therefore, we introduce an optional LLM that functions solely as a summary agent, making the feedback into a more concise and coherent form, without losing any key information. We specially refer to this 6The SHAP explanation table                                  
+
+> Feature Feature Val SHAP Feature Ave Feature Desc
+> goout 4-0.05 2Going out with friends (from 1 - very low to 5... failures 00.04 1.2 Number of past class failures (from 0 to 3) Walc 1-0.03 0.9 Weekend alcohol consumption (from 1 - very low... Mjob other 00.02 0.37 One-hot encode for mothers’s job – other . . .
+> An Extraction Result from the Faithful Evaluator
+> Feature Rank Sign Value
+> failures 0+1 0gout 1−15Walc 2+1 1Mjob other 3+1 0
+> The Faithful Critic (Rule)’s Feedback
+> Please move the sentence about Feature ‘goout’ to be the first-mentioned feature in your explanation. You extracted a wrong feature value for Feature ‘goout’. Please change the value to be ‘4’. Please move the sentence about Feature ‘failure’ to be the second-mentioned fea-ture in your explanation. The positive or negative influence of Fea-ture ‘Walc’ has been stated incorrectly. Please change it to be the opposite.
+
+Figure 4: Upper Left: The instance’s SHAP input table. Below Left: The extraction dictionary generated by the 
+
+Faithful Evaluator . All mistakes are successfully extracted and shown in red. Right: The output from the Faithful Critic . It refers to the original SHAP table and outputs directional feedback, guiding the Narrator on how to revise. non-LLM variant as the Faithful Critic (Rule) , and the original version as the Faithful Critic . These two variants also enable a direct comparison of the performance benefits of incorporating an LLM. 
+
+The Coherence Agent The Coherence Agent analyses the coherence issues existing in the narrative and provides corresponding revision instructions. Specifically, the Coherence Agent evaluates whether the narrative flows smoothly, avoids abrupt transitions or disjoint statements, and is well structured overall. This is of interest because, beyond correctness that is represented by the faithfulness metric, the overall linguistic quality is also critical. Although LLMs are generally capable of producing fluent and coherent text, explicit guidance on improving coherence can make the revision process more systematic and direct. The Coherence Agent prompt is intentionally simple and follows the same general structure as the other agents’ prompts. It begins with contextual information defining the agent’s role and task, followed by an explicit definition of coherence adapted from [32, 33, 34], the input narrative to be evaluated, and a predefined output structure. The 
+
+Coherence Agent ’s output is regulated to follow four templates of revisions: “Change to ”, “Insert before ”, “Delete ”, “Reorder after ”, following with justification below each modification suggestion. If the 
+
+Coherence Agent doesn’t find any coherence-related issues, it returns “no coherence issues” with reasons. We show a few examples in Figure 5, and more analysis on different types of the Coherence Agent ’s feedback is in Section 3.5. 
+
+## 2.2 Agentic System Schematic 
+
+With all agents defined, their interactions are illustrated in Figure 1. This figure depicts the most comprehensive system design, incorporating all four agents. We use pre-generated baseline narratives as round-0 inputs in this work to make sure a consistent starting point across all settings. These baseline narratives are fed directly into the Faithful Evaluator and the Coherence Agent , and the Narrator then revises them based on round-0 feedback. Two different stopping criteria are employed, depending on the system design: when the Coherence Agent is not included, the refinement process terminates either when 100% faithfulness is achieved or when a predefined maximum number of rounds is reached; in contrast, when the Coherence Agent is present, early stopping based on faithfulness is disabled, and all narratives must undergo the same turns until the maximum round is reached. This is particularly designed to examine how the Coherence Agent modifies narratives that are already faithful but exhibit coherence issues. 7Narrative examples that contain coherence issues 
+
+> Example 1 : “ The most influential factor is the stu-dent’s father’s job, which slightly boosted the likelihood of passing...”
+> Example 2 : “The most influential factor is the student’s five past failures, which substantially reduce the proba-bility of passing, as a high number of failures indicates low educational engagement. However, the student’s high weekend alcohol consumption also contributes negatively, indicating...”
+> The Coherence Agent’s feedback
+> Feedback on Example 1 : “ Delete the word ‘slightly’. Justification: The term “slightly” contradicts the charac-terization of the feature ‘Fjob’ as the most influential.”
+> Feedback on Example 2 : “ Change ‘However’ to ‘In addition.’ Justification: The two sentences describe factors that both exert a negative influence. Using ‘However’ intro-duces an inappropriate adversative transition, whereas ‘In addition’ correctly...
+
+Figure 5: Two examples of the feedback from the Coherence Agent . Left: Two narratives that contain coherence-related issues. Problems are highlighted in red. Right: The corresponding feedback from the Coherence Agent .We design multiple agentic systems with the attendance of different agents, with the intention to explore the impact from each agent and the performance for different configurations. The Narrator and the Faithful Evaluator 
+
+are fixed components for every agentic system, with the Faithful Critic and the Coherence Agent being additional players. Since we have two Faithful Critic variants, we in total have five designs: 
+
+Basic Design: Narrator + Faithful Evaluator 
+
+Critic Design: Narrator + Faithful Evaluator + Faithful Critic 
+
+Critic-Rule Design: Narrator + Faithful Evaluator + Faithful Critic (Rule) 
+
+Coherent Design: Narrator + Faithful Evaluator + Faithful Critic + Coherence Agent 
+
+Coherent-Rule Design: Narrator + Faithful Evaluator + Faithful Critic (Rule) + Coherence Agent 
+
+Basic Design : When only the Faithful Evaluator is included as the evaluator for faithfulness, its performance can be compared against the Critic Design or the Critic-Rule Design to validate the effectiveness of an extra faithfulness critic agent. This comparison mostly allows us to assess whether directional revision guidance is necessary for the 
+
+Narrator to efficiently correct unfaithful narratives. We expect that the refinement process in the Basic Design is less efficient than in the Critic Design and the Critic-Rule Design .
+
+Critic Design and Critic-Rule Design : The Critic Design and the Critic-Rule Design serve as two mirror groups. As stated above, they can both compare with the Basic Design . Their comparison with each other allows us to evaluate whether incorporating an LLM into the Faithful Critic is necessary. 
+
+Coherent Design and Coherent-Rule Design : The Coherent Design and the Coherent-Rule Design can compare with each other or with the Critic Design and the Critic-Rule Design , respectively. The comparison reflects how the Coherence Agent impacts the faithfulness quality. We anticipate that the inclusion of the Coherence Agent 
+
+negatively affects faithfulness (Section 3.1.2, C4), while it can also help identify subtle or minor textual issues that would otherwise remain unaddressed in systems without the Coherence Agent .
+
+## 2.3 Evaluation Metrics 
+
+Faithfulness Evaluation In this work, we mainly focus on the faithfulness metric to evaluate the narrative. We acknowledge that faithfulness can be measured in different ways, for example, a human-centered user study, LLM-as-a-judge based on a pre-defined rubric, or a more automated way that evaluates the correctness against the explainer’s raw output [28]. This study, due to its automated nature, is more suited to the third approach. We hence adapted the method from [8], proposing Rank Accuracy (RA) , Sign Accuracy (RA) , and Value Accuracy (SA) . These three metrics are simply evaluating the accuracy that rj , sj , and vj relative to the ground truth value r∗ 
+
+> j
+
+, s ∗ 
+
+> j
+
+, v ∗ 
+
+> j
+
+respectively, where for example r∗ 
+
+> j
+
+represents the actual rank of the extracted feature fj . (For XA is either RA/SA/VA): 
+
+XA = 1
+
+M · n
+
+> M
+
+X
+
+> i=1
+> n−1
+
+X
+
+> j=0
+
+
+
+1 if xi,j = ϕδxi,j ,x ∗ 
+
+> i,j
+
+if xi,j ̸ = ϕ (1) Where: 8• M is the number of instances (narratives). 
+
+• n is the pre-defined number of features per narrative. In the main experiments of this study, n=4. 
+
+• xi,j is the (j + 1) -th feature of the i-th narrative, where j ∈ { 0, . . . , n − 1}.Using this formula, the RA, SA, and VA are computed for each experimental round. The progression of these three metrics from round 0 to the final round illustrates the improvement in faithfulness achieved by the agent system. As mentioned before, we allow the Faithful Evaluator to decide whether to extract a feature value when a narrative does not explicitly specify it. In such cases, the value field in the extraction dictionary can possibly be nan when the narrative provides only a qualitative description of the feature value (e.g., “many” or “some”) rather than an exact number. Due to this, a null value in the extraction dictionary is regarded as a valid and correct outcome and is added into the accuracy calculation. Additionally, the interpretation of rank accuracy (RA) differs from SA and VA. Once a single feature’s rank is extracted incorrectly, it normally means at least one other feature’s rank is swapped with it, which means one rank error is counted twice using Eq.(1). 
+
+Coherence Evaluation As noted earlier, the plausibility (coherence) metric based on “perplexity” proposed in [8] proves less effective than expected. In a pilot experiment, we replicated this approach and similarly obtained uninformative results, with negligible and uninterpretable differences between baseline and refined narratives. We therefore excluded this “perplexity” method from our evaluation. At the same time, although LLM-as-a-judge has emerged as a scalable and quantitative evaluation paradigm, it is highly sensitive to prompt design [28] and can yield inconsistent judgments [35]. As a result, we conduct a qualitative analysis to understand the impact of the Coherence Agent on narrative quality, using representative examples and manual inspection. 
+
+## 2.4 Experiments 
+
+Experiments Set-up Our experimental framework uses five binary classification datasets: Student Performance Dataset (exam pass or not), Fifa Man of the Match (the winner of Man of the Match or not), German Credit Score 
+
+(bank credit good or bad), Diabetes Dataset (get diabetes or not) and Stroke Prediction Dataset (get a stroke or not). The first three datasets are from [5], and the Diabetes 6 and Stroke 7 datasets are from Kaggle. These datasets are chosen for their high feature interpretability, a reasonable number of features (8-40), and broad domain coverage. Following the methodology described by [8], we randomly sampled 20 instances from each dataset’s test set (10 per ground-truth class), yielding a total of 100 instances. We trained a Random Forest (RF) classifier as a prediction model, with the default scikit-learn hyperparameters. All LLMs are set to a temperature of T = 0 to maximize reproducibility, though we acknowledge that their stochasticity can still lead to variation in their responses. For a prior test on DeepSeek-Chat-0324, we observe that most faithfulness issues can be resolved within 3 rounds or remain unresolved; therefore, we set the maximum number of iterations to 3 for all main experiments (we also have additional experiments where we set the maximum round to 10; see Section 3.4). Five LLMs are used: Claude Sonnet 4.5, Mistral Medium 3.1, GPT-5, LLama-3.3-70B, and DeepSeek-V3.2-Exp. These models are selected because they represent different geographic origins, open- or closed-source, and usage cost. Wherever possible, specific checkpoint versions were chosen to ensure reproducibility. We access Llama and DeepSeek via OpenRouter, while the remaining models are accessed through their official APIs. Details are provided in Appendix A.4. 
+
+Baseline Experiment We conduct baseline experiments before the experiments on the agentic system. The baseline experiment follows a setting similar to [8], with a Generation Model to generate narratives and an Extraction Model to extract the information, as the Faithful Evaluator does. The generation and extraction is one-time and no improvement process happens in this baseline experiment. We use DeepSeek-V3-0324 to generate 100 narratives across four runs and select the least-performing one as the baseline narratives for all subsequent experiments. Using baseline narratives ensures a consistent starting point across all experimental settings. Additionally, using the worst generation provides greater room for improvement in subsequent agentic experiments. 
+
+Original Experiment We first run experiments on all five agentic system designs once on Claude Sonnet 4.5, by which we compare their different improvement abilities and revision details (Section 3.1). We then repeat this once 
+
+> 6https://www.kaggle.com/datasets/mathchi/diabetes-data-set
+> 7https://www.kaggle.com/datasets/fedesoriano/stroke-prediction-dataset
+
+9for each of the remaining four LLMs, obtaining a complete set of results for all LLMs and agentic system designs (Section 3.2). Once an LLM is selected, it is used consistently across all agents within the system. 
+
+Ensemble Experiment According to the result from original experiments, we observe that the Faithful Evaluator 
+
+makes extraction mistakes across all LLMs, though some LLMs perform better than others. An extraction mistake 
+
+refers to cases where the Faithful Evaluator extracts feature rank, sign, or value information that does not correctly reflect the content of the narrative, as shown in Figure 6. These extraction mistakes can technically be of two types: 
+
+false positives , where an unfaithful narrative is judged to be faithful, and false negatives , where a faithful narrative is incorrectly reported with errors. False negative extraction mistakes are observed in our original experiments, leading to lower reported accuracy than in reality 8. In this study, we use the term extraction mistake to specifically refer to this mistake in the false negative kind. With the intention to solve this issue, we propose an ensemble strategy, in which the sole Faithful Evaluator is replaced by a group of Faithful Evaluator voters, each based on one of the five LLMs. All five Faithful Evaluators 
+
+independently extract the narrative’s information, and their extraction dictionaries are aggregated by majority voting to produce a final dictionary. In detail, all extraction dictionaries are collected, and only the most common feature set (keys) is retained in the final dictionary. Once an LLM-based Faithful Evaluator ’s extraction contains different feature names or other strange situations, this extraction is excluded from voting. When there is a tie in the voting on either the “rank”, “sign”, or “value” field, the final extraction adopts the value that appears first. The other configuration of the ensemble experiment is no different than the original one. All five system designs are executed (Section 3.3), as in the original experiment. We expect the ensemble experiments to consistently outperform the original experiments because the ensemble approach reduces extraction errors that would otherwise lower the reported accuracy.                                                           
+
+> A difficult narrative on the extrac-tion task
+> The most influential factor was the team failing to score any goals, which significantly reduced their chances—since goals are typically de-cisive in earning individual accolades. Despite having higher-than-average
+> ball possession (64% vs. the average 50%), this only slightly improved their odds, as possession alone doesn’t guarantee impactful play. The team’s 13 attempts on goal , slightly above average, provided a minor boost, suggesting they created opportunities but lacked finishing. Finally, com-mitting 22 fouls —well above the average— further hurt their chances,
+> likely reflecting a lack of discipline that may have disrupted their rhythm.
+> GPT-5 Extraction
+> Same with Claude Sonnet 4.5
+> Mistral Medium 3.1 Extraction
+> Same with Claude Sonnet 4.5
+> Claude Sonnet 4.5 Extraction
+> Feature Rank Sign Value
+> Goal Scored 0-1 0Ball Possession % 1+1 64 Attempts 2+1 13 Fouls Committed 3-1 22
+> DeepSeek-V3.2-Exp Extraction
+> Same with Claude Sonnet 4.5
+> Llama 3.3 70B Instruct Extraction
+> Feature Rank Sign Value
+> Goal Scored 0-1 0Fouls Committed 1-1 22 Ball Possession % 2+1 64 Attempts 3+1 13
+> Final Extraction
+> Feature Rank Sign Value
+> Goal Scored 0-1 0Ball Possession % 1+1 64 Attempts 2+1 13 Fouls Committed 3-1 22
+
+Independent Extraction Dictionaries from five LLMs 
+
+> Voting
+
+Figure 6: Left: A narrative that is linguistically ambiguous on the importance of features. This is a difficult example for the Faithful Evaluator to correctly extract all rank information. Middle: Five LLM-based Faithful Evaluator 
+
+extracts the information independently and a disagreement happens. For example, Llama 3.3 70B Instruct makes mistakes on the extraction dictionary (mark in red), whereas other LLMs do not. Right: With the ensemble strategy (majority voting), the extraction results from five LLMs are combined to make a final decision and mitigate extraction mistakes. 
+
+> 8
+
+We note that false positives are more subtle than false negatives , as unreported narratives are far more numerous, making manual verification impractical. However, false positives occur not as often as false negatives . This is supported by the validation experiments from [8], where the Extraction LLM (GPT-4o-based) produces false negatives by incorrectly flagging faithful narratives as faulty, while producing zero false positives . For this reason, we intentionally exclude false positive cases from this study. 
+
+10 Additional Experiments on Key Concepts We further investigate the influence of several key concepts on the effectiveness of the agentic system. Those key concepts are listed in Table 1. Table 1: The key concepts of the additional experiments          
+
+> Concepts Reason Original Setting New Setting Iteration Round How does the number of iteration rounds impact the result? Round=2 Round=10
+> The Number of Features How does the number of features in-cluded in the narrative impact the result? Feature=4 Feature=8
+> No-Baseline Setting What if we don’t use baseline narratives? How does this impact the result? Baseline narratives from Deepseek-chat-0324 No baseline narratives
+> Different Baseline Narratives How do the best and the worst baseline narratives impact the result? Baseline narratives from Deepseek-chat-0324 1. Best Baseline narratives from DeepSeek-V3.2-Exp 2. Worst Baseline narratives from Llama 3.3 70B Instruct
+
+In order to test those key concepts, we select a single ”best” agentic system design (the Critic-Rule Design ). The rationale for choosing this design and the results are detailed in Section 3.4. The set of baseline narratives containing eight features is generated in the same manner as in the previous experiments, using DeepSeek-chat-0324. The best and worst baseline narratives are determined based on the results obtained under the no-baseline setting. For each of the four key concepts, only the corresponding condition is modified, while all other configurations remain identical to those of the original Critic-Rule Design. 
+
+# 3 Results and Analysis 
+
+## 3.1 Faithfulness Results for Claude Sonnet 4.5 
+
+3.1.1 The Improvement of Rank, Sign and Value Accuracy 
+
+Table 2 and Figure 7 present the faithfulness results for Claude Sonnet 4.5 across all five agentic system designs. The Basic Design , the Critic Design , and the Critic-Rule Design demonstrate significant improvements over the three refinement rounds, whereas the Coherent Design and the Coherent-Rule Design show a drop in rank accuracy on four datasets. The number of unfaithful narratives decreases for all five designs, with varying degrees of reduction. At the beginning, the average rank, sign, and value accuracies from the one hundred baseline narratives are 0.900, 
+
+Figure 7: This bar chart represents the three accuracies ( RA : rank accuracy, SA : sign accuracy, and VA : value accuracy) for different agentic system designs across the three rounds using Claude Sonnet 4.5. 11 Table 2: Faithfulness results for different agentic system designs based on Claude Sonnet 4.5. Arrows indicate the progression of the rank, sign, and value accuracy from Round 0 to Round 2. The last column shows the progression of the number of unfaithful narratives over rounds. 
+
+Claude Sonnet 4.5 based Designs Datasets Faithfulness No. Unf. Narr. RA SA VA Baseline AVG. (0.900 ) 0.958 0.990 (31) 
+
+diabetes 0.838 0.988 1.000 5stroke (0.925) 0.938 0.975 (8) student 0.925 0.913 1.000 8fifa 0.875 0.963 1.000 7credit 0.938 0.988 0.975 3
+
+Basic Design AVG. 0.905 → 0.970 → 0.990 0.958 → 0.998 → 1.000 0.990 → 0.995 → 0.998 30 → 6 → 3
+
+diabetes 0.838 → 0.950 → 0.975 0.988 → 1.000 → 1.000 1.000 → 1.000 → 1.000 5 → 2 → 1stroke 0.950 → 0.988 → 1.000 0.938 → 0.988 → 1.000 0.975 → 1.000 → 1.000 7 → 1 → 0student 0.925 → 0.975 → 0.975 0.913 → 1.000 → 1.000 1.000 → 1.000 → 1.000 8 → 1 → 1fifa 0.875 → 0.963 → 1.000 0.963 → 1.000 → 1.000 1.000 → 1.000 → 1.000 7 → 1 → 0credit 0.938 → 0.975 → 1.000 0.988 → 1.000 → 1.000 0.975 → 0.975 → 0.988 3 → 1 → 1
+
+Critic Design AVG. 0.905 → 0.950 → 0.960 (0.960) → 0.988 → 0.993 0.990 → 0.995 → 0.998 30 → 13 → 9
+
+diabetes 0.838 → 0.950 → 0.950 (1.000) → 0.988 → 1.000 1.000 → 1.000 → 1.000 5 → 2 → 2stroke 0.950 → 0.975 → 0.975 0.938 → 0.988 → 0.988 0.975 → 0.988 → 0.988 7 → 2 → 2student 0.925 → 0.975 → 0.975 0.913 → 0.975 → 0.975 1.000 → 1.000 → 1.000 8 → 2 → 2fifa 0.875 → 0.875 → 0.900 0.963 → 0.988 → 1.000 1.000 → 1.000 → 1.000 7 → 5 → 3credit 0.938 → 0.975 → 1.000 0.988 → 1.000 → 1.000 0.975 → 0.988 → 1.000 3 → 2 → 0
+
+Critic-Rule Design AVG. 0.905 → 0.960 → 0.960 0.958 → 0.993 → 0.998 0.990 → 0.995 → 0.998 30 → 10 → 8
+
+diabetes 0.838 → 0.975 → 0.975 0.988 → 1.000 → 1.000 1.000 → 1.000 → 1.000 5 → 1 → 1stroke 0.950 → 0.975 → 0.975 0.938 → 0.988 → 0.988 0.975 → 1.000 → 0.988 7 → 2 → 2student 0.925 → 0.975 → 0.975 0.913 → 0.975 → 1.000 1.000 → 1.000 → 1.000 8 → 2 → 1fifa 0.875 → 0.900 → 0.900 0.963 → 1.000 → 1.000 1.000 → 1.000 → 1.000 7 → 3 → 3credit 0.938 → 0.975 → 0.975 0.988 → 1.000 → 1.000 0.975 → 0.975 → 1.000 3 → 2 → 1
+
+Coherent Design AVG. 0.905 → 0.915 → 0.860 0.958 → 0.983 → 0.980 0.990 → 0.993 → 0.998 30 → 20 → 28 
+
+diabetes 0.838 → 0.888 → 0.875 0.988 → 0.988 → 1.000 1.000 → 1.000 → 1.000 5 → 4 → 4stroke 0.950 → 0.938 → 0.838 0.938 → 0.988 → 0.963 0.975 → 0.988 → 0.988 7 → 3 → 9student 0.925 → 0.888 → 0.900 0.913 → 0.963 → 0.963 1.000 → 0.988 → 1.000 8 → 5 → 5fifa 0.875 → 0.925 → 0.750 0.963 → 0.975 → 0.975 1.000 → 1.000 → 1.000 7 → 4 → 8credit 0.938 → 0.938 → 0.938 0.988 → 1.000 → 1.000 0.975 → 0.988 → 1.000 3 → 4 → 2
+
+Coherent-Rule Design AVG. 0.905 → 0.900 → 0.878 0.958 → 0.985 → 0.985 0.990 → 0.990 → 0.998 30 → 22 → 25 
+
+diabetes 0.838 → 0.838 → 0.925 0.988 → 0.988 → 0.988 1.000 → 1.000 → 1.000 5 → 5 → 4stroke 0.950 → 0.938 → 0.863 0.938 → 0.988 → 0.963 0.975 → 0.975 → 0.988 7 → 4 → 7student 0.925 → 0.888 → 0.875 0.913 → 0.963 → 1.000 1.000 → 0.988 → 1.000 8 → 5 → 4fifa 0.875 → 0.900 → 0.800 0.963 → 0.988 → 0.975 1.000 → 1.000 → 1.000 7 → 4 → 7credit 0.938 → 0.938 → 0.925 0.988 → 1.000 → 1.000 0.975 → 0.988 → 1.000 3 → 4 → 3
+
+Note: A total of 100 baseline narratives from five datasets are used to make the starting point consistent across experiments. However, even when T =0, due to the LLM uncertainty, the Faithful Evaluator may occasionally extract different results from the same narrative and hence leads to different accuracy and/or different number of unfaithful narratives in round 0. These differences are highlighted in brackets. 
+
+0.958, and 0.990, respectively, with 31 narratives containing faithfulness-related issues. The Credit dataset has the strongest baseline narratives, only 3 out of 20 containing faithfulness issues. Across all five designs, the Basic Design 
+
+appears to be the best agentic system for Claude Sonnet 4.5. By round 2, its average rank, sign, and value accuracies are the highest compared to others, reaching 0.990, 1.000, and 0.998, respectively. The Basic Design is also the most efficient system. For example, the sign accuracy for four datasets has already reached 100% in round 1. This system corrects all 40 narratives from the Stroke and Fifa datasets by the final round; only three narratives don’t get fixed in the end. The Critic (Rule) Design and the Critic Design are both effective in improving the narratives, although not as good as the Basic Design . The Critic (Rule) Design has a minor advantage over the Critic Design .The Coherence Design and the Coherence-Rule Design perform the worst in the faithfulness evaluation: they degrade rank accuracy after two rounds of refinement and leave a large number of unfaithful narratives (28 and 25, compared with the initial 30). This is expected because the Coherence Agent is designed to improve the linguistic coherence quality, which may hinder the faithfulness quality. This is elaborated in the next section, under the problem category 4: Misleading Coherence Instruction .12 3.1.2 Problem Categorization of Unfaithful Narratives 
+
+To examine why faithfulness issues persist after three rounds for each design, we review all unfaithful narratives in round 2 and classify them into five categories according to the underlying reason (Table 3). We also categorize the 31 unfaithful baseline narratives using the same principles. 
+
+Category 1. Confusing Faithfulness Instruction 
+
+The Narrator doesn’t successfully fix a narrative because it doesn’t receive clear instructions. This situation occurs in two situations. 
+
+C1.1 happens in the the Basic Design system, where the Faithful Critic isn’t present. Because the Faithful Evaluator only reports the existing errors, Narrator does not directly get the information about how to revise the narrative accordingly. An example from Credit dataset (index 10): the Faithful Evaluator ’s feedback includes this sentence: “Feature savings contains (an) errors in [‘value’] value. ” Since the Faithful Evaluator doesn’t provide clear information on what value it should change to, Narrator doesn’t solve this problem after three rounds of trying. 
+
+C1.2 happens, on the contrary, when the Faithful Critic is present. Most of the time, since the Faithful Critic 
+
+gives clear instructions on how to fix, the narrative should get fixed quickly. However, a rare case is when the Faithful Critic feedback contains instructions that a narrative already satisfies, leading to ineffective revisions. Consider an example from the Critic Design (Student dataset, index 14, Figure 8). In this case, the narrative mentions four features one by one, following their order in the SHAP table (rank from 0 to 3, representing the most important and the fourth most important feature). However, the sentence describing the fourth-mentioned and least important feature (“failures”) begins with the phrase “most critically.” As a result, the Faithful Evaluator extracts the rank of the feature “failure” to be 1, representing the second most important feature by its overall understanding of the narrative, while this feature’s actual rank is 3 in the SHAP table. Simultaneously, the Faithful Evaluator 
+
+assigns the feature “goout” a rank of 3, while its actual rank in the SHAP table is 1. Up to this point, the narrative indeed contains a rank problem caused by the inappropriate term “most critically”, and the Faithful Evaluator does not make any mistake. Afterwards, the Faithful Critic detects this mismatch between the extracted ranks and the SHAP rankings and provides the feedback that requires the repositioning of the related sentences. This is where the issue arises, because the feedback from the Faithful Critic suggests changing the feature-mention order that is already satisfied; even worse, it adds an additional constraint instructing the Narrator not to modify anything other than the feature order (“...solely on reordering...”) for some unknown reason. As a result, the Narrator doesn’t change a word during the iteration, and hence it fails to achieve 100% faithful in round 2. Table 3: Problem Categorization of Unfaithful Narratives                          
+
+> Category Conditions C1: Confusing Faithfulness Instruction C1.1 Since the Faithful Evaluator feedback contains non-directional instruction, the
+> Narrator does not clearly know how to revise accordingly. This occurs because the
+> Faithful Evaluator only reveals the error type by how it is designed, without mentioning where the Narrator should change to.
+> C1.2 (edge case) The Faithful Critic feedback contains information on reordering the mentioning of features while it already satisfies. This occurs when a narrative mentions all features following the order in the SHAP, while containing inappropriate descriptive phrases that violate the importance of that feature in the SHAP table (Figure 8).
+> C2: Extraction Mistake The Faithful Evaluator reports non-existing faithfulness issues when a narrative is (ar-guably) faithful.
+> C3: Counterintuitive Feature Influence When the given SHAP input contains counterintuitive feature effects, the Narrator is inclined to disregard and generate a narrative following common sense.
+> C4: Misleading Coherence Instruction The Coherence Agent gives feedback with the intention to improve the narrative’s coher-ence, but it inadvertently encourages revisions that violate the SHAP input.
+> C5: Generation Misalignment The Narrator fails to generate a faithful narrative with an identifiable cause from the four above. This is therefore attributed to one-time generation errors that LLMs may produce.
+
+13 The root cause of category C1.2 is poorly generated baseline narratives that contain inappropriate descriptive terms that clearly contradict the feature importance indicated by SHAP. Another contributing factor lies in the design of the Faithful Critic . In its rank-correction component, it mechanically detects the rank differences and recommends relocating the feature accordingly. In other words, the Faithful Critic is unable to capture the information from the inappropriate descriptive phrases; it merely produces feedback on feature relocation by its design. The Faithful Critic 
+
+is designed in this way because of the intuitive assumption that a narrative mentions the feature from the most important to the least important, which generally holds in practice. Fortunately, the Faithful Critic is effective in most cases, and this problem occurs just twice among the 100 baseline narratives generated by Deepseek-chat-0324. Therefore, we retain the way we design the Faithful Critic as is.                             
+
+> An unfaithful narrative with rank issues
+> The model predicted with high con-fidence that this student would pass, largely because their father’s higher
+> education level strongly boosted ... While the student goes out with friends less frequently, this modestly helped ... Their low ab-sences also contributed positively, as ... Most critically , the student had no past failures , which significantly reinforced...
+> The Extraction Dictionary
+> Feature Rank Sign Value
+> Fedu 0... ... failures 1... ... absences 2... ... goout 3... ...
+> The Faithful Critic’s feedback
+> 1. Feature ’goout’ - Must be repositioned to become the second-mentioned feature in the explanation 2. Feature ’failures’ -Must be repositioned to become the fourth-mentioned feature in the ex-planation The feedback is focused solely on reordering how features are presented in the narrative to match the expected ranking sequence.
+> This is satisfied already.
+
+Figure 8: Left: This is an narrative example from the Student dataset, index 14, from the Claude Sonnet 4.5-based 
+
+Critic Design . This narrative mentions four features following the feature rank in the SHAP input. However, this narrative is unfaithful because the inappropriate use of descriptive terms (highlighted in orange boxes) implies that the feature importance of “failures” is higher than that of “goout”. This is an edge case in which the feature-mention order does not match the feature-importance order. Middle: The Faithful Evaluator extracts the rank of “failures” to be the second most important, and the feature “goout” to be the least important. It does so because it does not mechanically determine the rank based on the order in which features are mentioned; instead, it infers the ranking through a holistic linguistic understanding of the narrative. Right: The Faithful Critic instructs repositioning the two sentences. However, this is already satisfied in this narrative at the beginning. 
+
+Category 2. Extraction Mistake 
+
+This situation occurs when the Faithful Evaluator makes mistakes on extracting information from a (arguably) faithful narrative, reporting non-existing faithfulness issues. The first possibility arises from the stochastic behavior of the LLM. The second reason is that the narrative contains vague expressions that make it a genuinely difficult task for the Faithful Evaluator : for instance, not all narratives explicitly distinguish the importance of a feature using clear descriptive terms, thereby causing ambiguity and subjectivity in understanding and the Faithful Evaluator find it hard to extract the correct feature rank. This is why we describe such cases as “arguably” faithful: the narrative is debatably faithful, but its wording leaves room for ambiguity. An example is when adverbs or adjectives such as “slightly”, “marginally”, “minor”, and “small” are used to describe the importance of features, which show little differences among them (an example in Figure 10). In this case, the judgment of feature ranking is expected to be uncertain and debatable because subtle linguistic nuances can lead to inconsistent interpretations. The occurrence of these extraction mistakes reduces the reported accuracy, resulting in a lower measured level of faithfulness than it actually is. 
+
+Category 3. Counterintuitive Feature Influence 
+
+The Narrator is reluctant to follow the given SHAP explanation when its information contradicts widely accepted real-world common sense. For example, the SHAP table for index 11 in the Student dataset (from baseline experiment) indicates that the absence of family support has a positive effect on the prediction of student success, which is counterintuitive to common beliefs. The Narrator generates a narrative that describes the lack of family support as a negative factor on students’ performance, as this more closely aligns with common knowledge. 14 Category 4. Misleading Coherence Feedback 
+
+This situation occurs when the Coherence Agent is incorporated in the agentic system. Because its sole responsi-bility is to enhance the narrative’s coherence, it may provide misleading feedback that causes the Narrator to deviate from the SHAP information. For example, the Coherence Agent may suggest grouping similar features to improve narrative flow from one factor to another, or it may suggest reversing a feature’s influence from positive to negative to better align the narrative with common sense. One real example from the Coherence Agent ’s feedback is shown in the Section 3.5 (case d). 
+
+Category 5. Generation Misalignment 
+
+Even though the system has all the necessary and correct information, LLM can still generate narratives that are not 100% faithful to the given SHAP table. This explains all remaining cases not covered by the four categories above; that said, no explanation is found for this unfaithful generation from either the counterintuitive feature influence in SHAP or the misleading feedback from agents. Hence, we only allocate C5 to baseline narratives. Generation Misalignment occurs randomly and to a large extent due to the stochasticity of LLMs. It is one of the main reasons the agentic approach is proposed: one-time generation introduces issues related to faithfulness, even for the best LLM. It is important to note that the categorization process is not always clean-cut. Across the three refinement rounds, the reason a narrative contains faithfulness issues may change. In other cases, even within a single round, the cause of the error can be mixed. To handle this complexity, we adopt a principle of ‘backward”. We first examine the round 2 narrative to determine whether a clear cause is identified. If no cause is evident, we trace backwards to the round 1 feedback to determine whether the feedback provided to the Narrator introduced any cause. When multiple categories apply, we assign the narrative to the dominant category. Looking into Figure 9 on the distribution of the problem categories for each agentic system design, we see that the biggest problem for each agentic system is different, with C5 (Generation Misalignment) for the baseline experiment and C4 (Misleading Coherence Instruction) for the agentic system with the Coherence Agent . C2 (Extraction Mistake) 
+
+accounts for a noticeable part across all designs, which motivates us with an ensemble strategy to get a more reliable extraction (Section 3.3). Moreover, the two major problems ( C3: Counterintuitive Feature Influence and 
+
+C5: Generation Misalignment ) in the baseline experiment are addressed in the agentic designs, demonstrating the effectiveness of the agentic approach in rectifying the flaws of one-time generation. Based solely on the reported accuracy, the Basic Design is the best-performing across all five designs. However, since the narratives that are categorized as having Extraction Mistakes are faithful in fact, this detailed examination reveals that the Critic-Rule 
+
+Figure 9: This bar chart shows the distribution of problem categories across five system designs (Claude Sonnet 4.5). 15 Design and the Critic Design are comparable with the Basic Design in reality. We subsequently check all the narratives reported with extraction mistakes in the Critic Design that are not in the 
+
+Basic Design to understand in depth why extraction mistakes happen less. For half of them, the Faithful Evaluator 
+
+just doesn’t make an extraction mistake, luckily. For the other half, we observe that the Narrator in the Basic Design 
+
+modifies a few descriptive terms to make the importance ranking of the features clearer and easier to extract. Acomparison between them (Figure 10 and Figure 11): 
+
+Fifa: index 0 (Critic Design) 
+
+{A starting sentence with prediction score }
+
+The most influential factor was the team failing to score any goals, which significantly reduced their chances—since goals are typically decisive in earning individual accolades. Despite having higher-than-average ball possession (64% vs. the average 50%), this only slightly improved their odds, as possession alone doesn’t guarantee impactful play. The team’s 13 attempts on goal, slightly above average, provided a minor boost, suggesting they created opportunities but lacked finishing. Finally, committing 22 fouls—well above the av-erage—hurt their chances, likely reflecting a lack of discipline that may have disrupted their rhythm. 
+
+{A conclusion sentence }
+
+Figure 10: An Example of Extraction Mistake on Rank . Due to the subtle semantic differences of descriptive terms, the task of extracting the correct feature importance is difficult for the Faithful Evaluator .
+
+Fifa: index 0 (Basic Design) 
+
+{A starting sentence with prediction score }
+
+The most influential factor was the team failing to score any goals, which significantly reduced their chances—since goals are typically decisive in earning individual accolades. Ball possession at 64%, well above the average of 50%, was the second most impactful factor and slightly improved their odds, though possession alone doesn’t guarantee the creative or clinical play needed for such recognition. The team’s 13 attempts on goal, marginally above average, provided a modest boost as the third most important fea-ture, suggesting they created opportunities but lacked the finishing quality to convert them. Committing 22 fouls—considerably above the average—was the fourth factor and negatively affected their chances, likely reflecting poor discipline that may have disrupted their flow and created an unfavorable impression. 
+
+{A conclusion sentence }
+
+Figure 11: No Extraction Mistake on Rank . The Basic Design improves the clarity of the descriptive terms, making the extraction task easier. The narrative from the Critic Design is arguably faithful because the rank order of the four features totally corresponds to the SHAP table, while the adverbs don’t explicitly violate. Nevertheless, in the Basic Design , the Nar-rator modifies the descriptive terms to clarify feature importance, thereby substantially reducing extraction mistakes. To summarize, the Faithful Critic provides overly explicit feedback focused on sentence reordering and additionally includes a constraint prohibiting changes to any other parts of the narrative. This restriction limits the Narrator ’s ability to consider alternative solutions. In contrast, more general feedback by the Faithful Evaluator imposes no such constraints. Hence, Narrator can flexibly revise those inappropriate elements, thereby facilitating correct extraction. In conclusion, the Claude Sonnet 4.5-based Basic Design outperforms the Critic Design depending on several underlying factors. Fundamentally, the Basic Design is not necessarily superior to the Critic Design or the Critic-Rule Design , if we consider those extraction mistakes. Beyond this, linguistic nuances inject difficulty and uncertainty into the extraction task. Third, the Claude-based Basic Design demonstrates the ability to revise narratives effectively even with vague feedback, a capability not consistently observed across all LLMs. 16 3.2 Faithfulness Results across LLMs 
+
+Table 4 indicates the faithfulness results of all agentic designs across five LLMs. Among all 25 combinations of LLMs and agentic designs, the Claude Sonnet 4.5-based Basic Design ranks highest, achieving an overall round-2 accuracy of 0.996. When aggregating performance across five agentic system designs, GPT-5, Claude Sonnet 4.5, and DeepSeek-V3.2-Exp exhibit comparable performance. Mistral Medium 3.1 ranks next, whereas Llama 3.3 70B Instruct is noticeably the worst. For each specific design, the LLM that performs the best varies somewhat. For example, the winner for both the Basic Design and the Coherent-Rule Design is Claude Sonnet 4.5. DeepSeek-V3.2-Exp wins for both the Critic Design and the Coherent Design , and the best LLMs on the Critic-Rule Design are Mistral Medium 3.1 and GPT-5. Llama 3.3 70B Instruct never ranks in the top for any design. Since the Critic-Rule Design is the overall best design across all five LLMs, we plot its results in a bar chart to have a direct comparison (Figure 12). Mistral Medium 3.1 and DeepSeek-V3.2-Exp improve the rank accuracy comparably well, while GPT-5 and Claude Sonnet 4.5 improve the sign accuracy the most. All LLMs steadily improve value accuracy, partly due to the already high baseline accuracy. We also observe that, although the same batch of baseline narratives is used to provide a consistent starting point, the reported baseline accuracies across LLMs differ, particularly in rank accuracy. This further reflects the extraction mistakes introduced differently across LLMs, motivating our ensemble strategy. We further investigate whether different LLMs exhibit distinct optimal agentic designs and analyze the underlying reasons for these differences. The optimal design for Claude Sonnet 4.5 is the Basic Design , whereas the other LLMs perform the best either on the Critic Design or the Critic-Rule Design . GPT-5 performs almost as well for the Basic 
+
+Table 4: Faithfulness results for different agentic system designs based on different LLMs. Arrows indicate the progression of the rank, sign, and value accuracy from Round 0 to Round 2. The last column shows the overall accuracy in round 2 for each configuration. 
+
+Designs LLMs Faithfulness Overall (round 2) RA SA VA Basic Design 
+
+Claude Sonnet 4.5 0.905 →0.970 →0.990 0.957 →0.997 →1.000 0.990 →0.995 →0.997 0.996 Mistral Medium 3.1 0.898 →0.870 →0.887 0.950 →0.965 →0.970 0.990 →0.995 →0.995 0.951 GPT-5 0.898 →0.945 →0.972 0.965 →0.995 →0.997 0.993 →0.995 →1.000 0.990 Llama 3.3 70B Instruct 0.857 →0.875 →0.863 0.940 →0.960 →0.975 0.993 →0.997 →1.000 0.946 DeepSeek-V3.2-Exp 0.905 →0.943 →0.940 0.960 →0.988 →0.980 0.992 →0.988 →0.993 0.971 
+
+Critic Design 
+
+Claude Sonnet 4.5 0.905 →0.950 →0.960 0.960 →0.988 →0.993 0.990 →0.995 →0.997 0.983 Mistral Medium 3.1 0.897 →0.963 →0.975 0.952 →0.990 →0.993 0.990 →0.997 →0.997 0.988 GPT-5 0.902 →0.940 →0.948 0.965 →0.997 →1.000 0.993 →0.992 →1.000 0.982 Llama 3.3 70B Instruct 0.875 →0.900 →0.927 0.950 →0.950 →0.980 0.993 →0.995 →0.997 0.968 DeepSeek-V3.2-Exp 0.910 →0.988 →0.988 0.950 →0.988 →0.985 0.995 →0.995 →0.997 0.990 
+
+Critic-Rule Design 
+
+Claude Sonnet 4.5 0.905 →0.960 →0.960 0.957 →0.993 →0.997 0.990 →0.995 →0.997 0.985 Mistral Medium 3.1 0.907 →0.955 →0.980 0.952 →0.985 →0.990 0.990 →0.995 →0.997 0.989 GPT-5 0.885 →0.957 →0.968 0.963 →0.997 →1.000 0.993 →0.997 →1.000 0.989 Llama 3.3 70B Instruct 0.847 →0.912 →0.930 0.940 →0.970 →0.990 0.993 →0.993 →1.000 0.973 DeepSeek-V3.2-Exp 0.912 →0.970 →0.978 0.960 →0.980 →0.980 0.992 →0.997 →1.000 0.986 
+
+Coherent Design 
+
+Claude Sonnet 4.5 0.905 →0.915 →0.860 0.957 →0.982 →0.980 0.990 →0.993 →0.997 0.946 Mistral Medium 3.1 0.897 →0.790 →0.748 0.952 →0.975 →0.977 0.993 →0.995 →0.995 0.907 GPT-5 0.893 →0.897 →0.875 0.963 →0.993 →0.990 0.993 →0.992 →0.997 0.954 Llama 3.3 70B Instruct 0.872 →0.768 →0.820 0.953 →0.972 →0.960 0.993 →0.985 →1.000 0.927 DeepSeek-V3.2-Exp 0.922 →0.945 →0.922 0.950 →0.967 →0.982 0.992 →0.993 →0.997 0.967 
+
+Coherent-Rule Design 
+
+Claude Sonnet 4.5 0.905 →0.900 →0.878 0.957 →0.985 →0.985 0.990 →0.990 →0.997 0.953 Mistral Medium 3.1 0.903 →0.765 →0.770 0.952 →0.975 →0.980 0.988 →0.995 →0.997 0.916 GPT-5 0.885 →0.922 →0.870 0.963 →0.993 →0.988 0.993 →0.997 →1.000 0.953 Llama 3.3 70B Instruct 0.865 →0.800 →0.730 0.952 →0.972 →0.940 0.993 →0.982 →1.000 0.890 DeepSeek-V3.2-Exp 0.907 →0.938 →0.882 0.950 →0.965 →0.948 0.992 →0.997 →0.995 0.942 
+
+Note. For each agentic design, the highest rank accuracy, sign accuracy, and value accuracy are underlined. The LLM with the highest overall round-2 accuracy is also underlined. It is notable that different LLMs extract different accuracy on the same baseline narratives; for each LLM, extraction can also be unstable across runs (see appendix A.2). 
+
+17 Figure 12: This bar chart presents the three accuracies ( RA : rank accuracy, SA : sign accuracy, and VA : value accuracy) among five LLMs on the Critic-Rule Design .
+
+Design and the Critic-Rule Design .We use DeepSeek-V3.2-Exp as a representative to examine why it works better in the Critic Design than the Basic Design . Overall, the DeepSeek-V3.2-Exp-based Basic Design system produces 14 unfaithful narratives by round 2, whereas the Critic Design outputs 5. Among the 14 unfaithful cases under Basic Design , 10 are attributed to unclear feedback from the Faithful Evaluator (C1) . These cases are resolved in the Critic Design because of the explicit instructions provided by the Faithful Critic . Of the remaining cases in Basic Design , 3 result from extraction mistakes (C2 ), and 1 stems from counterintuitive feature influence ( C3 ). In contrast, for the 5 unfaithful narratives produced by the Critic Design , the distribution of problem types is as follows: C1 (1 narrative), C2 (3 narratives), and C3 
+
+(1 narrative) (Table 5). In conclusion, the design incorporated with the Faithful Critic or the Faithful Critic (Rule) 
+
+tends to outperform a design with only the Faithful Evaluator , as the Narrator can’t fix errors as efficiently without a clear, directional revision guidance (Deepseek-V3.2-Exp, Mistral Medium 3.1 and Llama 3.3 70B Instruct). In addition, differences in the optimal agentic designs also imply the superior performance of Claude Sonnet 4.5 and GPT-5: the Narrator is able to infer the appropriate revision based on the prompt, which contains the original SHAP information. That being said, even with the vague Faithful Evaluator feedback, Claude Sonnet 4.5 and GPT-5, possibly due to their capability of taking a larger context window, may trace back to the lengthy prompt and get the relevant information for their revision. Table 5: The problem categorization on the round-2 unfaithful narratives reported by the Basic Design and the Critic Design based on DeepSeek-V3.2-Exp.                   
+
+> DeepSeek-V3.2-Exp Basic Design Critic Design Problem Categorization number instance number instance
+> C1: Confusing Faithfulness Instruction 10 diabetes: index 2,4,7,17 stroke: index 13 student: index 1, 12, 14 credit: index 6,10 1student: index 14 C2: Extraction Mistake 3stroke: index 2 student: index 5, 18 3stroke: index 2 student: index 3, 5 C3: Counterintuitive Feature Influence 1student: index 16 1student: index 16 C4: Misleading Coherence Instruction C5: Generation Misalignment
+> In Total 14 5
+
+18 3.3 Faithfulness Results for Ensemble Method 
+
+Table 6 presents the ensemble experiments’ results. Across all 25 experiments using the ensemble method, most show performance improvements, with exception cases marked in red. Llama 3.3 70B Instruct, which performs worst in the original experiments, shows the largest improvement and reaches a level comparable to DeepSeek-V3.2-Exp. Most notably, the Basic Design design reaches an accuracy of 0.999, with only a single narrative remaining unfaithful ( Credit : index 10, C1.1). Considering the overall round-2 accuracy, only five experiments show decreases: Mistral Medium 3.1 and GPT-5 under the Critic-Rule Design , and DeepSeek-V3.2-Exp under the Critic Design , the 
+
+Critic-Rule Design and the Coherent Design . As a complementary indicator, the number of unfaithful narratives in round 2 largely mirrors these accuracy trends. For Claude Sonnet 4.5, GPT-5, and Llama 3.3 70B Instruct, the ensemble experiments consistently reduce the number of unfaithful narratives across all agentic designs, reflecting the effectiveness of the ensemble strategy. By contrast, DeepSeek-V3.2-Exp-based agentic systems using an ensemble approach exhibit a clear failure. This suggests that DeepSeek-V3.2-Exp performs better on the extraction task, with its strengths diluted by the inclusion of lower-performing LLMs in the ensemble method. This hypothesis is further validated by the manual analysis presented in the following section. Table 6: This table compares the round-2 accuracy obtained from the original experiments (o) and the ensemble experiments (e). Numbers are highlighted in red if the ensemble experiment’s result is worse than that of the original experiment. The final column reports the number of remaining unfaithful narratives from each.                                                                                                                                     
+
+> LLMs Designs Faithfulness Overall (round 2) No. Unf. Narr. (round 2) RA(o) |RA(e) SA(o) |SA(e) VA(o) |VA(e) (o) |(e) (o) |(e) Claude Sonnet 4.5
+> Basic Design 0.990 |1.000 1.000 |1.000 0.997 |0.997 0.996 |0.999 3|1Critic Design 0.960 |0.970 0.993 |0.997 0.997 |0.997 0.983 |0.988 9|6Critic-Rule Design 0.960 |0.970 0.997 |0.997 0.997 |0.997 0.985 |0.988 8|6Coherent Design 0.860 |0.872 0.980 |0.990 0.997 |1.000 0.946 |0.954 28 |23 Coherent-Rule Design 0.878 |0.892 0.985 |0.993 0.997 |1.000 0.953 |0.962 25 |20
+> Mistral Medium 3.1
+> Basic Design 0.887 |0.955 0.970 |1.000 0.995 |1.000 0.951 |0.985 21 |7Critic Design 0.975 |0.990 0.993 |0.997 0.997 |1.000 0.988 |0.996 8|3Critic-Rule Design 0.980 |0.968 0.990 |0.990 0.997 |0.995 0.989 |0.984 5|8Coherent Design 0.748 |0.765 0.977 |0.990 0.995 |1.000 0.907 |0.918 47 |40 Coherent-Rule Design 0.770 |0.785 0.980 |0.995 0.997 |0.995 0.916 |0.925 41 |39
+> GPT-5
+> Basic Design 0.972 |0.982 0.997 |0.997 1.000 |1.000 0.990 |0.993 6|4Critic Design 0.948 |0.968 1.000 |0.997 1.000 |1.000 0.982 |0.988 9|7Critic-Rule Design 0.968 |0.970 1.000 |0.997 1.000 |0.997 0.989 |0.988 10 |8Coherent Design 0.875 |0.908 0.990 |0.997 0.997 |1.000 0.954 |0.968 25 |17 Coherent-Rule Design 0.870 |0.950 0.988 |0.988 1.000 |0.995 0.953 |0.978 24 |14
+> Llama 3.3 70B Instruct
+> Basic Design 0.863 |0.927 0.975 |0.985 1.000 |0.997 0.946 |0.970 23 |15 Critic Design 0.927 |0.963 0.980 |0.997 0.997 |0.997 0.968 |0.986 13 |7Critic-Rule Design 0.930 |0.965 0.990 |0.997 1.000 |0.997 0.973 |0.987 12 |8Coherent Design 0.820 |0.872 0.960 |0.985 1.000 |1.000 0.927 |0.953 28 |26 Coherent-Rule Design 0.730 |0.863 0.940 |0.975 1.000 |1.000 0.890 |0.946 35 |27
+> DeepSeek-V3.2-Exp
+> Basic Design 0.940 |0.938 0.980 |0.993 0.993 |0.992 0.971 |0.974 14 |15 Critic Design 0.988 |0.963 0.985 |0.993 0.997 |1.000 0.990 |0.985 5|9Critic-Rule Design 0.978 |0.957 0.980 |0.997 1.000 |0.997 0.986 |0.984 7|7Coherent Design 0.922 |0.885 0.982 |0.985 0.997 |0.997 0.967 |0.956 21 |23 Coherent-Rule Design 0.882 |0.840 0.948 |0.993 0.995 |0.995 0.942 |0.942 24 |32
+
+3.3.1 Problem Categorization of Unfaithful Narratives (Ensemble Method) 
+
+We categorize the round-2 unfaithful narratives from the ensemble experiments to examine whether the error patterns differ from those observed in the original experiments. For consistency, we again focus on results obtained with Claude Sonnet 4.5, as shown in Figure 13. A first observation is that the number of C2 (Extraction Mistake) 
+
+indeed decreases; however, it doesn’t disappear. Issues from the Coherence Agent ’s misleading suggestion ( C4 ) and 19 confusing faithfulness-related instructions ( C1 ) still occur, as expected. The primary reason why extraction mistakes remain is that majority voting does not guarantee a correct final extraction, which just mitigates the incorrect one-time extraction from a single LLM. For narratives with semantic similarity in descriptive terms, accurate extraction remains challenging even for strong LLMs. Consequently, when only one or two models extract the information correctly, the majority vote may still result in an incorrect extraction, let alone a case when it is too challenging, and no LLM succeeds. Among the 18 failed cases from all five designs, 10 of them result in a 2:3 split, 4 in a 1:4 split, and 4 cases in a 0:5 split. There is not always a single LLM that consistently produces the correct extraction, with the LLama 3.3 70B Instruct model erring most often. Nevertheless, DeepSeek-V3.2-Exp appears to be the most capable at handling these difficult cases, producing the correct extraction in 13 of these instances. This observation helps explain why DeepSeek-V3.2-Exp exhibits lower accuracy in the ensemble experiments: the increased number of extraction errors introduced by other voters harms the ensemble results. In conclusion, the ensemble method indeed improve performance for most cases. However, the extraction mistakes cannot be entirely eliminated due to the inherent difficulty of the extraction task in linguistically complex texts. Moreover, when an LLM, such as DeepSeek-V3.2-Exp, is already sufficiently strong in the extraction task, the ensemble method degrades the agentic system performance. 
+
+Figure 13: A comparison between the problem categorization: original and ensemble experiments (Claude Sonnet 4.5). 
+
+## 3.4 Additional Results on Key Concepts 
+
+We decide to choose the best agentic system design as the representative to evaluate key concepts, such as the influence of the number of iterations, the number of features included in the narrative, etc. However, as shown in Table 6, no single design consistently outperformed others across all LLMs, and ensemble experiments do not always perform better than the original experiments. We hence propose to determine the representative design based on the frequency of “wins” in overall accuracy (round 2). In total, the Critic Design and the Critic-Rule Design reach the top rank five times each, outperforming the Basic Design (four wins). Between these two, the Critic-Rule Design is superior to the Critic Design with a 5:3 ratio (with two ties). Furthermore, for three out of five LLMs, the original 
+
+Critic-Rule outperforms the ensemble version (Mistral Medium 3.1, GPT-5, and DeepSeek-V3.2-Exp) (see Table 11 in Appendix A.3). Given that the original experiments are also significantly more efficient on resource usage, we finally select the original Critic-Rule Design as our benchmark for further experimentation. The following key concepts are of interest: 20 • Iteration Round . How does the number of iteration rounds impact the result? 
+
+• The Number of Features . How does the number of features included in the narrative impact the result? 
+
+• No-Baseline Setting . What if we don’t use baseline narratives? How does this impact the result? 
+
+• Different Baseline Narratives . How do the best and the worst baseline narratives impact the result? 
+
+Iteration Round We change the maximum round of improvement to 10 in this experiment to see how this impacts the final accuracy (Table 7, Figure 14). There is a rapid improvement of rank, sign, and value accuracy in the first two rounds across all LLMs. Thereafter, performance reaches a plateau from round 2 to round 9 for most LLMs, with minor fluctuations. Deepseek-V3.2-Exp performs the best across all five LLMs, with an overall round-9 accuracy of 0.998. Llama 3.3 70B shows a slightly different pattern. It exhibits a slight decline in rank and sign accuracy during the middle stages of the iteration, followed by a gradual improvement until reaching a level comparable to GPT-5 and Claude Sonnet 4.5. The best performance is achieved after six rounds of iteration, more slowly than other LLMs. We also examine the underlying reasons for the round-9 unfaithful narratives and categorize them into the five problem categories. The primary reason for every LLM is extraction mistakes caused by linguistic ambiguity (Table 8). For GPT-5 and Claude Sonnet 4.5, two instances remain unfixed due to the confusing instructions from the Faithful Critic , as elaborated in section 3.1.2 and Figure 8. To summarize, most LLMs resolve faithfulness-related issues rapidly, typically within two rounds of iteration, whereas Llama 3.3 70B is the least efficient, requiring six rounds. The main reason none of the experiments achieve 100% accuracy by round 9 is that the extraction mistakes each LLM causes on its own are unsolvable due to its capability limitations. 
+
+The Number of Features We increase the number of features included in each narrative from four to eight to evaluate the robustness of the agentic system in improving faithfulness. As in the previous setting, we use DeepSeek-V3-0324 to generate 100 baseline narratives containing eight features and adopt them as the new baseline for this experiment. The results show that round-2 accuracy improves across all five LLMs (Table 9). Both round-0 and round-2 accuracies exhibit a noticeable decline compared to the original experiment with four features. This outcome is expected, as increasing the number of features inherently raises the complexity of both generation and extraction. Notably, DeepSeek-V3.2-Exp performs particularly well under this setting, with its round-2 accuracy decreasing by only 0.001 compared to the original experiment’s results. 
+
+No-Baseline Setting We further examine whether using baseline narratives generated by DeepSeek-V3-0324 constrains or enhances performance in the original experiments (Table 9). Under this setting, DeepSeek-V3.2-Exp achieves the best results, reporting an overall round-2 accuracy of 0.999 (after manual inspection, there is an extraction mistake occurring; this is thus a 100% faithful result). Claude Sonnet 4.5 and GPT-5 follow, with round-2 accuracies of 0.987 and 0.984, respectively. Llama 3.3 70B Instruct remains the lowest-performing model. When comparing the no-baseline results to original results, DeepSeek-V3.2-Exp is the only LLM whose overall round-2 accuracy significantly improves under the no-baseline setting. This indicates that the original baseline narratives constrain DeepSeek-V3.2-Exp’s performance. On the contrary, the remaining models either experience performance declines (Mistral Medium 3.1, GPT-5, and Llama 3.3 70B Instruct) or show negligible improvement, possibly due to variance (Claude Sonnet 4.5) under a no-baseline setting. GPT-5 exhibits a distinct pattern: although it begins with its own round-0 narratives that achieve higher initial accuracy than in the original experiment, it reaches a plateau as early as round 1, resulting in slightly lower round-2 accuracy than in the original result. 
+
+Different Baseline Narratives We wonder how much the various quality of baseline narratives influences the final results. Therefore, we use the best and the worst baseline narratives to add two extra experiments. According to the no-baseline setting results, the best baseline narratives are from DeepSeek-V3.2-Exp, and the worst baseline narratives are from Llama 3.3 70B Instruct. We derive three key insights from the results (Table 9). First, across all LLMs, performance under the best baseline narratives consistently exceeds that under the worst baseline narratives. Second, DeepSeek-V3.2-Exp achieves the first and only reported 100% faithfulness across all experiments in this paper. Third, different LLMs exhibit distinct patterns to baseline quality. Claude Sonnet 4.5 and Mistral Medium 3.1 show negligible variation across the three baseline settings, with round-2 accuracy differences within 0.003. GPT-5 demonstrates minimal difference between the original and best-baseline settings; however, its performance declines noticeably under the worst-baseline condition. In contrast, Llama 3.3 70B Instruct and DeepSeek-V3.2-Exp follow 21 Table 7: The round=10 experiments’ results across different LLMs ( Critic-Rule Design )
+
+LLMs Faithfulness Accuracies from Round 0 to Round 9 Overall (round 9 )
+
+Claude Sonnet 4.5 
+
+RA 0.905 →0.960 →0.960 →0.955 →0.960 →0.958 →0.963 →0.958 →0.963 →0.958 0.984 SA 0.958 →0.993 →0.993 →0.993 →0.993 →0.995 →0.995 →0.995 →0.995 →0.995 VA 0.990 →0.998 →0.998 →0.998 →0.998 →1.000 →1.000 →1.000 →1.000 →1.000 
+
+Mistral Medium 3.1 
+
+RA 0.898 →0.943 →0.983 →0.985 →0.985 →0.985 →0.985 →0.990 →0.990 →0.990 0.995 SA 0.953 →0.985 →0.990 →0.990 →0.995 →0.998 →0.998 →0.998 →0.998 →0.998 VA 0.993 →0.993 →0.998 →0.998 →0.998 →0.998 →0.998 →0.998 →0.998 →0.998 
+
+GPT-5 
+
+RA 0.890 →0.938 →0.943 →0.943 →0.943 →0.943 →0.950 →0.950 →0.950 →0.948 0.983 SA 0.963 →0.998 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 →0.998 →1.000 VA 0.998 →0.998 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 
+
+Llama 3.3 70B Instruct 
+
+RA 0.830 →0.945 →0.933 →0.938 →0.948 →0.958 →0.963 →0.953 →0.963 →0.963 0.988 SA 0.920 →0.978 →0.990 →0.980 →0.978 →0.988 →0.998 →1.000 →1.000 →1.000 VA 0.993 →0.993 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 →1.000 
+
+DeepSeek-V3.2-Exp 
+
+RA 0.895 →0.983 →0.995 →0.998 →0.998 →0.995 →1.000 →0.998 →1.000 →0.998 0.998 SA 0.948 →0.993 →0.993 →0.993 →0.995 →0.998 →0.998 →0.998 →0.998 →0.998 VA 0.990 →0.995 →1.000 →0.998 →1.000 →0.998 →1.000 →1.000 →1.000 →0.998 
+
+Figure 14: The Evolution of Rank Accuracy (RA), Sign Accuracy (SA), and Value Accuracy (VA) across 10 rounds for different LLMs. the anticipated trend more clearly: their round-2 accuracy improves significantly when provided with the best baseline 22 Table 8: The round=10 experiments’ problem categorization ( Critic-Rule Design )
+
+LLMs No. Unf. Narr. (round 9) C1: Confusing Faithfulness Instruction C2: Extraction Mistake Claude Sonnet 4.5 8 2 6
+
+Mistral Medium 3.1 4 / 4
+
+GPT-5 9 2 7
+
+Llama 3.3 70B Instruct 5 / 5
+
+DeepSeek-V3.2-Exp 1 / 1
+
+Table 9: The additional experiments’ results across different LLMs ( Critic-Rule Design )
+
+LLMs Experiments Faithfulness Overall (round 2) RA SA VA Claude Sonnet 4.5 
+
+Original Exp. 0.905 →0.960 →0.960 0.957 →0.993 →0.997 0.990 →0.995 →0.997 0.985 Feature=8 0.750 →0.924 →0.939 0.959 →0.991 →0.993 0.993 →0.994 →0.998 0.976 No Baseline 0.895 →0.970 →0.970 0.983 →0.990 →0.995 0.978 →0.990 →0.995 0.987 Best Base. 0.940 →0.965 →0.975 0.958 →0.983 →0.990 0.993 →0.998 →1.000 0.988 Worst Base. 0.775 →0.965 →0.970 0.968 →0.988 →0.993 0.985 →0.993 →0.998 0.987 
+
+Mistral Medium 3.1 
+
+Original Exp. 0.907 →0.955 →0.980 0.952 →0.985 →0.990 0.990 →0.995 →0.997 0.989 Feature=8 0.729 →0.768 →0.808 0.940 →0.963 →0.969 0.995 →0.983 →0.996 0.924 No Baseline 0.770 →0.875 →0.925 0.928 →0.973 →0.978 0.983 →0.995 →0.995 0.966 Best Base. 0.945 →0.958 →0.973 0.968 →0.990 →0.998 0.990 →0.995 →0.998 0.989 Worst Base. 0.725 →0.868 →0.970 0.950 →0.975 →0.993 0.983 →0.995 →0.995 0.986 
+
+GPT-5 
+
+Original Exp. 0.885 →0.957 →0.968 0.963 →0.997 →1.000 0.993 →0.997 →1.000 0.989 Feature=8 0.740 →0.816 →0.829 0.949 →0.978 →0.991 0.995 →0.995 →0.999 0.940 No Baseline 0.930 →0.953 →0.953 0.980 →1.000 →1.000 0.988 →1.000 →1.000 0.984 Best Base. 0.925 →0.955 →0.960 0.975 →1.000 →1.000 0.993 →1.000 →1.000 0.987 Worst Base. 0.743 →0.860 →0.865 0.978 →0.993 →1.000 0.990 →1.000 →1.000 0.955 
+
+Llama 3.3 70B Instruct 
+
+Original Exp. 0.847 →0.912 →0.930 0.940 →0.970 →0.990 0.993 →0.993 →1.000 0.973 Feature=8 0.656 →0.764 →0.804 0.940 →0.950 →0.968 0.993 →0.998 →0.999 0.923 No Baseline 0.693 →0.823 →0.898 0.920 →0.935 →0.985 0.993 →1.000 →1.000 0.961 Best Base. 0.915 →0.935 →0.958 0.953 →0.950 →0.990 0.990 →1.000 →0.998 0.982 Worst Base. 0.725 →0.843 →0.888 0.943 →0.963 →0.968 0.995 →0.998 →1.000 0.952 
+
+DeepSeek-V3.2-Exp 
+
+Original Exp. 0.912 →0.970 →0.978 0.960 →0.980 →0.980 0.992 →0.997 →1.000 0.986 Feature=8 0.783 →0.938 →0.968 0.946 →0.978 →0.989 0.990 →0.995 →0.999 0.985 No Baseline 0.980 →1.000 →1.000 0.968 →0.990 →0.998 0.990 →0.998 →1.000 0.999 Best Base. 0.978 →1.000 →1.000 0.968 →0.990 →1.000 0.988 →0.998 →1.000 1.000 
+
+Worst Base. 0.813 →0.973 →0.983 0.983 →0.995 →0.995 0.990 →0.998 →0.998 0.992 
+
+narratives and decreases when initialized with the lowest-quality narratives. In summary, we have three main conclusions on those additional experiments. First, we validate that the agentic system remains effective with the increase of the number of features included. However, the overall improvement effect weakens compared to the setting with fewer features, as reflected by the lower final-round accuracy. Second, under different baseline settings, the quality of the initial baseline narratives plays an important role. In general, better baseline narratives lead to stronger final performance. Although some LLMs demonstrate no obvious difference under different settings (Claude Sonnet 4.5), using the worst baseline narratives consistently decreases the final accuracy, and using the best narratives normally increases the effect or at least causes no harm. Third, increasing the maximum number of refinement rounds does not necessarily lead to higher final accuracy for most advanced LLMs, with the exception of Llama 3.3 70B Instruct, which continues to benefit from additional refinement rounds. 
+
+## 3.5 Coherence Analysis 
+
+To understand the suggestion provided by the Coherence Agent and their influence on the narrative, we, again, use the outputs from Claude Sonnet 4.5-based Coherent-Rule Design (original experiment) to conduct a sampled, qualitative analysis. In general, the Coherence Agent either reports no coherence issues or proposes revisions suggestions using 23 the four templates we allow: “Change to ”, “Insert before ”, “Delete ”, “Reorder after ”. After a close examination, we observe these suggestions mostly cover the following aspects: transition re-wordings, sentence restructuring or rephrasing, adjustments to feature ordering, influence direction, or value modifications, etc. We show each a real example as follows: 
+
+a) No coherence issue: The Coherence Agent gives a final judgment: “no coherence issue” with an explanation. Accordingly, the Narrator will not change. An example: 
+
+{No Coherence Issue } Student: index 9, round 2 feedback 
+
+After examining the narrative for coherence issues, I find: no coherence issue The narrative demonstrates strong logical coherence throughout: 1. Clear structure : Opens with the prediction outcome, then systematically ... 2. Smooth transitions : Uses appropriate connectives to guide ... 3. Logical flow : Progresses from most influential factor to less ... 4. Unified explanation : Each paragraph builds on the previous one ... 5. Effective conclusion : The final sentence synthesizes the analysis by ... 6. Consistent reasoning : Counterintuitive findings (family support) are acknowledged ... The text maintains topical unity, avoids abrupt transitions... 
+
+b) Transitional wordings : The Coherence Agent gives suggestions to add or change the transitional wordings or phrases. An example is shown below. In the next round, the Narrator changes the narrative accordingly. Although this kind of suggestion is nuanced and minor, it indeed improves the flow of the whole narrative. 
+
+{Transitional Wordings } Diabetes: index 9, round 0 feedback 
+
+... 2) Insert: “In contrast,” before “The Diabetes Pedigree Function score of 0.263” 
+
+Justification : This transition phrase explicitly signals the shift from a risk-increasing factor to a risk-decreasing factor, improving the logical flow... 3) Change: “While the patient’s age of 29 was younger than average, it still contributed a small increase in risk” To: “Although the patient’s age of 29 was younger than average, it paradoxically contributed a small increase in risk” 
+
+Justification : The word “paradoxically” makes the counterintuitive relationship more explicit, helping readers ... ... 
+
+c) Sentence restructure : The Coherence Agent suggests restructuring or rephrasing sentences to make the narrative more understandable, clear, and accessible. For example, it recommends splitting a long sentence containing multiple clauses into two shorter sentences: 
+
+{Sentence Restructure } Student: index 12, round 1 feedback 
+
+... 3. Change “which actually worked against their prediction slightly, as the model expected some absences based on typical patterns and their perfect attendance may signal other unmeasured factors” to “which surprisingly worked against their prediction. The model associates zero absences with other unmeasured risk factors, as typical passing students show some absences” 
+
+Justification : The original sentence is convoluted with multiple clauses. Breaking it into clearer statements and reversing the logic (explaining what the model expects for passing students) makes the counterintuitive finding more comprehensible. ... 
+
+d) Suggestions on changing the rank/sign/value : The Coherence Agent suggests changing the feature rank, 24 influence direction, or feature value to make the whole narrative more plausible, logical, and sensible. For example, it suggests grouping those features with positive influences together. However, these suggestions may violate the information from the SHAP table. This is the primary source of degraded faithfulness in the revised narratives. 
+
+{Suggestions on changing the rank/sign/value } Credit: index 6, round 2 feedback 
+
+... 1. Reorder the sentence “However, the presence of other installment plans...” to appear after all positive factors are discussed. 
+
+Justification : The current placement interrupts the flow of positive factors. The narrative jumps from checking account status (positive) to installment plans (negative) back to employment duration (positive), creating a disjointed reading experience. Grouping all positive factors together... ... To summarize, after adding the Coherence Agent , the system includes a dedicated module for assessing the overall linguistic quality of the narrative. It identifies coherence issues that are particularly effective at refining subtle aspects of sentence wording and structure that the Narrator may struggle to detect and improve. However, as its sole focus is on coherence, it may generate suggestions that conflict with the SHAP table, thereby guiding the Narrator 
+
+toward revisions that compromise faithfulness. Overall, while the inclusion of the Coherence Agent improves linguistic quality, this often comes at the expense of faithfulness. The interplay between these two evaluation dimensions, and how the agents coordinate within the system, is considered to be a direction for future research. 
+
+# 4 Conclusion and Outlook 
+
+In this work, we explore an agentic approach to generating and improving SHAP-based narratives. We propose a multi-agent framework in which the Narrator generates and revises narratives in response to feedback from other agents. The Faithful Evaluator and Faithful Critic provide feedback in a quantitative approach, based on three faithfulness metrics: Rank Accuracy , Sign Accuracy , and Value Accuracy , whereas the Coherence Agent gives feedback on the linguistic coherence quality in a qualitative way. We design five different system variants and test their effectiveness using five LLMs. The Basic Design , the Critic Design , and the Critic-Rule Design are validated to be effective in improving the faithfulness level across all five LLMs; however, no single design consistently outperforms others across all LLMs. The comparable performance of the Critic Design and Critic-Rule Design suggests that the rule-based Faithful Critic is a better and more resource-efficient solution among the two. The Claude Sonnet 4.5-based Basic Design ranks first among the 25 experimental combinations, yet does not achieve the reported 100% faithfulness. A closer examination reveals that the extraction mistakes by a single LLM are the main recurring issue for all experiments. We hence propose an ensemble method that introduces all five LLMs as independent Faithful Evaluators , using their consensus as the final judgment. This ensemble method mitigates the extraction mistakes but does not eliminate them entirely, as such errors are largely unavoidable due to inherent linguistic ambiguity and semantic nuance. Beyond this, we conduct additional experiments on several key concepts to further investigate the conditions required for an effective agentic system. We validate that the agentic system remains effective with the increase of the number of features included in one narrative. Increasing the round of iteration not necessarily improve the final faithfulness quality; in contrast, the quality of the baseline narratives does indeed. By replacing the baseline narratives with higher-quality ones, the DeepSeek-V3.2-Exp-based Critic-Rule Design achieves, for the first time, a reported 100% faithfulness. On the other hand, the introduction of the Coherence Agent generally improves the narrative’s linguistic quality after a qualitative, manual sample check; however, this inevitably harms the faithfulness of SHAP narratives. This work identifies some drawbacks and outlines future work. First, we haven’t found a solution for the extraction mistakes. Semantic nuances pose inherent difficulties for a single LLM to consistently extract the correct information, even for DeepSeek-V3.2-Exp, the most performant LLM on this task. The ensemble method we propose does not fully resolve the issue, in part because some LLMs, such as Llama 3.3 70B Instruct, perform poorly on this task, making them poor candidates and leading to incorrect consensus. Moreover, an LLM may yield different extractions for the same narrative across attempts. Future work may therefore focus on either filtering out unreliable candidates 25 from the majority voting or using DeepSeek-V3.2-Exp multiple times to encourage more robust extraction. This also implicates the possibility of integrating the different LLMs into one agent system. Given the round-0 narrative’s significance, it is important to deploy an advanced LLM as the Narrator , such as DeepSeek-V3.2-Exp or GPT-5. Another drawback is the qualitative analysis of the coherence feedback. So far, there is no effective quantitative metric of coherence that can be integrated into the iteration cycle. Due to the workload, the manual analysis of coherence feedback is also time-consuming. Future work can incorporate LLM-as-a-judge as one downstream agent to mark and filter the coherence problem, thereby simplifying qualitative analysis. Moreover, given the conflicting effects of the Coherence Agent and the faithfulness-related agents, exploring their interplay and identifying a means to facilitate cooperation should also be an important topic. Last, since comprehensibility and controllability are important factors in explanations, future work can include such modules so that people can interact with the system to generate user-personalized narratives based on their own preferences and cognitive level. 
+
+# A Appendices 
+
+## A.1 Prompts for each agent 
+
+Base Prompt (Structure) 
+
+Explanation goal: Description of goal: generate narrative. 
+
+Summary SHAP methodology: Description of SHAP. 
+
+Dataset context: Descriptions of dataset/target/task. 
+
+SHAP table: 
+
+Feature SHAP Feat.val. Feat.avg. Feat.desc. Goals 0.135 2 1.5 ... Attempts -0.120 12 12.5 ... ... ... ... ... ... 
+
+Result string: Short string stating the probability predicted for class 1. 
+
+Format related rules: Several rules about the format of the narrative. 
+
+Content related rules: Several rules about what to emphasize in the narrative. 
+
+26 Narrator prompt 
+
+Context: 
+
+You are a helpful agent who writes model explanations (narratives) based on SHAP values. Revise your previous narrative strictly according to the initial task and all given feedback. This is your initial task: {initial prompt }.
+
+Input text: 
+
+The following is the feedback. ==================== This is your previous answer: {last narrative }.This is the faithfulness-issue feedback: {faithful feedback }.This is the coherence-issue feedback: {coherence feedback }.==================== 
+
+Output Structure: 
+
+The narrative MUST comply with all format related rules and content related rules from the initial task. 
+
+Guidelines: 
+
+1) Do not modify the part of the narrative that isn’t mentioned in the feedback. 2) You MUST return the narrative only. DO NOT chitchat. 
+
+27 Faithful Evaluator prompt 
+
+Context: 
+
+An LLM was used to create a narrative to explain and interpret a prediction made by another smaller classifier model. The LLM was given an explanation of the classifier task, the training data, and provided with the exact names of all the features and their meaning. Most importantly, the LLM was provided with a table that contains the feature values of that particular instance, the average feature values and their SHAP values which are a numeric measure of their importance. You are an helpful agent tasked with improving the narrative. To do so, you should extract some information about all the features that were mentioned in the narrative that will be given below. Here is some general info for you: Dataset description: {self.ds info[”dataset description”] }.Target description: {self.ds info[”target description”] }.Task description: {self.ds info[”task description”] }.Feature descriptions: {self.feature desc[[”feature name”,”feature desc”]].to string(index = False) }.
+
+Input text: 
+
+The following is the given narrative. ==================== 
+
+{narrative }
+
+==================== 
+
+Output Structure: 
+
+Provide your answer as a python dictionary with the keys as the feature names. The values corresponding to the feature name keys are dictionaries themselves that contain the following inner keys: 1) ”rank:” indicating the order of absolute importance of the feature starting from 0. 2) ”sign”: the sign of whether the feature contributed towards target value 1 or against it (either +1 or -1 for sign value). 3) ”value”: if the value of the feature is mentioned in a way that you can put an exact number on, add it. Only return numeric values here. If the description of the value is qualitative such as ”many” or ”often” and not mentioning an exact value, return ”None” for its value. 4) ”assumption”: give a short but complete 1 sentence summary of what the assumption is in the story for this feature. Provide this assumption as a general statement that could be fact checked later and that does not require this narrative as context. If no reason or suggestion is made in the story do not make something up and just return string ’None’. 
+
+Guidelines: 
+
+1) Make sure that both the ”rank”, ”sign”, ”value” and ”assumption” keys and their values are always present in the inner dictionaries. 2) Make sure that the ”rank” key is sorted from 0 to an increasing value in the dictionary. The first element cannot have any other rank than 0. 3) Make sure to use the exact names of the features as provided in the Feature descriptions, including capitalization. 4) Just provide the python dictionary as a string and add nothing else to the answer. 
+
+28 Faithful Critic prompt 
+
+Context: 
+
+You are a critic tasked with providing instructions on how to improve a narrative. To do so, you are given feedback on the narrative, and you should summarize it clearly and concisely. 
+
+Input text: 
+
+The following is the feedback. ==================== 
+
+{combined feedback }
+
+==================== 
+
+Output Structure: 
+
+Free format (no strict structure required). 
+
+Guidelines: 
+
+When you summarize, make sure to include all feedback; do not lose any information from the feedback provided. 
+
+Coherence Agent prompt 
+
+Context: 
+
+You are a critic tasked with providing revision instructions to improve the coherence quality of the given narrative. You should first examine if coherence-related issues exist in the given narrative and then output revision instructions. 
+
+Definition of coherence: 
+
+Coherence refers to the overall quality of how sentences work together in a text. A coherent text is well-structured, logically organized, and builds a unified body of information on its topic. It should present information that flows smoothly, avoiding abrupt transitions or disjoint statements. 
+
+Input text: 
+
+The following is the given narrative. ==================== 
+
+{narrative }
+
+==================== 
+
+Output Structure: 
+
+Your output MUST include: 1) 1) Explicit revision commands written in a clear, standardized format, such as: “Change to , Insert before , Delete , Reorder after ”, etc. 2) A concise explanation following each command that briefly justifies the change. 
+
+Guidelines: 
+
+1) If there are no coherence issues, reply only: no coherence issue. 2) Focus on meaningful coherence improvements. Avoid nitpicking or unnecessary edits. 
+
+## A.2 LLM Extraction Instability 
+
+It is also worth noting that extraction instability across different LLMs varies (Table 10). As we already know from Table 2, Claude Sonnet 4.5 consistently extracts information, differing only once from the others in round-0 sign accuracy across five designs. It is hence the most robust and consistent LLM in this extraction task. GPT-5 and 29 DeepSeek-V3.2-Exp, although possessing as good improvement ability as for Claude Sonnet 4.5, show big variances on the round-0 rank accuracy, whereas Llama 3.3 70B Instruct is the most unstable LLM in this task. Therefore, when comparing the effects of improvement, some variance tolerance should be considered. Table 10: LLM extraction instability on round-0 rank, sign and value accuracy. The mean is computed on the corresponding accuracy across five agentic system designs. 
+
+LLMs Faithfulness Mean Min Max Std Dev. 
+
+Claude Sonnet 4.5 RA 0.905 0.905 0.905 0.000 SA 0.958 0.957 0.960 0.001 VA 0.990 0.990 0.990 0.000 Mistral Medium 3.1 RA 0.900 0.897 0.907 0.004 SA 0.952 0.950 0.952 0.001 VA 0.990 0.988 0.993 0.002 GPT-5 RA 0.893 0.885 0.902 0.007 SA 0.964 0.963 0.965 0.001 VA 0.993 0.993 0.993 0.000 Llama 3.3 70B Instruct RA 0.863 0.847 0.875 0.010 SA 0.947 0.940 0.953 0.006 VA 0.993 0.993 0.993 0.000 DeepSeek-V3.2-Exp RA 0.911 0.905 0.922 0.006 SA 0.954 0.950 0.960 0.005 VA 0.993 0.992 0.995 0.001 
+
+## A.3 Best Agentic System Design Selection 
+
+Table 11: The number of occurrences of the best design for each LLM 
+
+LLMs Agentic System Designs Average (round 2) Count (o) |(e) Claude Sonnet 4.5 
+
+Basic Design 0.996 |0.999 2Critic Design 0.983 |0.988 0Critic-Rule Design 0.985 |0.988 0Coherent Design 0.946 |0.954 0Coherent-Rule Design 0.953 |0.962 0
+
+Mistral Medium 3.1 
+
+Basic Design 0.951 |0.985 0Critic Design 0.988 |0.996 2Critic-Rule Design 0.989 |0.984 1Coherent Design 0.907 |0.918 0Coherent-Rule Design 0.916 |0.925 0
+
+GPT-5 
+
+Basic Design 0.990 |0.993 2Critic Design 0.982 |0.988 0Critic-Rule Design 0.989 |0.988 1Coherent Design 0.954 |0.968 0Coherent-Rule Design 0.953 |0.978 0
+
+Llama 3.3 70B Instruct 
+
+Basic Design 0.946 |0.970 0Critic Design 0.968 |0.986 1Critic-Rule Design 0.973 |0.987 2Coherent Design 0.927 |0.953 0Coherent-Rule Design 0.890 |0.946 0
+
+DeepSeek-V3.2-Exp 
+
+Basic Design 0.971 |0.974 0Critic Design 0.990 |0.985 2Critic-Rule Design 0.986 |0.984 1Coherent Design 0.967 |0.956 0Coherent-Rule Design 0.942 |0.942 0To account for negligible variance, differences within 0.001 are treated as a tie, with both credited as joint winners. 
+
+30 A.4 LLM Selection and Costs 
+
+Table 12: The comparison of the five LLMs. The cost reported in each cell represents the total expense incurred by running all five agentic designs on 100 instances, with up to three refinement iterations.                               
+
+> Model Model (check point) Geograph Open source Cost in total (Euro) (o) Cost in total (Euro) (e)
+> Claude Sonnet 4.5 claude-sonnet-4-5-20250929 US No 10.7 31.8 Mistral Medium 3.1 mistral-medium-2508 Europe No 1.7 4.5 GPT-5 gpt-5-chat-latest US No 4.7 10.6 Llama-3.3-70B llama-3.3-70b-instruct US open-weight 0.04 1.2 Deepseek-V3.2-Exp deepseek-v3.2-exp China open-weight 0.6 2.0
+
+# References 
+
+[1] Bowen Long, Enjie Liu, Renxi Qiu, and Yanqing Duan. Explainable AI the Latest Advancements and New Trends . 2025. arXiv: 2505.07005 [cs.AI] . url : https://arxiv.org/abs/2505.07005 .[2] Alejandro Barredo Arrieta, Natalia D´ ıaz-Rodr´ ıguez, Javier Del Ser, et al. “Explainable Artificial Intelligence (XAI): Concepts, taxonomies, opportunities and challenges toward responsible AI”. In: Information Fusion 58 (2020), pp. 82–115. issn : 1566-2535. doi : https://doi.org/10.1016/j.inffus.2019.12.012 .[3] Tim Miller, Piers Howe, and Liz Sonenberg. Explainable AI: Beware of Inmates Running the Asylum Or: How I Learnt to Stop Worrying and Love the Social and Behavioural Sciences . 2017. arXiv: 1712.00547 [cs.AI] .
+
+url : https://arxiv.org/abs/1712.00547 .[4] Christoph Molnar. Interpretable Machine Learning. A Guide for Making Black Box Models Explainable . 3rd ed. 2025. isbn : 978-3-911578-03-5. url : https://christophm.github.io/interpretable-ml-book .[5] David Martens, James Hinns, Camille Dams, Mark Vergouwen, and Theodoros Evgeniou. “Tell me a story! Narrative-driven XAI with Large Language Models”. In: Decision Support Systems 191 (2025), p. 114402. issn :0167-9236. doi : https://doi.org/10.1016/j.dss.2025.114402 . url : https://www.sciencedirect. com/science/article/pii/S016792362500003X .[6] Q. Vera Liao, Daniel Gruen, and Sarah Miller. “Questioning the AI: Informing Design Practices for Explainable AI User Experiences”. In: Proceedings of the 2020 CHI Conference on Human Factors in Computing Systems .CHI ’20. ACM, Apr. 2020, pp. 1–15. doi : 10.1145/3313831.3376590 . url : http://dx.doi.org/10. 1145/3313831.3376590 .[7] Michael F. Dahlstrom. “Using narratives and storytelling to communicate science with nonexpert audiences”. In: Proceedings of the National Academy of Sciences 111.supplement 4 (2014), pp. 13614–13620. doi : 10. 1073/pnas.1320645111 .[8] Timour Ichmoukhamedov, James Hinns, and David Martens. How good is my story? Towards quantitative metrics for evaluating LLM-generated XAI narratives . 2024. arXiv: 2412.10220 [cs.CL] . url : https:// arxiv.org/abs/2412.10220 .[9] Amrita Bhattacharjee, Raha Moraffah, Joshua Garland, and Huan Liu. Towards LLM-guided Causal Explain-ability for Black-box Text Classifiers . 2024. arXiv: 2309.13340 [cs.CL] . url : https://arxiv.org/abs/ 2309.13340 .[10] Nicholas Kroeger, Dan Ley, Satyapriya Krishna, Chirag Agarwal, and Himabindu Lakkaraju. “Are Large Lan-guage Models Post Hoc Explainers?” In: XAI in Action: Past, Present, and Future Applications . 2023. url :
+
+https://openreview.net/forum?id=mAzhEP9jPv .[11] Alexandra Zytek, Sara Pido, Sarah Alnegheimish, Laure Berti-´ Equille, and Kalyan Veeramachaneni. “Explingo: Explaining AI Predictions using Large Language Models”. In: 2024 IEEE International Conference on Big Data (BigData) . 2024, pp. 1197–1208. doi : 10.1109/BigData62323.2024.10825114 .31 [12] Mateusz Cedro and David Martens. “GraphXAIN: Narratives to Explain Graph Neural Networks”. In: Explain-able Artificial Intelligence . Ed. by Riccardo Guidotti, Ute Schmid, and Luca Longo. Cham: Springer Nature Switzerland, 2026, pp. 91–114. isbn : 978-3-032-08327-2. url : https://doi.org/10.1007/978-3-032-08327-2_5 .[13] Flavio Giorgi, Cesare Campagnano, Fabrizio Silvestri, and Gabriele Tolomei. Natural Language Counterfactual Explanations for Graphs Using Large Language Models . 2025. arXiv: 2410 . 09295 [cs.AI] . url : https : //arxiv.org/abs/2410.09295 .[14] Adam Wojciechowski, Mateusz Lango, and Ondrej Dusek. “Faithful and Plausible Natural Language Expla-nations for Image Classification: A Pipeline Approach”. In: Findings of the Association for Computational Linguistics: EMNLP 2024 . Ed. by Yaser Al-Onaizan, Mohit Bansal, and Yun-Nung Chen. Miami, Florida, USA: Association for Computational Linguistics, Nov. 2024, pp. 2340–2351. doi : 10.18653/v1/2024.findings-emnlp.130 . url : https://aclanthology.org/2024.findings-emnlp.130/ .[15] Raphael Mazzine Barbosa de Oliveira, Sofie Goethals, Dieter Brughmans, and David Martens. Unveiling the Potential of Counterfactuals Explanations in Employability . 2023. arXiv: 2305.10069 [cs.AI] . url : https: //arxiv.org/abs/2305.10069 .[16] Alexandra Zytek, Sara Pid` o, and Kalyan Veeramachaneni. LLMs for XAI: Future Directions for Explaining Explanations . 2024. arXiv: 2405.06064 [cs.AI] . url : https://arxiv.org/abs/2405.06064 .[17] Flavio Giorgi, Matteo Silvestri, Cesare Campagnano, Fabrizio Silvestri, and Gabriele Tolomei. Enhancing XAI Narratives through Multi-Narrative Refinement and Knowledge Distillation . 2025. arXiv: 2510.03134 [cs.LG] .
+
+url : https://arxiv.org/abs/2510.03134 .[18] Ivan Belcic and Cole Stryker. AI agents in 2025: Expectations vs. Reality . en. https://www.ibm.com/think/ insights/ai-agents-2025-expectations-vs-reality . Accessed: 2026-1-25. Nov. 2025. [19] Zhiheng Xi, Wenxiang Chen, Xin Guo, et al. The Rise and Potential of Large Language Model Based Agents: A Survey . 2023. arXiv: 2309.07864 [cs.AI] . url : https://arxiv.org/abs/2309.07864 .[20] Eranga Bandara, Tharaka Hewa, Ross Gore, et al. Towards Responsible and Explainable AI Agents with Consensus-Driven Reasoning . 2025. arXiv: 2512.21699 [cs.AI] . url : https://arxiv.org/abs/2512. 21699 .[21] Paulo Bruno Serafim, Rˆ omulo F´ errer Filho, Stenio Freitas, et al. “MAINLE: A Multi-Agent, Interactive, Nat-ural Language Local Explainer of Classification Tasks”. In: Machine Learning and Knowledge Discovery in Databases. Research Track: European Conference, ECML PKDD 2025, Porto, Portugal, September 15–19, 2025, Proceedings, Part IV . Porto, Portugal: Springer-Verlag, 2025, pp. 149–165. isbn : 978-3-032-06077-8. 
+
+doi : 10.1007/978-3-032-06078-5_9 . url : https://doi.org/10.1007/978-3-032-06078-5_9 .[22] Tomoaki Yamaguchi, Yutong Zhou, Masahiro Ryo, and Keisuke Katsura. Agentic Explainable Artificial Intel-ligence (Agentic XAI) Approach To Explore Better Explanation . 2025. arXiv: 2512 . 21066 [cs.AI] . url :
+
+https://arxiv.org/abs/2512.21066 .[23] Dylan Z Slack, Satyapriya Krishna, Himabindu Lakkaraju, and Sameer Singh. “TalkToModel: Explaining Ma-chine Learning Models with Interactive Natural Language Conversations”. In: Workshop on Trustworthy and Socially Responsible Machine Learning, NeurIPS 2022 . 2022. url : https://openreview.net/forum?id= cSiFMffu3yw .[24] Van Bach Nguyen, J¨ org Schl¨ otterer, and Christin Seifert. “From Black Boxes to Conversations: Incorporating XAI in a Conversational Agent”. In: Explainable Artificial Intelligence . Ed. by Luca Longo. Cham: Springer Nature Switzerland, 2023, pp. 71–96. doi : https://doi.org/10.1007/978-3-031-44070-0_4 .[25] Hua Shen, Chieh-Yang Huang, Tongshuang Wu, and Ting-Hao Kenneth Huang. “ConvXAI : Delivering Hetero-geneous AI Explanations via Conversations to Support Human-AI Scientific Writing”. In: Companion Publication of the 2023 Conference on Computer Supported Cooperative Work and Social Computing . CSCW ’23 Compan-ion. Minneapolis, MN, USA: Association for Computing Machinery, 2023, pp. 384–387. isbn : 9798400701290. 
+
+doi : 10.1145/3584931.3607492 .32 [26] Sophie F. Jentzsch, Sviatlana H¨ ohn, and Nico Hochgeschwender. “Conversational Interfaces for Explainable AI: A Human-Centred Approach”. In: Explainable, Transparent Autonomous Agents and Multi-Agent Systems: First International Workshop, EXTRAAMAS 2019, Montreal, QC, Canada, May 13–14, 2019, Revised Selected Papers . Montreal, QC, Canada: Springer-Verlag, 2019, pp. 77–92. isbn : 978-3-030-30390-7. doi : 10.1007/ 978-3-030-30391-4_5 . url : https://doi.org/10.1007/978-3-030-30391-4_5 .[27] Ahsan Bilal, David Ebert, and Beiyu Lin. LLMs for Explainable AI: A Comprehensive Survey . 2025. arXiv: 
+
+2504.00125 [cs.AI] . url : https://arxiv.org/abs/2504.00125 .[28] Matteo Silvestri, Vittoria Vineis, Edoardo Gabrielli, et al. A Survey on Explainable AI Narratives based on Large Language Models . Nov. 2025. doi : 10.36227/techrxiv.176282217.77757258/v1 .[29] Chenhui Shen, Liying Cheng, Xuan-Phi Nguyen, Yang You, and Lidong Bing. “Large Language Models are Not Yet Human-Level Evaluators for Abstractive Summarization”. In: Findings of the Association for Computational Linguistics: EMNLP 2023 . Ed. by Houda Bouamor, Juan Pino, and Kalika Bali. Singapore: Association for Computational Linguistics, Dec. 2023, pp. 4215–4233. doi : 10.18653/v1/2023.findings-emnlp.278 .[30] Nasim Shirvani-Mahdavi, Devin Wingfield, Amin Ghasemi, and Chengkai Li. “Rule2Text: Natural Language Ex-planation of Logical Rules in Knowledge Graphs”. In: Rules and Reasoning: 9th International Joint Conference, RuleML+RR 2025, Istanbul, Turkey, September 22–24, 2025, Proceedings . Istanbul, T¨ urkiye: Springer-Verlag, 2025, pp. 108–118. isbn : 978-3-032-08886-4. doi : 10 . 1007 / 978 - 3 - 032 - 08887 - 1 _ 7 . url : https : //doi.org/10.1007/978-3-032-08887-1_7 .[31] Sondos Mahmoud Bsharat, Aidar Myrzakhan, and Zhiqiang Shen. “Principled Instructions Are All You Need for Questioning LLaMA-1/2, GPT-3.5/4”. In: CoRR abs/2312.16171 (2023). doi : 10.48550/ARXIV.2312. 16171 . arXiv: 2312.16171 . url : https://doi.org/10.48550/arXiv.2312.16171 .[32] Chenhui Shen, Liying Cheng, Xuan-Phi Nguyen, Yang You, and Lidong Bing. “Large Language Models are Not Yet Human-Level Evaluators for Abstractive Summarization”. In: Findings of the Association for Computational Linguistics: EMNLP 2023 . Ed. by Houda Bouamor, Juan Pino, and Kalika Bali. Singapore: Association for Computational Linguistics, Dec. 2023, pp. 4215–4233. doi : 10.18653/v1/2023.findings- emnlp.278 .
+
+url : https://aclanthology.org/2023.findings-emnlp.278/ .[33] Jeffrey Zemla, Steven Sloman, Christos Bechlivanidis, and David Lagnado. “Evaluating everyday explanations”. In: Psychonomic bulletin & review 24 (Mar. 2017). doi : 10.3758/s13423-017-1258-z .[34] Brian Keith. “LLM-as-a-Judge Approaches as Proxies for Mathematical Coherence in Narrative Extraction”. In: Electronics 14.13 (2025). issn : 2079-9292. doi : 10.3390/electronics14132735 . url : https://www. mdpi.com/2079-9292/14/13/2735 .[35] Yidong Wang, Yunze Song, Tingyuan Zhu, et al. “TrustJudge: Inconsistencies of LLM-as-a-Judge and How to Alleviate Them”. In: The Fourteenth International Conference on Learning Representations . 2026. url :
+
+https://openreview.net/forum?id=4uPyOCeN6U .33
