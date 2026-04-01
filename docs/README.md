@@ -6,94 +6,80 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-03-31
-- 运行时间：2026-03-31 20:38:35 UTC
+- 最新运行日期：2026-04-01
+- 运行时间：2026-04-01 21:27:08 UTC
 - 运行状态：成功
-- 本次总论文数：24
-- 精读区：13
-- 速读区：11
+- 本次总论文数：19
+- 精读区：9
+- 速读区：10
 
 ### 今日简报（AI）
-今日精选 24 篇前沿论文，深度探讨 LLM 如何从辅助工具进化为教育对话分析与反馈生成的“协作队友”。
-重点关注 AI 在行为标注中的协同潜力以及教师对 AI 反馈的修订模式，揭示了人机协作在教育实战中的关键路径。
-建议关注 LLM 评测污染风险与强化学习在个性化组卷中的应用，以提升 AI 教育工具的真实效能。
-- 详情：[/202603/31/README](/202603/31/README)
+- 今日共生成 19 篇推荐（精读 9 篇，速读 10 篇）
+- 精读：《REFINE: Real-world Exploration of Interactive Feedback and Student Behaviour》（10.0/10）, 《Kwame 2.0: Human-in-the-Loop Generative AI Teaching Assistant for Large Scale Online Coding Education in Africa》（10.0/10）
+- 速读：《Evaluating a Data-Driven Redesign Process for Intelligent Tutoring Systems》（8.0/10）, 《An Experiential Approach to AI Literacy》（8.0/10）, 《CAPITU: A Benchmark for Evaluating Instruction-Following in Brazilian Portuguese with Literary Context》（7.0/10）
+- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
+- 详情：[/202604/01/README](/202604/01/README)
 
 ### 精读区论文标签
-1. [From Tool to Teammate: LLM Coding Agents as Collaborative Partners for Behavioral Labeling in Educational Dialogue Analysis](/202603/31/2603.27440v1-from-tool-to-teammate-llm-coding-agents-as-collaborative-partners-for-behavioral-labeling-in-educational-dialogue-analysis)  
+1. [REFINE: Real-world Exploration of Interactive Feedback and Student Behaviour](/202604/01/2603.29142v1-refine-real-world-exploration-of-interactive-feedback-and-student-behaviour)  
    标签：评分：10.0/10、query:profile-3
-   evidence：大模型编码智能体作为教育对话分析的协作伙伴
-2. [Understanding Teacher Revisions of Large Language Model-Generated Feedback](/202603/31/2603.27806v1-understanding-teacher-revisions-of-large-language-model-generated-feedback)  
+   evidence：用于交互式学习的多智能体反馈系统
+2. [Kwame 2.0: Human-in-the-Loop Generative AI Teaching Assistant for Large Scale Online Coding Education in Africa](/202604/01/2603.29159v1-kwame-20-human-in-the-loop-generative-ai-teaching-assistant-for-large-scale-online-coding-education-in-africa)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：教师对大模型生成的学生形成性反馈的修改
-3. [Evaluating LLMs for Answering Student Questions in Introductory Programming Courses](/202603/31/2603.28295v1-evaluating-llms-for-answering-student-questions-in-introductory-programming-courses)  
+   evidence：用于大规模在线编程教育的生成式人工智能助教
+3. [Designing Human-GenAI Interaction for cMOOC Discussion Facilitation: Effects of a Collaborative AI-in-the-Loop Workflow on Social and Cognitive Presence](/202604/01/2603.29285v1-designing-human-genai-interaction-for-cmooc-discussion-facilitation-effects-of-a-collaborative-ai-in-the-loop-workflow-on-social-and-cognitive-presence)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：评估大模型回答学生问题并提供教学提示的能力
-4. [Moving Beyond Review: Applying Language Models to Planning and Translation in Reflection](/202603/31/2603.28596v1-moving-beyond-review-applying-language-models-to-planning-and-translation-in-reflection)  
+   evidence：生成式人工智能在大型开放式网络课程讨论促进中的应用
+4. [When Can We Trust LLM Graders? Calibrating Confidence for Automated Assessment](/202604/01/2603.29559v1-when-can-we-trust-llm-graders-calibrating-confidence-for-automated-assessment)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：大模型用于辅助学生反思性写作和元认知
-5. [Simulating Novice Students Using Machine Unlearning and Relearning in Large Language Models](/202603/31/2603.26142v2-simulating-novice-students-using-machine-unlearning-and-relearning-in-large-language-models)  
+   evidence：教育数据集中自动评分的LLM置信度校准
+5. [Training data generation for context-dependent rubric-based short answer grading](/202604/01/2603.28537v2-training-data-generation-for-context-dependent-rubric-based-short-answer-grading)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：使用大模型模拟新手学生以支持“教中学”教学法
-6. [KI-Adventskalender: An Informal Learning Intervention for Data & AI Literacy](/202603/31/2603.26906v1-ki-adventskalender-an-informal-learning-intervention-for-data--ai-literacy)  
+   evidence：针对教育评估的自动学生答案评分和合成训练数据生成
+6. [Modernizing Ground Truth: Four Shifts Toward Improving Reliability and Validity in AI in Education](/202604/01/2603.29141v1-modernizing-ground-truth-four-shifts-toward-improving-reliability-and-validity-in-ai-in-education)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：中学人工智能素养的非正式学习干预
-7. [Multi-Level Barriers to Generative AI Adoption Across Disciplines and Professional Roles in Higher Education](/202603/31/2603.27052v1-multi-level-barriers-to-generative-ai-adoption-across-disciplines-and-professional-roles-in-higher-education)  
+   evidence：利用大语言模型作为评判者提高人工智能教育的可靠性和有效性
+7. [Beyond the Steeper Curve: AI-Mediated Metacognitive Decoupling and the Limits of the Dunning-Kruger Metaphor](/202604/01/2603.29681v1-beyond-the-steeper-curve-ai-mediated-metacognitive-decoupling-and-the-limits-of-the-dunning-kruger-metaphor)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：高等教育中生成式人工智能采用的障碍
-8. [Voice-based debate with an AI adversary is associated with increased divergent ideation](/202603/31/2603.27073v1-voice-based-debate-with-an-ai-adversary-is-associated-with-increased-divergent-ideation)  
+   evidence：大语言模型使用对学习研究和元认知准确性的影响
+8. [Same Rules, Mixed Messages: Exploring Community Perceptions of Academic Dishonesty in Computing Education](/202604/01/2603.29762v1-same-rules-mixed-messages-exploring-community-perceptions-of-academic-dishonesty-in-computing-education)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：AI对手辩论对大学生发散性思维的影响
-9. [Heterogeneous Debate Engine: Identity-Grounded Cognitive Architecture for Resilient LLM-Based Ethical Tutoring](/202603/31/2603.27404v1-heterogeneous-debate-engine-identity-grounded-cognitive-architecture-for-resilient-llm-based-ethical-tutoring)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：使用辩论引擎进行伦理辅导的多智能体系统
-10. [Exploring Student Perception on Gen AI Adoption in Higher Education: A Descriptive Study](/202603/31/2603.27777v1-exploring-student-perception-on-gen-ai-adoption-in-higher-education-a-descriptive-study)  
+   evidence：探讨了生成式人工智能背景下对学术不端和作弊行为的看法
+9. [Rethinking AI Literacy Education in Higher Education: Bridging Risk Perception and Responsible Adoption](/202604/01/2603.29935v1-rethinking-ai-literacy-education-in-higher-education-bridging-risk-perception-and-responsible-adoption)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：高等教育中学生对生成式AI采用的感知
-11. [SLOW: Strategic Logical-inference Open Workspace for Cognitive Adaptation in AI Tutoring](/202603/31/2603.28062v1-slow-strategic-logical-inference-open-workspace-for-cognitive-adaptation-in-ai-tutoring)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：基于大语言模型的辅导框架，用于认知适应和学习者状态推理
-12. [Using Games to Learn How Large Language Models Work](/202603/31/2603.28374v1-using-games-to-learn-how-large-language-models-work)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：利用游戏教授AI素养和大模型工作原理
-13. [Training data generation for context-dependent rubric-based short answer grading](/202603/31/2603.28537v1-training-data-generation-for-context-dependent-rubric-based-short-answer-grading)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：为自动评分创建大规模训练数据集
+   evidence：分析了高等教育背景下学生对AI风险的感知与负责任的采用
 
 ### 速读区论文标签
-1. [Silicon Bureaucracy and AI Test-Oriented Education: Contamination Sensitivity and Score Confidence in LLM Benchmarks](/202603/31/2603.21636v2-silicon-bureaucracy-and-ai-test-oriented-education-contamination-sensitivity-and-score-confidence-in-llm-benchmarks)  
+1. [Evaluating a Data-Driven Redesign Process for Intelligent Tutoring Systems](/202604/01/2603.29094v1-evaluating-a-data-driven-redesign-process-for-intelligent-tutoring-systems)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：应试教育背景下大模型基准测试的审计框架
-2. [Improving Attributed Long-form Question Answering with Intent Awareness](/202603/31/2603.27435v1-improving-attributed-long-form-question-answering-with-intent-awareness)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：创建用于微调的高质量合成数据
-3. [Optimizing Coverage and Difficulty in Reinforcement Learning for Quiz Composition](/202603/31/2603.27695v1-optimizing-coverage-and-difficulty-in-reinforcement-learning-for-quiz-composition)  
+   evidence：课堂中智能辅导系统的数据驱动重新设计
+2. [An Experiential Approach to AI Literacy](/202604/01/2603.29238v1-an-experiential-approach-to-ai-literacy)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：使用强化学习代理自动生成测验
-4. [Filipino Students' Willingness to Use AI for Mental Health Support: A Path Analysis of Behavioral, Emotional, and Contextual Factors](/202603/31/2603.27994v1-filipino-students-willingness-to-use-ai-for-mental-health-support-a-path-analysis-of-behavioral-emotional-and-contextual-factors)  
-   标签：评分：8.0/10、query:edu-llm
-   evidence：学生使用AI寻求支持时的伦理和背景因素
-5. [Teaching AI Interactively: A Case Study in Higher Education](/202603/31/2603.28679v1-teaching-ai-interactively-a-case-study-in-higher-education)  
-   标签：评分：8.0/10、query:edu-llm
-   evidence：通过互动教学法重新设计大学人工智能课程
-6. [Rashid: A Cipher-Based Framework for Exploring In-Context Language Learning](/202603/31/2603.22497v1-rashid-a-cipher-based-framework-for-exploring-in-context-language-learning)  
+   evidence：学习体验中人工智能素养的新型教学方法
+3. [CAPITU: A Benchmark for Evaluating Instruction-Following in Brazilian Portuguese with Literary Context](/202604/01/2603.22576v1-capitu-a-benchmark-for-evaluating-instruction-following-in-brazilian-portuguese-with-literary-context)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：构建新研究数据集和基准的方法论
+4. [DataFlex: A Unified Framework for Data-Centric Dynamic Training of Large Language Models](/202604/01/2603.26164v1-dataflex-a-unified-framework-for-data-centric-dynamic-training-of-large-language-models)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：以数据为中心的大模型动态训练与样本选择框架
+5. ["I Just Need GPT to Refine My Prompts": Rethinking Onboarding and Help-Seeking with Generative 3D Modeling Tools](/202604/01/2603.29118v1-i-just-need-gpt-to-refine-my-prompts-rethinking-onboarding-and-help-seeking-with-generative-3d-modeling-tools)  
    标签：评分：7.0/10、query:edu-llm
-   evidence：大语言模型的语境中语言学习
-7. [Supporting Reflection and Forward-Looking Reasoning With Data-Driven Questions](/202603/31/2603.27318v1-supporting-reflection-and-forward-looking-reasoning-with-data-driven-questions)  
-   标签：评分：7.0/10、query:edu-llm
-   evidence：在机器辅助决策过程中促进反思
-8. [Mapping data literacy trajectories in K-12 education](/202603/31/2603.28317v1-mapping-data-literacy-trajectories-in-k-12-education)  
-   标签：评分：7.0/10、query:edu-llm
-   evidence：K-12教育中的数据素养轨迹
-9. [Multi-Perspective LLM Annotations for Valid Analyses in Subjective Tasks](/202603/31/2603.21404v1-multi-perspective-llm-annotations-for-valid-analyses-in-subjective-tasks)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：为主观任务生成多视角标注的方法
-10. [CatRAG: Functor-Guided Structural Debiasing with Retrieval Augmentation for Fair LLMs](/202603/31/2603.21524v1-catrag-functor-guided-structural-debiasing-with-retrieval-augmentation-for-fair-llms)  
+   evidence：在学习生成式3D建模中使用LLM进行提示词优化
+6. [Physiological and Semantic Patterns in Medical Teams Using an Intelligent Tutoring System](/202604/01/2603.29950v1-physiological-and-semantic-patterns-in-medical-teams-using-an-intelligent-tutoring-system)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：分析了使用智能教学系统的团队协作动态和语义模式
+7. [PRISM: A Dual View of LLM Reasoning through Semantic Flow and Latent Computation](/202604/01/2603.22754v1-prism-a-dual-view-of-llm-reasoning-through-semantic-flow-and-latent-computation)  
    标签：评分：6.0/10、query:edu-llm
-   evidence：在关键场景中消除大模型的偏见以确保公平
-11. [Cognitive Training for Language Models: Towards General Capabilities via Cross-Entropy Games](/202603/31/2603.22479v2-cognitive-training-for-language-models-towards-general-capabilities-via-cross-entropy-games)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：为模型增长构建任务课程体系
+   evidence：分析大模型推理过程的方法论桥梁，可用于教育评估
+8. [Navigating the Prompt Space: Improving LLM Classification of Social Science Texts Through Prompt Engineering](/202604/01/2603.25422v1-navigating-the-prompt-space-improving-llm-classification-of-social-science-texts-through-prompt-engineering)  
+   标签：评分：6.0/10、query:edu-llm
+   evidence：用于社会科学数据分析的大模型文本分类方法
+9. [GroupRAG: Cognitively Inspired Group-Aware Retrieval and Reasoning via Knowledge-Driven Problem Structuring](/202604/01/2603.26807v1-grouprag-cognitively-inspired-group-aware-retrieval-and-reasoning-via-knowledge-driven-problem-structuring)  
+   标签：评分：6.0/10、query:edu-llm
+   evidence：受认知科学启发的语言模型检索与推理框架
+10. [Baby Scale: Investigating Models Trained on Individual Children's Language Input](/202604/01/2603.29522v1-baby-scale-investigating-models-trained-on-individual-childrens-language-input)  
+   标签：评分：6.0/10、query:edu-llm
+   evidence：研究使用儿童规模教育数据的大模型学习成果
 
 
 <div class="dpr-home-promo-card">
