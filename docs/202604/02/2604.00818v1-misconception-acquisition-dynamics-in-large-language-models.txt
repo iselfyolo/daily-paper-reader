@@ -1,0 +1,268 @@
+Title: Misconception Acquisition Dynamics in Large Language Models
+
+URL Source: https://arxiv.org/pdf/2604.00818v1
+
+Published Time: Thu, 02 Apr 2026 01:10:02 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Misconception Acquisition Dynamics in Large Language Models 
+
+Naiming Liu ∗1, Xinghe Chen ∗1, Richard Baraniuk 1,Mrinmaya Sachan 2, and Shashank Sonkar 3 
+
+> 1
+
+Rice University  
+
+> 2
+
+ETH Zürich  
+
+> 3
+
+University of Central Florida 
+
+nl35@rice.edu, shashank.sonkar@ucf.edu 
+
+Abstract. Effective educational AI depends on modeling student miscon-ceptions. Such models enable realistic learner simulation and diagnostic, adaptive tutoring. However, instruction-tuning large language models (LLMs) on student responses containing misconception errors can degrade reasoning abilities, creating a tension between faithful misconception modeling and preserving correct reasoning in other contexts. To support both learner simulation and tutoring, we study two misconception-aware models: the Novice Student Misconception Model, trained to acquire a single misconception for simulating an individual student, and the Expert Tutor Misconception Model, trained on multiple misconceptions to cap-ture the error patterns a tutor encounters across students. To study the misconception acquisition dynamics of both models, we develop MalAlgo-Lib, a library that generates algebra problems with correct solution traces and misconception-specific erroneous traces. Our experiments across three LLMs reveal that the student and the tutor model exhibit fundamentally different misconception acquisition dynamics. For the student model, a single misconception is not learned as a context-specific behavior. Models overapply it across problems, degrading correct-solving accuracy unless training includes correct examples to enforce boundaries. In contrast, the tutor model can learn multiple misconceptions jointly without sacrificing correct-solving accuracy. Critically, intermediate reasoning steps are the bottleneck. With final-answer supervision alone, models cannot learn where error enters the solution, so neither the student model nor the tutor model acquires misconceptions regardless of data size. Together, these results, enabled by MalAlgoLib, provide an interpretable account of misconception acquisition under instruction tuning and guidance for training misconception-aware LLMs while preserving correct reasoning. 
+
+Keywords: Large Language Models · Instruction Tuning · Student Misconceptions · Learner Modeling  
+
+> *
+
+Equal Contribution.  
+
+> arXiv:2604.00818v1 [cs.CY] 1 Apr 2026 2N. Liu et al.
+
+## 1 Introduction 
+
+Large language models (LLMs) are transforming educational technology along two complementary directions. On one hand, LLMs enable sophisticated student modeling: simulating learner behavior for intelligent tutoring systems [ 15 , 3,14 ]and generating realistic student responses for teacher training [ 17 ,12 ,6]. On the other hand, LLMs can support teachers and tutors directly: providing personal-ized feedback [ 20 , 28 ], identifying student difficulties, and adapting instruction to individual needs [ 23 , 29 ]. Both directions share a critical requirement: under-standing student misconceptions , the systematic errors that reflect underlying conceptual misunderstandings. Understanding these error patterns is essential for effective instruction. Re-search shows that teaching that directly targets misconceptions produces stronger learning gains than simply repeating correct procedures [ 4]. This works because these patterns are not random but persistent and predictable, arise from flawed reasoning strategies [ 21 , 26 ]. For example, when solving ax = b(cx + d), students commonly distribute b to only the first term, yielding ax = bcx + d instead of the correct ax = bcx + bd . This motivates a fundamental question: can we instruction-tune LLMs to acquire misconceptions, and what are the training dynamics of this acquisition process? 
+
+Recent evidence suggests this is challenging. MalAlgoQA benchmark [ 13 ]revealed that LLMs struggle to identify “malgorithms”, the flawed reasoning steps that lead to incorrect answers. The EEDI challenge [ 11 ] highlighted the difficulty of mapping student misconceptions at scale. Most concerning, the student data paradox [ 27 ] demonstrated that training LLMs on student dialogue data actually 
+
+degrades their factual knowledge and reasoning abilities. These findings show that naively training LLMs on student data is insufficient and can be counterproductive. Yet misconception-aware models are needed in practice, in at least two distinct settings. The first is student modeling, where the goal is to simulate an individual learner exhibiting a specific misconception for tasks such as tutoring-system evaluation and teacher training. The second is tutor modeling, where the goal is to capture the range of misconceptions encountered across many students, providing a computational analogue of teachers’ Knowledge of Student Misconceptions (KOSM). This analogue is pedagogically meaningful: teachers’ KOSM is linked to improved learning outcomes beyond subject-matter knowledge alone [ 5]. We formalize these as the Novice Student Misconcep-tion Model , which acquires a single misconception, and the Expert Tutor Misconception Model , which acquires multiple misconceptions simultaneously. To systematically study what LLMs need in order to acquire misconcep-tions, we require controlled data that is both cognitively faithful and available at scale, since LLM instruction tuning is data-hungry. We therefore build on a long line of cognitive-science work that treats student errors as systematic products of incorrect procedures. In this “buggy-rule” or “mal-rule” view, a mis-conception is a reusable operator that modifies an otherwise correct algebraic transformation at a specific step (for example, distributing across only one term mentioned earlier), producing predictable wrong intermediate states [ 21 , 26 ,25 ]. Misconception Acquisition Dynamics in LLMs 3
+
+We developed MalAlgoLib which operationalizes this idea by representing equa-tion solving as a graph of problem types and encoding each misconception as an alternative step that yields its corresponding erroneous trace. MalAlgoLib covers 16 linear-equation problem types and 20 misconceptions drawn from es-tablished taxonomies [ 21 , 26 , 25 ] enabling scalable generation of paired correct and misconception-driven solution traces for studying misconception acquision dynamics. For our experiments, we instruction-tuned three LLMs (Llama-8B, Phi-4-4B, and Qwen-4B [ 10 , 1, 30 ]). We find that the student model and the tutor model exhibit fundamentally different training dynamics. For the student model, models fail to localize a learned misconception to relevant contexts and instead overgeneralize it across problems, which degrades correct-solving accuracy. To obtain faithful student models, correct examples must be explicitly mixed with misconception data: even a small fraction of correct examples (as low as 25%) allows models to reproduce the target misconception on the intended problem types while preserving correct reasoning on problems where the misconception should not apply. Tutor model training dynamics differ markedly. When trained on ten mis-conceptions simultaneously, models learn to replicate each misconception while their correct problem-solving ability remains stable. Unlike the student model, the tutor model does not require explicit mixing of correct examples. However, sample efficiency poses a practical challenge: classroom-scale data (5–80 samples per misconception) proves insufficient for reliable acquisition. As Payne and Squibb [ 21 ] documented, misconception frequencies are heavily skewed even within a single school, meaning rare misconceptions may not occur often enough to provide sufficient training examples. Real-world tutor model training would therefore likely require aggregating data across multiple educational institutions. Together, these observations situate MalAlgoLib as a controlled testbed for studying misconception acquisition in the high-data regime that the tutor model requires. Critically, we find that step-level supervision is essential for both models . Without intermediate solution steps, neither the student model nor the tutor model can acquire misconceptions regardless of training data size. Training on final incorrect answers alone does not show where the misconception enters the solution, so models fail to acquire the misconception. MalAlgoLib’s synthetic step-by-step traces enable us to study these dynamics in a controlled setting. However, real-world deployment faces a significant challenge: student data collected from assessments typically contains only final answers, and obtaining step-by-step reasoning at scale requires privacy-preserving infrastructure. Emerging approaches such as secure data enclaves [ 19 ] and federated learning offer promising directions for collecting the rich, step-level student data that our findings suggest is essential for misconception-aware educational AI. In summary, this work makes three contributions. First, we formalize the task of misconception acquisition and define two complementary models, the Novice Student Misconception Model and the Expert Tutor Misconception Model , that address distinct educational needs. Second, through comprehensive 4 N. Liu et al. 
+
+Table 1. Algebraic misconceptions modeled in MalAlgoLib. MalAlgoLib implements problem types and misconceptions from Payne and Squibb’s foundational mal-rules taxonomy [21] for controlled misconception data generation.                                                                                                                                                                                             
+
+> Misconception Expression Applicable Types Description
+> M1 A(part )→A+ ( part )T8, T9, T10, T12 Treating distribution as addition M2_S3 A(Bx ±C)→ABx ±CT9, T12 Ignoring distribution M3 A±B(part )→(A±B)( part )T10, T12 Misapplying parentheses M4 A(B∗C)→A∗B∗A∗CT8 Incorrectly distributing multiplication M5 A(Bx ±C)→A(A∗Bx ±A∗C)T9, T12 Over-distribution M6 −A(Bx −C)→ − A∗Bx −A∗CT9, T12 Incorrect sign distribution M8 A(Bx ±C)→Bx ±A∗CT9, T12 Incorrect distribution on x term M11 Ax ±B=Cx ±D→Ax +Cx =B+DT14 Incorrectly combining terms M12/S15 Ax ±B= ( A±B)xT5, T6, T7, T9, T12 Incorrectly factoring x M13 Ax ±B= ( A±B)T5, T6, T7, T9, T12 Incorrectly factoring x M14 part 1 + part 2→part 1−part 2T2, T4 Incorrect swap of addition & subtraction M15 part 1−part 2→part 1 + part 2T2, T4 Incorrect swap of addition & subtraction M16 part 1∗part 2→part 1 + part 2T3, T10 Treating multiplication as addition M17 A+B→B−AT2, T4 Incorrect swap of addition & subtraction M18 A−B→B−AT2, T4 Incorrect swap of addition & subtraction M19 Ax =B→x=A+BAll Types Treat division as addition M20_S20 Ax =B→x=BAll Types Divide only on one side M21 Ax =B→x=A−BAll Types Treat division as subtraction M22_S1 Ax =B→x=A/B All Types Incorrect numerator and denominator
+
+experiments across three LLMs, we characterize the acquisition dynamics of both models and provide practical recommendations: mix correct data for the student model, aggregate multi-source data for the tutor model, and always include step-level supervision. Third, we introduce MalAlgoLib , a graph-based library for generating cognitively-grounded algebra datasets with step-by-step solution traces, which enabled the controlled experiments underlying these findings. Code is available here. 
+
+## 2 Related Work 
+
+LLMs are increasingly deployed in educational settings. Recent work has ex-plored using LLMs for student simulation, where models generate responses that mimic learners of varying skill levels [ 3, 17 ]. Other efforts have focused on intelligent tutoring, developing LLM-based systems that provide pedagogically-grounded feedback and adaptive instruction [ 20 , 23 ]. While these approaches have shown promise, they typically focus on modeling correct behavior. The question of whether LLMs can accurately acquire and replicate specific student misconceptions has received less attention. The study of student misconceptions has a rich history in cognitive science and mathematics education. Foundational work on problem-solving established frame-works for understanding human reasoning [ 24 , 2]. Brown and Burton’s BUGGY system [ 4] pioneered computational diagnosis of procedural errors in arithmetic, demonstrating that student mistakes follow systematic patterns. For algebra, Slee-man [ 26 , 25 ] and Matz [ 18 ] documented common error types and their cognitive origins, while Payne and Squibb [ 21 ] formalized these as “mal-rules,” incorrect but consistently applied procedures. The Cognitive Tutor [ 22 ] successfully trans-lated these insights into deployed educational software. However, these classical Misconception Acquisition Dynamics in LLMs 5                                                                                                 
+
+> Type Expression
+> T1 Ax =B
+> T2 Ax =B+C
+> T3 Ax =B∗C
+> T4 Ax +Bx =C
+> T5 Ax +B=C
+> T6 A+Bx =C
+> T7 Ax =Bx +C
+> T8 Ax =B(C∗D)
+> T9 Ax =B(Cx +D)
+> T10 Ax =B+C∗D
+> T11 A+Bx +Cx =D
+> T12 Ax =B+C(Dx +E)
+> T14 Ax +B=Cx +D
+> T15 Ax +Bx =C+D
+> T16 Ax =Bx +C+DT1
+> T15
+> T5 T16
+> T3 T4 T2
+> T8 T10 T6
+> T12 T14
+> T11
+> T7
+> T9
+> T9: ax=b(cx+d)
+> T7: ex=fx+g
+> M8 (T9 →T7) ⊂Em:ax=b(cx+d) → ax=bcx+d
+> T7: e=a, f=bc, g=d
+> Correct (T9 →T7) ⊂Ec:ax=b(cx+d) → ax=bcx+bd
+> T7: e=a, f=bc, g=bd
+
+Fig. 1. Left: Problem types in MalAlgoLib. Right: Graph-based model where nodes are problem types. Each gray edge represent a reduction, similar to students’ steps, from complex type to a more simple type eventually reaching the base type T1. Each red edge (only M8 shown) represents a step reduction conducted under a misconception. Such reduction structure reflected our design principle of code reuseability, easy expansion, and closely mirrors student’s cognitive process of equation solving. 
+
+approaches rely on hand-crafted rules rather than learning misconceptions from data. Student modeling research has developed sophisticated methods for tracking learner knowledge over time. Knowledge tracing [ 8] models the probability that a student has mastered a skill based on their response history. Bayesian networks [ 7]extend this framework to handle uncertainty and complex skill dependencies. Comprehensive surveys [ 9] document the evolution of these methods. While effective for tracking mastery, these approaches typically do not model the specific nature of student errors; they track whether students answer correctly, not why they answer incorrectly. Our work takes a complementary approach by explicitly modeling how misconceptions are acquired and applied. Recent work has begun to examine LLMs through an educational lens, reveal-ing both opportunities and challenges. The MalAlgoQA benchmark [ 13 ] evaluated LLMs’ ability to identify flawed reasoning in algebraic problem-solving, revealing significant limitations. Most relevant to our work, Sonkar et al. [ 27 ] documented the Student Data Paradox: training LLMs on student dialogue data degrades their factual knowledge and reasoning abilities. This finding motivates careful study of how to train LLMs on misconception data without compromising core capabilities. Educational research has also shown that teachers with Knowledge of Student Misconceptions produce better learning outcomes [ 5], suggesting value in models that can recognize diverse error patterns. Our work addresses these challenges by formalizing misconception acquisition as a learning problem, defin-ing complementary models for student and tutor perspectives, and systematically studying their instruction-tuning dynamics. 6 N. Liu et al. 
+
+## 3 MalAlgoLib: Algebraic Problem-Solving with Misconceptions 
+
+Studying the dynamics of instruction-tuning LLMs to acquire misconceptions poses two data challenges. First, real student assessments typically capture only final answers, not the intermediate reasoning steps our experiments will show are essential. Second, misconception frequencies are heavily skewed in real classrooms [ 21 ], making it difficult to collect balanced training data. MalAlgoLib addresses these challenges by generating synthetic algebraic problem-solving data with step-by-step solution traces, enabling controlled experiments that systematically vary training data composition. Its architecture is built on three design principles: extensibility across equation types, modularity in misconception modeling, and faithful representation of cognitive error patterns. 
+
+3.1 Problem Type Hierarchy and Reduction Process 
+
+MalAlgoLib (Mal-Algorithm Library) is designed to handle linear equations with one variable, including more complex forms with parentheses and multiple terms. At its core is a type-based problem representation implemented as a directed acyclic graph G = ( V, E ). The set V = {T1, T 2, . . . , T 16 } represents a hierarchy of problem types, where each Ti ∈ V corresponds to a specific equation structure. Utilizing such graph-like structure, we enforces a strict single-step reduction policy, closely mirroring the student cognitive process of step-by-step problem-solving. Each type class implements a reduce() method, represents a specific algebraic operation, that applies a single algebraic transformation, transitioning the equation to a less complex type. Addition of new problem type would be simply utilize the template and define reduce() method to link to an existing problem type. 
+
+3.2 Decoupled Misconception Modeling 
+
+The decoupled misconception modeling, where misconceptions are represented by alternative transitions between problem types (Figure 1), implement mis-conceptions fitting our three design principle. This approach allows for flexible and extensible modeling of student errors within the graph-based framework. It enables cross-type applicability, where a single misconception can be applied across multiple equation types, and combinatorial error generation, where the graph structure allows for the natural combination of multiple misconceptions along a solution path. Additionally, this design facilitates easy extensibility, as new misconceptions can be added by introducing new alternative transitions without modifying existing problem-type implementations, supporting ongoing research and refinement of the error model. These three principles enable MalAlgoLib to generate controlled training data for studying misconception acquisition. The system produces step-by-step solution traces for both correct and misconception-based problem-solving, with Misconception Acquisition Dynamics in LLMs 7
+
+precise control over data composition. This enables the experiments in Section 5, where we systematically vary training data size, misconception combinations, and the presence of intermediate steps to characterize the instruction-tuning dynamics of the Novice Student Misconception Model and the Expert Tutor Misconception Model. 
+
+## 4 Formalizing Misconception Acquisition 
+
+We study the dynamics of instruction-tuning LLMs to acquire misconceptions from two complementary perspectives. First, the student perspective : can we train LLMs to simulate individual students who hold specific misconceptions? Second, the tutor perspective : can we train LLMs to understand the full spectrum of misconceptions that tutors encounter across their students? These perspectives lead to fundamentally different model requirements and, as we will show, exhibit markedly different learning dynamics. We formalize both perspectives as the Novice Student Misconception Model and the Expert Tutor Misconception Model, define evaluation metrics, and investigate how training data composition affects each model’s ability to acquire misconceptions while maintaining correct problem-solving capabilities. 
+
+4.1 Evaluation Metrics 
+
+We define the following metrics: 
+
+Misconception Accuracy (MA) : Assesses a model’s ability to accurately replicate a specific misconception for applicable problem types. MA (A, M ) = 1
+
+|α(M )|
+
+X 
+
+> Ti∈α(M)
+
+MA (A, M, T i),
+
+where MA (A, M, T i) is the accuracy of model A in applying misconception M to problem type Ti, P is set of problem types, α(M ) = {Ti ∈ P : M is applicable to Ti}.
+
+Correct Accuracy (Applicable) (CA A): Assesses a model’s ability to solve problems correctly for problem types where a given misconception is applicable. CA A(A, M ) = 1
+
+|α(M )|
+
+X 
+
+> Ti∈α(M)
+
+CA (A, T i).
+
+Correct Accuracy (Non-Applicable) (CA N A ): Assesses a model’s per-formance on problem types not applicable to a given misconception. CA N A (A, M ) = 1
+
+|P \ α(M )|
+
+X  
+
+> Ti/∈α(M)
+
+CA (A, T i).
+
+Overall Correct Accuracy (OCA) : Assesses a model’s overall ability to solve problems correctly across all problem types. OCA (A) = 1
+
+|P |
+
+X
+
+> Ti∈P
+
+CA (A, T i).8 N. Liu et al. 
+
+4.2 Model Definitions 
+
+We introduce two complementary models that address different educational needs. The Novice Student Misconception Model simulates how an individual student with a specific misconception approaches algebraic problems, useful for understanding how misconceptions manifest in problem-solving and for generating realistic student responses. The Expert Tutor Misconception Model captures the full spectrum of misconceptions that a tutor might encounter across their students, enabling tutors to recognize and address diverse error patterns at scale. Hereafter, we refer to these as the student model and the tutor model , respectively. 
+
+Novice Student Misconception Model The student model focuses on ac-quiring a single misconception while preserving correct reasoning on unaffected problem types. This mirrors how an individual student might consistently apply one flawed rule (e.g., distributing incorrectly) while solving other problem types correctly. 
+
+Definition 1 (Novice Student Misconception Model). A model A success-fully acquires misconception M if it satisfies two properties: 
+
+Property 1 (Misconception Replication): For problem types where M applies, the model accurately reproduces the misconception: MA (A, M ) ≥ θm
+
+Property 2 (Correct Reasoning Preservation): For problem types where M
+
+does not apply, the model solves problems correctly: CA N A (A, M ) ≥ θc
+
+Expert Tutor Misconception Model The tutor model addresses a more challenging scenario: acquiring multiple misconceptions simultaneously while maintaining overall problem-solving accuracy. Unlike the student model, which only needs to preserve accuracy on non-applicable problems, the tutor model must solve all problem types correctly when prompted to do so—even those affected by misconceptions in its training set. This reflects how an expert tutor understands various student errors yet can demonstrate correct solutions when needed. 
+
+Definition 2 (Expert Tutor Misconception Model). A model T successfully acquires a misconception set Mset if it satisfies two properties: 
+
+Property 1 (Multi-Misconception Replication): For every misconception 
+
+Mi ∈ Mset , the model accurately reproduces it on applicable problem types: 
+
+∀Mi ∈ Mset : MA (T, M i) ≥ θm
+
+Property 2 (Overall Correct Accuracy): Across all problem types, the model solves problems correctly when asked: OCA (T ) ≥ θc
+
+We set θm = θc = 90% in all experiments. Misconception Acquisition Dynamics in LLMs 9
+
+## 5 Experiments 
+
+We now investigate the misconception acquisition dynamics of both the Novice Student Misconception Model (student model) and the Expert Tutor Misconcep-tion Model (tutor model). Our central finding is that these two model types exhibit 
+
+fundamentally different instruction-tuning dynamics: student model training de-grades correct-solving accuracy, requiring explicit mixing of correct examples, while tutor model training does not, and in fact improves overall accuracy. We also demonstrate that step-level supervision is essential for both model types; without it, neither can acquire misconceptions regardless of training data size. 
+
+5.1 Experimental Setup 
+
+Base Models. We fine-tuned three base models: Llama-3.1-8B-Instruct , Phi-4-4B-Mini ,and Qwen-3-4B-Instruct . Each was first trained on 2000 correct examples per problem type to achieve OCA ≥ 90% , establishing a foundation of correct problem-solving before introducing misconceptions. 
+
+Novice Student Model Training. For each misconception Mj , we trained models on varying amounts of misconception examples nm ∈ { 100 , 200 , 400 , 800 , 1600 , 3200 },measuring both MA and CA N A to assess the acquisition-accuracy trade-off. 
+
+Expert Tutor Model Training. We selected ten representative misconceptions and trained models on nm ∈ { 5, 10 , 20 , 40 , 80 } (small-sample regime) and nm ∈{100 , 200 , 400 , 800 } (standard regime), measuring MA for each misconception and OCA across all problem types. 
+
+No-Steps Ablation. To assess the role of step-level supervision, we repeated experiments with training data containing only final answers (no intermediate steps). 
+
+Hyperparameters. Learning rate 2 × 10 −5 with AdamW [ 16 ], batch size 16, cosine scheduler, weight decay 0.05, warmup ratio 0.1, and 3 epochs. We evaluate on 500 test samples per problem type. 
+
+5.2 Student Model Dynamics: Misconception-Accuracy Trade-off 
+
+We first examine student model training dynamics, where a clear trade-off emerges between misconception acquisition and correct-solving accuracy. Figure 2 provides a comprehensive view of these dynamics across all miscon-ception types. Our analysis of Misconception Accuracy (MA) revealed substantial variation in the number of examples required for different misconceptions to be reliably acquired. While the base models required 2000 correct examples per problem type to reach 90% OCA, many misconceptions were learned with far fewer samples, whereas others required significantly more data. 10 N. Liu et al. 
+
+Fig. 2. Novice Student Misconception Model (student model) instruction-tuning dy-namics for Llama3.1-8B-Instruct [ 10 ] across five misconceptions reveal a clear trade-off. As models acquire misconceptions (MA, solid navy), their correct-solving ability de-grades (OCA, dashed burgundy). Thick lines show means; thin lines show individual misconceptions. This inverse relationship motivates investigating whether degradation occurs uniformly or differs between applicable and non-applicable problem types. Similar pattern observed for Phi4-4B-mini [1] and Qwen3-4B-Instruct[30]. 
+
+Fig. 3. Left: Decomposing Novice Student Misconception Model (student model) ac-curacy for Llama-3.1-8B-Instruct [ 10 ], averaging over misconceptions, reveals that instruction-tuning degrades performance on both applicable (A, solid blue) and non-applicable (NA, dashed pink) problem types. Although Correct Accuracy (CA) N A 
+
+declines relatively slower than CA A, degrade in performance is still significant. Right: Mixing correct examples during student model instruction-tuning for Llama3.1-8B-Instruct [ 10 ] resolves the accuracy trade-off. MA (blue) remains high ( 90-95%) demon-strating successful misconception acquisition, while CA N A (red) rapidly recovers with just 200-400 correct examples. Similar pattern observed for both Phi-4-4B-Mini[ 1] and Qwen-3-4B-Instruct[30]. 
+
+For many misconceptions, we observed a characteristic S-shaped learning curve in MA as shown in Figure 2. As the number of misconception training samples increased, MA rose steadily; however, this improvement was accompanied by a dramatic decline in OCA and CA N A . This inverse relationship is surprising: one might expect models to compartmentalize misconceptions, applying them only Misconception Acquisition Dynamics in LLMs 11  
+
+> Fig. 4. Left: Expert Tutor Misconception Model (tutor model) training on 10 mis-conceptions simultaneously with insufficient samples (5–80 per misconception). While OCA remains stable, average MA fails to reach the 90% threshold for most miscon-ceptions. Right: Tutor model acquisition dynamics when trained on 10 misconceptions simultaneously with sufficient samples (100–800 per misconception). Misconception Accuracy (MA, solid blue lines) increases steadily while Overall Correct Accuracy (OCA, dashed red lines) remains stable or even improves (93% to 98%). Results shown for Llama-3.1-8B, Phi-4, and Qwen-3 models; thick lines indicate mean trends.
+
+to relevant problem types while preserving correct reasoning elsewhere. Instead, naive training causes models to overgeneralize erroneous reasoning patterns, degrading their ability to solve even problems where the misconception should not apply. These results demonstrate that directly training on a single misconception is typically insufficient to satisfy both Property 1 and Property 2 simultaneously. Instead, strong misconception acquisition frequently comes at the cost of correct reasoning on both applicable and non-applicable problem types. To address this challenge, we trained the student models using A(Mj , n m, n c) for misconception 
+
+Mj . For each case, nm was fixed at the minimum number of misconception examples required to achieve over 90% MA in the previous experiments. We then introduced additional correct examples, varying the ratio such that nc/n m ∈{0.25 , 0.5, 1.0}.Figure 3 shows that, for most misconceptions, balanced training led to sub-stantial recovery in CA N A . Importantly, the introduction of correct examples did not impair the model’s ability to replicate misconceptions when applicable. For example, in the case of the distributional property error (M8), MA remained consistently high, increasing from 90.2% at 400 samples to 94.5% at 3200 samples. At the same time, CA N A remains high, satisfying Property 2. These results demonstrate that carefully mixing correct and misconception examples enables the construction of student models that satisfy both required properties. 
+
+5.3 Tutor Model Dynamics: No Accuracy Trade-off 
+
+We now turn to the tutor model, where the learning dynamics differ markedly. The tutor model must acquire multiple misconceptions simultaneously, a capability essential for tutors who must recognize diverse error patterns across their students. Unlike the student model, which focuses on a single misconception, the tutor 12 N. Liu et al.  
+
+> Fig. 5. Without step-level supervision, both the tutor model (left) and the student model (right) fail to acquire misconceptions. Even with substantial training data (up to 1600 samples for the student model, 800 for the tutor model), MA remains below 30% across all three models (Llama, Phi, Qwen). For the tutor model without steps, OCA also degrades. This demonstrates that step-level supervision is essential for misconception acquisition.
+
+model must satisfy a more demanding criterion: maintaining high OCA across all 
+
+problem types (not just non-applicable ones) while accurately replicating each misconception in its training set. We selected a representative set of ten misconceptions: 
+
+Mset = {M1, M 2, M 6, M 8, M 11 , M 12 , M 19 , M 20 , M 21 , M 22 },
+
+and trained models on varying amounts of data per misconception: 
+
+nm ∈ { 5, 10 , 20 , 40 , 80 } (small-sample regime) 
+
+nm ∈ { 100 , 200 , 400 , 800 } (standard regime) 
+
+Key Finding: OCA Does Not Degrade. The results reveal fundamentally different instruction-tuning dynamics from the student model setting. As shown in Figure 4, when trained with sufficient samples (100–800), the tutor model exhibits increasing MA while OCA remains stable or even improves , rising from 93% to 98% across all three models (Llama, Phi, Qwen). This stands in stark contrast to student model training, where misconception acquisition consistently degraded correct-solving accuracy. This finding is itself surprising: one might expect that training on more 
+
+misconceptions would cause more overgeneralization and greater accuracy degra-dation. Instead, the opposite occurs. We hypothesize that learning multiple error patterns helps models better distinguish correct from incorrect reasoning, effectively providing contrastive signal that single-misconception training lacks. The practical implication is significant: the tutor model does not require explicit mixing of correct examples to satisfy both properties. 
+
+Sample Efficiency Constraints. However, as shown in Figure 4, the small-sample regime (5–80 samples) proves insufficient. With only 80 samples per misconception, only one out of ten misconceptions achieves MA above 90%. This presents Misconception Acquisition Dynamics in LLMs 13 
+
+a practical challenge: a typical classroom of 20–30 students cannot provide enough data for comprehensive tutor model training. Given that misconception frequencies are heavily skewed across schools [ 21 ], effective real-world tutor model training would likely require aggregating data across multiple educational institutions, highlighting the value of MalAlgoLib’s controlled synthetic data for studying these dynamics. 
+
+5.4 Step-Level Supervision: Essential for Both Models 
+
+A natural question arises: are step-by-step solution traces merely helpful, or are they essential for misconception acquisition? To answer this, we conducted exper-iments where models were trained on misconception data without intermediate steps, receiving only the final (incorrect) answer. As shown in Figure 5, the results are unambiguous: without step-level supervision, neither the tutor model nor the student model can acquire misconceptions . Across all three base models and all misconceptions, MA remained below 30% even with substantial training data (up to 1600 samples for the student model, 800 for the tutor model). Several misconceptions ( M3,
+
+M5, M8) achieved less than 1% accuracy, indicating complete failure to learn the error pattern. For the student model without steps (Figure 5, right), MA stays flat at approximately 15–25% regardless of training size. For the tutor model without steps (Figure 5, left), the situation is worse: not only does MA fail to improve, but OCA also degrades as training progresses. These findings highlight a critical insight: step-level supervision enables models to localize errors to specific algebraic operations (e.g., the distribution step in M8) rather than diffusing erroneous patterns across the entire problem-solving process. MalAlgoLib’s synthetic step-by-step traces enable us to demonstrate this requirement in a controlled setting. However, this finding poses a significant challenge for real-world applications: obtaining step-by-step student reasoning data at scale requires privacy-preserving data collection infrastructure, such as secure data enclaves [ 19 ] to capture the rich process data that misconception-aware educational AI demands. 
+
+## 6 Conclusion 
+
+We studied the dynamics of instruction-tuning LLMs to acquire misconceptions from two complementary perspectives. The student perspective, formalized as the Novice Student Misconception Model (student model), asks whether LLMs can simulate individual students holding specific misconceptions. The tutor perspective, formalized as the Expert Tutor Misconception Model (tutor model), asks whether LLMs can capture the full spectrum of misconceptions encountered across a student population. Our experiments reveal that these two models exhibit fundamentally different instruction-tuning dynamics. For the student model, misconception acquisition comes at a cost: as models learn to replicate misconceptions, their ability to solve problems correctly degrades because the 14 N. Liu et al. 
+
+learned error overgeneralizes beyond its intended contexts. This trade-off can be mitigated by mixing correct examples into the training data. For the tutor model, no such trade-off exists; correct-solving accuracy remains stable. However, the tutor model requires substantially more training data per misconception, suggesting that effective real-world training would require aggregating data across multiple educational institutions. Our most striking finding concerns step-level supervision. Without intermediate solution steps, neither the student model nor the tutor model can acquire misconceptions regardless of training data size. Together, these results, enabled by MalAlgoLib, provide an interpretable account of misconception acquisition under instruction tuning and practical guidance for training LLMs to model misconceptions while preserving correct reasoning. 
+
+## Acknowledgments 
+
+This work was supported by NSF SafeInsights and cooperative agreement 2153481. 
+
+## References 
+
+1. Abdin, M., Aneja, J., Behl, H., Bubeck, S., Eldan, R., Gunasekar, S., Harrison, M., Hewett, R.J., Javaheripi, M., Kauffmann, P., et al.: Phi-4 technical report. arXiv preprint arXiv:2412.08905 (2024) 2. Anderson, J.R.: Rules of the mind. Psychology Press (2014) 3. Benedetto, L., Aradelli, G., Donvito, A., Lucchetti, A., Cappelli, A., Buttery, P.: Using llms to simulate students’ responses to exam questions. In: Findings of the Association for Computational Linguistics: EMNLP 2024. pp. 11351–11368 (2024) 4. Brown, J.S., Burton, R.R.: Diagnostic models for procedural bugs in basic mathe-matical skills. Cognitive science 2(2), 155–192 (1978) 5. Chen, C., Sonnert, G., Sadler, P.M., Sunbury, S.: The impact of high school life science teachers’ subject matter knowledge and knowledge of student misconceptions on students’ learning. CBE—Life Sciences Education 19 (1), ar9 (2020) 6. Chen, X., Liu, N., Sonkar, S.: Malrulelib: Large-scale executable misconception reasoning with step traces for modeling student thinking in mathematics. arXiv preprint arXiv:2601.03217 (2026) 7. Conati, C., Gertner, A., Vanlehn, K.: Using bayesian networks to manage uncertainty in student modeling. User modeling and user-adapted interaction 12 , 371–417 (2002) 8. Corbett, A.T., Anderson, J.R.: Knowledge tracing: Modeling the acquisition of procedural knowledge. User modeling and user-adapted interaction 4, 253–278 (1994) 9. Desmarais, M.C., Baker, R.S.d.: A review of recent advances in learner and skill modeling in intelligent learning environments. User Modeling and User-Adapted Interaction 22 , 9–38 (2012) 10. Dubey, A., Jauhri, A., Pandey, A., Kadian, A., Al-Dahle, A., Letman, A., Mathur, A., Schelten, A., Yang, A., Fan, A., et al.: The llama 3 herd of models. arXiv preprint arXiv:2407.21783 (2024) 11. King, S., Zafar, H., Sheridan, C., et al.: Mining misconceptions in mathematics. Kaggle Competition (2024), eedi - Mining Misconceptions in Mathematics Misconception Acquisition Dynamics in LLMs 15 12. Lee, U., Lee, S., Koh, J., Jeong, Y., Jung, H., Byun, G., Lee, Y., Moon, J., Lim, J., Kim, H.: Generative agent for teacher training: Designing educational problem-solving simulations with large language model-based agents for pre-service teachers. In: NeurIPS’23 Workshop on Generative AI for Education (GAIED) (2023) 13. Liu, N., Sonkar, S., Le, M., Baraniuk, R.: Malalgoqa: Pedagogical evaluation of counterfactual reasoning in large language models and implications for ai in education (2024), https://arxiv.org/abs/2407.00938 
+
+14. Liu, N., Sonkar, S., Wang, Z., Woodhead, S., Baraniuk, R.G.: Novice learner and expert tutor: Evaluating math reasoning abilities of large language models with misconceptions. arXiv preprint arXiv:2310.02439 (2023) 15. Liu, Z., Yin, S.X., Lin, G., Chen, N.F.: Personality-aware student simulation for conversational intelligent tutoring systems. In: Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing. pp. 626–642 (2024) 16. Loshchilov, I., Hutter, F.: Decoupled weight decay regularization (2019) 17. Markel, J.M., Opferman, S.G., Landay, J.A., Piech, C.: Gpteach: Interactive ta training with gpt-based students. In: Proceedings of the tenth acm conference on learning@ scale. pp. 226–236 (2023) 18. Matz, M.: Towards a process model for high school algebra errors. In: Intelligent tutoring systems. pp. 25–50. Academic Press, London (1982) 19. OpenStax-Rice University: Safeinsights: Privacy-preserving research infrastructure for education (2024), https://www.safeinsights.org/ , nSF $90M R&D infrastruc-ture for inclusive education research using secure data enclaves 20. Pal Chowdhury, S., Zouhar, V., Sachan, M.: Autotutor meets large language models: A language model tutor with rich pedagogy and guardrails. In: Proceedings of the Eleventh ACM Conference on Learning@ Scale. pp. 5–15 (2024) 21. Payne, S.J., Squibb, H.R.: Algebra mal-rules and cognitive accounts of error. Cognitive science 14 (3), 445–481 (1990) 22. Ritter, S., Anderson, J.R., Koedinger, K.R., Corbett, A.: Cognitive tutor: Applied research in mathematics education. Psychonomic bulletin & review 14 , 249–255 (2007) 23. Schmucker, R., Xia, M., Azaria, A., Mitchell, T.: Ruffle&riley: Towards the auto-mated induction of conversational tutoring systems. arXiv preprint arXiv:2310.01420 (2023) 24. Simon, H.A., Newell, A.: Human problem solving: The state of the theory in 1970. American psychologist 26 (2), 145 (1971) 25. Sleeman, D.: Basic algebra revisited: A study with 14-year-olds. International Journal of Man-Machine Studies (1985) 26. Sleeman, D.: An attempt to understand students’ understanding of basic algebra. Cognitive Science 8(4), 387–412 (1984) 27. Sonkar, S., Liu, N., Baraniuk, R.: Student data paradox and curious case of single student-tutor model: Regressive side effects of training llms for personalized learning. In: Findings of the Association for Computational Linguistics: EMNLP 2024. pp. 15543–15553 (2024) 28. Sonkar, S., Liu, N., Mallick, D., Baraniuk, R.: Class: A design framework for building intelligent tutoring systems based on learning science principles. In: Findings of the Association for Computational Linguistics: EMNLP 2023. pp. 1941–1961 (2023) 29. Sonkar, S., Ni, K., Chaudhary, S., Baraniuk, R.: Pedagogical alignment of large language models. In: Findings of the Association for Computational Linguistics: EMNLP 2024. pp. 13641–13650 (2024) 30. Yang, A., Li, A., Yang, B., Zhang, B., Hui, B., Zheng, B., Yu, B., Gao, C., Huang, C., Lv, C., et al.: Qwen3 technical report. arXiv preprint arXiv:2505.09388 (2025)
