@@ -6,55 +6,53 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-02
-- 运行时间：2026-04-02 20:12:17 UTC
+- 最新运行日期：2026-04-03
+- 运行时间：2026-04-03 20:01:27 UTC
 - 运行状态：成功
 - 本次总论文数：11
-- 精读区：6
-- 速读区：5
+- 精读区：7
+- 速读区：4
 
 ### 今日简报（AI）
-今日精选 11 篇论文，深度复盘 GenAI 在软件工程教学与作文自动化评分中的实战效能。
-重点关注 GenAI 辅助学习的系统化路径，以及大模型在评分任务中受提示词影响的偏见风险。
-建议关注多模态上下文学习的分类体系，并尝试将反思性学习机制引入智能体优化流程。
-- 详情：[/202604/02/README](/202604/02/README)
+今日深度复盘 11 篇前沿成果，聚焦大模型在教学中的“心理化”能力及全球教育实地
+- 详情：[/202604/03/README](/202604/03/README)
 
 ### 精读区论文标签
-1. [From Domain Understanding to Design Readiness: a playbook for GenAI-supported learning in Software Engineering](/202604/02/2604.00120v1-from-domain-understanding-to-design-readiness-a-playbook-for-genai-supported-learning-in-software-engineering)  
+1. [Do Large Language Models Mentalize When They Teach?](/202604/03/2604.01594v1-do-large-language-models-mentalize-when-they-teach)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：高等教育软件工程中生成式AI辅助学习
-2. [LLM Essay Scoring Under Holistic and Analytic Rubrics: Prompt Effects and Bias](/202604/02/2604.00259v1-llm-essay-scoring-under-holistic-and-analytic-rubrics-prompt-effects-and-bias)  
+   evidence：测试大模型的教学策略及对学习者知识的推理
+2. [Grounding AI-in-Education Development in Teachers' Voices: Findings from a National Survey in Indonesia](/202604/03/2604.01630v1-grounding-ai-in-education-development-in-teachers-voices-findings-from-a-national-survey-in-indonesia)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：整体和分析量表下的LLM论文评分
-3. [Misconception Acquisition Dynamics in Large Language Models](/202604/02/2604.00818v1-misconception-acquisition-dynamics-in-large-language-models)  
+   evidence：印度K-12教师在教学和内容开发中使用人工智能的调查
+3. [Training-Free Private Synthesis with Validation: A New Frontier for Practical Educational Data Sharing](/202604/03/2604.01821v1-training-free-private-synthesis-with-validation-a-new-frontier-for-practical-educational-data-sharing)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：用于教育数据共享的隐私合成数据生成
+4. [Teaching Students to Question the Machine: An AI Literacy Intervention Improves Students' Regulation of LLM Use in a Science Task](/202604/03/2604.01955v1-teaching-students-to-question-the-machine-an-ai-literacy-intervention-improves-students-regulation-of-llm-use-in-a-science-task)  
+   标签：评分：10.0/10、query:edu-llm
+   evidence：科学任务中大语言模型使用的AI素养干预
+5. [Impact of Multimodal and Conversational AI on Learning Outcomes and Experience](/202604/03/2604.02221v1-impact-of-multimodal-and-conversational-ai-on-learning-outcomes-and-experience)  
+   标签：评分：10.0/10、query:edu-llm
+   evidence：多模态对话AI对生物学学习成果的影响
+6. [Democratizing Foundations of Problem-Solving with AI: A Breadth-First Search Curriculum for Middle School Students](/202604/03/2604.01396v1-democratizing-foundations-of-problem-solving-with-ai-a-breadth-first-search-curriculum-for-middle-school-students)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：利用大语言模型对学生误解进行建模以辅助教学
-4. [Harnessing Hype to Teach Empirical Thinking: An Experience With AI Coding Assistants](/202604/02/2604.01110v1-harnessing-hype-to-teach-empirical-thinking-an-experience-with-ai-coding-assistants)  
+   evidence：针对中学科学课堂的AI课程设计
+7. [Designing Transformational Games to Support Socio-ethical Reasoning about Generative AI](/202604/03/2604.02154v1-designing-transformational-games-to-support-socio-ethical-reasoning-about-generative-ai)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：利用AI编程助手向软件工程专业学生教授实证思维
-5. [Trust and Reliance on AI in Education: AI Literacy and Need for Cognition as Moderators](/202604/02/2604.01114v1-trust-and-reliance-on-ai-in-education-ai-literacy-and-need-for-cognition-as-moderators)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：教育编程任务中对AI的信任与依赖
-6. [Human-in-the-Loop Control of Objective Drift in LLM-Assisted Computer Science Education](/202604/02/2604.00281v1-human-in-the-loop-control-of-objective-drift-in-llm-assisted-computer-science-education)  
-   标签：评分：8.0/10、query:edu-llm
-   evidence：大模型辅助的计算机科学教育
+   evidence：支持青少年对生成式人工智能进行社会伦理推理的游戏设计
 
 ### 速读区论文标签
-1. [UniICL: Systematizing Unified Multimodal In-context Learning through a Capability-Oriented Taxonomy](/202604/02/2603.24690v1-uniicl-systematizing-unified-multimodal-in-context-learning-through-a-capability-oriented-taxonomy)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：构建用于多模态语境学习的大规模语料库 (UniICL-760K)
-2. [More Human, More Efficient: Aligning Annotations with Quantized SLMs](/202604/02/2604.00586v1-more-human-more-efficient-aligning-annotations-with-quantized-slms)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：微调小语言模型用于自动评估和标注
-3. [Experiential Reflective Learning for Self-Improving LLM Agents](/202604/02/2603.24639v2-experiential-reflective-learning-for-self-improving-llm-agents)  
+1. [Tailoring AI-Driven Reading Scaffolds to the Distinct Needs of Neurodiverse Learners](/202604/03/2603.28370v1-tailoring-ai-driven-reading-scaffolds-to-the-distinct-needs-of-neurodiverse-learners)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：针对神经多样性小学学习者的AI驱动阅读支架
+2. [Blinded Radiologist and LLM-Based Evaluation of LLM-Generated Japanese Translations of Chest CT Reports: Comparative Study](/202604/03/2604.02207v1-blinded-radiologist-and-llm-based-evaluation-of-llm-generated-japanese-translations-of-chest-ct-reports-comparative-study)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：放射学中大模型翻译的教育适用性
+3. [Generative AI Spotlights the Human Core of Data Science: Implications for Education](/202604/03/2604.02238v1-generative-ai-spotlights-the-human-core-of-data-science-implications-for-education)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：生成式人工智能对数据科学教育的影响
+4. [Learning to Predict Future-Aligned Research Proposals with Language Models](/202604/03/2603.27146v1-learning-to-predict-future-aligned-research-proposals-with-language-models)  
    标签：评分：6.0/10、query:ds-gen
-   evidence：利用经验学习实现大语言模型智能体自我改进的框架
-4. [Developing Adaptive Context Compression Techniques for Large Language Models (LLMs) in Long-Running Interactions](/202604/02/2603.29193v1-developing-adaptive-context-compression-techniques-for-large-language-models-llms-in-long-running-interactions)  
-   标签：评分：6.0/10、query:edu-llm
-   evidence：针对辅导等长时交互场景的大语言模型上下文压缩技术
-5. [A Survey of On-Policy Distillation for Large Language Models](/202604/02/2604.00626v1-a-survey-of-on-policy-distillation-for-large-language-models)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：利用教师对自生成输出的反馈进行在线策略蒸馏
+   evidence：基于大语言模型的语义评分和提案生成
 
 
 <div class="dpr-home-promo-card">
