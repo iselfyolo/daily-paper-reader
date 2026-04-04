@@ -1,0 +1,176 @@
+Title: SAGE: Subsurface AI-driven Geostatistical Extraction with proxy posterior
+
+URL Source: https://arxiv.org/pdf/2604.00307v1
+
+Published Time: Thu, 02 Apr 2026 00:24:17 GMT
+
+Number of Pages: 7
+
+Markdown Content:
+# SAGE: Subsurface AI-driven Geostatistical Extraction with proxy posterior 
+
+Huseyin Tuna Erdinc 
+
+Georgia Institute of Technology 
+
+Ipsita Bhar 
+
+Georgia Institute of Technology 
+
+Rafael Orozco 
+
+Oxy 
+
+Thales Souza 
+
+Huber Engineered Materials 
+
+Felix J. Herrmann 
+
+Georgia Institute of Technology 
+
+# ABSTRACT 
+
+Recent advances in generative networks have enabled new approaches to subsurface velocity model synthesis, offering a compelling alternative to traditional methods such as Full Waveform Inversion. However, these approaches predominantly rely on the availability of large-scale datasets of high-quality, geologically realistic subsurface velocity models, which are often difficult to obtain in practice. We introduce SAGE, a novel framework for statistically consistent proxy velocity generation from incomplete observations, specifically sparse well logs and migrated seismic images. During training, SAGE learns a proxy posterior over velocity models conditioned on both modalities (wells and seismic); at inference, it produces full-resolution velocity fields conditioned solely on migrated images, with well information implicitly encoded in the learned distribution. This enables the generation of geologically plausible and statistically accurate velocity realizations. We validate SAGE on both synthetic and field datasets, demonstrating its ability to capture complex subsurface variability under limited observational constraints. Furthermore, samples drawn from the learned proxy distribution can be leveraged to train downstream networks, supporting inversion workflows. Overall, SAGE provides a scalable and data-efficient pathway toward learning geological proxy posterior for seismic imaging and inversion. Repo link: https://github.com/slimgroup/SAGE. 
+
+# 1 Introduction 
+
+Characterization of subsurface physical properties (e.g., velocity, density, compressional wavespeed, impedence, Poisson ratio) is foundational to quantitative geoscience. These parameters govern wave propagation and provide key inputs to applications including resource exploration[1], reservoir monitoring [2], [3], and prediction of subsurface fluid flow and storage [4], [5]. In particular, within seismic exploration workflows, accurate velocity models are indispensable for both imaging and inversion, as they directly regulate the kinematics and recorded wavefields consequently, the fidelity of subsurface reconstruction and property estimation. Traditionally, velocity estimation has been addressed via Full Waveform Inversion (FWI) [6]; however, its high-dimensional, nonlinear, and ill-posed nature renders the problem challenging in practice. Recent advances in generative networks and machine learning offer a data-driven answer to this challenge by introducing training approaches that allow creation of scalable and high-performance algorithms for velocity model building. Various approaches have been developed that formulate the task as Bayesian posterior inference with uncertainty quantification [7], [8]. Subsequent works incorporate physics-informed representations and summary statistics, such as reverse-time migration (RTM) [9], [10] or common image gathers [11], [12], to improve conditioning. Other methods leverage explicitly trained networks as priors and perform inversion via sampling-based schemes coupled with the forward operator [13], [14]. Despite these advances, all the approaches fundamentally rely on having access to large-scale, geologically realistic, high-resolution velocity models for training [15], which are often prohibitively scarce. 
+
+> arXiv:2604.00307v1 [cs.LG] 31 Mar 2026
+
+Inspired by self-supervised learning literature [16] and approaches [17], [18], we propose SAGE, a novel approach that circumvents the need for fully observed velocity models. SAGE learns a proxy posterior over velocity fields using only migrated images and occluded velocity models (well-log measurements). The key contributions of SAGE are: (1) learning a proxy posterior from paired incomplete velocity and migrated image supervision; (2) amortized synthesis of high-resolution velocity realizations conditioned solely on migrated at inference; (3) utilization as a data sample generator for training downstream, task-specific networks; and (4) efficient fine-tuning on field migrated image and well-log data. 
+
+# 2 Theory and Methodology 
+
+2.1 Seismic imaging and Bayesian inference 
+
+The estimation of subsurface properties, such as the acoustic wavespeed field x, can be formulated as an inverse problem from recorded seismic data d. The relationship between the model parameters and the observed data is governed by the seismic wave equation through a nonlinear forward modeling operator: d = F(x) + ϵ, ϵ ∼ p(ϵ) where F denotes the nonlinear forward operator mapping subsurface parameters to predicted wavefield measurements at receiver locations, and ϵ represents band-limited acquisition noise. Recovering the subsurface model x from d is challenging due to the strong nonlinearity of the forward operator, the presence of a nontrivial null space, and the compounding effects of noise and modeling errors. To mitigate these difficulties, we employ summary statistics [19] that preserve key salient structural information while transforming the data into a more interpretable representation. In seismic imaging, a commonly used summary statistic is the reverse-time migration (RTM) image. Let x0 denote a background model and let J(x0) = ∂F
+
+> ∂x
+
+∣∣x0 denote the Jacobian of the forward operator evaluated at x0. The RTM image is given by: 
+
+y = J(x0)⊤ (F(x0) − d). Despite this transformation, the inverse problem remains ill-posed: multiple velocity model, 
+
+x, can explain the observations equally well. This ambiguity motivates a probabilistic formulation. Within a Bayesian framework, the posterior distribution over model parameters is given by by Bayes’ rule: p(x | y) = p(y|x)p(x) 
+
+> p(y)
+
+, where 
+
+p(x) denotes the prior distribution describing information about the velocity model before observing the data, and 
+
+p(y | x) is the likelihood, which measures how probable the observed RTM image y is for a given model x. Classical Bayesian inference relies on evaluating the likelihood and prior to generate posterior samples. In this work, we instead estimate a proxy posterior ˜p(x|y) under the assumption that only occluded (partially observed) measurements of prior samples are available. 
+
+2.2 Simulation-based inference with conditional score-based networks 
+
+Simulation-based inference (SBI) is a framework that allows the training of surrogates for posterior using neural estimators [20]. The key idea is to use numerical simulators to generate training pairs D = {(x(i), y(i))}Ni=1 , where each pair consists of a set of subsurface velocity x(i) and the corresponding observation y(i) derived using the forward simulation and linearized imaging. The resulting pairs (x(i), y(i)) are then used to train a conditional generative network, which learns the posterior distribution of the velocities conditioned on migrated images. In this study, we will use conditional score-based generative networks in an SBI setting [21]. Score-based diffusion networks are density estimators that learn the score function of a sequence of noise-perturbed distributions. Specifically, the network learns ∇xt log pt(xt) where pt(xt) denotes the distribution of the data after corruption with Gaussian noise. In the variance-exploding formulation used in this work, the perturbed distribution can be written as pt(xt) = p(x) ∗ N (0 , σ (t)2I) where t ∈ [0 , 1] denotes diffusion time and σ(t) is a monotonically increasing noise schedule. This construction corresponds to progressively perturbing samples from the data distribution with Gaussian noise of increasing variance, thereby inducing a continuum of distributions that interpolate between the data ( x) and an isotropic Gaussian. The forward diffusion process that generates these perturbed samples is governed by a stochastic differential equation [22]. This process induces a monotonic increase in variance, progressively perturbing samples until the distribution approaches an isotropic Gaussian. Once the score function ∇xt log pt(xt) has been learned, samples from the data distribution can be generated by simulating a reverse-time stochastic differential equation [22]. As proposed by [23], we adopt a simplified score-learning objective with σ(t) = t. The training objective is given by: 
+
+ˆθ = arg min  
+
+> θ
+
+Ex∼p(x)Eσ∼LogNormal( Pmean ,P 2std )En∼N (0 ,I) ∥Dθ (x + σn, σ ) − x∥22 ,
+
+where the denoising network Dθ (xt, σ ), with learnable parameters θ, is trained to recover the clean signal x from its noisy counterpart xt = x + σn, where n ∼ N (0 , I). The parameters Pmean and Pstd define the LogNormal 
+
+distribution governing the noise levels σ. The score function of the perturbed distribution can then be approximated as ∇xt log pt(xt) ≈ Dθ (xt,σ )−xt 
+
+> σ2
+
+. This formulation corresponds to the unconditional setting. To model conditional distributions, we extend the framework to estimate the conditional score ∇xt log pt(xt | y) where y denotes the condi-tioning variable (e.g., migrated images). The corresponding training objective is modified to incorporate conditioning 2(a) (b) (c) (d) (e) (f) Figure 1: SAGE training illustration showing: (a) ground truth completely unseen velocity model, (b) corresponding migrated (RTM) image, (c) masked velocity observations (well-logs) with randomly observed wells, (d) mask indicating observed locations, (e) subsampled observed wells (f) subsampling mask indicating observed locations. 
+
+Algorithm 1 SAGE training 
+
+Input: Dθ , p (xobs , A, y), p ( ˜A | A)
+
+repeat 
+
+Sample (xobs , A, y) ∼ p(xobs , A, y), ˜A ∼ p( ˜A | A)
+
+Set ˜xobs ← ˜Ax obs 
+
+Sample σ ∼ LogNormal , n ∼ N (0, I)
+
+Set ̂ x ← Dθ (˜xobs + σn, y, ˜A, σ )
+
+Update θ ← θ − η∇θ ∥Â x − xobs ∥22
+
+until convergence as follows: ˆθ = arg min  
+
+> θ
+
+E(x,y,σ, n)∼p(x,y,σ, n) ∥Dθ (x + σn, y, σ ) − x∥22 .
+
+However, SBI approaches for posterior estimation typically require access to samples from the prior distribution p(x).In the proposed SAGE framework, we relax this requirement by learning from partially observed realizations of x
+
+(velocities). 
+
+2.3 SAGE Framework 
+
+We consider a setting in which direct access to prior velocity samples x ∼ p(x), with x ∈ RN where N = nx × nz is unavailable. Instead, we observe only sparse, but direct, measurements of the velocity field obtained from well logs denoted by xobs together with corresponding seismic summary statistics y derived from RTM. Well-log measurements correspond to column-wise observations of the velocity field and can be represented as a masking operation. Let 
+
+w ∈ { 0, 1}nx vector specifying which lateral positions are observed. This induces a masking operator A ∈ RN ×N
+
+acting on unseen x defined as A = {diag (w ⊗ 1nz ) : w ∈ { 0, 1}nx }, where ⊗ denotes the Kronecker product, 
+
+1nz ∈ Rnz is a vector of ones and the operator diag( ·) maps a vector to a diagonal matrix with that vector on its diagonal. The observed velocity measurements are then given by xobs = Ax . In practice, well locations vary across surveys; we model this variability by treating the indicator vector as a random variable w ∼ p(w), which in turn induces a stochastic A ∼ p(A). Since only incomplete observations of x are available, direct characterization of the posterior distribution p(x | y) is intractable. This limitation motivates the introduction of a proxy posterior distribution 
+
+˜p(x | y) that can be learned from jointly available RTM images and partial well-log measurements. Taking note from the previous section, posterior estimation can be recast within the denoising formulation of score-based networks. A naïve approach is to enforce consistency of the denoiser with observed velocity measurements through the measurement operator. This leads to the following objective: 
+
+ˆθ = arg min  
+
+> θ
+
+E(y,xobs ,σ, n,A) ∥A Dθ (xobs + σn, y, A, σ ) − xobs ∥22 ,
+
+where n ∼ N (0 , I) and A ∼ p(A). However, this formulation admits a trivial solution given by Dθ (·) = A†xobs ,where A† denotes pseudo-inverse of A. This solution is undesirable, as it merely reconstructs the velocity field at observed locations while leaving unobserved regions unconstrained and effectively disregarding the conditioning information provided by the RTM image y. To prevent convergence to the trivial solution, we introduce a secondary masking (subsampling) operator that acts as a stochastic submask of the original masking operator. We define subsampling mask [24]: 
+
+˜A = {diag ( ˜ w ⊗ 1nz ) : ˜ w ∈ { 0, 1}nx } with ˜wi ≤ wi ∀i = 1 , . . . , n x
+
+3(a) Ground truth velocity (b) RTM image 
+
+(c) SAGE Posterior mean (d) SAGE Posterior std Figure 2: SAGE results showing: (a) ground truth velocity model, (b) corresponding RTM image used as conditioning, (c) posterior mean, and (d) posterior std over 16 samples. where ˜w is a binary vector that selects a subset of the originally observed columns. By construction, ˜A cannot reveal previously unobserved entries and therefore constitutes a random submask of A. Applying this operator yields a further subsampled observation as ˜xobs = ˜Ax obs = ˜AAx = ˜Ax where the last equality follows from the diagonal structure of the masking operators. We model this process as ˜A ∼ p( ˜A|A) and ˜xobs = ˜Ax . Using these subsampled observations, we define a training objective that enforces global reconstruction while maintaining consistency with the original measurements: 
+
+ˆθ = arg min  
+
+> θ
+
+Eptrain 
+
+∥∥∥ADθ (˜ xobs + σn, y, ˜A, σ ) − xobs 
+
+∥∥∥22
+
+with ptrain = p(y, xobs , ˜xobs , σ, n, A, ˜A). The training procedure is summarized in Algorithm Algorithm 1, while the matrix representations of the observations and the diagonal of masking operators are illustrated in Figure 1.A key characteristic of SAGE is that it simultaneously performs generative modeling and inpainting, enabling the reconstruction of globally consistent velocity fields from partial observations. Once training is complete, posterior sampling is performed by initializing the unobserved components with noise and iteratively applying the learned denoising dynamics conditioned on the RTM image. This procedure yields samples from the learned proxy posterior distribution. 
+
+# 3 Result and Numerical Study 
+
+3.1 SAGE Inference on synthetic wells 
+
+To evaluate SAGE, first we slice synthetic 2D Earth acoustic velocity models derived from the 3D Compass model, which is representative of geological formations in the North Sea region [25]. The dataset consists of 1000 velocity realizations, each defined on a 256 × 512 grid with a spatial resolution of 12 .5 meters, covering an area of 3.2km × 6.4km . Then for each velocity model, seismic data are simulated using 16 sources and 256 receivers, with Ricker wavelet centered at the dominant frequency of 20Hz and a recording duration of 3.2 seconds. To simulate realistic acquisition conditions, 
+
+10dB colored Gaussian noise is added to the shot records. RTM images are generated using a Gaussian-smoothed 2D background velocity model. Both wave simulation and migration are implemented using JUDI [26]. This procedure yields a dataset of paired RTM images and corresponding full-resolution velocity models. However, in the SAGE setting, access to complete velocity models is not assumed. Therefore, we retain 5 out of 256 columns for each model and zero out the remaining entries, effectively removing approximately 99% of the information. These retained columns represent sparsely distributed well-log measurements that are spatially co-located (tied) with the RTM images. SAGE is trained using the procedure described in Algorithm Algorithm 1. During training, the RTM image and corrupted subsampling mask are concatenated with the noisy, partially observed velocity field and provided as input to the network. 4Figure 3: Workflow of training WISE with SAGE samples. A U-Net architecture is employed as the denoiser, and the total training time is approximately 20 GPU hours. For evaluation, we select unseen RTM examples withheld during training and generate samples from the learned proxy posterior using the trained network. Figure 2 presents the inference results obtained with SAGE. The posterior mean accurately reconstructs the dominant features of the ground-truth velocity model, achieving a structurally consistent estimate with an SSIM score of 0.82. The posterior standard deviation further provides a meaningful quantification of uncertainty, with elevated variance localized in regions characterized by increased geological complexity. We emphasize that, although comparisons are made against the ground truth for evaluation purposes, SAGE is trained exclusively on partially observed velocity fields and has no access to complete models during training. Consequently, mild smoothing of fine-scale structures is expected and reflects the inherent ambiguity induced by incomplete observations rather than a deficiency of the network. 
+
+3.2 Training of WISE with SAGE samples 
+
+A prominent downstream application of SAGE is the generation of synthetic velocity samples for training specialized inversion networks. In this work, we consider WISE [11], a variational inference-based framework for FWI that produces ensembles of migration velocity models conditioned on common-image gathers (CIGs). The key advantage of WISE lies in its use of high-dimensional CIGs during inference, which provide stronger kinematic constraints than RTM images and are closer to a unitary mapping even under imperfect migration velocities [27]. Despite this advantage, WISE requires access to large collections of high-quality, fully observed velocity models during training, which limits its applicability in data-scarce settings. To address this limitation, we generate velocity samples from SAGE for unseen test examples and use these samples as a training dataset. The overall workflow is illustrated in Figure 3. Inference results indicate that WISE trained on SAGE samples yields high-quality velocity estimates, as reflected in both posterior mean and associated uncertainty maps. Notably, compared to training on ground-truth velocity models, the use of SAGE-generated samples incurs only a modest degradation in performance, with SSIM decreasing from 0.88 to 0.84. 
+
+3.3 SAGE inference on real seismic images and well data 
+
+We evaluate the performance of SAGE on real seismic and well-log obtained from the UK National Data Repository [28]. Following an preprocessing pipeline, including checkshot based time-to-depth conversion, well tie, quasi-2D line extraction, and kinematically consistent downsampling, we curate a dataset for training and evaluation. Additional details on the data preparation can be found in [29]. Due to the limited availability of well-log measurements (40 wells), we adopt a fine-tuning strategy in which a network pre-trained on the synthetic Compass model is adapted to the real data. Figure 4 presents the preliminary inference results of SAGE on real seismic data. The generated velocity models exhibit complex geological structure, aligning with the features observed in the migrated images while remaining consistent with independent well-log measurements not used during inference. We anticipate further improvements in performance as the training dataset is expanded. 5Figure 4: SAGE inference on real migrated seismic image: (a) ground truth well-logs, (b) migrated seismic images, (c) velocity samples constructed by SAGE, (d) trace comparison of SAGE samples vs. ground truth well-logs. 
+
+# 4 Conclusion and Future Work 
+
+We introduced SAGE, a framework for subsurface velocity generation from incomplete observations, leveraging well-logs and migrated images. SAGE learns a proxy posterior during training and, at inference, produces full velocity fields conditioned solely on seismic migrated images, with well information implicitly encoded. Experiments demonstrate that SAGE produces high-quality and geologically consistent velocity models that can be utilized for downstream tasks, including training specialized learned inversion frameworks such as WISE. Notably, even with severely limited well-log data, fine-tuning on real seismic observations yields statistically plausible velocity realizations. Future work will extend SAGE to three-dimensional settings and larger curated field datasets. 
+
+# 5 Acknowledgement 
+
+This research was carried out with the support of Georgia Research Alliance, partners of the ML4Seismic Center. We acknowledge that we used data from UK National Data Repository and it contains information provided by the North Sea Transition Authority and/or other third parties. The authors used ChatGPT to refine sentence structures and improve readability. After using this service, the authors reviewed and edited the content as needed and take full responsibility. 
+
+# 6 References 
+
+[1] J. Virieux and S. Operto, “An overview of full-waveform inversion in exploration geophysics,” Geophysics , vol. 74, no. 6, pp. WCC1–WCC26, 2009. [2] A. P. Gahlot, R. Orozco, Z. Yin, and F. J. Herrmann, “An uncertainty-aware digital shadow for underground multimodal CO2 storage monitoring,” arXiv preprint arXiv:2410.01218 , 2024. [3] A. P. Gahlot, H. Li, Z. Yin, R. Orozco, and F. J. Herrmann, “A digital twin for geological carbon storage with controlled injectivity,” arXiv preprint arXiv:2403.19819 , 2024. [4] J. Park, G. Bruer, H. T. Erdinc, A. P. Gahlot, and F. J. Herrmann, “A reduced-order derivative-informed neural operator for subsurface fluid-flow.” 2026. Available: https://arxiv.org/abs/2509.13620 [5] Z. Deng, R. Orozco, A. P. Gahlot, and F. J. Herrmann, “Probabilistic joint recovery method for CO 2 plume monitoring.” 2025. Available: https://arxiv.org/abs/2501.18761 [6] A. Tarantola, “Inversion of seismic reflection data in the acoustic approximation,” Geophysics , vol. 49, no. 8, pp. 1259–1266, 1984. [7] Y. Zeng, H. Tuna Erdinc, R. Orozco, and F. J. Herrmann, “Full-waveform variational inference with full common-image gathers and diffusion network,” vol. Fifth International Meeting for Applied Geoscience & Energy, pp. 1159–1163, Aug. 2025, doi: 10.1190/image2025-4316892.1. [8] A. Jia, J. Sun, B. Du, and Y. Lin, “Seismic full waveform inversion with uncertainty analysis using unsupervised variational deep learning,” IEEE Transactions on Geoscience and Remote Sensing , vol. 63, pp. 1–16, 2025, doi: 10.1109/TGRS.2025.3564647. [9] H. T. Erdinc, Y. Zeng, A. P. Gahlot, and F. J. Herrmann, “Power-scaled bayesian inference with score-based generative models,” vol. Fifth International Meeting for Applied Geoscience & Energy, pp. 21–25, Aug. 2025, Available: https://arxiv.org/abs/2504.10807 [10] M. H. Taufik and T. Alkhalifah, “Accelerating bayesian full waveform inversion using reconstruction-guided diffusion sampling,” Geophysical Journal International , vol. 245, no. 2, p. ggag066, Feb. 2026, doi: 10.1093/gji/ggag066. 6[11] Z. Yin, R. Orozco, M. Louboutin, and F. J. Herrmann, “WISE: Full-waveform variational inference via subsurface extensions,” Geophysics , vol. 89, no. 4, pp. A23–A28, 2024. [12] R. Orozco, H. T. Erdinc, Y. Zeng, M. Louboutin, and F. J. Herrmann, “Machine learning-enabled velocity model building with uncertainty quantification.” 2024. Available: https://arxiv.org/abs/2411.06651 [13] F. Brandolin and T. Alkhalifah, “Velocity model building and editing with guided denoising diffusion implicit models.” 2026. Available: https://arxiv.org/abs/2603.01231 [14] S. Hu, M. K. Sen, Z. Zhao, A. Elmeliegy, and S. Zhang, “Bayesian full waveform inversion with learned prior using deep convolutional autoencoder.” 2025. Available: https://arxiv.org/abs/2511.02737 [15] C. Li, Y. Shen, S. Fomel, U. B. Waheed, A. Savvaidis, and Y. Chen, “GeoFWI: A large velocity model data set for benchmarking full waveform inversion using deep learning,” Journal of Geophysical Research: Machine Learning and Computation , vol. 3, no. 2, p. e2025JH001037, 2026, doi: https://doi.org/10.1029/2025JH001037. [16] J. Tachella and M. Davies, “Self-supervised learning from noisy and incomplete data.” 2026. Available: https://arxiv.org/abs/2601.03244 [17] G. Daras, K. Shah, Y. Dagan, A. Gollakota, A. Dimakis, and A. Klivans, “Ambient diffusion: Learning clean distributions from corrupted data,” Advances in Neural Information Processing Systems , vol. 36, pp. 288–313, 2023. [18] A. Aali, G. Daras, B. Levac, S. M. Kumar, A. Dimakis, and J. Tamir, “Ambient diffusion posterior sampling: Solving inverse problems with diffusion models trained on corrupted data,” The Thirteenth International Conference on Learning Representations , 2025, Available: https://openreview.net/forum?id=qeXcMutEZY [19] R. Orozco, A. Siahkoohi, G. Rizzuti, T. van Leeuwen, and F. J. Herrmann, “Adjoint operators enable fast and amortized machine learning based bayesian uncertainty quantification,” in Medical imaging 2023: Image processing , SPIE, 2023, pp. 365–375. [20] K. Cranmer, J. Brehmer, and G. Louppe, “The frontier of simulation-based inference,” Proceedings of the National Academy of Sciences , vol. 117, no. 48, pp. 30055–30062, 2020, doi: 10.1073/pnas.1912789117. [21] J. Arruda, N. Bracher, U. Köthe, J. Hasenauer, and S. T. Radev, “Diffusion models in simulation-based inference: A tutorial review,” arXiv preprint arXiv:2512.20685 , 2025, Available: https://arxiv.org/abs/2512.20685 [22] Y. Song, J. Sohl-Dickstein, D. P. Kingma, A. Kumar, S. Ermon, and B. Poole, “Score-based generative modeling through stochastic differential equations,” arXiv preprint arXiv:2011.13456 , 2020. [23] T. Karras, M. Aittala, T. Aila, and S. Laine, “Elucidating the design space of diffusion-based generative models,” 
+
+Advances in neural information processing systems , vol. 35, pp. 26565–26577, 2022. [24] H. T. Erdinc, R. Orozco, and F. J. Herrmann, “Generative geostatistical modeling from incomplete well and imaged seismic observations with diffusion models,” arXiv preprint arXiv:2406.05136 , 2024, Available: https://arxiv.org/abs/2406.05136 [25] C. E. Jones, J. A. Edgar, J. I. Selvage, and H. Crook, “Building complex synthetic models to evaluate acquisition geometries and velocity inversion technologies,” In 74th EAGE Conference and Exhibition Incorporating EUROPEC 2012 , pp. cp–293, 2012, doi: https://doi.org/10.3997/2214-4609.20148575. [26] M. Louboutin et al. , Slimgroup/JUDI.jl: v3.2.3 . (Mar. 2023). Zenodo. doi: 10.5281/zenodo.7785440. [27] J. Hou and W. W. Symes, “Accelerating extended least-squares migration with weighted conjugate gradient iteration,” Geophysics , vol. 81, no. 4, pp. S165–S179, 2016. [28] North Sea Transition Authority, “UK national data repository.” https://www.nstauthority.co.uk/data-and-insights/data/uk-national-data-repository/, 2026. [29] I. Bhar, H. T. Erdinc, T. Souza, R. Orozco, and F. J. Herrmann, “Seismic dataset curation from UK national data repository to validate SAGE and WISE.” ML4SEISMIC Partners Meeting, 2025. 7

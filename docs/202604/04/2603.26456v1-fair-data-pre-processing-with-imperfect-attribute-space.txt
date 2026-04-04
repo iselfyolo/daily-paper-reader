@@ -1,0 +1,1781 @@
+Title: Fair Data Pre-Processing with Imperfect Attribute Space
+
+URL Source: https://arxiv.org/pdf/2603.26456v1
+
+Published Time: Mon, 30 Mar 2026 01:03:40 GMT
+
+Number of Pages: 15
+
+Markdown Content:
+# Fair Data Pre-Processing with Imperfect Attribute Space 
+
+# Ying Zheng 
+
+National University of Singapore Singapore zheng.ying@u.nus.edu 
+
+# Yangfan Jiang 
+
+National University of Singapore Singapore jyangfan@u.nus.edu 
+
+# Kian-Lee Tan 
+
+National University of Singapore Singapore tankl@comp.nus.edu.sg 
+
+## Abstract 
+
+Fair data pre-processing is a widely used strategy for mitigating bias in machine learning. A promising line of research focuses on cali-brating datasets to satisfy a designed fairness policy so that sensitive attributes influence outcomes only through clearly specified legiti-mate causal pathways. While effective on clean and information-rich data, these methods often break down in real-world scenarios with imperfect attribute spaces, where decision-relevant factors may be deemed unusable or even missing. To address this gap, we propose LatentPre , a novel framework that enables principled and robust fair data processing in practical settings. Instead of relying solely on observed attributes, LatentPre augments the fairness pol-icy with latent attributes that capture essential but subtle signals, enabling the framework to operate as if the attribute space were perfect. These latent attributes are strategically introduced to guar-antee identifiability and are estimated using a tailored expectation-maximization paradigm. The raw data is then carefully refined to conform to this latent-augmented policy, effectively removing biased patterns while preserving justifiable ones. Extensive exper-iments demonstrate that LatentPre consistently achieves strong fairness-utility trade-offs across diverse scenarios, advancing prac-tical fairness-aware data management. 
+
+## 1 Introduction 
+
+Machine learning (ML) has become a core component of modern data-driven systems, supporting decision-making in domains such as finance [ 23 ], education [ 5, 27 ], healthcare [ 26 ], and public admin-istration [ 6 , 31 , 38 ]. However, these advances also raise growing concerns about fairness. In practice, ML models often unintention-ally learn biased patterns from the raw data maintained by database management systems (DBMSs), and these patterns may be further amplified during training, resulting in unfair or discriminatory predictions. [20, 32, 40, 41, 44, 49, 53, 54]. A promising way to mitigate this issue is to apply fairness-aware data pre-processing before the data enters ML training. This ensures that models are trained on data as if collected in a fair world, rather than drawn from potentially biased distributions stored in DBMSs. Substantial research efforts have been devoted to exploring fairness criteria and developing fair data pre - processing solutions [ 7, 11 –13 , 18 , 25 , 30 , 36 , 37 , 50 , 52 , 55 ]. Among them, methods based on 
+
+justifiable fairness [ 37 ] have received considerable attention [ 12 ,30 , 33 , 36 , 55 , 56 ], due to their favorable fairness-utility trade-offs, interpretability, and practical applicability. Justifiable fairness restricts sensitive attributes, such as gender or race, to influencing decisions only through ethically acceptable attributes, known as admissible attributes, even if such attributes carry biased information. In contrast, other attributes that encode bias, termed inadmissible attributes, are not allowed to affect deci-sions. To instantiate this notion in data pre-processing, a standard Augmented 
+
+by LatentPre 
+
+> (SES: socioeconomic status, Scores: standardized test scores)
+> Local Economic Conditions
+> Race
+> Wealth
+> Default Risk
+> Zip Code
+> Race
+> Wealth
+> Default Risk
+> Zip Code
+> Academic Success
+> SES
+> Scores
+> Academic Success
+> Resilience
+> SES
+> Scores
+
+Figure 1: Attribute graphs of real-world examples. 
+
+recipe is to define a fairness policy that models a hypothetically fair world, in which only justifiably fair causal relationships re-main. The raw data is then modified so that its empirical distri-bution conforms to this policy, as if collected from such a world. Existing methods [ 37 , 55 ] typically construct this policy within an attribute space that mirrors the raw DBMS schema, relying on straightforward fair representations. When applied to clean and information - rich datasets with clearly specified admissible and inadmissible attributes, these frameworks achieve desirable fairness-utility trade-offs. 
+
+## 1.1 Fair Data Pre-Processing in the Wild 
+
+In real-world DBMSs, however, raw data often comes with an im-perfect attribute space. One common challenge in such settings is 
+
+attribute ambiguity , where some attributes have unclear roles, making it difficult even for domain experts to decide whether they should be treated as admissible or inadmissible. When such at-tributes are conservatively treated as inadmissible to avoid poten-tial bias, existing methods typically block their influence on the decision. This operation can substantially undermine data utility, as valuable predictive signals are removed during processing. Another challenge is attribute absence , where certain utility-relevant fac-tors are not recorded in the schema due to collection constraints or their abstract nature. Although the effect of such factors may be partially reflected in observed attributes, the factors themselves are not explicitly present. When the corresponding information is entangled with inadmissible attributes, existing methods may also suppress the resulting signals, even when these signals are legitimate. As a result, the already limited data utility can be further compromised after fairness-aware processing, and the processed 
+
+> 1
+> arXiv:2603.26456v1 [cs.DB] 27 Mar 2026 Ying Zheng, Yangfan Jiang, and Kian-Lee Tan
+
+data may no longer support effective decision-making. To make these challenges concrete, we illustrate both sources of imperfection with the following examples. 
+
+Example 1 (Attribute Ambiguity). Consider a loan default pre-diction task. As shown in Figure 1 (top left), race is sensitive, wealth is admissible, and default risk is the outcome. The role of zip code, how-ever, is ambiguous. It correlates with race and may therefore reflect historical or structural bias, while it can also serve as a proxy for local economic conditions relevant to an applicant’s financial stability. For example, in a town whose economy depends on a single large factory, news of the factory’s impending shutdown can sharply increase resi-dents’ future financial uncertainty. In this case, zip code becomes a forward-looking risk indicator beyond what current wealth alone can reveal. If practitioners conservatively treat zip code as inadmissible, existing fairness-aware methods typically block their influence on the decision, which can reduce data utility. 
+
+Example 2 (Attribute Absence). Consider a university scholar-ship allocation task that aims to predict academic success. As shown in Figure 1 (top right), socioeconomic status (SES) is sensitive, aca-demic success is the outcome, and standardized test scores (scores) are often deemed inadmissible because they are heavily influenced by SES. Students from high-SES backgrounds typically benefit from better preparation resources and repeated test attempts, so high scores do not always reflect ability alone. For students from low-SES back-grounds, a high score is often achieved under substantial challenges and may therefore reflect resilience, an unobserved trait that is highly predictive of academic success. Because resilience is not recorded in the data, existing methods cannot capture it, thereby overlooking such students’ potential and weakening prediction. 
+
+As these examples show, imperfections are inherent in real-world DBMS data. Existing fair data pre-processing methods are not de-signed for such cases and can fail when applied in practice, as shown in Section 6.2. Simple remedies such as imputing missing values or applying data augmentation do not account for fairness and may even amplify existing biases [ 29 ]. These limitations reveal a critical barrier to practically deploying fair data pre-processing in DBMSs and motivate the need for robust approaches that can operate under imperfect attribute spaces while still ensuring justifiable fairness and preserving data utility. 
+
+## 1.2 Contributions 
+
+Motivated by this, we present LatentPre , a justifiably fair data pre-processing framework that can robustly capture informative signals from raw data to support reliable and effective downstream decision-making, even in DBMS environments with an imperfect attribute space. To achieve this, LatentPre follows the standard policy-then-adjust paradigm, while departing from prior solutions through a fundamentally different policy formulation and a corresponding ad-justment procedure. The key idea is to augment the hypothetically fair world with carefully introduced latent attributes that represent essential but unrecorded factors, rather than constructing it solely from the raw DBMS attribute space. This latent augmentation com-pensates for practical imperfections in the observed schema and enables LatentPre to recover and leverage predictive signals in a manner consistent with justifiable fairness. We revisit Examples 1 and 2 to illustrate this key idea. In Ex-ample 1, LatentPre introduces a latent attribute, as shown in the bottom-left panel of Figure 1, to represent local economic condi-tions associated with zip code, thereby retaining forward-looking information about financial uncertainty. In Example 2, LatentPre 
+
+similarly introduces a latent attribute, as shown in the bottom-right panel of Figure 1, to represent resilience, a legitimate factor under-lying test scores that is otherwise absent from the schema. In both cases, LatentPre blocks the unfair pathway from the inadmissible attribute to the label and preserves utility through a latent attribute that is independent of sensitive attributes. As a result, it can reliably use potential decision-relevant information even when the attribute space is imperfect. 
+
+Challenges. While latent attributes are a well-established model-ing tool, incorporating them into fair data pre-processing, especially under an imperfect attribute space, presents two significant chal-lenges. First, determining how to introduce latent attributes and model their relationships with observed attributes is non-trivial, as they must reliably capture fair yet decision-relevant signals that are often only implicitly encoded in the raw data via inadmissible attributes. Second, once the policy includes unobserved latent at-tributes, existing fair data adjustment techniques no longer apply. To our knowledge, no prior work has formally addressed these challenges in the pre-processing setting. 
+
+Technical overview. LatentPre is built on a set of tightly integrated technical components designed to address the above challenges. At the policy level, it augments the fair world with latent attributes 
+
+𝐿 that influence a strategically selected subset of inadmissible at-tributes I𝑐 and the label 𝑌 , while remaining independent of sensitive attributes S. Intuitively, 𝐿 models valuable predictive factors that are not recorded in the explicit schema but are indirectly reflected in the raw data through inadmissible attributes, which prior so-lutions cannot fully exploit without violating fairness constraints. This policy design enables LatentPre to uncover and leverage such legitimate signals while maintaining justifiable fairness. However, a naive approach may yield little benefit if 𝐿 is poorly placed or modeled. Without careful design, the policy formulation may not be provably effective, and the latent attributes could re-main uninformative, introducing arbitrary or redundant structure. In essence, modeling 𝐿 requires enough observable constraints to uniquely determine its effect, analogous to solving for unknowns requiring enough independent equations. In latent causal models, this requirement is captured by identifiability [2]. To avoid such degeneracy, we enforce identifiability through a principled place-ment strategy, which provably guarantees that the inserted latent attributes capture genuine decision - relevant signals. Specifically, our strategy positions 𝐿 to intervene on I𝑐 and 𝑌 , combined with a local pruning mechanism that minimally reshapes the causal structure surrounding I𝑐 to meet identifiability conditions. A remaining practical concern is that the augmented policy contains unobserved attributes, making direct data adjustment in-feasible. To address this, we formulate the data adjustment process as a parameter estimation problem involving latent attributes, and efficiently solve it using an expectation -maximization (EM) para-digm tailored to the structure of our policy. Once the parameters 
+
+> 2Fair Data Pre-Processing with Imperfect Attribute Space
+
+are estimated, the optimal empirical distribution conforming to the policy is determined, and the raw data can then be adjusted accordingly to complete the fairness-aware processing. Extensive experiments verify that LatentPre consistently achieves strong performance across diverse scenarios, demonstrating robust-ness to imperfect and complex real-world data environments. 
+
+Roadmap. The remainder of this paper is organized as follows. Section 2 introduces the required notions and background. Section 3 formalizes the fair data pre-processing problem under an imperfect attribute space. Sections 4 and 5 then present our proposed solution, 
+
+LatentPre . Section 6 provides a comprehensive evaluation, exam-ining the behavior of LatentPre across various scenarios. Finally, Section 7 reviews related work, and Section 8 concludes the paper. 
+
+## 2 Preliminaries 2.1 Causal DAGs 
+
+A causal DAG G is a directed acyclic graph over attributes V =
+
+{𝑉 1, . . . , 𝑉 𝑑 } that encodes direct causal relationships among them. Each node corresponds to an attribute (viewed as a random variable in the underlying distribution), and each directed edge represents a direct causal effect. For each 𝑉 𝑖 , let Π𝑖 denote its parent set in G. The model associates 𝑉 𝑖 with a conditional distribution P[𝑉 𝑖 | Π𝑖 ; 𝜃 𝑖 ],where 𝜃 𝑖 parameterizes the conditional probability table (CPT) of 
+
+𝑉 𝑖 given Π𝑖 . The joint distribution over V then admits the standard Bayesian network factorization [28]: 
+
+P [V ; 𝜃 ] = P [𝑉 1, . . . , 𝑉 𝑑 ; 𝜃 ] =
+
+> 𝑑
+
+Ö
+
+> 𝑖 =1
+
+P [𝑉 𝑖 | Π𝑖 ; 𝜃 𝑖 ] , (1) where 𝜃 = (𝜃 1, . . . , 𝜃 𝑑 ) collects the parameters for all CPTs. Beyond factorization, causal DAGs encode conditional indepen-dencies through d-separation [ 28 ]. For disjoint node sets 𝑋, 𝑌, 𝑍 ⊆V, 𝑋 and 𝑌 are d-separated by 𝑍 in G if every path between 𝑋 
+
+and 𝑌 is blocked when conditioning on 𝑍 . A distribution P over 
+
+V is Markov compatible with G if every d-separation in G implies the corresponding conditional independence in P. Conversely, P is 
+
+faithful to G if every conditional independence in P is implied by a d-separation in G. Following prior work [ 12 , 33 , 37 ], we assume that the observed distribution P is Markov compatible with and faithful to the underlying causal DAG. Causal DAGs support the definition of justifiable fairness [ 37 ](introduced in the next section) through interventions, represented by the do operator [ 28 ]. For an attribute 𝑋 and value 𝑥 , the inter-vention do (𝑋 = 𝑥 ) forces 𝑋 to take value 𝑥 and severs all incoming causal influences into 𝑋 . The resulting interventional distribution 
+
+P[𝑂 | do (𝑋 = 𝑥 )] characterizes the causal effect of 𝑋 on an outcome 
+
+𝑂 . Graphically, do (𝑋 = 𝑥 ) corresponds to removing all incoming edges to 𝑋 and fixing its value. 
+
+## 2.2 Justifiable Fairness 
+
+Consider a classifier M : Dom (X) → Dom (𝑂 ) that maps input features X to an outcome variable 𝑂 , where Dom (·) denotes the domain. Let S ⊆ X represent the set of sensitive attributes; then, justifiable fairness is defined as follows. 
+
+Definition 1 ( K-fairness [ 37 ]). For a subset K ⊆ X \ S , we say that M is K-fair with respect to the sensitive set S if, for every assignment K = 𝜅 , intervening on S does not affect the distribution of the outcome once K is fixed: 
+
+P [𝑂 = 𝑜 | do (S = S0), do (K = K)] 
+
+= P [𝑂 = 𝑜 | do (S = S1), do (K = K)] .
+
+Definition 2 (Justifiable Fairness [ 37 ]). Let A ⊆ X denote the collection of admissible attributes , i.e., features that are permit-ted to influence 𝑂 even if they are themselves affected by sensitive attributes. A classifier M is said to satisfy justifiable fairness if it is 
+
+K-fair for every K with A ⊆ K ⊆ X .
+
+To isolate the effect of data pre-processing from that of model training, we follow prior work [ 12 , 37 , 55 ] and assume a reasonable 
+
+classifier, i.e., one that closely approximates the data distribution on which it is trained. The following corollary and proposition provide sufficient structural conditions on the data under which any reasonable classifier satisfies justifiable fairness. 
+
+Corollary 1 ([ 37 ]). Let G be the attribute graph derived from a dataset. If all causal pathways from sensitive attributes to the label pass through at least one admissible attribute, then any reasonable classifier trained on this dataset is regarded as justifiably fair. 
+
+Proposition 1 ([ 37 , 55 ]). Let D be a database instance and G its attribute graph over the attribute set V. Under attribute specification, 
+
+V is fully partitioned into five disjoint subsets: S (sensitive), I (inad-missible), A (admissible), W (additional), and Y (label). Here W
+
+refers to additional attributes that are neither sensitive nor causally relevant to fairness. If, in G, every edge directed toward the label attribute in Y originates exclusively from attributes in A ∪ W , then any reasonable classifier trained on D respects justifiable fairness. Equivalently, the condition holds whenever the parent set Π of the label attribute is fully contained in A ∪ W , i.e., Π ⊆ A ∪ W .
+
+## 2.3 Latent Model and Identifiability 
+
+Causal DAGs offer a principled way to model dependencies among observed attributes, but in many cases, there exist hidden or un-measured factors that also affect the outcomes. To consider such factors, let 𝐿 denote an unobserved latent attribute in addition to the observed attributes V. A latent causal model then speci-fies a joint distribution over (V , 𝐿 ), written as P [V , 𝐿 ; 𝜃 ], where 
+
+𝜃 = (𝜃 1, . . . , 𝜃 𝑑 , 𝜃 𝑙 ) denotes the model parameters. The observed distribution is obtained by marginalizing out 𝐿 :
+
+P [V ; 𝜃 ] =∑︁ 
+
+> 𝐿
+
+P [V , 𝐿 ; 𝜃 ],
+
+where the summation is taken over all possible states of 𝐿 .Since 𝐿 is unobserved, its role must be inferred from the observed data. This naturally raises the question of whether the model pa-rameters can be reasonably determined from the observed data without ambiguity, a property known as identifiability . When iden-tifiability holds, the estimated parameter 𝜃 faithfully represents the true data-generating process, enabling reliable causal reasoning. The concept is formally defined as follows. 
+
+Definition 3 (Identifiability [ 2 ]). Consider a latent causal model parameterized by 𝜃 ∈ Θ, where Θ is the parameter space. Let P[V , L; 𝜃 ] denote the joint distribution induced by 𝜃 , and let 
+
+> 3Ying Zheng, Yangfan Jiang, and Kian-Lee Tan
+
+P[V ; 𝜃 ] denote the corresponding observed distribution obtained by marginalizing out L. The model is said to be identifiable if 
+
+∀𝜃, 𝜃 ′ ∈ Θ, P[V ; 𝜃 ] = P[V ; 𝜃 ′] ⇒ 𝜃 = 𝜃 ′ .
+
+Equivalently, the mapping 𝜃 ↦ → P[V ; 𝜃 ] is injective, so the parameters are uniquely determined by the observed distribution. 
+
+While strict identifiability provides a clean theoretical guarantee, it is often overly restrictive for latent causal models. In general, it fails over the full parameter space [ 2 , 3], because degenerate pa-rameter configurations may render distinct models observationally indistinguishable, and inherent symmetries such as latent-state label permutations do not affect the observed distribution. This motivates weaker but practically sufficient notions of identifiability, introduced below. 
+
+Definition 4 (Generic Identifiability [ 2]). A latent causal model is said to be generically identifiable if there exists a subset 
+
+Ω ⊆ Θ of Lebesgue measure zero such that 
+
+∀𝜃, 𝜃 ′ ∈ Θ \ Ω, P[V ; 𝜃 ] = P[V ; 𝜃 ′] ⇒ 𝜃 = 𝜃 ′ .
+
+Equivalently, the mapping 𝜃 ↦ → P[V ; 𝜃 ] is injective almost every-where, except on a measure-zero subset of Θ.
+
+Definition 5 (Generic Identifiability up to Label Swap-ping [ 2 ]). Let Π be the set of all permutations of the state labels of 
+
+L, and for 𝜋 ∈ Π, let 𝜋 (𝜃 ) denote the parameter vector obtained by applying 𝜋 to the state labels of L in all relevant CPTs. A latent causal model is said to be generically identifiable up to label swapping if there exists a subset Ω ⊆ Θ of Lebesgue measure zero such that 
+
+∀𝜃, 𝜃 ′ ∈ Θ\Ω, P[V ; 𝜃 ] = P[V ; 𝜃 ′] ⇒ ∃ 𝜋 ∈ Π such that 𝜃 ′ = 𝜋 (𝜃 ).
+
+That is, for almost all parameter values, the observed distribution determines the parameters uniquely, up to a permutation of the latent variable’s state labels. 
+
+In this paper, we focus on the notion of Generic Identifiability up to Label Swapping , which generally does not diminish the practical utility of a model and is sufficient for most applications [ 2, 3]. For convenience, unless otherwise specified, we use the terms identifi-ability or generic identifiability interchangeably to refer to Generic Identifiability up to Label Swapping .
+
+## 2.4 Information Measures 
+
+We next introduce several information measures [ 9] that underpin our analysis. Let 𝑋 , 𝑌 , and 𝑍 denote random variables and X, Y,and Z denote random variable sets. The entropy of 𝑋 measures the uncertainty associated with its distribution: 
+
+𝐻 (𝑋 ) = −∑︁ 
+
+> 𝑥
+
+P[𝑋 = 𝑥 ] log P[𝑋 = 𝑥 ].
+
+The conditional entropy of 𝑋 given 𝑌 quantifies the average uncertainty remaining in 𝑋 once 𝑌 is known: 
+
+𝐻 (𝑋 | 𝑌 ) = −∑︁ 
+
+> 𝑥,𝑦
+
+P[𝑋 = 𝑥, 𝑌 = 𝑦 ] log P[𝑋 = 𝑥 | 𝑌 = 𝑦 ].
+
+The mutual information (MI) between 𝑋 and 𝑌 captures the reduction in uncertainty of one variable upon observing the other: 
+
+𝐼 (𝑋 ; 𝑌 ) = 𝐻 (𝑋 ) − 𝐻 (𝑋 | 𝑌 ) = 𝐻 (𝑌 ) − 𝐻 (𝑌 | 𝑋 ).
+
+A higher value indicates stronger dependence between 𝑋 and 𝑌 .The conditional mutual information (CMI) between 𝑋 and 𝑌 
+
+given 𝑍 extends MI by measuring the remaining dependence be-tween 𝑋 and 𝑌 after accounting for 𝑍 :
+
+𝐼 (𝑋 ; 𝑌 | 𝑍 ) = 𝐻 (𝑋 | 𝑍 ) − 𝐻 (𝑋 | 𝑌, 𝑍 ) = 𝐻 (𝑌 | 𝑍 ) − 𝐻 (𝑌 | 𝑋, 𝑍 ).
+
+CMI is nonnegative and equals zero if and only if 𝑋 and 𝑌 are conditionally independent given 𝑍 .For random variable sets X = {𝑋 1, . . . , 𝑋 𝑚 } and Y = {𝑌 1, . . . , 𝑌 𝑛 },the conditional mutual information between X and Y given Z can be decomposed using the chain rule: 
+
+𝐼 (X ; Y | Z) =
+
+> 𝑚
+
+∑︁ 
+
+> 𝑖 =1
+> 𝑛
+
+∑︁ 
+
+> 𝑗 =1
+
+𝐼 (𝑋 𝑖 ; 𝑌 𝑗 | X <𝑖 , Y< 𝑗 , Z) , (2) where X<𝑖 = {𝑋 1, . . . , 𝑋 𝑖 −1 } and Y< 𝑗 = {𝑌 1, . . . , 𝑌 𝑗 −1 }.
+
+## 3 Problem Statement 
+
+Given a database D with 𝑑 attributes V = {𝑉 1, . . . , 𝑉 𝑑 −1, 𝑌 }, where 
+
+𝑌 denotes the label attribute, the remaining attributes V \ { 𝑌 }
+
+are partitioned into four disjoint sets. The set S contains sensitive attributes such as gender or race, and I includes inadmissible at-tributes that directly encode sensitive information. Under justifiable fairness, neither S nor I is allowed to have a direct causal effect on the decision. The set A contains admissible attributes whose influence on the decision is considered legitimate even if affected by 
+
+S. The set W includes additional attributes unrelated to sensitive information and can therefore be used as decision factors. We consider a practical setting where the attribute space of the database D is imperfect due to attribute ambiguity and attribute absence, as discussed in Section 1.1. Our objective is to design a data pre-processing framework that calibrates the empirical distribution of D such that any reasonable downstream predictive model trained on it satisfies justifiable fairness while preserving effectiveness. 
+
+## 4 LatentPre 
+
+In this section, we introduce our latent-augmented framework, 
+
+LatentPre . In a nutshell, LatentPre follows the policy-then-adjust 
+
+paradigm and operates in two stages. It first specifies a fairness policy that encodes domain knowledge and fairness requirements, and then adjusts the dataset to satisfy this policy with minimal distributional distortion while preserving data utility. 
+
+## 4.1 Latent-Augmented Fairness Policy 
+
+LatentPre instantiates the policy using a causal DAG. Starting from the raw-data DAG, LatentPre refines the structure through a se-quence of steps that adjust causal connections and introduce a controlled interaction between a latent attribute and observed at-tributes. For clarity, we temporarily assume that the raw-data DAG is available. In Section 4.2, we describe how to construct the policy when such prior knowledge is unavailable. Given the raw-data DAG in Figure 2a, we first refine it to re-tain only justifiably fair causal pathways, following Proposition 1. Specifically, we remove all directed edges from sensitive and inad-missible attributes to the label, as shown in Figure 2b. This yields a fair policy in which sensitive attributes influence the label only through admissible attributes. We preserve this structure in subse-quent steps, so the fairness guarantee holds throughout. 
+
+> 4Fair Data Pre-Processing with Imperfect Attribute Space
+
+V3
+
+V0
+
+Y
+
+V4
+
+V2V1
+
+V5 V3
+
+V0
+
+Y
+
+V4
+
+V2V1
+
+V5 V3
+
+V0
+
+Y
+
+V4
+
+V2V1
+
+V5
+
+L
+
+V3
+
+V0
+
+Y
+
+V4
+
+V2V1
+
+V5
+
+L
+
+V3
+
+V0
+
+Y
+
+V4
+
+V2V1
+
+V5
+
+L
+
+(a) (b) (c) (d) (e)              
+
+> sensitive inadmissible admissible additional label removed added black box latent V3
+> V0
+> Y
+> V4
+> V2V1
+> V5
+> (a) V3
+> V0
+> Y
+> V4
+> V2V1
+> V5(b) V3
+> V0
+> Y
+> V4
+> V2V1
+> V5
+> L(c) V3
+> V0
+> Y
+> V4
+> V2V1
+> V5
+> L(d) V3
+> V0
+> Y
+> V4
+> V2V1
+> V5
+> L(e) X0
+> X1X2X3
+> X4
+
+Figure 2: Framework construction and refinement process. Figure 3: The gener-alized model. 
+
+Next, we augment the policy by introducing a latent attribute to capture utility-relevant signals not fully represented in the ob-served attributes. The key idea is to model hidden factors that affect both inadmissible attributes I and the label 𝑌 while remaining independent of sensitive attributes. This design treats inadmissible attributes as jointly determined by observed sensitive factors and an unobserved latent factor, allowing 𝐿 to extract decision-relevant signals. Since 𝐿 is independent of the sensitive attributes by design, the fairness guarantees established above are preserved. 
+
+First-cut solution. A straightforward approach is to model 𝐿 as a source node that affects all inadmissible attributes I and the label 
+
+𝑌 . However, connecting 𝐿 to the entire set I substantially increases model complexity and makes data calibration computationally ex-pensive when |I| is large. We therefore adopt a more fine-grained design by allowing 𝐿 to affect only the label and a selected subset of inadmissible attributes, namely the direct parents of 𝑌 , denoted by I𝑐 := I ∩ Π𝑌 . The intuition is that, under the local Markov property and Markov compatibility, the effect of I on 𝑌 is mainly captured through I𝑐 , as reflected in Equation (1) and supported by the analysis in Equation (3) in the next subsection. Modeling 𝐿 as connecting only to I𝑐 thus preserves sufficient decision-relevant information while keeping data calibration scalable. 
+
+Refinement for identifiability. A subtle yet critical limitation of the first-cut solution is that it overlooks identifiability , that is, the ability to uniquely infer the effect of the latent attribute from observed data. Without identifiability, 𝐿 may capture redundant or unstable signals. This issue becomes particularly severe when the attributes in I𝑐 are tightly connected, as their information may then collapse into a single shared source of variation. In such cases, 
+
+𝐿 behaves as if it interacts with only one inadmissible attribute and the label, weakening the statistical basis for estimating 𝐿 and leading to ambiguous or meaningless contributions. To tackle this, we introduce a pruning mechanism that reshapes the local causal structure around I𝑐 to improve identifiability. Since adopting a fairness policy already removes all direct causal effects from inadmissible attributes to the label, it prevents the information in I𝑐 and 𝑌 from collapsing into a single source. Building on this property, it suffices to further limit dependence within I𝑐 . Accord-ingly, LatentPre partitions I𝑐 into two conditionally independent subsets I𝑐 1 and I𝑐 2 , and eliminates direct interconnections between them. The latent attribute 𝐿 then points to both subsets and to the label 𝑌 , as illustrated in Figure 2c. Formal identifiability analysis and algorithmic details are provided in Section 5. Beyond identifiability and implementability, this design also provides an alternative view of robustness. By distributing fairness-aware adjustments across the DAG, it avoids making any single region overly sensitive to imperfections in attribute specification. As shown in Figure 2b, fairness is enforced by severing all edges from S ∪ I to 𝑌 , localizing modifications near the label. In contrast, Figure 2c introduces the latent variable 𝐿 to mediate the influence of I𝑐 on 𝑌 , preserving utility-relevant signals while adjusting lo-cal dependencies among {𝑉 4, 𝑉 5 }. This redistribution spreads the impact of fairness constraints more evenly, preventing structural collapse and maintaining overall stability and utility. 
+
+## 4.2 DAG Refinement 
+
+A key challenge in applying this policy is that the underlying DAG is rarely available in practice [ 30 , 37 ]. While causal discovery methods such as Max-Min Hill Climbing (MMHC) [ 43 ] can estimate the DAG structure, their computational cost grows exponentially with the number of attributes [ 43 ], posing serious scalability concerns. This motivates a more efficient procedure for extracting only the structural information needed for policy enforcement. We address this challenge using a two-step refinement strat-egy inspired by CausalPre [ 55 ], but tailored to support latent at-tribute integration. The key idea is to construct a coarse-grained fairness policy that avoids full DAG reconstruction while preserving causally fair information. 
+
+In the first step, we identify relationships that remain unchanged throughout processing and abstract them as a black box. Since these structures require no modification, the policy only needs to indicate that they are preserved, without specifying their internal form. As discussed in Section 4.1 and formalized in Proposition 1, fairness-aware pre-processing only modifies the structure around the label 
+
+𝑌 . To recover hidden utility-relevant signals, our framework further updates the region around I𝑐 . These localized adjustments confine the scope of modification to the neighborhoods of 𝑌 and I𝑐 , leaving the rest intact. We therefore treat these preserved relationships among V \ (I 𝑐 ∪ 𝑌 ) collectively as a black box, yielding the simpli-fication from Figure 2c to Figure 2d. In this representation, only the edges directed to 𝑌 and I𝑐 (shown as solid black arrows) are explic-itly encoded in the fairness policy, while all others are abstracted away. Although the figure shows only a few attributes, in practice, 
+
+> 5Ying Zheng, Yangfan Jiang, and Kian-Lee Tan
+
+most structural information is absorbed into the black-box region, substantially reducing computational cost. 
+
+In the second step, we refine the structure around 𝑌 and I𝑐 by greedily expanding their parent sets, avoiding expensive exact par-ent computation. As shown in [ 55 ], this does not compromise infor-mational utility. For 𝑌 , we admit all attributes in A ∪W as potential parents. For each 𝑉 𝑖 ∈ I 𝑐 , its parents are drawn from S ∪ I ∪ A ,ensuring that sensitive information comes from observable sources and that the latent attribute reflects only unbiased signals. However, since each 𝑉 𝑖 (∈ I 𝑐 ) also belongs to I, naive parent selection may introduce self-loops or cycles. To avoid this, we further abstract the relationships within I𝑐 . Let I𝑜 := I \ I 𝑐 denote the remaining inadmissible attributes. Because dependencies within each partition of I𝑐 remain locally unchanged during construction, we treat them as two additional black boxes. Each black box then admits S ∪ I 𝑜 ∪ A as its effective parent set, preventing cyclic dependencies while preserving necessary information flow. This yields the coarse-grained representation in Figure 2e. Although this refinement may introduce additional dependencies to 𝑌 and I𝑐 , these effects are acceptable. For 𝑌 , the added decision factors are admissible by definition. For I𝑐 , its influence on 𝑌 is already blocked, thus new dependencies do not affect decision-making or violate fairness. While this may slightly distort the local distribution around I𝑐 , it enables a more faithful reconstruction of the distribution around 𝑌 through the latent variable 𝐿 . Experi-mental results in Section 6 confirm that this trade-off yields clear performance gains. Moreover, such additional dependencies are rare in practice, as real-world datasets typically exhibit rich attribute interactions that already account for most dependencies. The approximated distribution under the refined coarse-grained DAG takes the general form: 
+
+P[𝐿, V] ≈ P[V \ (I 𝑐 ∪ { 𝑌 })] · P[𝐿 ] · P[I 𝑐 1 | Π′ 
+
+> 𝑐 1
+
+]· P[I 𝑐 2 | Π′ 
+
+> 𝑐 2
+
+] · P[𝑌 | Π′ 
+
+> 𝑌
+
+], (3) where Π′ 
+
+> 𝑐 1
+
+= {𝐿, S, I𝑜 , A} , Π′ 
+
+> 𝑐 2
+
+= {𝐿, S, I𝑜 , A} , and Π′ 
+
+> 𝑌
+
+= {𝐿, A, W} 
+
+represent the greedy fair parent sets of I𝑐 1 , I𝑐 2 , and 𝑌 , respectively. 
+
+## 4.3 The Complete Framework 
+
+With the refined fairness policy in place, LatentPre adjusts the raw data to satisfy its structural constraints while preserving the origi-nal distribution as much as possible. This amounts to estimating the optimal parameters 𝜃 ∗ for the refined DAG that best approxi-mate the raw data distribution. Details of the implementation are provided in Section 5.4. Algorithm 1 summarizes the full processing pipeline. Given a raw dataset D, LatentPre first identifies the set I𝑐 and partitions it to construct the latent-augmented fairness policy based on Equa-tion (3) . It then estimates the optimal parameter set 𝜃 ∗ under this policy and treats the induced distribution as the target for data pro-cessing. Given 𝜃 ∗, LatentPre samples each attribute set “ 𝑖 ” from its factor distribution P𝜃 𝑖 and overwrites the corresponding columns in the dataset. After marginalizing out the latent attribute 𝐿 , it outputs the processed dataset D′.
+
+Algorithm 1: DataPreprocessing 
+
+Input: Database D with attribute set 
+
+V = S ∪ I ∪ A ∪ W ∪ { 𝑌 }, the number of latent states 𝜏 , maximum number of iterations 𝑛 ,convergence threshold 𝜂 , maximum size of conditioning set 𝛼 
+
+Output: Processed data D′ 
+
+> 1
+
+I𝑐 ← Identification (D, 𝛼 ); // we set 𝛼 = 2 
+
+> 2
+
+I𝑜 ← I \ I 𝑐 ; 
+
+> 3
+
+I𝑐 1 , I𝑐 2 ← Partition (D, I𝑐 , S ∪ I 𝑜 ∪ A , 𝜏 );  
+
+> 4
+
+𝜃 ∗ ← ParameterEstimation (D, I𝑐 1 , I𝑐 2 , 𝑛, 𝜂 );  
+
+> 5
+
+𝑘 ← |D| ; 
+
+> 6
+
+for 𝜃 𝑖 ∈ 𝜃 ∗ do  
+
+> 7
+
+Sample 𝑘 values for attributes in set “ 𝑖 ” from distribution 
+
+P𝜃 𝑖 , and fill the corresponding columns in D′; 
+
+> 8
+
+Marginalize out latent attribute 𝐿 from D′; 
+
+> 9
+
+return D′;
+
+## 5 Algorithmic Design and Analysis 
+
+This section presents the theoretical analysis and algorithmic de-sign of LatentPre . We first establish the identifiability of the latent-augmented DAG in Section 5.1. We then describe the algorithms for identifying and partitioning the attribute set I𝑐 in Sections 5.2 and 5.3. Finally, in Section 5.4, we describe the parameter estima-tion procedure for enforcing the policy and obtaining the optimal parameters 𝜃 ∗ for data adjustment. 
+
+## 5.1 Identifiability Analysis 
+
+To enable formal identifiability analysis, we simplify the DAG by grouping related attributes into composite units [ 14 , 21 , 51 ] and treating each composite as a single clumped attribute [ 2 ]. The resulting generalized model is shown in Figure 3, where 𝑋 0 denotes the latent attribute 𝐿 , 𝑋 1 and 𝑋 2 represent the two disjoint subsets 
+
+I𝑐 1 and I𝑐 2 , 𝑋 3 denotes the label 𝑌 , and 𝑋 4 aggregates S ∪ I 𝑜 ∪ A .The following theorem shows that, under mild conditions, this generalized model is identifiable, from which the identifiability of 
+
+LatentPre follows directly. 
+
+Theorem 1. Consider a latent causal model with one latent at-tribute 𝑋 0 and 𝑑 ≥ 4 observed attributes. The observed attributes are partitioned into four nonempty groups 𝑋 1, 𝑋 2, 𝑋 3, 𝑋 4, such that conditional on (𝑋 0, 𝑋 4) the groups 𝑋 1, 𝑋 2, 𝑋 3 are mutually indepen-dent, and moreover 𝑋 0 ⊥ 𝑋 4. The latent attribute 𝑋 0 takes 𝜏 ≥ 2
+
+states with strictly positive mixture weights. For each group 𝑋 𝑖 with 
+
+𝑖 ∈ { 1, 2, 3, 4}, define its group cardinality as 
+
+𝜅 𝑖 :=
+
+Ö 
+
+> 𝑗 ∈𝑋 𝑖
+
+𝑘 𝑗 ,
+
+where 𝑘 𝑗 is the number of states of the attribute 𝑗 .Assume 𝜅 𝑖 ≥ 2 for all 𝑖 . If 𝜏 does not exceed the cardinality of at least two of the groups among 𝑋 1, 𝑋 2, 𝑋 3, that is, if 
+
+𝜏 ≤ min max (𝜅 1, 𝜅 2), max (𝜅 2, 𝜅 3), max (𝜅 1, 𝜅 3) , (4) 
+
+then the model parameters are generically identifiable up to a permu-tation of the latent states. 
+
+> 6Fair Data Pre-Processing with Imperfect Attribute Space
+
+Proof. Let 𝜃 𝑖 denote the local parameter at 𝑋 𝑖 for 𝑖 ∈ { 0, 1, 2, 3, 4}.We aim to show that the local parameters 𝜃 𝑖 of each 𝑋 𝑖 are generi-cally identifiable up to a global permutation of the latent states. Fix any value 𝑗 ∈ { 1, . . . , 𝜅 4 } of 𝑋 4. Conditioning on 𝑋 4 = 𝑗 , we obtain a latent class model with three observed attribute groups 
+
+(𝑋 1, 𝑋 2, 𝑋 3) and one latent variable 𝑋 0. For 𝑖 = 0, 1, 2, 3, denote these conditioned attributes or groups by 𝑋 ( 𝑗 ) 
+
+> 𝑖
+
+and let 𝜃 ( 𝑗 ) 
+
+> 𝑖
+
+denote their associated local parameters. By assumption on the group cardinalities, at least two of 𝜅 1, 𝜅 2, 𝜅 3
+
+are not smaller than 𝜏 . Without loss of generality, assume 𝜅 1, 𝜅 2 ≥ 𝜏 .Then, for each conditional model (𝑋 ( 𝑗 ) 
+
+> 0
+
+, 𝑋 ( 𝑗 ) 
+
+> 1
+
+, 𝑋 ( 𝑗 ) 
+
+> 2
+
+, 𝑋 ( 𝑗 ) 
+
+> 3
+
+), the iden-tifiability condition in Equation (4) , derived from tensor decompo-sition [ 2, 3 ], is satisfied. It therefore follows that the parameters 
+
+(𝜃 ( 𝑗 ) 
+
+> 0
+
+, 𝜃 ( 𝑗 ) 
+
+> 1
+
+, 𝜃 ( 𝑗 ) 
+
+> 2
+
+, 𝜃 ( 𝑗 ) 
+
+> 3
+
+) are generically identifiable, up to a permuta-tion 𝜋 𝑗 of the latent states. Since the mixing distribution of 𝑋 0 does not depend on 𝑋 4, we have 𝜃 ( 𝑗 ) 
+
+> 0
+
+= 𝜃 0 for all 𝑗 . This implies that the permutations 𝜋 𝑗 
+
+obtained for different 𝑗 must be consistent; otherwise, they would yield distinct versions of 𝜃 0, contradicting uniqueness. Therefore, all 𝜋 𝑗 coincide with a single global permutation 𝜋 . Consequently, 
+
+(𝜃 0, 𝜃 1, 𝜃 2, 𝜃 3) are generically identifiable up to a global permutation of the latent states. Finally, the parameters 𝜃 4 are directly estimated from the conditional distributions P [𝑋 4], which are part of the observed distribution. This completes the proof. □
+
+In addition to identifiability, Theorem 1 provides a practical upper bound on the number of latent states. Since the label domain is often small, we conservatively set 
+
+𝜏 ≤ min (|I 𝑐 1 |, |I 𝑐 2 |) . (5) 
+
+## 5.2 Identification of I𝑐 
+
+To construct the latent-augmented fairness policy, we must identify the attribute set I𝑐 , as mentioned in Section 4.1. A natural approach is to first recover the parent set Π𝑌 of the label 𝑌 and then compute 
+
+I𝑐 = I ∩ Π𝑌 . However, this requires 𝑂 (𝑑 · 2𝑑 ) conditional inde-pendence (CI) tests, since for each attribute 𝑉 𝑖 ∈ V \ 𝑌 , we must evaluate whether 𝑉 𝑖 ⊥ 𝑌 | Ω for all subsets Ω ⊆ V \ { 𝑉 𝑖 , 𝑌 }. This exponential cost is prohibitive in practice. Given that the inadmissible set is typically much smaller than the full attribute set, we instead test each inadmissible attribute individually to determine whether it is a parent of 𝑌 . This reduces the number of CI tests to 𝑂 (|I| · 2𝑑 ). Although still exponential, empirical studies [ 16 , 39 ] show that limiting the size of conditioning sets to 2 or 3 is usually sufficient in practice, which reduces the overall cost to 𝑂 (|I| · 𝑑 ). In this paper, we set the maximum size of the conditioning set, denoted by 𝛼 , to 2 by default. Algorithm 2 outlines the identification procedure, which consists of two steps: (i) test whether a pathway exists from 𝑋 to 𝑌 , and (ii) if so, determine whether it is direct. In the initial step (Lines 5-6), we apply the chi-square test to evaluate whether an inadmissible attribute 𝑋 is independent of 𝑌 . If independence is confirmed, we eliminate 𝑋 from further consideration. Otherwise, we proceed to the second step (Lines 8-10), using the G-test to evaluate whether the dependence persists after conditioning on various subsets 𝑍 . If the dependency holds across all such 𝑍 , we conclude that no set blocks the path, indicating a direct causal link. This identification 
+
+Algorithm 2: Identification 
+
+Input: Database D with attribute set 
+
+V = S ∪ I ∪ A ∪ W ∪ { 𝑌 }, maximum size of conditioning set 𝛼 
+
+Output: Inadmissible subset I𝑐  
+
+> 1
+
+Let I𝑐 ← I ; 
+
+> 2
+
+for 𝑚 ← 0 to 𝛼 do  
+
+> 3
+
+for each attribute 𝑋 ∈ I 𝑐 do  
+
+> 4
+
+if 𝑚 = 0 then  
+
+> 5
+
+Test if 𝑋 ⊥ 𝑌 using chi-square test;  
+
+> 6
+
+If independent: Remove 𝑋 from I𝑐 ; 
+
+> 7
+
+else  
+
+> 8
+
+Z ← Construct conditioning sets of size 𝑚 from 
+
+V \ { 𝑋, 𝑌 }; 
+
+> 9
+
+Test if 𝑋 ⊥ 𝑌 | 𝑍 using G-test, where 𝑍 ∈ Z ; 
+
+> 10
+
+If independent for any 𝑍 : Remove 𝑋 from I𝑐 and break;  
+
+> 11
+
+return I𝑐 ;process is computationally efficient due to the linear number of tests and the early-stop mechanism. 
+
+## 5.3 Partition of I𝑐 
+
+After identifying the set I𝑐 , we partition it into two disjoint and non-empty subsets, I𝑐 1 and I𝑐 2 , to enable reasonable integration of the latent attribute. The subsets I𝑐 1 and I𝑐 2 are required to be conditionally independent given Z = S ∪I 𝑜 ∪ A to satisfy the iden-tifiability condition described in Section 5.1. To preserve as much information as possible, we formulate the partitioning process as a constrained optimization problem that aims to find two sufficiently large subsets with minimal dependence under the given context: 
+
+min  
+
+> I𝑐 1,I𝑐 2
+
+𝐼 (I 𝑐 1 ; I𝑐 2 | Z) s.t. |I 𝑐 1 | ≥ 𝜏, |I 𝑐 2 | ≥ 𝜏, 
+
+where 𝜏 represents the number of latent states and the constraint ensures that each subset is large enough for the latent attribute to represent meaningful states, as bounded by Equation (5). This optimization is computationally intractable due to two chal-lenges: computing multivariate conditional mutual information (MCMI) is costly, and the number of possible bipartitions grows exponentially with the size of I𝑐 . To address this, we apply two approximations. First, we estimate the MCMI using the sum of pairwise conditional dependencies (i.e., CMI) [8] as shown below: 
+
+𝐼 (I 𝑐 1 ; I𝑐 2 | Z) ≈ ∑︁  
+
+> 𝑋 ∈ I 𝑐 1
+
+∑︁ 𝑌 ∈ I 𝑐 2
+
+𝐼 (𝑋 ; 𝑌 | Z) . (6) This captures the essential cross-set dependencies while remaining computationally efficient. Second, we employ a greedy hill-climbing strategy to search for a near-optimal partition, as described in Al-gorithm 3. The algorithm begins with a random bipartition of I𝑐 
+
+that satisfies the cardinality constraint (Lines 1–2), then iteratively refines it through two steps. In the first step (1-move), it considers moving a single attribute from one group to the other and selects the move that most reduces the estimated CMI (Lines 6–11). If no 
+
+> 7Ying Zheng, Yangfan Jiang, and Kian-Lee Tan
+
+such move is valid, it performs the second step (2-swap) by exchang-ing one attribute from each group (Lines 12–18). This exchange step is particularly helpful when the partition is close to the cardinality threshold and single moves would violate the constraint. The algo-rithm repeats these updates until no significant CMI reduction is observed, as determined by the relative tolerance parameter 𝜀 . The parameter 𝜀 controls the trade-off between runtime and partition quality, and we set 𝜀 = 10 −5 in experiments to ensure high-quality partitions with reasonable runtime. The final output is a partition 
+
+(I 𝑐 1 , I𝑐 2 ), which serves as the basis for policy construction. 
+
+Complexity analysis. Let 𝑚 = |I 𝑐 |. As described, the while loop updates the partition (I 𝑐 1 , I𝑐 2 ) only when the CMI improvement satisfies Δ∗ ≥ 𝜀𝑛 and stops once 𝑛 ≤ 𝜀𝑛 0. Since each accepted update reduces the estimated CMI value by at least a multiplicative factor of 
+
+(1−𝜀 ), the loop performs at most 𝑂 (log (𝜀 )/ log (1−𝜀 )) = 𝑂 ( 1 
+
+> 𝜀
+
+log 1 
+
+> 𝜀
+
+)
+
+iterations. In each iteration, the dominant cost comes from the 2-swap step, which considers at most |I 𝑐 1 ||I 𝑐 2 | ≤ 𝑚 2/4 candidate swaps. For each candidate partition, evaluating Equation (6) in-volves 𝑂 (𝑚 2) pairwise CMI evaluations. Therefore, each iteration requires at most 𝑂 (𝑚 4) pairwise CMI evaluations, and the overall procedure requires at most 𝑂 ( 1 
+
+> 𝜀
+
+log 1 
+
+> 𝜀
+
+· 𝑚 4) such evaluations. 
+
+## 5.4 Parameter Estimation 
+
+Once the fairness policy is established, we adjust the raw data to satisfy its structural constraints while minimizing distortion to the underlying distribution, thereby completing the fairness-aware pre-processing. Equivalently, we seek the parameter setting 𝜃 ∗ of the refined DAG structure that is most faithful to the original data distribution among all feasible configurations. This can be cast as a maximum likelihood estimation (MLE) problem: 
+
+𝜃 ∗ = arg max  
+
+> 𝜃
+
+log ∑︁ 
+
+> 𝐿
+
+P [V , 𝐿 | 𝜃 ]. (7) Because the latent variable 𝐿 appears inside the logarithm, direct maximization is intractable. To address this, we introduce an aux-iliary distribution P
+
+h
+
+𝐿 | V , ˆ𝜃 
+
+i
+
+with fixed parameter ˆ𝜃 and apply Jensen’s inequality to derive a tractable lower bound: 
+
+log ∑︁ 
+
+> 𝐿
+
+P [V , 𝐿 | 𝜃 ] = log E𝐿 ∼P  
+
+> h
+> 𝐿 | V ,ˆ𝜃
+> i
+
+
+
+P [V , 𝐿 | 𝜃 ]
+
+P
+
+h
+
+𝐿 | V , ˆ𝜃 
+
+i
+
+≥ E𝐿 ∼P  
+
+> h
+> 𝐿 | V ,ˆ𝜃
+> i
+
+
+
+log P [V , 𝐿 | 𝜃 ]
+
+
+
++ 𝐻 
+
+
+
+P
+
+h
+
+𝐿 | V , ˆ𝜃 
+
+i 
+
+, (8) where 𝐻 [·] denotes entropy. Since the second term is constant with respect to 𝜃 , maximizing the lower bound reduces to 
+
+𝜃 ∗ = arg max  
+
+> 𝜃
+
+𝑄 
+
+
+
+𝜃 | ˆ𝜃 
+
+
+
+, (9) where 
+
+𝑄 
+
+
+
+𝜃 | ˆ𝜃 
+
+
+
+:= E𝐿 ∼P  
+
+> h
+> 𝐿 | V ,ˆ𝜃
+> i
+
+
+
+log P [V , 𝐿 | 𝜃 ]
+
+
+
+.
+
+The validity and convergence of this reformulation follow the stan-dard analysis in [10, 46]. If 𝐿 were observed, Equation (9) could be optimized directly. Since 𝐿 is latent, we treat it as a column of missing data and adopt the Expectation-Maximization (EM) paradigm to jointly estimate 
+
+Algorithm 3: Partition 
+
+Input: Database D, inadmissible subset I𝑐 , conditioning set 
+
+Z, the number of latent states 𝜏 , relative tolerance 𝜀 
+
+Output: Subsets I𝑐 1 and I𝑐 2 
+
+> 1
+
+Initialize I𝑐 1 , I𝑐 2 ← random bipartition of I𝑐 ; 
+
+> 2
+
+Check feasibility: if |I 𝑐 1 | < 𝜏 or |I 𝑐 2 | < 𝜏 , repeatedly move a randomly selected attribute 𝑣 from the larger subset to the smaller one until both subsets satisfy the cardinality threshold;  
+
+> 3
+
+𝑛 ← 𝐼 (I 𝑐 1 ; I𝑐 2 | Z) (as shown in Equation (6)), 𝑛 0 ← 𝑛 ; 
+
+> 4
+
+while true do  
+
+> 5
+
+Initialize Δ★ ← 0, (A★, B★) ← ⊥ ;
+
+// (1) Apply the best 1-move  
+
+> 6
+
+for 𝑣 ∈ I 𝑐 do  
+
+> 7
+
+Form candidate partition (A, B) by moving 𝑣 to the opposite partition;  
+
+> 8
+
+if |A| ≥ 𝜏, |B| ≥ 𝜏 then  
+
+> 9
+
+Compute 𝑛 ′ ← 𝐼 (A; B | Z) , Δ ← 𝑛 − 𝑛 ′; 
+
+> 10
+
+if Δ > Δ★ then  
+
+> 11
+
+Update Δ★, (A★, B★);
+
+// (2) No improving 1-move: try the best 2-swap  
+
+> 12
+
+if Δ★ = 0 then  
+
+> 13
+
+for (𝑢, 𝑣 ) ∈ I 𝑐 1 × I 𝑐 2 do  
+
+> 14
+
+Form candidate partition (A, B) by moving 𝑢 
+
+and 𝑣 to the opposite partition;  
+
+> 15
+
+if |A| ≥ 𝜏, |B| ≥ 𝜏 then  
+
+> 16
+
+Compute 𝑛 ′ ← 𝐼 (A; B | Z) , Δ ← 𝑛 − 𝑛 ′; 
+
+> 17
+
+if Δ > Δ★ then  
+
+> 18
+
+Update Δ★, (A★, B★); 
+
+> 19
+
+if Δ★ < 𝜀𝑛 or 𝑛 ≤ 𝜀𝑛 0 then  
+
+> 20
+
+break  
+
+> 21
+
+Update (I 𝑐 1 , I𝑐 2 ) ← ( A★, B★), 𝑛 ← 𝑛 − Δ★; 
+
+> 22
+
+return I𝑐 1 , I𝑐 2
+
+both 𝐿 and 𝜃 . The procedure alternates between two steps. In the E-step, we consider the current parameter ˆ𝜃 to be fixed and estimate the distribution of 𝐿 , which provides a probabilistic imputation of the missing values. In the M-step, we treat the data as complete and optimize 𝑄 
+
+
+
+𝜃 | ˆ𝜃 
+
+
+
+to update 𝜃 . This process repeats until conver-gence, yielding the final estimate 𝜃 ∗ = 𝜃 (𝑇 ) after 𝑇 iterations. Both steps are tailored to exploit the structural properties of our refined fairness policy, which is key to achieving efficient computation. 
+
+5.4.1 Analysis of E-step. At 𝑘 -th iteration, parameters are fixed as 
+
+ˆ𝜃 (𝑘 ) , initialized randomly for 𝑘 =1 and updated as ˆ𝜃 (𝑘 ) := 𝜃 (𝑘 −1) if 
+
+𝑘 >1. The goal is to infer the posterior of 𝐿 given V:
+
+P
+
+h
+
+𝐿 | V ; ˆ𝜃 (𝑘 ) i
+
+=
+
+P
+
+h
+
+V, 𝐿 ; ˆ𝜃 (𝑘 )
+
+i
+
+P
+
+h
+
+V; ˆ𝜃 (𝑘 )
+
+i ∝ P
+
+h
+
+V, 𝐿 ; ˆ𝜃 (𝑘 ) i
+
+.
+
+> 8Fair Data Pre-Processing with Imperfect Attribute Space
+
+Algorithm 4: ParameterEstimation 
+
+Input: Database D with attribute set 
+
+V = X ∪ I 𝑜 ∪ I 𝑐 1 ∪ I 𝑐 2 ∪ A ∪ W ∪ { 𝑌 }, maximum number of iterations 𝑛 , convergence threshold 𝜂 
+
+Output: Parameters 𝜃 ∗ 
+
+> 1
+
+Initialize 𝜃 𝑙 , 𝜃 𝑖 𝑐 1 |𝜋 𝑐 1 , 𝜃 𝑖 𝑐 2 |𝜋 𝑐 2 , 𝜃 𝑦 |𝜋 𝑦 randomly;  
+
+> 2
+
+for 𝑖 ← 0 to 𝑛 do  
+
+> 3
+
+P𝐿 | V ← Equation (10);  
+
+> 4
+
+Update 𝜃 𝑙 , 𝜃 𝑖 𝑐 1 |𝜋 𝑐 1 , 𝜃 𝑖 𝑐 2 |𝜋 𝑐 2 , 𝜃 𝑦 |𝜋 𝑦 based on Equation (12);  
+
+> 5
+
+Check log-likelihood according to Equation (13): if the change is less than 𝜂 , stop the iteration;  
+
+> 6
+
+𝑖 ← 𝑖 + 1 
+
+> 7
+
+Compute 𝜃 ∗ based on Equations (14) and (15);  
+
+> 8
+
+return 𝜃 ∗;By factorizing the refined DAG, as shown in Equation (3) , we obtain: 
+
+P
+
+h
+
+𝐿 | V ; ˆ𝜃 (𝑘 ) i
+
+∝ P
+
+h
+
+𝐿 ; ˆ𝜃 (𝑘 ) i
+
+· P
+
+h
+
+I𝑐 1 | Π′ 
+
+> 𝑐 1
+
+; ˆ𝜃 (𝑘 ) i
+
+· P
+
+h
+
+I𝑐 2 | Π′ 
+
+> 𝑐 2
+
+; ˆ𝜃 (𝑘 ) i
+
+· P
+
+h
+
+𝑌 | Π′ 
+
+> 𝑌
+
+; ˆ𝜃 (𝑘 ) i
+
+. (10) Since only four terms involve the latent attribute 𝐿 , we compute their product and normalize to obtain the posterior, instead of computing the full joint distribution. This yields a soft assignment of 𝐿 for each record, effectively completing the data over V ∪ 𝐿 for the subsequent M-step. 
+
+5.4.2 Analysis of M-step. In this step, we update parameters us-ing the posterior P
+
+h
+
+𝐿 | V ; ˆ𝜃 (𝑘 )
+
+i
+
+from the E-step. Let 𝜔 𝑗 (𝑙 ) :=
+
+P
+
+h
+
+𝐿 = 𝑙 | V 𝑗 ; ˆ𝜃 (𝑘 )
+
+i
+
+denote the posterior weight of latent state 𝑙 
+
+for record 𝑗 . The objective is to maximize: 
+
+𝜃 (𝑘 ) = arg max 
+
+> 𝜃
+
+∑︁ 𝑗 ∑︁ 𝑙 
+
+
+
+𝜔 𝑗 (𝑙 ) · log P V 𝑗 , 𝐿 = 𝑙 ; 𝜃  
+
+. (11) Using the DAG factorization in Equation (3), 
+
+P [V , 𝐿 ; 𝜃 ] ∝ P[𝐿 ; 𝜃 ] · P[I 𝑐 1 | Π′ 
+
+> 𝑐 1
+
+; 𝜃 ] · P[I 𝑐 2 | Π′ 
+
+> 𝑐 2
+
+; 𝜃 ] · P[𝑌 | Π′ 
+
+> 𝑌
+
+; 𝜃 ],
+
+the objective decomposes additively across local conditionals. In the discrete setting, each local conditional is multinomial, so parameters admit EM closed-form updates as normalized expected counts. Let 
+
+𝑁 𝐸 (·) denote expectations under the posterior. The updates are: 
+
+𝜃 𝑙 = 𝑁 𝐸 (𝑙 )
+
+Í𝑙 𝑁 𝐸 (𝑙 ) , 𝜃 𝑖 𝑐 1 |𝜋 𝑐 1 = 𝑁 𝐸 (𝑖 𝑐 1 , 𝜋 𝑐 1 )
+
+Í𝑖 𝑐 1 𝑁 𝐸 (𝑖 𝑐 1 , 𝜋 𝑐 1 ) ,𝜃 𝑦 |𝜋 𝑦 = 𝑁 𝐸 (𝑦, 𝜋 𝑦 )
+
+Í𝑦 𝑁 𝐸 (𝑦, 𝜋 𝑦 ) , 𝜃 𝑖 𝑐 2 |𝜋 𝑐 2 = 𝑁 𝐸 (𝑖 𝑐 2 , 𝜋 𝑐 2 )
+
+Í𝑖 𝑐 2 𝑁 𝐸 (𝑖 𝑐 2 , 𝜋 𝑐 2 ) , (12) where 
+
+𝑁 𝐸 (𝑦, 𝜋 𝑦 ) =∑︁ 
+
+> 𝑗
+
+∑︁ 𝑙 
+
+
+
+P
+
+h
+
+𝐿 = 𝑙 | V 𝑗 ; ˆ𝜃 (𝑘 ) i
+
+· I
+
+h
+
+𝑌 𝑗 = 𝑦, Π′𝑗 𝑌 = 𝜋 𝑦 
+
+i 
+
+,
+
+and analogously for other factors. The final 𝜃 (𝑘 ) is formed by con-catenating all local parameters. 
+
+Table 1: Dataset statistics. 
+
+Dataset #Records #Attributes Avg. Dom 
+
+Adult 32,561 13 13.33 COMPAS 6,130 8 4Census-KDD 196,130 28 11.67 Synthetic (Section 6.3) 50,000 7 4Synthetic (Section 6.6) 50,000–500,000 15–60 4
+
+5.4.3 Overall. After each M-step, we calculate the refined log-likelihood as 
+
+L (𝑘 ) ∝∑︁ 
+
+> 𝑗
+
+log  ∑︁ 
+
+> 𝑙
+
+𝜃 (𝑘 ) 
+
+> 𝑙
+
+· 𝜃 (𝑘 )       
+
+> 𝑖 𝑗 𝑐 1|𝜋 ′𝑗 𝑐 1(𝑙 )
+
+· 𝜃 (𝑘 )       
+
+> 𝑖 𝑗 𝑐 2|𝜋 ′𝑗 𝑐 2(𝑙 )
+
+· 𝜃 (𝑘 )      
+
+> 𝑦 𝑗 |𝜋 ′𝑗 𝑦 (𝑙 )
+
+!
+
+(13) and terminate the procedure when |L (𝑘 ) − L (𝑘 −1) | ≤ 𝜂 or the iteration count reaches 𝑛 . Once converged, we obtain the optimal parameters for the local structures around 𝐿 , I𝑐 1 , I𝑐 2 , and 𝑌 . For the remaining attributes, denoted as X = V \ (I 𝑐 ∪{ 𝑌 }) , the parameters are constant and can be computed directly via MLE: 
+
+𝜃 𝑥 = 𝑁 (𝑥 )
+
+Í𝑥 ′ 𝑁 (𝑥 ′) . (14) The final parameter set is formed by concatenating the estimates over all local distributions: 
+
+𝜃 ∗ = (𝜃 𝑥 , 𝜃 𝑙 , 𝜃 𝑖 𝑐 1 |𝜋 𝑐 1 , 𝜃 𝑖 𝑐 2 |𝜋 𝑐 2 , 𝜃 𝑦 |𝜋 𝑦 ). (15) Note that high-dimensional distributions can be approximated us-ing techniques in [ 8 ]; since this is not our focus, we treat all required distributions as given. The full parameter estimation procedure is summarized in Algorithm 4. 
+
+## 6 Experiments 
+
+In this section, we evaluate the effectiveness of LatentPre through extensive experiments. We first describe the experimental setup in Section 6.1. We then compare LatentPre with baselines by re-porting end-to-end performance in Section 6.2 and visualizing missing-relationship recovery in Section 6.3. Finally, we provide a deeper analysis of LatentPre by testing the dependence between the learned latent attribute and sensitive attributes in Section 6.4, examining how key parameters affect performance in Section 6.5, and profiling runtime in Section 6.6. 
+
+## 6.1 Setup 
+
+We implement the proposed LatentPre framework in Python 1. All experiments are conducted on a machine with two Xeon(R) Gold 6326@2.90 GHz CPUs and 256GB of DRAM. 
+
+Datasets. We evaluate the performance of LatentPre on three real-world datasets, including Adult [ 4], COMPAS [ 19 ], and Census-KDD [ 1 ], and two synthetic datasets generated following [ 24 ]. The key statistics of these datasets are summarized in Table 1. 
+
+Baselines. We compare LatentPre with state-of-the-art pre-processing methods, Cap-MS [ 37 ], Cap-MF [ 37 ], OTClean [ 30 ], and Causal-Pre [ 55 ]. For all of them, we use the source code provided by the 
+
+> 1Available at https://github.com/iamzhengying/LatentPre.git 9Ying Zheng, Yangfan Jiang, and Kian-Lee Tan
+
+authors. Since Cap-MS and Cap-MF are designed only for saturated CI constraints over all attributes, we extend them by first processing 
+
+DV\W and then sampling W from its conditional distribution to complete the entire D′. For OTClean [ 30 ], we report two variants to ensure a fair comparison, following the evaluation protocol in [ 55 ]: (i) OTClean-RT, which directly uses the provided codebase and thus modifies the testing data, and (ii) OTClean, which processes only the training data and leaves the testing set unchanged. We also report results on the original dataset, denoted as “Original”, and the dataset with all sensitive and inadmissible attributes dropped, denoted as “Dropped”. The former provides a baseline for under-standing the dataset’s utility and inherent discrimination without any intervention, while the latter reflects what a naive brute-force approach can achieve. 
+
+Measurement and metrics. We evaluate each framework by mea-suring the quality of its processed data along two dimensions: utility and fairness. To achieve this, each raw dataset is divided into a train-ing set and a testing set; only the training set is pre-processed, while the testing set remains unchanged to simulate a realistic environ-ment. Two standard classifiers, random forest (RF) and multilayer perceptron (MLP), are then trained on the processed training data and evaluated on the testing data. The resulting predictive perfor-mance then serves as a proxy for data quality, as higher-quality training data enables models to produce more accurate and less biased predictions. For utility, we report the AUC score, where a higher value indicates better generalization and thus higher data quality. For fairness, we use the Ratio of Observational Discrimina-tion (ROD) [ 37 ], which measures deviation from fairness; formally ROD = max   
+
+> S0,S1∈𝐷𝑜𝑚 ( S)
+
+1
+
+|𝐷𝑜𝑚 (A)| ∑︁ 𝑎 ∈𝐷𝑜𝑚 ( A ) 
+
+ROD (S0, S1; ˆ 𝑌 | 𝑎 ),
+
+where ROD (S0, S1; ˆ 𝑌 | 𝑎 ) = P[ ˆ𝑌 = 1 | S0, 𝑎 ] · P[ ˆ𝑌 = 0 | S1, 𝑎 ]
+
+P[ ˆ𝑌 = 0 | S0, 𝑎 ] · P[ ˆ𝑌 = 1 | S1, 𝑎 ] .
+
+For consistent interpretation, we report the normalized absolute logarithm of the ROD value; a value of 0 indicates no discrimination, and larger values indicate greater discrimination. Finally, to ensure robustness and reduce variability, all evaluations are conducted using five-fold cross-validation. 
+
+## 6.2 End-to-End Performance Evaluation 
+
+We evaluate the end-to-end performance of LatentPre under three scenarios: (i) attribute ambiguity, (ii) attribute absence, and (iii) perfect attribute space. Results are shown in Figures 4, 5, and 6, respectively. Performance is measured using box plots of 5-fold AUC and average ROD. Cap-MS is excluded from Census-KDD due to excessive runtime (over 24 hours). OTClean is omitted from Adult and Census-KDD because it runs out of memory on our machine. Default parameters for LatentPre are set as follows: the number of latent states 𝜏 = 6, 3, and 6 for Adult, COMPAS, and Census-KDD; the number of EM iterations 𝑛 = 800 ; and convergence threshold 
+
+𝜂 = 0.001 . A method is deemed invalid if its fairness is worse than the unprocessed “Original” baseline or its utility lower than the “Dropped” case; these regions are shaded in gray. Key findings for each scenario are summarized below. 
+
+6.2.1 Attribute Ambiguity. This setting evaluates robustness when certain utility-relevant but ambiguous attributes are conservatively treated as inadmissible. To simulate this scenario, we randomly re-assign a subset of utility-relevant attributes from the admissible or additional set to the inadmissible set. Specifically, we reassign one attribute for the Adult and COMPAS datasets, and six for the larger Census-KDD dataset. We use a larger number for Census-KDD be-cause it contains many structurally similar or semantically related attributes, which practitioners may be more inclined to conserva-tively label as inadmissible together. Figure 4 reports the results. Across all datasets, LatentPre significantly outperforms the base-lines in utility and consistently remains valid. This holds even on COMPAS, a low-dimensional dataset where a limited attribute space makes the causal structure more fragile and fairness-aware pro-cessing more challenging. Even in this setting, LatentPre remains robust, demonstrating the effectiveness of latent augmentation in recovering and reinforcing the underlying structure from sparse observations. In addition, LatentPre reduces average discrimina-tion by 80%, 46%, and 77%, with only 0.2%, 0.5%, and 4.2% utility loss on datasets Adult, COMPAS, and Census-KDD, respectively. The fairness gain on COMPAS is relatively smaller, and we defer the explanation to Section 6.2.4. Nevertheless, this result is still ac-ceptable, as the utility loss is minimal and the fairness gain comes at negligible cost. On Census-KDD, performance declines slightly because we treat more attributes as imperfect to reflect a more challenging and realistic setting, yet LatentPre still achieves a 2.2% average utility improvement over the best-performing baseline. 
+
+6.2.2 Attribute Absence. This setting evaluates performance when some meaningful attributes are entirely missing from the dataset. To simulate this scenario, we randomly remove utility-relevant attributes from the admissible or additional set: one for Adult and COMPAS, and six for Census-KDD. The results in Figure 5 show that 
+
+LatentPre substantially outperforms all baselines in utility while also reducing discrimination. Specifically, LatentPre lowers average discrimination by 75%, 50%, and 83%, with only 0.4%, 0.3%, and 2.6% utility loss on datasets Adult, COMPAS, and Census-KDD, respec-tively. The overall trend is consistent with the results observed under attribute ambiguity. 
+
+6.2.3 Perfect Attribute Space. This setting evaluates performance when all attributes are correctly collected and specified, as in prior work [ 37 , 55 ]. The results in Figure 6 show that LatentPre still achieves utility gains in most cases, even in this idealized setting. This indicates that attribute ambiguity or absence may naturally arise in practice, and LatentPre can effectively identify and correct such hidden imperfections through latent modeling. Note that al-though LatentPre sometimes attains the best ROD, introducing the latent attribute does not itself contribute to fairness. Fairness is ensured by explicitly removing all unfair causal pathways from sen-sitive or inadmissible attributes to the label. Meanwhile, introducing the latent attribute requires pruning certain dependencies among inadmissible attributes to ensure identifiability. This identifiability-driven pruning can also reduce spurious high-dimensional correla-tions that powerful classifiers might otherwise inadvertently exploit as unfair influence. This side effect is typically more pronounced in higher-dimensional datasets such as Census-KDD. 
+
+> 10 Fair Data Pre-Processing with Imperfect Attribute Space
+
+0.0 0.2 0.5 0.8 1.0 
+
+ROD 
+
+0.63 
+
+0.66 
+
+0.69 
+
+0.0 0.2 0.5 0.8 1.0 
+
+ROD 
+
+0.63 
+
+0.66 
+
+0.69                
+
+> Dropped Original Cap-MF Cap-MS OTClean-RT OTClean CausalPre LatentPre 0.0 0.5 1.0
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Utility
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.77
+> 0.80
+> 0.83
+> 0.86
+> 0.89
+> Classifier: MLP
+> Cap-MF 0.0 0.5 1.0
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Classifier: RF
+> Dropped
+> 0.0 0.5 1.0
+> ROD
+> 0.76
+> 0.79
+> 0.82
+> 0.85
+> 0.88
+> Classifier: MLP
+
+(a) Adult 0.0 0.5 1.0    
+
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: MLP
+
+(b) COMPAS 0.0 0.5 1.0    
+
+> ROD
+> 0.77
+> 0.81
+> 0.85
+> 0.89
+> 0.93
+> Classifier: RF
+> CausalPre
+> 0.0 0.5 1.0
+> ROD
+> 0.73
+> 0.78
+> 0.83
+> 0.88
+> 0.93
+> Classifier: MLP
+
+(c) Census -KDD 
+
+Figure 4: End-to-end performance under attribute ambiguity across three datasets, measured by AUC (utility) and ROD (fairness). Each box summarizes the 5-fold AUC values and the corresponding average ROD for one approach; higher AUC and lower ROD indicate better performance. Shaded regions indicate invalid results. 0.0 0.5 1.0       
+
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Utility
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.77
+> 0.80
+> 0.83
+> 0.86
+> 0.89
+> Classifier: MLP
+> Cap-MF 0.0 0.5 1.0
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Classifier: RF
+> Dropped
+> 0.0 0.5 1.0
+> ROD
+> 0.73
+> 0.77
+> 0.81
+> 0.85
+> 0.89
+> Classifier: MLP
+> CausalPre
+
+(a) Adult 0.0 0.5 1.0    
+
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: MLP
+
+(b) COMPAS 0.0 0.5 1.0    
+
+> ROD
+> 0.78
+> 0.81
+> 0.84
+> 0.87
+> 0.90
+> Classifier: RF
+> CausalPre
+> 0.0 0.5 1.0
+> ROD
+> 0.79
+> 0.82
+> 0.85
+> 0.88
+> 0.91
+> Classifier: MLP
+> Original
+> LatentPre
+
+(c) Census -KDD 
+
+Figure 5: End-to-end performance under attribute absence across three datasets. 0.0 0.5 1.0       
+
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Utility
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.77
+> 0.80
+> 0.83
+> 0.86
+> 0.89
+> Classifier: MLP
+> Cap-MF 0.0 0.5 1.0
+> ROD
+> 0.82
+> 0.84
+> 0.86
+> 0.88
+> 0.90
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.77
+> 0.80
+> 0.83
+> 0.86
+> 0.89
+> Classifier: MLP
+> Cap-MF
+
+(a) Adult 0.0 0.5 1.0    
+
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.63
+> 0.66
+> 0.69
+> 0.72
+> 0.75
+> Classifier: MLP
+
+(b) COMPAS 0.0 0.5 1.0    
+
+> ROD
+> 0.88
+> 0.89
+> 0.90
+> 0.91
+> 0.92
+> Classifier: RF
+> 0.0 0.5 1.0
+> ROD
+> 0.88
+> 0.89
+> 0.90
+> 0.91
+> 0.92
+> Classifier: MLP
+
+(c) Census -KDD 
+
+Figure 6: End-to-end performance under perfect attribute space across three datasets. 
+
+6.2.4 Additional Discussion. As noted, LatentPre yields smaller fairness improvements on COMPAS across all three scenarios. This outcome is expected given two inherent properties of the dataset. First, COMPAS exhibits strong correlations between utility-related and sensitive information, making the utility–fairness trade-off particularly pronounced. Although the introduced latent attribute is not causally influenced by the sensitive attribute (and we further evaluate their independence in Section 6.4), powerful classifiers may still exploit spurious high-dimensional correlations in the data. This phenomenon is not unique to LatentPre : OTClean shows a similarly sharp utility–fairness trade-off on COMPAS; moreover, since OTClean is not designed for imperfect scenarios, its behav-ior in such settings is even less controllable. Second, COMPAS is relatively small, which makes the empirical distribution less sta-ble and further increases the risk that powerful classifiers capture spurious correlations. To validate this explanation, we conduct an auxiliary experiment that enlarges COMPAS via repeated sampling (by increasing 𝑘 in Algorithm 1, Line 7). With the MLP classifier under this setting, LatentPre achieves a lower (thus better) ROD of 0.30, which is comparable to the gains observed on other datasets. 
+
+> 11
+
+Ying Zheng, Yangfan Jiang, and Kian-Lee Tan Sensitive  Inadmissible  Admissible  Label  Introduced Relationship  Unremoved Unfair Relationship  Removed Relationship Missing V 0
+
+Y
+
+V 3 V 4
+
+V 2
+
+V 5
+
+V 1
+
+(a) Missing. V 0
+
+Y
+
+V 3 V 4
+
+V 2L (b) LatentPre .V 0
+
+Y
+
+V 3 V 4
+
+V 2 (c) CausalPre. V 0
+
+Y
+
+V 3 V 4
+
+V 2 (d) Cap-MF. V 0
+
+Y
+
+V 3 V 4
+
+V 2 (e) Cap-MS. V 0
+
+Y
+
+V 3 V 4
+
+V 2 (f) OTClean. V 0
+
+Y
+
+V 3 V 4
+
+V 2 (g) OTClean-RT. 
+
+Figure 7: Relationship recovery with S={𝑉 0 }, I={𝑉 2, 𝑉 4 }, A={𝑉 1, 𝑉 3, 𝑉 5 }, and missing attributes {𝑉 1, 𝑉 5 }.Table 2: Independence analysis of 𝐿 and S.
+
+Dataset Scen. Sens. Attr. NMI chi-square Adult Amb. sex (3.1 ± 0.8) × 10 −5 0.71 ± 0.12 
+
+race (1.7 ± 0.2) × 10 −4 0.74 ± 0.14 
+
+sex + race (3.6 ± 0.4) × 10 −4 0.58 ± 0.21 
+
+Abs. sex (2.9 ± 1.5) × 10 −5 0.74 ± 0.20 
+
+race (2.0 ± 0.1) × 10 −4 0.58 ± 0.09 
+
+sex + race (3.8 ± 0.3) × 10 −4 0.51 ± 0.16 
+
+Perf. sex (2.7 ± 0.6) × 10 −5 0.76 ± 0.09 
+
+race (2.0 ± 0.2) × 10 −4 0.56 ± 0.12 
+
+sex + race (3.8 ± 0.4) × 10 −4 0.53 ± 0.22 
+
+> COMPAS
+
+Amb. sex (5.9 ± 3.0) × 10 −5 0.74 ± 0.13 
+
+race (2.3 ± 0.5) × 10 −4 0.75 ± 0.10 
+
+sex + race (4.4 ± 1.1) × 10 −4 0.86 ± 0.09 
+
+Abs. sex (1.1 ± 1.3) × 10 −4 0.66 ± 0.29 
+
+race (1.8 ± 0.3) × 10 −4 0.85 ± 0.06 
+
+sex + race (4.8 ± 1.1) × 10 −4 0.82 ± 0.11 
+
+Perf. sex (3.5 ± 2.4) × 10 −5 0.83 ± 0.10 
+
+race (2.2 ± 0.5) × 10 −4 0.76 ± 0.09 
+
+sex + race (4.4 ± 1.6) × 10 −4 0.83 ± 0.15 
+
+> Census-KDD
+
+Amb. sex (2.0 ± 1.0) × 10 −5 0.28 ± 0.30 
+
+race (4.1 ± 1.3) × 10 −5 0.73 ± 0.22 
+
+sex + race (8.6 ± 2.3) × 10 −5 0.57 ± 0.30 
+
+Abs. sex (2.2 ± 0.5) × 10 −5 0.12 ± 0.08 
+
+race (4.3 ± 0.5) × 10 −5 0.61 ± 0.13 
+
+sex + race (8.5 ± 0.9) × 10 −5 0.43 ± 0.17 
+
+Perf. sex (1.2 ± 0.1) × 10 −5 0.31 ± 0.06 
+
+race (2.7 ± 0.3) × 10 −5 0.86 ± 0.07 
+
+sex + race (6.2 ± 0.3) × 10 −5 0.70 ± 0.08 
+
+In summary, the limited gains on COMPAS primarily reflect the dataset’s challenging characteristics rather than a weakness of La-tentPre . Importantly, LatentPre still delivers meaningful fairness improvements with almost no sacrifice in utility, making the out-come practically satisfactory. 
+
+## 6.3 Missing Relationship Recovery 
+
+To evaluate how well LatentPre and the baselines preserve potential causal relationships when some attributes are missing, we generate 1 2 3 4 5 6      
+
+> The number of latent states
+> 0.840
+> 0.850
+> 0.860
+> 0.870
+> Utility
+> Utility ROD
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD 123456
+> 0.730
+> 0.780
+> 0.830
+> 0.880
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(a) Attribute ambiguity. 1 2 3 4 5 6 
+
+> 0.810
+> 0.830
+> 0.850
+> 0.870
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(b) Attribute absence. 
+
+Figure 8: Varying the number of latent states 𝜏 .0 350 700 1050 
+
+> 0.856
+> 0.859
+> 0.862
+> 0.865
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(a) Attribute ambiguity. 0 450 900 1350  
+
+> 0.850
+> 0.855
+> 0.860
+> 0.865
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(b) Attribute absence. 
+
+Figure 9: Varying the number of iterations 𝑛 .10 −3 
+
+> 10 −2
+> 10 −1
+> 0.860
+> 0.861
+> 0.862
+> 0.863
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(a) Attribute ambiguity. 10 −3  
+
+> 10 −2
+> 10 −1
+> 0.852
+> 0.853
+> 0.854
+> 0.855
+> Utility
+> 0.0
+> 0.3
+> 0.6
+> 0.9
+> ROD
+
+(b) Attribute absence. 
+
+Figure 10: Varying the convergence threshold 𝜂 .
+
+a synthetic dataset from the DAG in Figure 7a. The dataset contains 50,000 records and 7 attributes. Note that the attribute space is deliberately kept small to make DAG visualization feasible. On this dataset, we first randomly assign attributes to reason-able roles, such as inadmissible or admissible, and then randomly remove several attributes from the admissible attribute set to simu-late scenarios where some meaningful and usable information is lost. We next apply LatentPre and the baselines to the resulting dataset and reconstruct a DAG from each processed output using 
+
+12 Fair Data Pre-Processing with Imperfect Attribute Space 
+
+the Python libraries pgmpy.estimators and networkx . These recov-ered DAGs provide a direct view of which causal relationships are preserved after processing. Figure 7 shows one representative setting, where {𝑉 0 } is sensi-tive, {𝑉 2, 𝑉 4 } are inadmissible, {𝑉 1, 𝑉 3, 𝑉 5 } are admissible, and 𝑌 is the label, with 𝑉 1 and 𝑉 5 removed to simulate missing attributes. As observed, CausalPre in Figure 7c removes all unfair pathways and preserves observed 𝑉 3 as a decision factor. OTClean in Figure 7f and Cap-MF in Figure 7d yield a similar structure but introduce two additional edges, which are highlighted in purple. In contrast, Cap-MS fails to block all unfair causal pathways, as shown in Fig-ure 7e, because it substantially distorts the data distribution during processing. This also explains why its results are always invalid in Section 6.2. Figure 7g reports OTClean-RT. Since it targets a dif-ferent processing constraint, we evaluate it under a corresponding criterion that focuses on severing dependence between sensitive and inadmissible attributes. Under this criterion, OTClean-RT suc-cessfully breaks this dependence, but it still introduces the same two extra edges as OTClean and Cap-MF. Overall, none of the base-lines recover the potential utility-relevant information associated with the missing attributes. 
+
+LatentPre exhibits a different behavior by explicitly recovering the lost information. As shown in Figure 7b, it introduces a latent attribute 𝐿 that contributes to prediction alongside 𝑉 3. This latent attribute captures the influence of the missing attributes 𝑉 1 and 𝑉 5
+
+by reinstating their direct relationships with other attributes such as 𝑉 2 and 𝑉 4, and by passing the recovered information to the label. Consequently, LatentPre restores the missing causal pathways, as if 𝑉 1 and 𝑉 5 were still present. Achieving this recovery requires a deliberate trade-off. To preserve more utility-relevant information near the label, LatentPre modifies certain relationships around the inadmissible attributes: it removes the edge between 𝑉 2 and 𝑉 4 for identifiability and introduces an additional edge 𝑉 3 → 𝑉 2 to sup-port a coarser but tractable policy. Strictly speaking, 𝑉 3 should be treated as an additional attribute rather than an admissible one, in which case the edge 𝑉 3 → 𝑉 2 would not be introduced. We treat 
+
+𝑉 3 as admissible here only to allow the baselines to operate more effectively on this simple dataset. This trade-off proves beneficial: as evidenced by our further end-to-end evaluations, LatentPre con-sistently outperforms the baselines, achieving an average utility improvement of 22% across both classifiers. 
+
+## 6.4 Verifying Latent–Sensitive Independence 
+
+As mentioned in Section 4.1, the latent attribute 𝐿 is designed to be independent of the sensitive attributes S. To empirically validate this property, we test whether the learned 𝐿 exhibits any residual dependence on S from both information-theoretic and statistical perspectives, using Normalized Mutual Information (NMI) and the chi-square test. NMI measures the strength of dependence, where a value of 0 indicates independence and values below 10 −3 are com-monly treated as negligible in practice. The chi-square test assesses statistical evidence of dependence: the resulting 𝑝 -values above 0.01 
+
+indicate no statistically significant dependence. Table 2 presents the 5-fold results on three real-world datasets under two imperfect scenarios as well as the perfect scenario. Since each dataset includes two sensitive attributes, sex and race , we test dependence with −0.05 0.00 0.05                                   
+
+> −0.05
+> 0.00
+> 0.05
+> Runtime (s) −0.05 0.00 0.05
+> −0.05
+> 0.00
+> 0.05
+> Runtime (s) −0.05 0.00 0.05
+> −0.05
+> 0.00
+> 0.05
+> Runtime (s) 0510 15 20 25
+> 0
+> 25
+> 50
+> (a) 012345
+> 0
+> 300
+> 600
+> (b) 10 20 30 40 50 60
+> 0
+> 100
+> 200
+> (c) 036912 15
+> 0
+> 900
+> 1800
+> (d) 012345
+> 0
+> 1300
+> 2600
+> (e) 010 20 30 40 50
+> 0
+> 500
+> 1000
+> (f)
+
+Figure 11: Staged runtime analysis for I𝑐 identification algo-rithm ((a)–(c)) and I𝑐 partition algorithm ((d)–(f)). 
+
+respect to each attribute separately as well as their intersectional groups. Across all settings, NMI values are near zero and chi-square 
+
+𝑝 -values consistently exceed the threshold. Both results indicate no detectable dependence between 𝐿 and S, which is consistent with our design principle. 
+
+## 6.5 Parameter Analysis 
+
+We study the sensitivity of LatentPre to its key hyperparameters. For brevity, we report results on the representative Adult dataset with the MLP classifier; similar trends hold across other datasets and classifiers. As described in Algorithm 1, LatentPre has three parameters: the number of latent states 𝜏 , the maximum number of iterations 𝑛 , and the convergence threshold 𝜂 . Unless otherwise stated, when varying one hyperparameter, we fix the other two to 
+
+𝜏 = 6, 𝑛 = 800 , and 𝜂 = 0.001 .
+
+Varying 𝜏 . Figure 8 shows the impact of varying the number of latent states 𝜏 . When 𝜏 = 1, all records share a single latent value, which is equivalent to having no latent attribute. As 𝜏 increases and captures more variation, utility improves consistently, with gains of 14.66% and 3.68% under the ambiguous and absent attribute settings, respectively. The gains are more pronounced under at-tribute ambiguity, since the ambiguous attributes remain in the dataset, making their influence easier to recover in the early stages. As 𝜏 continues to grow, utility improves marginally while ROD remains stable. Due to identifiability constraints, 𝜏 must lie within a bounded range; for Adult, we set the maximum to 6. 
+
+Varying 𝑛 and 𝜂 . Figure 9 illustrates performance changes with the number of iterations 𝑛 . Across both scenarios, utility increases in the early iterations and then stabilizes, while fairness remains steady throughout. A similar pattern is observed on the convergence threshold 𝜂 , as shown in Figure 10, within the expected noise levels.           
+
+> 13 Ying Zheng, Yangfan Jiang, and Kian-Lee Tan Perf. Amb. Abs. Perf. Amb. Abs. Perf. Amb. Abs.
+> 0
+> 10 2
+> 10 4
+> Runtime (s)
+> Adult COMPAS Census-KDD
+> Cap-MF(M)
+> Cap-MS(M)
+> OTClean(M)
+> OTClean-RT(M)
+> CausalPre(S)
+> LatentPre(S)
+
+Figure 12: Runtime comparison. (M: execution with 64 threads; S: execution with a single thread.) 
+
+## 6.6 Runtime Evaluation 
+
+6.6.1 Staged. To evaluate the efficiency of the identification and partition algorithms proposed in Sections 5.2 and 5.3, we study how runtime scales with key dataset properties using synthetic data. For identification, we vary one factor at a time among the inadmissible-set size |I| , the dataset size |D| , and the number of attributes |V | , as shown in Figures 11a–11c, while fixing the other two at |I| =10 , |D| =50 ,000 , and |V | =30 . As shown, increasing |I| 
+
+or |V | leads only to a mild runtime increase with small fluctuations. This indicates that CI tests executed in Lines 8–10 of Algorithm 2 are far fewer than the worst-case count. In practice, the procedure typically terminates early rather than enumerating all conditioning sets. When |D| increases, the runtime grows linearly, as each CI test becomes more expensive with more records. For partition, we similarly vary one factor at a time among |I 𝑐 |, |D| , and the conditioning-set size |Z| =|S ∪ I 𝑜 ∪ A| , as shown in Figures 11d– 11f, while fixing the remaining two at |I 𝑐 |=10 , |D| =50 ,000 , and 
+
+|Z| =20 . The partition runtime scales quadratically with |I 𝑐 |, grows linearly with |D| , and shows only mild sensitivity to |Z| . Overall, the observed trends are well below the theoretical worst-case bound discussed in Section 5.3 and support practical scalability. 
+
+6.6.2 Overall. Figure 12 reports the runtime of LatentPre and the baselines. LatentPre and CausalPre use a single thread, while the others use 64 threads. Bars reaching the top indicate failure to complete. CausalPre is sometimes not visible because its runtime falls below the plotted scale, under 2 seconds. Overall, among the six approaches, LatentPre typically ranks third, after CausalPre and Cap-MF. In the most challenging setting, Census-KDD under the ambiguous scenario, LatentPre completes in 2,573 seconds, which remains acceptable for an offline pre-processing task. 
+
+## 7 Related Work 
+
+Our work focuses on justifiable fairness and is, to our knowledge, the first to address fair data pre-processing under an imperfect at-tribute space. All existing works assume that the available attributes are complete and correctly specified (as admissible, inadmissible, etc.), and are therefore not designed to tackle this new challenge. Salimi et al. [ 37 ] are the first to formalize the fairness-aware database repair problem and define the notion of justifiable fair-ness. Their framework, Capuchin, aims to achieve fairness while minimizing the number of record modifications. Building upon Ca-puchin, OTClean [ 30 ] further controls distributional distortion via optimal transport, seeking to minimize distribution shift in addition to enforcing fairness. More recently, CausalPre [ 55 ] adopts a two-step strategy: it efficiently learns causally fair relationships from scratch and applies them to refine the dataset, ensuring fairness while preserving the overall statistical character. Several other pre-processing techniques [12, 30, 33, 34, 36] also adopt causal fairness, but target different problems. PreFair [ 33 ]also builds on justifiable fairness, but does not consider causal-ity; instead, it focuses on incorporating fairness constraints into private data synthesis, which differs from our repair-oriented frame-work. FairPFN [ 34 ] studies fairness-aware pre-training with a fair data generation module. It aims to eliminate the total causal ef-fect of a single binary sensitive attribute, and is therefore not di-rectly comparable to our setting. FairExp [ 36 ] and SeqSel [ 12 ], on the other hand, focus on fair feature selection rather than data adjustment. Beyond causal fairness, several pre-processing meth-ods [ 7, 11 , 13 , 15 , 25 , 45 , 47 , 48 , 50 ] instead target associational fairness, especially the notion of demographic parity. Since they enforce only associational constraints, they generally cannot guar-antee causal fairness [37]. Finally, some works [ 17 , 22 , 35 , 42 ] also attempt to explore unob-served signals from the data. EXCO [ 42 ], for example, introduces latent attributes to represent exogenous background factors that influence the sensitive attribute and uses them to develop a fair pre-dictor. CLAIRE [ 22 ] does not explicitly model latent attributes but instead learns fair representations with a variational autoencoder. These methods operate during model training, whereas our work addresses fairness through the pre-processing stage. 
+
+## 8 Conclusion 
+
+In this paper, we re-examined the problem of fair data pre-processing under an imperfect attribute space. Our framework, LatentPre ,augments the fairness policy with latent attributes that guarantee identifiability, recover valid missing signals, and block inadmissi-ble influence. Guided by this policy, the raw data is adjusted to satisfy justifiable fairness while preserving utility. Extensive exper-iments show that LatentPre is robust across a variety of real-world imperfect settings and achieves strong fairness-utility trade-offs. 
+
+> 14
+
+Fair Data Pre-Processing with Imperfect Attribute Space 
+
+## References 
+
+[1] 2000. Census-Income (KDD). UCI Machine Learning Repository. DOI: https://doi.org/10.24432/C5N30T. Accessed: 2025-06. [2] Elizabeth S Allman and Catherine Matias. 2009. Identifiability of parameters in latent structure models with many observed variables. The Annals of Statistics 
+
+37, 6A (2009), 3099–3132. [3] Elizabeth S Allman, John A Rhodes, Elena Stanghellini, and Marco Valtorta. 2015. Parameter identifiability of discrete Bayesian networks with hidden variables. 
+
+Journal of Causal Inference 3, 2 (2015), 189–205. [4] Barry Becker and Ronny Kohavi. 1996. Adult. UCI Machine Learning Repository. DOI: https://doi.org/10.24432/C5XW20. Accessed: 2025-06. [5] Peter J Bickel, Eugene A Hammel, and J William O’Connell. 1975. Sex Bias in Graduate Admissions: Data from Berkeley: Measuring bias is harder than is usually assumed, and the evidence is sometimes contrary to expectation. Science 
+
+187, 4175 (1975), 398–404. [6] Tim Brennan, William Dieterich, and Beate Ehret. 2009. Evaluating the predictive validity of the COMPAS risk and needs assessment system. Criminal Justice and behavior 36, 1 (2009), 21–40. [7] Flávio P. Calmon, Dennis Wei, Bhanukiran Vinzamuri, Karthikeyan Natesan Ramamurthy, and Kush R. Varshney. 2017. Optimized Pre-Processing for Dis-crimination Prevention. In NeurIPS . 3992–4001. [8] C. K. Chow and C. N. Liu. 1968. Approximating discrete probability distributions with dependence trees. IEEE Trans. Inf. Theory 14, 3 (1968), 462–467. [9] Thomas M. Cover and Joy A. Thomas. 2006. Elements of information theory (2. ed.) . Wiley. [10] AP Dempster, NM Laird, and DB Rubin. 1977. Maximum Likelihood from Incom-plete Data via the EM Algorithm. Journal of the Royal Statistical Society. Series B (Methodological) (1977), 1–38. [11] Michael Feldman, Sorelle A. Friedler, John Moeller, Carlos Scheidegger, and Suresh Venkatasubramanian. 2015. Certifying and Removing Disparate Impact. In KDD . 259–268. [12] Sainyam Galhotra, Karthikeyan Shanmugam, Prasanna Sattigeri, and Kush R. Varshney. 2022. Causal Feature Selection for Algorithmic Fairness. In SIGMOD .276–285. [13] Paula Gordaliza, Eustasio del Barrio, Fabrice Gamboa, and Jean-Michel Loubes. 2019. Obtaining Fairness using Optimal Transport Theory. In ICML , Vol. 97. 2357–2365. [14] Mohammad Hashemi, Shengbo Gong, Juntong Ni, Wenqi Fan, B Aditya Prakash, and Wei Jin. 2024. A comprehensive survey on graph reduction: sparsification, coarsening, and condensation. In IJCAI . 8058–8066. [15] Faisal Kamiran and Toon Calders. 2011. Data preprocessing techniques for classification without discrimination. Knowl. Inf. Syst. 33, 1 (2011), 1–33. [16] Murat Kocaoglu. 2023. Characterization and learning of causal graphs with small conditioning sets. NeurIPS , 74140–74179. [17] Matt J. Kusner, Joshua R. Loftus, Chris Russell, and Ricardo Silva. 2017. Counter-factual Fairness. In NeurIPS . 4066–4076. [18] Preethi Lahoti, Krishna P. Gummadi, and Gerhard Weikum. 2019. iFair: Learning Individually Fair Data Representations for Algorithmic Decision Making. In 
+
+ICDE . 1334–1345. [19] Jeff Larson, Surya Mattu, Lauren Kirchner, and Julia Angwin. 2016. COMPAS. ProPublica. Avaiable at https://github.com/propublica/compas-analysis/. Ac-cessed: 2025-06. [20] Yin Lin, Samika Gupta, and H. V. Jagadish. 2024. Mitigating Subgroup Unfairness in Machine Learning Classifiers: A Data-Driven Approach. In ICDE . 2151–2163. [21] Andreas Loukas. 2019. Graph Reduction with Spectral and Cut Guarantees. J. Mach. Learn. Res. 20 (2019), 1–42. [22] Jing Ma, Ruocheng Guo, Aidong Zhang, and Jundong Li. 2023. Learning for counterfactual fairness from observational data. In SIGKDD . 1620–1630. [23] John F Mahoney and James M Mohen. 2007. Method and system for loan origi-nation and underwriting. US Patent 7,287,008. [24] Markos Markakis, Ziyu Zhang, Rana Shahout, Trinity Gao, Chunwei Liu, Ibrahim Sabek, and Michael J. Cafarella. 2024. Press ECCS to Doubt (Your Causal Graph). In GUIDE-AI@SIGMOD . 6–15. [25] Razieh Nabi and Ilya Shpitser. 2018. Fair Inference on Outcomes. In AAAI .1931–1940. [26] Ziad Obermeyer, Brian Powers, Christine Vogeli, and Sendhil Mullainathan. 2019. Dissecting racial bias in an algorithm used to manage the health of populations. 
+
+Science 366, 6464 (2019), 447–453. [27] Tony Pals and Marla Koenigsknecht. 2024. Study: Algorithms Used by Universi-ties to Predict Student Success May Be Racially Biased. American Educational Research Association (AERA) (2024). [28] J Pearl. 2009. Causality . Cambridge university press. [29] Dana Pessach and Erez Shmueli. 2022. A review on fairness in machine learning. 
+
+ACM Computing Surveys (CSUR) 55, 3 (2022), 1–44. [30] Alireza Pirhadi, Mohammad Hossein Moslemi, Alexander Cloninger, Mostafa Milani, and Babak Salimi. 2024. OTClean: Data Cleaning for Conditional Inde-pendence Violations using Optimal Transport. In SIGMOD , Vol. 2. 160. [31] Evaggelia Pitoura, Kostas Stefanidis, and Georgia Koutrika. 2022. Fairness in rankings and recommendations: an overview. VLDB J. 31, 3 (2022), 431–458. [32] Romila Pradhan, Jiongli Zhu, Boris Glavic, and Babak Salimi. 2022. Interpretable Data-Based Explanations for Fairness Debugging. In SIGMOD . 247–261. [33] David Pujol, Amir Gilad, and Ashwin Machanavajjhala. 2023. PreFair: Privately Generating Justifiably Fair Synthetic Data. In VLDB , Vol. 16. 1573–1586. [34] Jake Robertson, Noah Hollmann, Samuel Müller, Noor H. Awad, and Frank Hutter. 2025. FairPFN: A Tabular Foundation Model for Causal Fairness. In ICML .[35] Chris Russell, Matt J Kusner, Joshua Loftus, and Ricardo Silva. 2017. When worlds collide: integrating different counterfactual assumptions in fairness. NeurIPS .[36] Ricardo Salazar, Felix Neutatz, and Ziawasch Abedjan. 2021. Automated Feature Engineering for Algorithmic Fairness. In VLDB , Vol. 14. 1694–1702. [37] Babak Salimi, Luke Rodriguez, Bill Howe, and Dan Suciu. 2019. Interventional Fairness: Causal Database Repair for Algorithmic Fairness. In SIGMOD . 793–810. [38] Andrew D Selbst. 2017. Disparate impact in big data policing. Ga. L. Rev. 52 (2017), 109. [39] Arjun Sondhi and Ali Shojaie. 2019. The reduced PC-algorithm: Improved causal structure learning in large random networks. J. Mach. Learn. Res. 20, 164 (2019), 1–31. [40] Tanmay Surve and Romila Pradhan. 2025. Explaining Fairness Violations using Machine Unlearning. In EDBT . 623–635. [41] Ki Hyun Tae, Hantian Zhang, Jaeyoung Park, Kexin Rong, and Steven Euijong Whang. 2024. Falcon: Fair Active Learning Using Multi-Armed Bandits. In VLDB ,Vol. 17. 952–965. [42] Bowei Tian, Ziyao Wang, Shwai He, Wanghao Ye, Guoheng Sun, Yucong Dai, Yongkai Wu, and Ang Li. 2025. Towards counterfactual fairness through auxiliary variables. In ICLR .[43] Ioannis Tsamardinos, Laura E. Brown, and Constantin F. Aliferis. 2006. The max-min hill-climbing Bayesian network structure learning algorithm. Mach. Learn. 65, 1 (2006), 31–78. [44] Sotiris Tsioutsiouliklis, Evaggelia Pitoura, Panayiotis Tsaparas, Ilias Kleftakis, and Nikos Mamoulis. 2021. Fairness-aware pagerank. In WWW . 3815–3826. [45] Boris van Breugel, Trent Kyono, Jeroen Berrevoets, and Mihaela van der Schaar. 2021. DECAF: Generating Fair Synthetic Data Using Causally-Aware Generative Networks. In NeurIPS . 22221–22233. [46] CF Jeff Wu. 1983. On the convergence properties of the EM algorithm. The Annals of statistics (1983), 95–103. [47] Zikai Xiong, Niccolò Dalmasso, Alan Mishler, Vamsi K. Potluru, Tucker Balch, and Manuela Veloso. 2024. FairWASP: Fast and Optimal Fair Wasserstein Pre-processing. In AAAI . 16120–16128. [48] Depeng Xu, Shuhan Yuan, Lu Zhang, and Xintao Wu. 2018. FairGAN: Fairness-aware Generative Adversarial Networks. In IEEE BigData . 570–575. [49] Ke Yang and Alexandra Meliou. 2024. Non-Invasive Fairness in Learning Through the Lens of Data Drift. In ICDE . 2164–2178. [50] Rich Zemel, Yu Wu, Kevin Swersky, Toni Pitassi, and Cynthia Dwork. 2013. Learning fair representations. In ICML . 325–333. [51] Anna Zeng, Michael Cafarella, Batya Kenig, Markos Markakis, Brit Youngmann, and Babak Salimi. 2025. Causal DAG Summarization. In VLDB , Vol. 18. 1933– 1947. [52] Hantian Zhang, Ki Hyun Tae, Jaeyoung Park, Xu Chu, and Steven Euijong Whang. 2023. iFlipper: Label Flipping for Individual Fairness. In SIGMOD , Vol. 1. 1–26. [53] Qi Zhang, Rong-Hua Li, Zifan Zheng, Hongchao Qin, Ye Yuan, and Guoren Wang. 2025. Efficient Maximum Fair Clique Search over Large Networks. In 
+
+ICDE . 1043–1055. [54] Lecheng Zheng, Dawei Zhou, Hanghang Tong, Jiejun Xu, Yada Zhu, and Jingrui He. 2024. Fairgen: Towards Fair Graph Generation. In ICDE . 2285–2297. [55] Ying Zheng, Yangfan Jiang, and Kian-Lee Tan. 2026. CausalPre: Scalable and Effective Data Pre-processing for Causal Fairness. In ICDE .[56] Aoqi Zuo, Yiqing Li, Susan Wei, and Mingming Gong. 2024. Interventional Fair-ness on Partially Known Causal Graphs: A Constrained Optimization Approach. In ICLR .15
