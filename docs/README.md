@@ -6,160 +6,88 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-04
-- 运行时间：2026-04-04 19:57:05 UTC
+- 最新运行日期：2026-04-05
+- 运行时间：2026-04-05 19:46:19 UTC
 - 运行状态：成功
-- 本次总论文数：46
-- 精读区：33
+- 本次总论文数：22
+- 精读区：9
 - 速读区：13
 
 ### 今日简报（AI）
-今日深度复盘 46 篇前沿论文，重点聚焦逻辑证明辅导中的反馈机制与 LLM-PGM 混合合成算法。
-满分研究揭示了多智能体反馈在逻辑教学中的非对称效应，并提出兼顾准确性与真实性的混合合成新范式。
-建议关注大模型从代码片段向仓库级理解的演进，以及在多模态推理和空间转录组学中的跨界应用。
-- 详情：[/202604/04/README](/202604/04/README)
+今日深挖 22 篇 AI 前沿进展，重点攻克多语言长尾实体生成与原子级蛋白质设计两大高分课题。
+推荐关注 TailNLG 对冷门知识表达的优化，以及利用生成式预训练与推理计算提升蛋白质结合剂设计的规模化能力。
+建议从生物医药与跨语言交互视角切入，并留意文生图模型在处理数学逻辑时的潜在局限。
+- 详情：[/202604/05/README](/202604/05/README)
 
 ### 精读区论文标签
-1. [When Verification Hurts: Asymmetric Effects of Multi-Agent Feedback in Logic Proof Tutoring](/202604/04/2603.27076v1-when-verification-hurts-asymmetric-effects-of-multi-agent-feedback-in-logic-proof-tutoring)  
-   标签：评分：10.0/10、query:q21
-   evidence：用于自动逻辑证明辅导的多智能体反馈流水线
-2. [Amalgam: Hybrid LLM-PGM Synthesis Algorithm for Accuracy and Realism](/202604/04/2603.27254v1-amalgam-hybrid-llm-pgm-synthesis-algorithm-for-accuracy-and-realism)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：混合 LLM-PGM 数据合成算法
-3. [Beyond Dataset Distillation: Lossless Dataset Concentration via Diffusion-Assisted Distribution Alignment](/202604/04/2603.27987v1-beyond-dataset-distillation-lossless-dataset-concentration-via-diffusion-assisted-distribution-alignment)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：通过扩散辅助分布对齐合成紧凑的代理数据集
-4. [PoseDreamer: Scalable and Photorealistic Human Data Generation Pipeline with Diffusion Models](/202604/04/2603.28763v1-posedreamer-scalable-and-photorealistic-human-data-generation-pipeline-with-diffusion-models)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：利用扩散模型生成大规模合成数据集
-5. [Reasoning-Driven Synthetic Data Generation and Evaluation](/202604/04/2603.29791v1-reasoning-driven-synthetic-data-generation-and-evaluation)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：推理驱动的合成数据生成框架
-6. [Optimsyn: Influence-Guided Rubrics Optimization for Synthetic Data Generation](/202604/04/2604.00536v1-optimsyn-influence-guided-rubrics-optimization-for-synthetic-data-generation)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：使用大语言模型优化合成数据生成
-7. [ORBIT: Scalable and Verifiable Data Generation for Search Agents on a Tight Budget](/202604/04/2604.01195v1-orbit-scalable-and-verifiable-data-generation-for-search-agents-on-a-tight-budget)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：用于生成2万个高推理强度训练查询的节俭框架
-8. [ORBIT: Scalable and Verifiable Data Generation for Search Agents on a Tight Budget](/202604/04/2604.01195v2-orbit-scalable-and-verifiable-data-generation-for-search-agents-on-a-tight-budget)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：为搜索代理生成可扩展且可验证的数据
-9. [DISCO-TAB: A Hierarchical Reinforcement Learning Framework for Privacy-Preserving Synthesis of Complex Clinical Data](/202604/04/2604.01481v1-disco-tab-a-hierarchical-reinforcement-learning-framework-for-privacy-preserving-synthesis-of-complex-clinical-data)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：使用大模型和强化学习进行隐私保护临床数据合成的框架
-10. [SEAL: An Open, Auditable, and Fair Data Generation Framework for AI-Native 6G Networks](/202604/04/2604.02128v1-seal-an-open-auditable-and-fair-data-generation-framework-for-ai-native-6g-networks)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：带有伦理审计的合成数据生成框架
-11. [Synthesizing the Counterfactual: A CTGAN-Augmented Causal Evaluation of Palliative Care on Spousal Depression](/202604/04/2603.26913v1-synthesizing-the-counterfactual-a-ctgan-augmented-causal-evaluation-of-palliative-care-on-spousal-depression)  
+1. [TailNLG: A Multilingual Benchmark Addressing Verbalization of Long-Tail Entities](/202604/05/2603.27768v1-tailnlg-a-multilingual-benchmark-addressing-verbalization-of-long-tail-entities)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：使用 CTGAN 生成合成数据以解决样本限制
-12. [Spectral-Aware Text-to-Time Series Generation with Billion-Scale Multimodal Meteorological Data](/202604/04/2603.27135v1-spectral-aware-text-to-time-series-generation-with-billion-scale-multimodal-meteorological-data)  
+   evidence：基于Wikidata构建新的多语言基准数据集
+2. [Scaling Atomistic Protein Binder Design with Generative Pretraining and Test-Time Compute](/202604/05/2603.27950v1-scaling-atomistic-protein-binder-design-with-generative-pretraining-and-test-time-compute)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于构建十亿级数据集的多智能体协同标注流水线
-13. [EuraGovExam: A Multilingual Multimodal Benchmark from Real-World Civil Service Exams](/202604/04/2603.27223v1-euragovexam-a-multilingual-multimodal-benchmark-from-real-world-civil-service-exams)  
+   evidence：构建一个新的大规模合成结合剂-靶点对数据集
+3. [COvolve: Adversarial Co-Evolution of Large-Language-Model-Generated Policies and Environments via Two-Player Zero-Sum Game](/202604/05/2603.28386v1-covolve-adversarial-co-evolution-of-large-language-model-generated-policies-and-environments-via-two-player-zero-sum-game)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：展示了EuraGovExam，一个源自真实考试的多语言多模态基准数据集
-14. [Multi-Agent Dialectical Refinement for Enhanced Argument Classification](/202604/04/2603.27451v1-multi-agent-dialectical-refinement-for-enhanced-argument-classification)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：用于自动写作评估的多智能体辩论
-15. [A Dataset of Nonlinear Equations for Subdivision](/202604/04/2603.27499v1-a-dataset-of-nonlinear-equations-for-subdivision)  
+   evidence：大语言模型生成环境和智能体策略
+4. [TGIF2: Extended Text-Guided Inpainting Forgery Dataset & Benchmark](/202604/05/2603.28613v1-tgif2-extended-text-guided-inpainting-forgery-dataset--benchmark)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：构建了目前最大的非线性系统标注数据集
-16. [An efficient open-source framework for high-fidelity 3D surface topography and roughness prediction in milling](/202604/04/2603.28160v1-an-efficient-open-source-framework-for-high-fidelity-3d-surface-topography-and-roughness-prediction-in-milling)  
+   evidence：构建用于文本引导修复伪造的新研究数据集
+5. [Gen-Searcher: Reinforcing Agentic Search for Image Generation](/202604/05/2603.28767v1-gen-searcher-reinforcing-agentic-search-for-image-generation)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于模型训练的高保真合成数据集生成框架
-17. [Tailoring AI-Driven Reading Scaffolds to the Distinct Needs of Neurodiverse Learners](/202604/04/2603.28370v2-tailoring-ai-driven-reading-scaffolds-to-the-distinct-needs-of-neurodiverse-learners)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：针对小学学习者的AI驱动阅读支架
-18. [GraphWalker: Agentic Knowledge Graph Question Answering via Synthetic Trajectory Curriculum](/202604/04/2603.28533v1-graphwalker-agentic-knowledge-graph-question-answering-via-synthetic-trajectory-curriculum)  
+   evidence：构建定制数据流水线并策划两个高质量数据集
+6. [Tucker Diffusion Model for High-dimensional Tensor Generation](/202604/05/2604.00481v1-tucker-diffusion-model-for-high-dimensional-tensor-generation)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于训练数据的自动化轨迹合成
-19. [Generating Humanless Environment Walkthroughs from Egocentric Walking Tour Videos](/202604/04/2603.29036v1-generating-humanless-environment-walkthroughs-from-egocentric-walking-tour-videos)  
+   evidence：用于高维张量生成的扩散模型
+7. [Infeasibility Aware Large Language Models for Combinatorial Optimization](/202604/05/2604.01455v1-infeasibility-aware-large-language-models-for-combinatorial-optimization)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：构建丰富的视频剪辑对半合成数据集
-20. [Bringing Up a Bilingual BabyLM: Investigating Multilingual Language Acquisition Using Small-Scale Models](/202604/04/2603.29552v1-bringing-up-a-bilingual-babylm-investigating-multilingual-language-acquisition-using-small-scale-models)  
+   evidence：组合优化问题的可验证数据集构建
+8. [CRIT: Graph-Based Automatic Data Synthesis to Enhance Cross-Modal Multi-Hop Reasoning](/202604/05/2604.01634v1-crit-graph-based-automatic-data-synthesis-to-enhance-cross-modal-multi-hop-reasoning)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：使用合成数据创建匹配的1亿词单语和双语数据集
-21. [Leveraging Synthetic Data for Enhancing Egocentric Hand-Object Interaction Detection](/202604/04/2603.29733v1-leveraging-synthetic-data-for-enhancing-egocentric-hand-object-interaction-detection)  
+   evidence：基于图的自动流水线，用于生成复杂的跨模态推理数据
+9. [ROS 2-Based LiDAR Perception Framework for Mobile Robots in Dynamic Production Environments, Utilizing Synthetic Data Generation, Transformation-Equivariant 3D Detection and Multi-Object Tracking](/202604/05/2604.02109v1-ros-2-based-lidar-perception-framework-for-mobile-robots-in-dynamic-production-environments-utilizing-synthetic-data-generation-transformation-equivariant-3d-detection-and-multi-object-tracking)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：利用合成数据增强手物交互检测
-22. [TSHA: A Benchmark for Visual Language Models in Trustworthy Safety Hazard Assessment Scenarios](/202604/04/2603.29759v1-tsha-a-benchmark-for-visual-language-models-in-trustworthy-safety-hazard-assessment-scenarios)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：构建用于安全隐患评估的新基准数据集
-23. [SYNTHONY: A Stress-Aware, Intent-Conditioned Agent for Deep Tabular Generative Models Selection](/202604/04/2604.00293v1-synthony-a-stress-aware-intent-conditioned-agent-for-deep-tabular-generative-models-selection)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：为数据合成选择深度表格生成模型
-24. [SAGE: Subsurface AI-driven Geostatistical Extraction with proxy posterior](/202604/04/2604.00307v1-sage-subsurface-ai-driven-geostatistical-extraction-with-proxy-posterior)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：用于地下速度模型合成的生成网络
-25. [Learnability-Guided Diffusion for Dataset Distillation](/202604/04/2604.00519v1-learnability-guided-diffusion-for-dataset-distillation)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：利用扩散模型进行数据集蒸馏以创建合成数据集
-26. [A CEFR-Inspired Classification Framework with Fuzzy C-Means To Automate Assessment of Programming Skills in Scratch](/202604/04/2604.00730v1-a-cefr-inspired-classification-framework-with-fuzzy-c-means-to-automate-assessment-of-programming-skills-in-scratch)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：针对个性化学习路径的编程技能自动评估
-27. [Yet Even Less Is Even Better For Agentic, Reasoning, and Coding LLMs](/202604/04/2604.00824v1-yet-even-less-is-even-better-for-agentic-reasoning-and-coding-llms)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：为智能体大模型生成高质量训练轨迹的框架
-28. [Accurate and Scalable Matrix Mechanisms via Divide and Conquer](/202604/04/2604.00868v1-accurate-and-scalable-matrix-mechanisms-via-divide-and-conquer)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：用于创建合成数据的矩阵机制
-29. [ProdCodeBench: A Production-Derived Benchmark for Evaluating AI Coding Agents](/202604/04/2604.01527v1-prodcodebench-a-production-derived-benchmark-for-evaluating-ai-coding-agents)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：策划源自生产环境的AI编程智能体基准数据集的方法论
-30. [DynaVid: Learning to Generate Highly Dynamic Videos using Synthetic Motion Data](/202604/04/2604.01666v1-dynavid-learning-to-generate-highly-dynamic-videos-using-synthetic-motion-data)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：在训练中使用合成运动数据
-31. [Captioning Daily Activity Images in Early Childhood Education: Benchmark and Algorithm](/202604/04/2604.01941v1-captioning-daily-activity-images-in-early-childhood-education-benchmark-and-algorithm)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：引入了ECAC，一个用于幼儿教育的大规模基准数据集
-32. [Jagle: Building a Large-Scale Japanese Multimodal Post-Training Dataset for Vision-Language Models](/202604/04/2604.02048v1-jagle-building-a-large-scale-japanese-multimodal-post-training-dataset-for-vision-language-models)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：构建大规模多模态数据集的方法论
-33. [VOID: Video Object and Interaction Deletion](/202604/04/2604.02296v1-void-video-object-and-interaction-deletion)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：生成新的反事实物体移除配对数据集
+   evidence：利用合成数据生成技术进行机器人激光雷达感知
 
 ### 速读区论文标签
-1. [Generative Score Inference for Multimodal Data](/202604/04/2603.26349v1-generative-score-inference-for-multimodal-data)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：利用深度生成模型生成的合成样本
-2. [Beyond Code Snippets: Benchmarking LLMs on Repository-Level Question Answering](/202604/04/2603.26567v1-beyond-code-snippets-benchmarking-llms-on-repository-level-question-answering)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：根据真实开发者问题构建的仓库级问答数据集
-3. [Central-to-Local Adaptive Generative Diffusion Framework for Improving Gene Expression Prediction in Data-Limited Spatial Transcriptomics](/202604/04/2603.26827v1-central-to-local-adaptive-generative-diffusion-framework-for-improving-gene-expression-prediction-in-data-limited-spatial-transcriptomics)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：针对数据受限场景的生成式扩散框架
-4. [Unlocking Open-Player-Modeling-enhanced Game-Based Learning: The Open Player Socially Analytical Intelligence Architecture](/202604/04/2603.26915v1-unlocking-open-player-modeling-enhanced-game-based-learning-the-open-player-socially-analytical-intelligence-architecture)  
+1. [Adapting AI to the Moment: Understanding the Dynamics of Parent-AI Collaboration Modes in Real-Time Conversations with Children](/202604/05/2603.27633v2-adapting-ai-to-the-moment-understanding-the-dynamics-of-parent-ai-collaboration-modes-in-real-time-conversations-with-children)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：游戏化学习架构与教学洞察
-5. [Leveraging Avatar Fingerprinting: A Multi-Generator Photorealistic Talking-Head Public Database and Benchmark](/202604/04/2603.26934v1-leveraging-avatar-fingerprinting-a-multi-generator-photorealistic-talking-head-public-database-and-benchmark)  
+   evidence：家长与人工智能在与儿童实时对话中的协作
+2. [MathGen: Revealing the Illusion of Mathematical Competence through Text-to-Image Generation](/202604/05/2603.27959v2-mathgen-revealing-the-illusion-of-mathematical-competence-through-text-to-image-generation)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：引入了 AVAPrintDB，一个新的多生成器真人头像数据库
-6. [MemoryCD: Benchmarking Long-Context User Memory of LLM Agents for Lifelong Cross-Domain Personalization](/202604/04/2603.25973v1-memorycd-benchmarking-long-context-user-memory-of-llm-agents-for-lifelong-cross-domain-personalization)  
+   evidence：构建数学能力的严谨基准数据集
+3. [From Independent to Correlated Diffusion: Generalized Generative Modeling with Probabilistic Computers](/202604/05/2603.27996v1-from-independent-to-correlated-diffusion-generalized-generative-modeling-with-probabilistic-computers)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：关联扩散的广义生成模型
+4. [Proposing a Game Theory Approach to Explore Group Dynamics with Social Robot](/202604/05/2603.28348v1-proposing-a-game-theory-approach-to-explore-group-dynamics-with-social-robot)  
+   标签：评分：8.0/10、query:q25
+   evidence：社交机器人促进教育环境中的协作
+5. [From Big Data to Fast Data: Towards High-Quality Datasets for Machine Learning Applications from Closed-Loop Data Collection](/202604/05/2603.29474v1-from-big-data-to-fast-data-towards-high-quality-datasets-for-machine-learning-applications-from-closed-loop-data-collection)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：从闭环采集构建高质量数据集的方法论
+6. [daVinci-LLM:Towards the Science of Pretraining](/202604/05/2603.27164v1-davinci-llmtowards-the-science-of-pretraining)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：从真实行为中构建新的研究数据集
-7. [IndoBERT-Relevancy: A Context-Conditioned Relevancy Classifier for Indonesian Text](/202604/04/2603.26095v1-indobert-relevancy-a-context-conditioned-relevancy-classifier-for-indonesian-text)  
+   evidence：发布完整的预训练数据处理流水线
+7. [Rethinking Easy-to-Hard: Limits of Curriculum Learning in Post-Training for Deductive Reasoning](/202604/05/2603.27226v1-rethinking-easy-to-hard-limits-of-curriculum-learning-in-post-training-for-deductive-reasoning)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：迭代式故障驱动的数据构建过程
-8. [PruneFuse: Efficient Data Selection via Weight Pruning and Network Fusion](/202604/04/2603.26138v1-prunefuse-efficient-data-selection-via-weight-pruning-and-network-fusion)  
+   evidence：使用合成的算术和逻辑基准测试来研究大语言模型的课程学习
+8. [Adapting AI to the Moment: Understanding the Dynamics of Parent-AI Collaboration Modes in Real-Time Conversations with Children](/202604/05/2603.27633v1-adapting-ai-to-the-moment-understanding-the-dynamics-of-parent-ai-collaboration-modes-in-real-time-conversations-with-children)  
+   标签：评分：7.0/10、query:edu-llm
+   evidence：家长与AI协作支持与儿童的实时对话
+9. [Test-Time Instance-Specific Parameter Composition: A New Paradigm for Adaptive Generative Modeling](/202604/05/2603.27665v1-test-time-instance-specific-parameter-composition-a-new-paradigm-for-adaptive-generative-modeling)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：通过权重剪枝进行高效数据选择以减少标注需求
-9. [LLaDA-TTS: Unifying Speech Synthesis and Zero-Shot Editing via Masked Diffusion Modeling](/202604/04/2603.26364v1-llada-tts-unifying-speech-synthesis-and-zero-shot-editing-via-masked-diffusion-modeling)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：用于语音合成的掩码扩散模型
-10. [Channelling, Coordinating, Collaborating: A Three-Layer Framework for Disability-Centered Human-Agent Collaboration](/202604/04/2603.26252v1-channelling-coordinating-collaborating-a-three-layer-framework-for-disability-centered-human-agent-collaboration)  
-   标签：评分：6.0/10、query:q20
-   evidence：能力多样化背景下人机协作的框架
-11. [Fair Data Pre-Processing with Imperfect Attribute Space](/202604/04/2603.26456v1-fair-data-pre-processing-with-imperfect-attribute-space)  
+   evidence：使用扩散和自回归网络的自适应生成建模
+10. [Transparency as Architecture: Structural Compliance Gaps in EU AI Act Article 50 II](/202604/05/2603.26983v1-transparency-as-architecture-structural-compliance-gaps-in-eu-ai-act-article-50-ii)  
    标签：评分：6.0/10、query:ds-gen
-   evidence：校准数据集以满足设计的公平性策略
-12. [UNIFERENCE: A Discrete Event Simulation Framework for Developing Distributed AI Models](/202604/04/2603.26469v1-uniference-a-discrete-event-simulation-framework-for-developing-distributed-ai-models)  
-   标签：评分：6.0/10、query:q23
-   evidence：用于开发分布式人工智能模型的模拟框架
-13. [Deception and Communication in Autonomous Multi-Agent Systems: An Experimental Study with Among Us](/202604/04/2603.26635v1-deception-and-communication-in-autonomous-multi-agent-systems-an-experimental-study-with-among-us)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：多目标多智能体系统中的策略性欺骗
+   evidence：将合成数据生成作为AI合规性的诊断案例
+11. [RASPRef: Retrieval-Augmented Self-Supervised Prompt Refinement for Large Reasoning Models](/202604/05/2603.27008v1-raspref-retrieval-augmented-self-supervised-prompt-refinement-for-large-reasoning-models)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：通过自监督优化推理轨迹以提升模型性能
+12. [Unified Number-Free Text-to-Motion Generation Via Flow Matching](/202604/05/2603.27040v1-unified-number-free-text-to-motion-generation-via-flow-matching)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：使用流匹配进行动作合成的生成模型
+13. [NeedleDB: A Generative-AI Based System for Accurate and Efficient Image Retrieval using Complex Natural Language Queries](/202604/05/2603.27464v1-needledb-a-generative-ai-based-system-for-accurate-and-efficient-image-retrieval-using-complex-natural-language-queries)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：利用生成式AI合成引导图像
 
 
 <div class="dpr-home-promo-card">
