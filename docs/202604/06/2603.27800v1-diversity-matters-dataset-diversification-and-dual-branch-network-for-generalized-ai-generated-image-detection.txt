@@ -1,0 +1,352 @@
+Title: Diversity Matters: Dataset Diversification and Dual-Branch Network for Generalized AI-Generated Image Detection
+
+URL Source: https://arxiv.org/pdf/2603.27800v1
+
+Published Time: Tue, 31 Mar 2026 01:21:09 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Diversity Matters: Dataset Diversification and Dual-Branch Network for Generalized AI-Generated Image Detection 
+
+## Nusrat Tasnim Korea Aerospace University 10540, Goyang, Gyeonggi, South Korea 
+
+tasnim.nishu70@kau.kr 
+
+## Kutub Uddin University of Michigan-Flint 48502, Flint, Michigan, United States 
+
+kutub@umich.edu 
+
+## Khalid Malik University of Michigan-Flint 48502, Flint, Michigan, United States 
+
+drmalik@umich.edu 
+
+## Abstract 
+
+The rapid proliferation of AI-generated images, powered by generative adversarial networks (GANs), diffusion models, and other synthesis techniques, has raised serious concerns about misinformation, copyright violations, and digital se-curity. However, detecting such images in a generalized and robust manner remains a major challenge due to the vast diversity of generative models and data distributions. In this work, we present Diversity Matters , a novel frame-work that emphasizes data diversity and feature domain complementarity for AI-generated image detection. The proposed method introduces a feature-domain similarity fil-tering mechanism that discards redundant or highly simi-lar samples across both inter-class and intra-class distribu-tions, ensuring a more diverse and representative training set. Furthermore, we propose a dual-branch network that combines CLIP features from the pixel domain and the fre-quency domain to jointly capture semantic and structural cues, leading to improved generalization against unseen generative models and adversarial conditions. Extensive experiments on benchmark datasets demonstrate that the proposed approach significantly improves cross-model and cross-dataset performance compared to existing methods. 
+
+Diversity Matters highlights the critical role of data and feature diversity in building reliable and robust detectors against the rapidly evolving landscape of synthetic content. 
+
+## 1. Introduction 
+
+In recent years, generative AI has made remark-able progress in synthesizing high-quality images [26], videos [27], and audio [50]. Such AI-generated media, particularly images, have rapidly proliferated across so-
+
+Figure 1. SoTA vs diversity-aware dataset selection. (Left) Con-ventional approaches train detectors on all samples with high re-dundancy, resulting in dense clusters and overfitting. (Right) The proposed CLIP-based diversity-aware approach filters sam-ples across both inter-class and intra-class to retain diverse sam-ples in sparse clusters. Faded samples indicate removed similar pairs. This approach improves the model generalization and ro-bustness while reducing the dataset size significantly for training the detectors. 
+
+cial platforms (e.g., Facebook, YouTube, Instagram, Tik-Tok) to spread misinformation. This surge in AI-generated images (AIGIs) poses substantial threats to biometric sys-tems, including face recognition, surveillance, and remote conferencing, and more critically, undermines trust in le-gal and judicial processes. For example, in 2024, several AIGIs [38] were widely circulated on social media and mis-interpreted as real photographs of a flood in Bangladesh. These AIGIs, often depicting emotionally charged scenes, quickly went viral, creating unnecessary public concern and spreading misinformation across the country and beyond. The widespread misinterpretation of such images under-scored the growing challenge of distinguishing authentic 1
+
+> arXiv:2603.27800v1 [cs.CV] 29 Mar 2026
+
+content from AI-generated fabrications, especially during emergencies such as natural disasters. Recent studies reveal that AIGIs are increasingly being used for fraud, misinformation, and identity attacks. For exam-ple, a large-scale analysis of Twitter (X) profiles found that more than 7,700 accounts were using AI-generated faces for spam and influence operations [29]. During the 2024 U.S. election, approximately 12% of images shared in political discussion spaces were AIGI, with a small group responsi-ble for nearly 80% of fake content [16]. Financial losses are also increasing. AI-enabled fraud caused over $200 million in damages in early 2025 alone [8]. In addition, surveys show that 68% of people are concerned about misinforma-tion from AI-generated media, yet less than 1% can reliably distinguish real from AIGIs [18]. These statistics highlight the urgent need for generalized and robust AIGI detection and policy interventions to mitigate AI-enabled fraud. In recent years, various AIGI detection methods [6, 32– 34, 36, 37, 42, 43, 51] have been proposed, follow-ing either traditional deep learning paradigms or founda-tion model–based strategies. Traditional approaches typi-cally involve training models using traditional deep learn-ing as a backbone [32–34]. Foundation model–based ap-proaches [7, 15, 19, 31], in contrast, exploit large-scale pre-trained encoders, such as CLIP [23], which can cap-ture diverse semantic and low-level features. A few meth-ods [10, 17, 21, 33] used frequency information for detect-ing synthetic natures. These models provide better general-ization to seen generative techniques or similar signatures, including GANs and diffusion models. Nevertheless, these methods face the fundamental challenge to completely new synthetic artifacts, highlighting the persistent difficulty in achieving truly generalized detection, and raising the fol-lowing research question (RQ): 
+
+. Are existing methods sufficiently generalizable to unseen generative models? 
+
+Answer: Achieving generalization to unseen or newly developed generative models remains highly challenging. Models trained solely on GAN-based datasets typically fail to generalize to diffusion models, and vice versa. Moreover, relying heav-ily on large volumes of data from a single category (e.g., GAN or diffusion) often leads to overfitting, which further limits the model’s ability to detect previously unseen manipulations. Existing approaches primarily rely on either pixel-domain [3, 19, 24, 25, 48] or frequency-domain [32, 33] in-formation for generalization. Some recent methods [4, 17] incorporate frequency modules into pretrained models, such as CLIP, to capture spectral artifacts. However, these ap-proaches remain inherently single-branch or loosely cou-pled, limiting their ability to jointly model semantic and structural inconsistencies. To overcome the limitations of existing approaches [7, 17, 19, 32–34], we introduce a novel AIGI detection framework that (i) diversifies the training data inspired by Abbas et al. [1], including both GAN- and diffusion-based generative models by incorporating feature-space filtering, and (ii) em-ploys a dual-branch architecture designed to enhance gen-eralization to previously unseen generators, as illustrated in Figure 1 (right). The proposed dual-branch design explic-itly integrates complementary pixel- and frequency-domain representations, enabling more comprehensive artifact mod-eling and significantly improving generalization across un-seen generative models. The key contributions are summa-rized as follows: • We found that training with a single generative model, such as ProGAN [14], is insufficient for generalization to unseen samples, particularly new diffusion models. • We introduce dataset diversification via feature-space fil-tering with a pretrained encoder, removing redundant data during training to capture diverse characteristics. • We propose a dual-branch network that combines pixel-domain and frequency-domain information, enhancing overall generalization. • Extensive experiments across multiple AIGI detection models and benchmark datasets demonstrate the effec-tiveness of our approach. 
+
+## 2. Related Works 
+
+This section presents an overview of existing AIGI detec-tion methods, spanning from traditional deep learning ap-proaches to foundation model–based strategies. 
+
+2.1. Traditional Deep Learning-Based Approaches 
+
+Early AIGI detection methods relied heavily on traditional deep learning architectures, especially convolutional neural networks (CNNs) such as ResNet [11], InceptionNet [30], XceptionNet [5], DenseNet [13]. These methods exploited spatial artifacts, texture inconsistencies, and blending irreg-ularities that emerged during manipulation. For example, Wang et al [48] trained a ResNet18 [11] model with the ProGAN [14] dataset by applying careful augmentation and showed promising generalization across unseen samples. After this method, most methods followed the same pro-tocol to train the detection model on the ProGAN dataset and generalize across unseen samples. Tan et al. [32] in-troduced a gradient-based approach in which they used the gradient of pre-trained models. Corvi et al. [6] explored the diffusion artifacts and used frequency information to detect the synthetic signature. Tan et al. [34] explored the upsam-pling properties in AIGIs and formalized neighboring pixel relations (NPR) for generalized detection. They further de-veloped a frequency-aware network to capture low and high frequency cues for AIGIs detection. Rajan et al. [25] ar-gued that a better-aligned real and AIGI dataset helped in 2improving generalization across diffusion models. Later, they proposed a stay positive method, in which they first trained a detector on both real and AIGI samples, and then retrained the model using only AIGIs to enhance its focus on synthetic artifacts. 
+
+2.2. Foundation Model-Based Approaches 
+
+With the rise of large-scale pre-trained models, founda-tion models, particularly contrastive models such as CLIP, have emerged as powerful tools for AIGI detection. Several methods [4, 7, 17, 19] leverage these models either as fea-ture extractors or by fine-tuning them on targeted datasets. For example, Ojha et al. [19] used CLIP as a frozen feature extractor and trained a detection head to identify AIGIs. Cozzolino et al. [7] evaluated CLIP with a small number of samples and achieved promising performance. Koutlis et al. [15] extracted class token features from an interme-diate CLIP encoder and introduced a trainable importance estimator to improve generalization across unseen samples. Tan et al. [31] generated a common caption for all real and fake samples and injected it into the encoder to enhance generalization. Liu et al. [17] proposed a forgery-aware adapter to fine-tune CLIP on AIGI datasets. Similarly, Yan et al. [52] applied a singular value decomposition technique to fine-tune CLIP for better performance on AIGI datasets. Chen et al. [4] further extended CLIP by fine-tuning it with forgery-specific features using a weight-shared guidance module, achieving improved generalization. 
+
+2.3. Limitation of the Existing Methods 
+
+A major limitation of existing methods [4, 6, 17, 19, 32, 48] is that most focus on either GAN- or diffusion-based gener-ative models and are evaluated on a limited set of datasets. Moreover, most approaches [6, 17, 48] train their models using only one generative model, which restricts the deci-sion boundary and can lead to overfitting. As new gener-ative models continue to emerge, these methods often fail to generalize, since they are tailored to specific datasets. In addition, relying on large volumes of data from a single generative model further limits their ability to generalize to unseen synthetic content. 
+
+## 3. Proposed Method 
+
+This section details the proposed method, outlining its moti-vation, defining dataset diversity, and describing the overall AIGI detection framework. 
+
+3.1. Problem Statement and Motivation 
+
+AIGI detection is increasingly difficult as generative mod-els, spanning GANs, diffusion models, and perceptual syn-thesis pipelines, grow more diverse and realistic. Each gen-erative approach introduces unique architectural priors and artifact signatures, making it impractical for a single detec-tor to capture all synthetic cues. Concretely, models trained exclusively on GAN datasets (e.g., ProGAN) fail to gen-eralize to diffusion, and vice versa. In addition, most ex- 
+
+> Figure 2. Flow diagram of the proposed data diversification to improve generalizability across diverse generative models.
+
+isting detectors are trained on large volumes of data from a single generative source, causing them to overfit to nar-row, model-specific feature distributions rather than learn-ing broadly applicable synthetic cues. These limitations manifest in two practical failure modes: (i) data redundancy, where densely clustered training sam-ples reinforce narrow decision boundaries, and (ii) feature incompleteness, where relying solely on pixel-domain rep-resentations misses the structural and spectral artifacts that are more clearly exposed in the frequency domain. Ad-dressing both failure modes is essential: a diverse, dedupli-cated training set reduces model-specific bias, while com-plementary pixel- and frequency-domain features together capture the full range of synthetic signatures needed for ro-bust, cross-domain detection. 
+
+3.2. Formulation of Dataset Diversity 
+
+AIGI datasets often contain high redundancy, where many samples exhibit near-identical artifacts or visual patterns. Training on such data can bias the detector toward narrow feature distributions. To address this limitation, we intro-duce a feature-domain similarity filtering strategy to discard redundant samples, thereby bringing diversity and improv-ing generalization. Figure 2 illustrates a four-stage dedu-plication pipeline designed to create a balanced, diverse 3Figure 3. Architecture of the proposed diversity-aware and dual-branch AIGI detection framework. A diversity-aware selection strategy curates a representative training set. In the first branch (top), a frozen CLIP image encoder extracts embeddings from each patch of the real pixel-level input. In the second branch, the CLIP image encoder is fine-tuned using the corresponding frequency-spectrum patches. Class tokens from all patches across both branches are then concatenated and passed through a trainable detection head. The detection head predicts whether the input sample is real or fake. 
+
+dataset while removing duplicates: 
+
+Stage 1 – Feature Extraction: The input dataset of N sam-ples is processed through a CLIP ViT-L/14 [22] encoder (768-D) to extract visual features, enabling efficient simi-larity comparison for deduplication. 
+
+Stage 2 – Global Deduplication: A cosine similarity is computed to identify globally similar samples, which are then deduplicated using a threshold T , reducing the dataset to M samples. We employ cosine similarity because CLIP embeddings are optimized for directional alignment in the feature space. It focuses on the angular relationship be-tween feature vectors, capturing semantic similarity while being invariant to feature magnitude. 
+
+Stage 3 – Class-Based Threshold Refinement: The dedu-plicated samples are split into real and fake classes ( M1 and 
+
+M2 respectively). The pipeline then applies deduplication based on class, on the condition M1 > M 2 to make the real and fake classes balance. 
+
+Stage 4 – Final Balancing: The separately deduplicated real and fake samples are merged to produce the final di-verse dataset of S samples, which maintains class balance and removes redundancy. Let X = {xi}Ni=1 denote the set of real and fake images ob-tained from multiple generative sources (most commonly used GAN and diffusion techniques). For each sample xi,we extract its CLIP-based representation, defined as fol-lows: 
+
+fi = ϕ(xi) (1) where ϕ(·) is a pre-trained CLIP encoder. We compute pair-wise cosine similarity ( PCS ) and discard samples whose similarity exceeds a threshold T :
+
+PCS (fi, f j ) = f ⊤ 
+
+> i
+
+fj
+
+∥fi∥ ∥ fj ∥
+
+discard (xj ) if PCS (fi, f j ) > T 
+
+(2) This filtering ensures that the retained subset 
+
+X ∗ ⊆ X (3) is more diverse and representative across different gener-ative models. By constructing a dataset with reduced re-dundancy, the detector is encouraged to learn broader, more generalizable cues associated with synthetic content. 
+
+3.3. Architecture of the Proposed AIGI Detector 
+
+Figure 3 depicts the overall architecture of the proposed de-tector. The architecture employs a dual-branch design that processes complementary representations of the input: (i) the pixel domain (raw image) and (ii) the frequency do-main (spectral). The first branch utilizes a frozen image encoder with pretrained weights, while the second branch uses a finetuned image encoder with the same architecture. Both branches extract class tokens and patch features, in which only class tokens are aggregated through concatena-tion to form a combined feature representation. This fused feature representation is then fed into a trainable detection head consisting of three linear layers with LeakyReLU ac-tivation and dropout regularization, progressively reducing the feature dimensionality from 2 ×1024 to 256 to 128, fol-lowed by a final linear layer that produces a binary logit for distinguishing between real and fake images. 
+
+3.3.1. Dual-Branch Network 
+
+Given an input image x, we define two parallel pathways: 
+
+Pixel-Domain Branch: This branch uses CLIP’s visual en-coder to extract a semantic and appearance-based represen-tation ( Rp): 4Rp = ϕpixel (x) (4) These features capture semantic inconsistencies and unnat-ural visual patterns produced by generative models. 
+
+Frequency-Domain Branch. AIGIs often contain struc-tural irregularities and periodic patterns that are more eas-ily revealed in the frequency spectrum than in the spatial domain. To exploit these artifacts, we first transform the input image into the frequency domain using the discrete Fourier transform ( DF T ) [9], which decomposes the im-age into its spectral components. The resulting magnitude spectrum highlights subtle generative inconsistencies such as repetitive textures, patch-level harmonics, and abnormal high-frequency attenuation. This frequency representation is then fed into a CLIP-based encoder to extract high-level spectral features that complement the semantic cues learned in the pixel domain. The frequency-domain processing be-gins with the DFT transformation: 
+
+xs = DFT (x) (5) where x is the input image and xf is its frequency spec-trum. The magnitude spectrum is subsequently processed by a finetuned CLIP-based encoder to extract spectral rep-resentation ( Rs): 
+
+Rs = ϕspectrum (xs) (6) where ϕspectrum represents the finetuned encoder. The fea-ture representations from both the pixel-domain branch Rp
+
+and spectral-domain branch Rs are concatenated at the to-ken level to leverage complementary information: 
+
+f = [ fp ∥ fs] (7) where the pixel-domain branch features are aggregated as: 
+
+fp = ∥Ni=1 Rpi (8) representing the concatenation of class tokens from the N
+
+blocks of the spatial encoder, , Rp, and the frequency-domain branch features are aggregated as: 
+
+fs = ∥Nj=1 Rsi (9) representing the concatenation of class tokens from the N
+
+blocks of the spectral encoder, Rs. The final fused fea-ture representation f combines both domain-specific fea-tures through concatenation and is subsequently fed into the classification head for the real/fake prediction. 
+
+3.3.2. Loss Function 
+
+We optimize the proposed dual-branch detector using a hybrid objective that combines cross-entropy classification loss with supervised contrastive [15] regularization: 
+
+L = LCE (y, ˆy) + λLSC (y, f ) (10) where LCE enforces correct real/fake classification, LSC 
+
+promotes representation complementarity between the two                                     
+
+> Table 1. Benchmark AI-Generated Datasets: Overview of datasets used in this study, categorized by generative paradigm, with re-lease year, generative techniques, and sample counts.
+> Name of Dataset Year of Release Generative Techniques Real Samples Generated Samples GAN-based Datasets
+> PGAN [14] 2020 172,012 72,012 CNNDF [48] 2020 831,006 30,997 GANDF [34] 2024 918,000 18,000
+> Diffusion-based Datasets
+> D1KS [34] 2023 518,000 17,992 UDF [19] 2023 88,000 8,000 DIRE [49] 2024 818,000 22,603 GENI [53] 2023 946,999 47,000 MNW [26] 2025 43 011,250
+> Mixed Dataset
+> MGD [19, 48] -20 52,169 52,160
+
+branches, and λ controls the regularization strength. The cross-entropy loss is defined as: 
+
+LCE (y, ˆy) = − [y log(ˆ y) + (1 − y) log(1 − ˆy)] (11) where y ∈ { 0, 1} is the ground truth label and ˆy is the pre-dicted probability. The supervised contrastive loss ( LSC ) regularizes the fea-ture space by pulling together representations from the same class while pushing apart different classes, ensuring both branches learn complementary and discriminative features that improve generalization, defined as follows: 
+
+LSC = 1
+
+B
+
+> B
+
+X
+
+> i=1
+
+−1
+
+|P (i)|
+
+X 
+
+> p∈P(i)
+
+log exp   zi·zp
+
+> τ
+
+P 
+
+> a̸=i
+
+exp   zi·za
+
+> τ
+
+ (12) where B is batch size, zi and zp are features of anchor and positives, P (i) is positive set, and za are other samples. 
+
+## 4. Results 
+
+This section presents the experimental setup, performance evaluation, and comparisons, as well as a discussion. 
+
+4.1. Experimental Setup 
+
+All experiments were conducted on Ubuntu 22.04 us-ing eight NVIDIA RTX 6000 GPUs with 48 GB VRAM each. The proposed dual-branch model was implemented in Python using PyTorch and trained for 10 epochs with a batch size of 128 and a learning rate of 0.0001. We collected nine benchmark datasets commonly used to evaluate generalization, summarized in Table 1. Each dataset is described by its release year, number of generative models, and the number of real and fake samples. To im-prove generalization to unseen GAN and diffusion models, different dataset combinations were used. The training set was balanced by sampling equal numbers of real and fake images per generative model, starting with 200 samples and progressively increasing the size, as shown in Table 2. For evaluation, we used the complete datasets. MGD 5Table 2. Performance of different feature combinations across backbone networks for various numbers of training samples. The same encoders are used for dataset diversification and the detection pipeline. The proposed model is trained using samples from PGAN [14] and D1KS [2], while the evaluation is performed on the MGD [48] dataset to measure its generalization performance. 
+
+Model Features 4K Samples, T=0.6 9K samples, T=0.7 19K samples, T=0.8 42K samples, T=0.85 97K samples, T=0.9 180K samples, T=1.0 
+
+fp fs ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP VGG-16 [28] 
+
+✓ × 50.0 59.7 57.8 50.0 41.1 45.3 50.0 56.4 54.3 50.0 60.1 58.5 50.0 50.0 50.0 50.0 50.0 50.0 
+
+× ✓ 50.0 37.6 42.7 50.0 61.3 61.6 50.0 53.6 51.9 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 
+
+✓ ✓ 50.0 47.6 48.8 50.0 41.4 45.6 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 50.0 ResNet-18 [11] 
+
+✓ × 50.0 54.1 52.5 50.0 53.6 53.5 47.6 49.2 47.8 50.8 50.9 50.5 50.0 51.4 53.8 50.0 50.0 50.0 
+
+× ✓ 56.0 54.4 50.5 51.9 51.4 52.4 52.8 52.2 49.2 50.0 42.6 46.7 50.0 50.0 50.0 50.0 50.0 50.0 
+
+✓ ✓ 53.3 61.7 63.5 57.0 62.6 63.8 55.9 57.9 54.1 53.3 54.9 53.8 50.0 50.0 50.0 50.0 50.0 50.0 MobileNet-V3 [12] 
+
+✓ × 60.0 64.2 63.0 69.9 77.3 76.8 69.5 75.5 75.9 72.7 81.3 82.0 74.4 82.5 82.9 73.7 81.6 83.9 
+
+× ✓ 55.0 55.5 53.6 56.6 57.8 55.1 57.7 61.2 59.6 60.4 62.5 58.3 59.4 61.7 59.0 59.6 62.3 61.1 
+
+✓ ✓ 67.7 71.6 73.5 76.1 82.9 84.7 78.3 87.3 86.4 79.7 88.0 87.4 79.2 87.9 88.7 78.6 86.0 82.9 EfficientNet-B4 [35] 
+
+✓ × 67.4 74.4 75.3 70.2 78.6 78.9 75.4 83.8 83.5 81.2 87.0 86.8 78.9 85.2 86.2 80.3 89.4 90.8 
+
+× ✓ 57.6 59.3 55.3 57.8 60.8 57.8 65.3 68.3 65.5 50.1 48.7 49.4 63.4 69.5 68.2 51.3 51.3 50.8 
+
+✓ ✓ 70.6 77.7 78.1 76.9 85.3 84.7 72.1 83.2 76.3 64.9 85.3 84.2 81.9 87.2 81.2 78.9 83.0 83.4 Dinov2-Base [20] 
+
+✓ × 75.9 87.2 88.5 78.9 90.1 91.2 78.9 87.6 88.0 78.8 84.7 81.8 78.6 89.2 90.0 79.5 91.1 92.3 
+
+× ✓ 61.1 66.7 65.5 63.1 67.3 62.3 65.2 71.0 66.6 70.2 77.6 73.9 70.5 79.0 76.5 71.9 80.0 78.3 
+
+✓ ✓ 76.7 88.1 89.4 78.5 89.2 90.0 79.3 84.3 82.6 78.6 87.0 86.7 78.8 88.1 88.8 77.8 87.5 88.7 Dinov2-Large [20] 
+
+✓ × 79.9 91.6 92.4 80.5 92.0 92.6 81.4 90.5 90.4 81.8 92.7 92.9 81.2 92.1 92.4 81.1 91.9 92.1 
+
+× ✓ 68.7 76.2 73.4 70.5 79.6 75.8 74.2 82.6 80.2 75.7 84.6 82.9 76.1 84.8 82.4 77.3 86.3 86.0 
+
+✓ ✓ 79.2 91.5 92.6 81.5 93.4 93.5 81.2 90.7 90.2 82.2 91.4 90.6 81.7 93.5 94.2 81.9 91.8 92.4 ViT-B/16 [22] 
+
+✓ × 81.0 89.2 88.7 82.6 92.4 92.2 82.9 90.4 89.8 83.7 92.0 91.8 83.8 94.7 95.0 82.6 92.2 92.0 
+
+× ✓ 66.5 74.0 70.4 69.9 75.5 72.2 73.1 79.9 76.4 76.2 84.6 82.6 76.3 83.3 80.5 77.9 86.4 85.8 
+
+✓ ✓ 82.4 91.5 91.3 83.2 91.2 90.3 83.4 92.9 92.8 83.1 90.1 88.0 83.3 92.2 92.1 83.2 92.0 92.5 ViT-B/32 [22] 
+
+✓ × 78.6 87.2 86.6 79.7 88.2 87.1 78.1 86.7 85.8 80.1 89.0 88.4 80.5 89.7 90.1 80.8 90.1 90.3 
+
+× ✓ 59.1 61.1 62.7 63.2 66.6 66.0 63.3 67.5 67.8 65.6 71.0 68.2 68.4 73.7 70.0 67.6 71.4 65.4 
+
+✓ ✓ 79.1 87.4 87.4 80.2 88.2 86.6 80.1 88.4 86.9 81.3 90.4 90.4 81.7 90.6 90.8 80.3 91.2 92.1 ViT-L/14 [22] 
+
+✓ × 87.4 95.9 96.0 87.6 96.3 96.4 92.0 97.5 97.8 89.7 97.1 97.4 86.9 95.6 95.7 86.6 96.6 97.1 
+
+× ✓ 71.5 78.6 78.0 77.1 84.5 81.8 78.5 87.3 85.9 81.4 89.6 89.9 78.5 87.3 85.9 82.8 91.4 92.0 
+
+✓ ✓ 89.9 96.9 96.8 91.3 97.4 97.7 92.9 97.9 98.1 85.4 95.1 94.8 88.0 96.4 96.6 89.7 97.1 97.5 
+
+Table 3. Performance comparisons of the proposed approach with SoTA methods across datasets. 
+
+Method MGD [48] CNNDF [48] GANDF [34] GENI [53] DIRE [49] UDF [19] MNW [26] AVG 
+
+ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP ACC AUC AP AlgnF [25] 64.7 69.5 73.2 67.1 73.0 74.7 66.9 72.6 73.0 80.2 86.8 90.5 79.5 86.1 91.6 75.9 83.9 87.6 45.9 43.6 44.1 68.6 73.6 76.4 C2PClip [31] 94.8 97.8 98.2 95.8 99.2 99.4 95.8 99.4 99.4 76.5 94.3 95.5 73.3 94.4 96.3 92.1 99.2 99.3 43.4 56.2 48.3 81.8 91.6 91.0 CNND [48] 79.9 90.2 91.0 82.9 96.5 96.3 73.4 91.8 91.7 53.7 67.5 64.8 48.8 71.2 75.8 58.3 75.8 76.7 41.3 9.9 33.6 62.6 71.8 75.7 DMD [6] 89.3 98.5 98.6 93.1 99.6 99.6 90.1 98.6 98.8 56.1 84.0 82.3 48.5 84.1 85.6 59.0 89.6 88.3 42.2 20.1 35.2 68.3 82.1 84.1 FatF [17] 89.9 98.3 98.6 98.5 99.7 99.7 87.8 99.7 99.7 81.8 93.6 95.0 80.3 95.2 97.1 93.8 98.8 99.1 43.4 11.7 38.6 82.2 85.3 89.7 ForL [4] 95.3 98.1 98.6 96.0 98.6 98.9 89.2 99.3 99.4 85.7 95.8 96.9 83.1 95.5 97.5 95.4 99.1 99.3 43.8 17.1 40.3 84.1 86.2 90.1 FrqNet [33] 81.7 90.0 86.6 91.4 97.9 97.8 83.8 97.5 97.4 78.7 86.3 84.9 82.9 94.8 96.5 88.8 94.8 95.8 40.1 3.6 32.3 78.2 80.7 84.5 LGrad [32] 45.9 47.2 45.4 85.4 92.5 91.0 56.7 73.3 71.2 62.1 68.8 67.4 83.1 95.1 96.3 83.1 89.3 90.3 58.7 44.3 63.9 67.9 72.9 75.1 NPR [34] 82.7 83.9 75.8 92.8 96.6 94.5 75.4 93.9 91.6 87.4 94.2 92.9 93.8 99.5 99.6 95.3 98.9 98.7 41.4 5.5 36.7 81.3 81.8 84.3 RCLip [7] 55.7 86.0 85.8 80.3 88.3 87.3 79.6 93.1 92.0 86.3 92.4 94.0 86.8 93.1 95.9 89.5 94.5 96.4 60.7 76.3 63.0 79.8 89.1 87.8 RINE [15] 92.8 98.2 98.4 94.6 99.5 99.6 97.3 99.7 99.7 78.2 96.6 96.7 74.4 96.1 97.0 91.1 98.8 99.0 45.4 21.9 41.9 82.0 87.3 90.3 StayP [24] 68.3 77.0 80.5 67.3 74.5 77.3 65.9 72.3 72.3 86.2 95.4 96.4 79.1 85.9 91.3 75.8 83.9 86.9 45.7 43.9 42.4 69.8 76.1 78.2 UniD [19] 80.2 94.1 94.8 87.1 97.2 97.5 89.9 96.3 96.8 66.3 87.0 87.0 62.2 88.8 90.4 82.2 95.4 96.0 44.8 30.5 41.0 73.2 84.2 86.2 
+
+fp 92.0 97.5 97.8 95.1 99.2 99.3 96.8 99.8 99.8 83.8 97.3 97.2 85.8 96.3 97.2 91.0 97.5 97.3 80.6 97.5 97.7 89.3 97.9 98.0 
+
+fp + fs 92.9 97.9 98.1 96.0 99.2 99.3 93.1 99.7 99.7 86.0 98.0 97.9 86.6 95.5 96.7 92.6 98.1 98.2 85.1 98.0 98.1 90.3 98.1 98.3 
+
+(mixed GAN and diffusion) [19, 48], a mixed bench-mark containing 12 GAN-based and low-level vision al-gorithms and 8 diffusion models, was used for compar-isons with SoTA methods. Since MNW [26] contains only fake samples, an equal number of real samples from Im-ageNet [19, 48] were used for fair evaluation. Duplicate samples across datasets were identified and removed. 
+
+4.2. Performance Evaluation and Comparisons 
+
+This section presents and discusses the results of the pro-posed data diversity and AIGI detection framework. 
+
+4.2.1. Performance of Dataset Diversification 
+
+We analyze the impact of training dataset diversity and backbone selection on generalization across traditional and foundation models, as provided in Table 2. The evalua-tion is performed on the MGD [48] benchmark, which com-prises both GAN- and diffusion-based generative models. Among traditional CNNs, VGG-16 and ResNet-18 perform close to random guessing across all sample sizes, regard-less of feature combinations, highlighting their limited ca-pacity to generalize to unseen GAN and diffusion models. MobileNet-V3 [12] and EfficientNet-B4 [35] show notice-able improvements with increased data, especially when both feature streams are used, but their performance re-6Table 4. Robustness against Common Perturbations.                                                                     
+
+> Method Purt. CNNDF [48] UDF [19] MNW [26]
+> ACC AUC AP ACC AUC AP ACC AUC AP
+> fp
+> Both 71.2 89.0 88.1 66.7 79.4 79.6 60.7 78.8 78.3 Gaussian 81.1 93.4 92.7 76.9 86.9 87.1 68.0 85.3 85.4 JPEG 81.7 95.3 94.8 77.0 89.2 89.6 67.1 87.9 87.7
+> fp+fs
+> Both 76.4 88.8 88.0 73.4 83.5 83.3 67.2 79.9 79.2 Gaussian 82.9 92.9 92.1 79.6 88.9 88.4 73.0 85.2 85.5 JPEG 85.8 95.7 95.2g 83.5 93.0 92.7 74.5 89.4 88.9
+
+mains significantly below that of foundation models. In contrast, foundation models demonstrate strong general-ization even with fewer training samples. DINOv2 [20] and CLIP ViT [22] models consistently outperform traditional CNNs across all data scales. Notably, ViT-L/14 achieves the best performance, reaching an AUC of 97.9 and AP of 98.1 with 19K samples, and maintaining high performance even as the sample size increases or decreases further. Using both feature types jointly ( fp + fs) consistently out-performs using either feature alone, particularly for foun-dation models, confirming the complementary nature of the proposed dual-branch representation. Overall, these results demonstrate that data diversity combined with foundation models is critical for generalized and robust AIGI detec-tion, while simply increasing training data is insufficient for traditional architectures. 
+
+4.2.2. Performance Comparisons 
+
+The proposed method is compared with existing methods across seven benchmark datasets in Table 3. Although sev-eral existing methods achieve strong performance on spe-cific datasets, such as MGD [19, 48], CNNDF [48], and GANDF [34], their performance remains inconsistent and degrades significantly on more challenging benchmarks like MNW [26], indicating limited generalization ability. Most SoTA methods experience significant performance degradation on MNW [26], frequently approaching random prediction, whereas the proposed method maintains a sub-stantial margin, achieving 85.1 ACC, 98.0 AUC, and 98.1 AP using the combined features ( fp + fs). This highlights its generalization to difficult, unseen scenarios. On other datasets such as GENI [53], DIRE [49], and UDF [19], the proposed method also consistently outper-forms or matches the best SoTA methods, demonstrat-ing stable behavior across both GAN- and diffusion-based datasets. In terms of average performance, it ranks first across all metrics, achieving an average AUC of 98.1 and AP of 98.3, surpassing strong CLIP-based and frequency-domain baselines such as C2PClip [31], ForL [4], and RINE [15]. These results confirm that the proposed data diversity strategy and dual-branch representation provide robust and consistent generalization across heterogeneous generative models, unlike existing approaches whose per-formance varies widely across datasets. 
+
+Table 5. Performance across CNNDF [48], UDF [19], and MNW [26] datasets for different training combinations.                                                                                             
+
+> Training Dataset CNNDF [48] UDF [19] MNW [26]
+> ACC AUC AP ACC AUC AP ACC AUC AP PGAN 94.2 99.2 99.2 91.0 94.3 94.3 65.8 75.2 74.8 D1KS 90.4 98.1 98.2 81.6 92.1 92.3 74.4 80.5 81.2 DIRE 69.5 91.7 87.3 88.3 97.2 95.0 71.1 77.1 76.5 GENI 91.5 97.9 98.0 92.6 95.9 96.9 67.4 73.5 74.1 PGAN+GENI 94.6 98.0 98.3 92.4 95.9 95.9 72.7 78.8 79.0 PGAN+DIRE 94.2 99.2 99.2 85.0 90.3 92.3 75.8 81.5 81.7
+> PGAN+D1KS 96.0 99.2 99.3 92.6 98.1 98.2 85.1 98.0 98.1
+> PGAN+D1KS+GENI 95.1 98.7 99.0 88.4 94.1 94.8 78.5 86.2 87.6 PGAN+D1KS+DIRE 93.6 98.4 98.5 90.2 94.8 94.3 77.9 85.3 84.9
+
+4.2.3. Robustness Analysis 
+
+To evaluate the robustness of the proposed method, we adopted two commonly used image perturbations: Gaus-sian blurring and JPEG compression. For training, 50% of the samples were augmented with these perturbations, using Gaussian blurring with σ values of 0.5 and 1.0, and JPEG compression with quality factors of 50 and 70. During test-ing, the perturbation parameters were randomly selected, with Gaussian blurring σ in the range 0–3.0 and JPEG com-pression quality in the range 30–100, to simulate realistic variations and assess the model’s resilience. Table 4 shows that the fp + fs method achieves the high-est performance across nearly all scenarios. For instance, under Gaussian perturbation, fp + fs reaches ACC val-ues of 82.9, 79.6, and 73.0, AUC values of 92.9, 88.9, and 85.2, and AP values of 92.1, 88.4, and 85.5 for CN-NDF [48], UDF [19], and MNW [26], respectively, out-performing fp alone (ACC: 81.1, 76.9, 68.0; AUC: 93.4, 86.9, 85.3; AP: 92.7, 87.1, 85.4). Under both perturba-tions, fp + fs still maintains higher robustness (ACC: 76.4, 73.4, 67.2; AUC: 88.8, 83.5, 79.9; AP: 88.0, 83.3, 79.2) compared to fp (ACC: 71.2, 66.7, 60.7; AUC: 89.0, 79.4, 78.8; AP: 88.1, 79.6, 78.3). Overall, Gaussian perturba-tions yield the highest metrics, JPEG slightly lower, and both consistently produce the lowest performance, indicat-ing that simultaneous noise and compression present the greatest challenge. Across datasets, CNNDF [48] generally exhibits the highest metrics, UDF [19] is slightly lower, and MNW [26] shows the lowest ACC and AP, highlighting the influence of dataset characteristics. These results clearly demonstrate the advantage of combining features ( fp + fs)to enhance robustness against perturbations. 
+
+4.3. Ablation Study 
+
+This section presents an ablation study with dataset config-urations and ROC analysis to explain the model behavior. 
+
+4.3.1. Training Dataset Configurations 
+
+Table 5 presents the performance of the proposed model when trained with different combinations of datasets and evaluated on CNNDF [48], UDF [19], and MNW [26], respectively. Individual datasets such as PGAN [14], D1KS [34], DIRE [49], and GENI [53] show varying gen-eralization capabilities, with MNW [26] consistently being 7(a) (b) (c) 
+
+> Figure 4. Comparison of ROC curves for SoTA and the proposed AIGI detection models, with AUC and EER reported. Panels correspond to: (a) CNNDF/StyleGAN [48], (b) GENI/ADM [53], and (c) GANDF/BEGAN [34]. AUC indicates overall discrimination, whereas EER measures balanced false acceptance and false rejection rates.
+
+the most challenging. Combining datasets generally improves performance, espe-cially on MNW [26], highlighting the benefits of data di-versity. Notably, the PGAN+D1KS combination achieves the best overall results, reaching 85.1 ACC, 98.0 AUC, and 98.1 AP on MNW [26], while maintaining strong perfor-mance on CNNDF [48] and UDF [19]. Adding additional datasets (e.g., GENI [53] or DIRE) does not further improve MNW [26] performance, indicating potential catastrophic forgetting and suggesting that a carefully selected set of complementary datasets is sufficient to achieve generaliza-tion. Overall, these results demonstrate that training with diverse yet complementary datasets significantly enhances model robustness across challenging unseen distributions. 
+
+4.3.2. Analysis of ROC Curves 
+
+The ROC curves in Figure 4 illustrate the detection perfor-mance of the proposed method compared to several SoTA approaches across six sub-datasets, such as CNNDF/Style-GAN [48], GENI/ADM [53], and GANDF/BEGAN [34]. The proposed method (CLIP with pixel feature-CLIPFP and CLIP with pixel and spectral features-CLIPFPFS) consis-tently achieves curves near the top-left corner, indicating high true positive rates with low false positives, and attains the lowest equal error rates (EER) in most cases. While some SoTA methods, such as C2PClip [31], RINE [15], and ForL [4], perform well on specific datasets, their per-formance drops significantly on more challenging scenar-ios like GENI/ADM [53] and GANDF/BEGAN [34]. In contrast, the proposed method maintains high AUC and low EER across all datasets, demonstrating better generalization across both GAN- and diffusion-based generative models. 
+
+4.4. Discussions, Limitations, and Future Insights 
+
+This section provides several critical insights into the re-lationship between training dataset diversity and generaliz-ability, as well as limitations and future insights. 
+
+4.4.1. Discussions Redundancy Trap in Standard Datasets: Existing AIGI detectors trained on unfiltered dense datasets exhibit poor generalization across unseen generative models, indicat-ing memorization of redundant patterns rather than learn-ing transferable features. In contrast, the proposed feature-space filtering forms sparse, diverse clusters that promote generalized artifact learning and mitigate overfitting. 
+
+Role of Sample Diversity over Quantity: Performance does not scale linearly with data volume. For example, ViT-L/14 achieves 98.1% AP using only 19K filtered sam-ples (T=0.8), while increasing to 180K unfiltered sam-ples (T=1.0) yields AP of 97.5%. This demonstrates that diversity-aware deduplication is more critical for cross-model generalization than data quantity. 
+
+Effectiveness of Dual-Branch Design: The fusion of pixel- and frequency-domain representations is crucial for modeling the heterogeneous artifacts introduced by modern generative models. The pixel-domain branch captures high-level semantic inconsistencies, while the frequency-domain branch exposes periodic patterns and structural irregulari-ties that are less visible in the spatial domain. Experimen-tal results confirm that their fusion through a trainable de-tection head substantially improves the detection of unseen synthetic artifacts compared to single-branch designs. 
+
+Robust Cross-Paradigm Generalization: Unlike single-source trained models that fail across generative paradigms, Diversity Matters maintains strong performance over 12 GAN and 8 diffusion models. Inter- and intra-class filter-ing narrows decision boundary gaps, substantially improv-ing cross-dataset robustness. 
+
+4.4.2. Limitations 
+
+While the proposed approach improves generalization and robustness, it relies on pre-defined perturbations and may be less effective against unseen [26] or more complex at-tacks [39, 40]. Additionally, MNW [26] requires sampling real images to balance evaluation, which may not fully cap-ture real-world variability. 
+
+4.4.3. Future Insights 
+
+Future work should explore adaptive feature fusion and meta-learning strategies to generalize across unseen per-8turbations and generative models [44, 45]. Investigating lightweight [12], real-time implementations [46], and text-visual/3D representations [41] cues could further enhance robustness and generalization for practical systems. A con-tinual learning [47] mechanism that dynamically updates parameters with data can further improve adaptability to previously unseen zero-day attack distributions. 
+
+## 5. Conclusion 
+
+In this work, we proposed a novel framework for AIGI detection that emphasizes both data diversity and comple-mentary feature domains. By filtering redundant samples and combining pixel- and frequency-domain CLIP features, the proposed method achieves improved generalization across unseen generative models, datasets, and adver-sarial conditions. Extensive experiments demonstrate that enhancing dataset diversity and leveraging comple-mentary feature representations are crucial for building robust, generalized, and reliable detectors in the rapidly evolving landscape of synthetic content. Future work will explore further generalization of the proposed method to novel generative techniques and more challenging real-world scenarios, including the continuous emergence of newly designed generative and adversarial models. 
+
+## References 
+
+[1] Amro Abbas, Kushal Tirumala, D´ aniel Simig, Surya Gan-guli, and Ari S Morcos. Semdedup: Data-efficient learning at web-scale through semantic deduplication. arXiv preprint arXiv:2303.09540 , 2023. 2 [2] Abdallah Abdulfattah Mohammed Abdulrahman. Deepfake Image Detection Using Explainable AI and Deep Learning .Rochester Institute of Technology, 2025. 6 [3] Mauro Barni, Kassem Kallas, Ehsan Nowroozi, and Benedetta Tondi. Cnn detection of gan-generated face im-ages based on cross-band co-occurrences analysis. In 2020 IEEE international workshop on information forensics and security (WIFS) , pages 1–6. IEEE, 2020. 2 [4] Yingjian Chen, Lei Zhang, and Yakun Niu. Forgelens: Data-efficient forgery focus for generalizable forgery image detec-tion, 2025. 2, 3, 6, 7, 8 [5] Franc ¸ois Chollet. Xception: Deep learning with depthwise separable convolutions. In Proceedings of the IEEE con-ference on computer vision and pattern recognition , pages 1251–1258, 2017. 2 [6] Riccardo Corvi, Davide Cozzolino, Giada Zingarini, Gio-vanni Poggi, Koki Nagano, and Luisa Verdoliva. On the detection of synthetic images generated by diffusion mod-els. In ICASSP 2023-2023 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) , pages 1–5. IEEE, 2023. 2, 3, 6 [7] Davide Cozzolino, Giovanni Poggi, Riccardo Corvi, Matthias Nießner, and Luisa Verdoliva. Raising the bar of ai-generated image detection with clip (2023). arXiv preprint arXiv:2312.00195 , 2024. 2, 3, 6 [8] Deloitte. Deepfake fraud losses report q1 2025, 2025. 2 [9] Ricard Durall, Margret Keuper, and Janis Keuper. Watch your up-convolution: Cnn based generative deep neural net-works are failing to reproduce spectral distributions. In Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 7890–7899, 2020. 5 [10] Joshua Frank, Thorsten Eisenhofer, Lea Sch¨ onherr, Andreas Fischer, Dorothea Kolossa, and Thorsten Holz. Leveraging frequency analysis for deep fake image recognition. In In-ternational Conference on Machine Learning , pages 3247– 3258. PMLR, 2020. 2 [11] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceed-ings of the IEEE conference on computer vision and pattern recognition , pages 770–778, 2016. 2, 6 [12] Andrew Howard, Mark Sandler, Grace Chu, Liang-Chieh Chen, Bo Chen, Mingxing Tan, Weijun Wang, Yukun Zhu, Ruoming Pang, Vijay Vasudevan, et al. Searching for mo-bilenetv3. In Proceedings of the IEEE/CVF international conference on computer vision , pages 1314–1324, 2019. 6, 9[13] Gao Huang, Zhuang Liu, Laurens Van Der Maaten, and Kil-ian Q Weinberger. Densely connected convolutional net-works. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 4700–4708, 2017. 2 [14] Tero Karras, Timo Aila, Samuli Laine, and Jaakko Lehtinen. Progressive growing of gans for improved quality, stability, and variation. arXiv preprint arXiv:1710.10196 , 2017. 2, 5, 6, 7 [15] Christos Koutlis and Symeon Papadopoulos. Leveraging rep-resentations from intermediate encoder-blocks for synthetic image detection. In European Conference on Computer Vi-sion , pages 394–411. Springer, 2024. 2, 3, 5, 6, 7, 8 [16] Michael Lee. Ai-generated images in the 2024 election: Spreaders and influence, 2024. 2 [17] Huan Liu, Zichang Tan, Chuangchuang Tan, Yunchao Wei, Jingdong Wang, and Yao Zhao. Forgery-aware adaptive transformer for generalizable synthetic image detection. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vi-sion and Pattern Recognition , pages 10770–10780, 2024. 2, 3, 6 [18] Security Magazine. Public perceptions of deepfake misinfor-mation, 2024. 2 [19] Utkarsh Ojha, Yuheng Li, and Yong Jae Lee. Towards uni-versal fake image detectors that generalize across genera-tive models. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 24480– 24489, 2023. 2, 3, 5, 6, 7, 8 [20] Maxime Oquab, Timoth´ ee Darcet, Th´ eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervision. 
+
+arXiv preprint arXiv:2304.07193 , 2023. 6, 7 [21] Yuyang Qian, Guojun Yin, Lu Sheng, Zixuan Chen, and Jing Shao. Thinking in frequency: Face forgery detection by min-ing frequency-aware clues. In European conference on com-puter vision , pages 86–103. Springer, 2020. 2 [22] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, 
+
+9Amanda Askell, Pamala Mishkin, Jack Clark, and Gretchen Krueger. Learning transferable visual models from natural language supervision. In International Conference on Ma-chine Learning , pages 8748–8763. PMLR, 2021. 4, 6, 7 [23] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision. In Proceedings of the 38th International Conference on Machine Learning ,pages 8748–8763. PMLR, 2021. 2 [24] Anirudh Sundara Rajan and Yong Jae Lee. Stay-positive: A case for ignoring real image features in fake image detec-tion. Proceedings of the Internation Conference on Machine Learning , 2025. 2, 6 [25] Anirudh Sundara Rajan, Utkarsh Ojha, Jedidiah Schloesser, and Yong Jae Lee. Aligned datasets improve detection of latent diffusion-generated images. Proceedings of the Inter-national Conference on Learning Representations , 2025. 2, 6[26] Thomas Roca, Marco Postiglione, Chongyang Gao, Isabel Gortner, Zuzanna Wojciak, Pengce Wang, Masah Alimar-dani, Shirin Anlen, Kevin White, Juan Lavista, Sarit Kraus, Sam Gregory, and V.S. Subrahmanian. Introducing the mnw benchmark for ai forensics. https://github.com/ nsail-lab/MNW , 2025. PDF. 1, 5, 6, 7, 8 [27] Andreas Rossler, Davide Cozzolino, Luisa Verdoliva, Chris-tian Riess, Justus Thies, and Matthias Nießner. Faceforen-sics++: Learning to detect manipulated facial images. In 
+
+Proceedings of the IEEE/CVF international conference on computer vision , pages 1–11, 2019. 1 [28] Karen Simonyan and Andrew Zisserman. Very deep convo-lutional networks for large-scale image recognition. arXiv preprint arXiv:1409.1556 , 2014. 6 [29] John Smith and Jane Doe. Detecting gan-generated profile images at scale, 2024. 2 [30] Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jon Shlens, and Zbigniew Wojna. Rethinking the inception archi-tecture for computer vision. In Proceedings of the IEEE con-ference on computer vision and pattern recognition , pages 2818–2826, 2016. 2 [31] Tan, Tao Chuangchuang, Liu Renshuai, Gu Huan, Wu Guanghua, Wei Baoyuan, Zhao nad Yao, and Yunchao. C2p-clip: Injecting category common prompt in clip to enhance generalization in deepfake detection. In Proceedings of the AAAI Conference on Artificial Intelligence , pages 7184– 7192, 2025. 2, 3, 6, 7, 8 [32] Chuangchuang Tan, Yao Zhao, Shikui Wei, Guanghua Gu, and Yunchao Wei. Learning on gradients: Generalized arti-facts representation for gan-generated images detection. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vi-sion and Pattern Recognition , pages 12105–12114, 2023. 2, 3, 6 [33] Chuangchuang Tan, Yao Zhao, Shikui Wei, Guanghua Gu, Ping Liu, and Yunchao Wei. Frequency-aware deepfake de-tection: Improving generalizability through frequency space domain learning. In Proceedings of the AAAI Conference on Artificial Intelligence , pages 5052–5060, 2024. 2, 6 [34] Chuangchuang Tan, Yao Zhao, Shikui Wei, Guanghua Gu, Ping Liu, and Yunchao Wei. Rethinking the up-sampling op-erations in cnn-based generative network for generalizable deepfake detection. In Proceedings of the IEEE/CVF Con-ference on Computer Vision and Pattern Recognition , pages 28130–28139, 2024. 2, 5, 6, 7, 8 [35] Mingxing Tan and Quoc Le. Efficientnet: Rethinking model scaling for convolutional neural networks. In International conference on machine learning , pages 6105–6114. PMLR, 2019. 6 [36] Nusrat Tasnim, Kutub Uddin, and Khalid Mahmood Malik. Ai-generated image detection: An empirical study and future research directions. arXiv preprint arXiv:2511.02791 , 2025. 2[37] Nusrat Tasnim, Khalid Malik, et al. Grex-bench: Bench-marking generalization, robustness, and explainability in ai-generated image detection. 2026. 2 [38] Rujuta Thete. Ai-generated images of flooded streets shared as real ones from bangladesh. https://www. thequint . com / news / webqoof / bangladesh -floods - images - pregnant - woman - child -sleeping- ai- images- fact- check , 2024. Ac-cessed: 2025-02-24. 1 [39] Kutub Uddin, Yoonmo Yang, and Byung Tae Oh. Anti-forensic against double jpeg compression detection using ad-versarial generative network. In Proceedings of the Korean Society of Broadcast Engineers Conference , pages 58–60, 2019. 8 [40] Kutub Uddin, Yoonmo Yang, and Byung Tae Oh. Analysis of generative adversarial network targeting anti-forensic in jpeg compressed domain. In International Workshop on Ad-vanced Imaging Technology (IWAIT) 2021 , pages 627–631. SPIE, 2021. 8 [41] Kutub Uddin, Tae Hyun Jeong, and Byung Tae Oh. Deep learning-based incomplete regions estimation and restora-tion of 3d human face point cloud. In 2022 IEEE Inter-national Conference on Consumer Electronics-Asia (ICCE-Asia) , pages 1–4. IEEE, 2022. 9 [42] Kutub Uddin, Yoonmo Yang, Tae Hyun Jeong, and Byung Tae Oh. A robust open-set multi-instance learning for defending adversarial attacks in digital image. IEEE Trans-actions on Information Forensics and Security , 19:2098– 2111, 2023. 2 [43] Kutub Uddin, Tae Hyun Jeong, and Byung Tae Oh. Counter-act against gan-based attacks: A collaborative learning ap-proach for anti-forensic detection. Applied Soft Computing ,153:111287, 2024. 2 [44] Kutub Uddin, Muhammad Umar Farooq, Awais Khan, and Khalid Mahmood Malik. Adversarial attacks on audio deep-fake detection: A benchmark and comparative study. arXiv preprint arXiv:2509.07132 , 2025. 9 [45] Kutub Uddin, Muhammad Umar Farooq, Awais Khan, Muhammad Saad Saeed, Ijaz Ul Haq, Nusrat Tasnim, and Khalid Mahmood Malik. Advbench: A comprehensive benchmark of adversarial attacks on deepfake detectors in real-world consumer applications. Authorea Preprints , 2025. 9
+
+10 [46] Kutub Uddin, Nusrat Tasnim, Muhammad Saad Saeed, and Khalid Mahmood Malik. Guard: Generative unmasking and adversarial-resistant deepfake detection using multi-model knowledge distillation. Authorea Preprints , 2025. 9 [47] Hanyi Wang, Jun Lan, Yaoyu Kang, Huijia Zhu, Weiqiang Wang, Zhuosheng Zhang, and Shilin Wang. Generalizable and adaptive continual learning framework for ai-generated image detection. IEEE Transactions on Multimedia , 2026. 9 [48] Sheng-Yu Wang, Oliver Wang, Richard Zhang, Andrew Owens, and Alexei A Efros. Cnn-generated images are surprisingly easy to spot... for now. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 8695–8704, 2020. 2, 3, 5, 6, 7, 8 [49] Zhendong Wang, Jianmin Bao, Wengang Zhou, Weilun Wang, Hezhen Hu, Hong Chen, and Houqiang Li. Dire for diffusion-generated image detection. In Proceedings of the IEEE/CVF International Conference on Computer Vision ,pages 22445–22455, 2023. 5, 6, 7 [50] Yuankun Xie, Yi Lu, Ruibo Fu, Zhengqi Wen, Zhiyong Wang, Jianhua Tao, Xin Qi, Xiaopeng Wang, Yukun Liu, Haonan Cheng, et al. The codecfake dataset and countermea-sures for the universally detection of deepfake audio. IEEE Transactions on Audio, Speech and Language Processing ,2025. 1 [51] Shilin Yan, Ouxiang Li, Jiayin Cai, Yanbin Hao, Xiaolong Jiang, Yao Hu, and Weidi Xie. A sanity check for ai-generated image detection. Proceedings of the Internation Conference on Learning Representations , 2025. 2 [52] Zhiyuan Yan, Jiangming Wang, Zhendong Wang, Peng Jin, Ke-Yue Zhang, Shen Chen, Taiping Yao, Shouhong Ding, Baoyuan Wu, and Li Yuan. Effort: Efficient orthogonal mod-eling for generalizable ai-generated image detection. Pro-ceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2, 2024. 3 [53] Mingjian Zhu, Hanting Chen, Qiangyu Yan, Xudong Huang, Guanyu Lin, Wei Li, Zhijun Tu, Hailin Hu, Jie Hu, and Yunhe Wang. Genimage: A million-scale benchmark for de-tecting ai-generated images. Advances in Neural Information Processing Systems , 36:77771–77782, 2023. 5, 6, 7, 8 
+
+11

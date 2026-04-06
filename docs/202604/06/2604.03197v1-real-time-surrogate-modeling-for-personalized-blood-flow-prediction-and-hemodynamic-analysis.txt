@@ -1,0 +1,263 @@
+Title: Real-Time Surrogate Modeling for Personalized Blood Flow Prediction and Hemodynamic Analysis
+
+URL Source: https://arxiv.org/pdf/2604.03197v1
+
+Published Time: Mon, 06 Apr 2026 01:01:51 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Real-Time Surrogate Modeling for Personalized Blood Flow Prediction and Hemodynamic Analysis 
+
+Sokratis J. Anagnostopoulos a, George Rovas a, Vasiliki Bikia b, Theodore G. Papaioannou c, Athanase D. Protogerou c, Nikolaos Stergiopulos a
+
+> aLaboratory of Hemodynamics and Cardiovascular Technology, EPFL, Lausanne, Switzerland
+> bStanford DBDS and HAI, Stanford University, Palo Alto, USA
+> cMedical School, National and Kapodistrian University of Athens, Athens, Greece
+
+Abstract 
+
+Cardiovascular modeling has rapidly advanced over the past few decades due to the ris-ing needs for health tracking and early detection of cardiovascular diseases. While 1-D arterial models offer an attractive compromise between computational efficiency and so-lution fidelity, their application on large populations or for generating large in silico 
+
+cohorts remains challenging. Certain hemodynamic parameters like the terminal resis-tance/compliance, are difficult to clinically estimate and often yield non-physiological hemodynamics when sampled naively, resulting in large portions of simulated datasets to be discarded. In this work, we present a systematic framework for training machine learning (ML) models, capable of instantaneous hemodynamic prediction and parameter estimation. We initially start with generating a parametric virtual cohort of patients which is based on the multivariate correlations observed in the large Asklepios clinical dataset, ensuring that physiological parameter distributions are respected. We then train a deep neural surrogate model, able to predict patient-specific arterial pressure and car-diac output ( CO ), enabling rapid a priori screening of input parameters. This allows for immediate rejection of non-physiological combinations and drastically reduces the cost of targeted synthetic dataset generation (e.g. hypertensive groups). The model also provides a principled means of sampling the terminal resistance to minimize the uncertainties of unmeasurable parameters. Moreover, by assessing the model’s predictive performance we determine the theoretical information which suffices for solving the inverse problem of es-timating the CO . Finally, we apply the surrogate on a clinical dataset for the estimation of central aortic hemodynamics i.e. the CO and aortic systolic blood pressure ( cSBP ). 
+
+> arXiv:2604.03197v1 [cs.LG] 3 Apr 2026
+
+1. Introduction 
+
+Physics-based modeling of arterial hemodynamics is a powerful tool for noninvasive assessment of cardiovascular function, because pressure and flow waveforms contain infor-mation about clinically relevant quantities like the cardiac output ( CO ), arterial stiffness, and peripheral vascular resistance. Among available modeling approaches, 1-D pulse-wave models that perform a cross-sectional average solution of the the incompressible Navier-Stokes equations coupled with a wall compliance equation constitutes a very effective compromise: They can capture wave propagation, reflection, and dispersion throughout large arterial networks at a cost that is orders of magnitude lower than 3-D CFD modeling, while retaining clinically relevant data (e.g., central and peripheral pressures, pulse wave velocity, and flow distribution) [1–3]. These models are mature validated tools for blood flow prediction, allowing for systematic comparisons with in vitro replicas and in vivo measurements [4, 5], and they form a standard basis for studying how anatomy, stiffness, and distal loading affect the pressure-flow response characteristic. [6]. A notable extension of our 1-D model [5] has been the personalization of the param-eters of the 1-D model based on readily available noninvasive measurements, and the subsequent estimation of aortic cardiovascular properties of interest in an inverse solution approach. The devised methods combine multiple forward optimization loops to calibrate the 1-D model and render it patient-specific before deriving the desired central hemody-namic indices. The performance of the inverse methods is assessed via comparison of the estimated central quantities with their reference (ground truth) values, which are either experimentally measured (typically invasively for in vivo datasets) or readily available ( in silico datasets). Another major clinical indicator of cardiac (left ventricular) function is the cardiac output ( CO ), defined as the volume of blood pumped by the heart into the systemic circulation, expressed in liters per minute. In an inverse problem-solving man-ner, patient-specific hemodynamics at the aortic root ( CO and central systolic pressure) were accurately derived from noninvasive cuff-pressure and pulse wave velocity ( P W V )measurements in a small set of healthy adults [7]. An important target in both modeling and clinical translation is arterial stiffness, which is commonly expressed by the carotid-femoral pulse wave velocity ( cf P W V ). The latter has proven to be a robust, prognostically important indicator that can provide stan-dardization guidance on distance measurements and results interpretation [8, 9]. cf P W V 
+
+can therefore be used to calibrate or scale the arterial network compliance in a physio-logically interpretable manner, thus allowing for individual-specific variation without the need of invasive data. However, even with a calibrated one-dimensional model, large-scale tasks such as uncertainty quantification, sensitivity mapping in multidimensional param-eter spaces, and inverse inference (e.g. estimation central hemodynamics from peripheral pressures) can be computationally prohibitive when they require many forward solutions. This motivates the development of surrogate models for rapid simulation of the one-dimensional solver, which, while preserving the parameter-response relationship, can pro-duce pressures, flows, and derived indices in near real time. Recent work has demonstrated automated steps for creating and simulating reduced-order (0D/1D) cardiovascular models from anatomical data [10], as well as data-driven reduced-order simulators that learn the dynamic behavior of a system (e.g., through graph-based representations) while maintain-ing accuracy over a variety of geometries and boundary conditions [11]. Machine learning (ML) techniques have recently been explored, in order to exploit the information of avail-2able virtual and clinical datasets. Bikia et al. [12] utilized a synthetic database generated by the 1-D cardiovascular model and used regression analysis to simulate various hemo-dynamic states. A novel ML method was also introduced to estimate the total arterial compliance via exploiting the information from a carotid blood pressure waveform, as well as typical human data from an available broad longitudinal study for the development and progression of cardiovascular disease [13] and cardiac contractility and CO [14]. However, constructing appropriate in-silico datasets whose parameters represent realistic cases is crucial to avoid training surrogates on unlikely combinations. Large, well-characterized population studies provide a valuable basis for such well correlated sampling [15], while space-filling designs, such as Latin Hypercube Sampling (LHS), allow for controlled ex-trapolation to effectively cover extreme parameter values [16]. While our 1-D in-house model has proven to be an invaluable and adaptable tool for various subsequent investigations, the optimization process of inversely solving patient-specific cases is tedious and requires multiple forward evaluations (corresponding to hours of computational time). Moreover, the generation of specialized in silico datasets is highly time consuming and produces a large proportion of non physiological conditions when the hemodynamic parameters are randomly sampled. To address these limitations, we develop an ML surrogate model for real-time hemodynamic parameter inference to study the generalized cardiovascular problem. The contributions of this work are the following: 
+
+• Generation of parametric in silico cohort which reproduces the multivariate cor-relations of the hemodynamic parameters in Asklepios clinical dataset, ensuring physiological statistical fidelity. 
+
+• Design and training of ML surrogate model for real-time prediction of generalized hemodynamics and a priori validation of candidate parameter sets, allowing non-physiological cases to be rejected prior to simulating. This accelerates the generation of synthetic datasets and provides a better strategy for sampling terminal resistance and compliance, which are often unknown. 
+
+• Deployment of the surrogate model for pairwise sensitivity analysis across the hemo-dynamic parameter space, revealing dominant interactions and their effect on arte-rial pressure. Production of generalized response surfaces for systolic and diastolic pressure as functions of the most influential parameters, providing an interpretable map of pressure dynamics. 
+
+• Investigation of non-uniqueness of the inverse patient-specific solutions for CO , by quantifying the training performance while different input parameter sets are used, revealing the significance of either the terminal compliance/resistance. Application to clinical dataset for noninvasive prediction of CO and cSBP from cuff measure-ments. In this context, the present work combines a validated 1-D arterial network surrogate with physiologically that operates in both forward and inverse modes. The result is a ro-bust framework that reproduces the network hemodynamics in an acceptable physiological domain, allows for rapid sensitivity analysis and parameter value mapping, and supports clinically generated inverse queries of central hemodynamic quantities using noninvasive measurements. 32. Methods 
+
+2.1. 1-D arterial model 
+
+Arteries are typically viewed as elongated conical segments with a viscoelastic wall. The 1-D continuity and momentum equations (Navier-Stokes) are solved iteratively for an arterial network consisting of 103 segments, along with a constitutive law for the flexible arterial walls [5], described by the following closed-system of PDEs: 
+
+∂Q ∂t + ∂∂x 
+
+Z 
+
+> A
+
+u2dA 
+
+
+
+= −Aρ∂P ∂x − 2πR μρ∂u ∂r r=R
+
++ Af x, (1) 
+
+∂P ∂t = − 1
+
+CA
+
+∂A v
+
+∂t + ∂Q ∂x 
+
+
+
+, (2) 
+
+A(t) = Ae(P (t)) + Av(t), (3) where A(x, t ) is the arterial lumen area of radius R(x, t ), Q(x, t ) is the volumetric blood flow rate, P (x, t ) is the transmural pressure, μ is the blood viscocity, fx is the gravitational force and u is the velocity profile derived by Womersley theory. The constitutive law (Eq. 3) depends on the non-linear elastic Ae and viscoelastic Av components, which are a function of the pressure and area compliance CA. At the terminal arterial sites, a 3-element Windkessel model is used to simulate the omitted branches 
+
+∂Q ∂t = 1
+
+R1
+
+∂P ∂t + PR1R2CT
+
+−
+
+
+
+1 + R1
+
+R2
+
+ QR1CT
+
+, (4) where RT = R1 + R2 is the terminal resistance, and CT is the terminal compliance parameters, which characterize the resistance and capacitance properties of the omitted capillaries and can be fine-tuned based on the patient. 
+
+2.2. Dataset generation 
+
+To develop a generalized surrogate model of cardiovascular flow, the 1-D arterial model was deployed to generate an in silico dataset of 2000 patients, covering a broad range of patient hemodynamic properties. The input features were the CO , the heart rate (HR ) and several global multipliers for the arterial length ( λL), diameter ( λD), terminal resistance ( λRT ), arterial compliance (proportional to distensibility) ( λC ) and terminal compliance ( λCT ). To generate a dataset with realistic parameter correlations, instead of randomly sampling the patient-specific parameters, we used the Asklepios dataset to draw physiologically correlated values within the parameter space which can be estimated non-invasively ( L, D, CO, DBP, SBP, C ). For the Windkessel coefficients RT and CT , since experimental measurement is not feasible in clinical practice, we chose to perform uniform random sampling such that the range of the total arterial resistance and compliance were within [0.10, 3.80] mL/mmHg and [0.40, 2.00] mmHg ·s/mL, respectively [17–19]. This random sampling approach only for the Windkessel parameters was adopted to provide the full range of possible combinations such that their effect on the rest of the patient hemodynamic parameters can be thoroughly studied. All the global multipliers scale a reference arterial network [5], with the arterial length ( L) scaled with the patient height and the arterial diameter ( D) scaled with the body surface area (BSA), the age and 4the gender, following the literature [20], to match each new patient characteristics. The carotid-to-femoral pulse wave velocity ( cf P W V ) is used to derive the arterial compliance (or distensibility) multiplier of the arterial network. More specifically, we calculate the arterial distensibility multiplier λC which fits the cf P W V measurement, by considering the individual arterial compliancies of all segments that lie in between the carotid and the femoral arteries as: cfPWV = 
+
+P 
+
+> i
+
+Li
+
+P 
+
+> i
+
+Li
+
+√ρλ C · Di
+
+, (5) The clinical dataset from round 1 of the longitudinal population study Asklepios, consisting of n=2524 (1301 women) participants aged between 35-55 years, free from apparent cardiovascular diseases [21–23], is composed of measurements for the stroke volume ( SV ) (volume of blood pumped out of the heart’s left ventricle over one heartbeat), which is measured using Doppler imaging. Multiplied by the heart rate, SV yields the 
+
+CO value. Moreover, brachial cuff pressures are measured for all patients, as well as the 
+
+cf P W V values. The selected ranges of the in silico cohort for each of the parameters are shown in Table 1. For this study we chose to omit the outliers present in Asklepios study which had values extending outside of 3 σ of the parameter distributions. Hence, the final subset of the Asklepios dataset had a total of 1500 patients. To further enhance the dataset, quantile Latin Hypercube Sampling (LHS) was applied to inject 500 additional virtual patients that followed similar correlations as the Asklepios subset, such that a total of 2000 patients were finally simulated by the 1-D code, ensuring that each variable is represented across its entire range. We note that this method could be applied for generating an arbitrary number of virtual patients with realistic parameter correlations to augment the initial dataset.   
+
+> Table 1. In silico dataset parameter range and distribution.
+
+Parameter Range Mean SD 
+
+Age (years) 35 - 57 45.76 5.61 PWV (m/s) 4.5 - 9.0 6.4 0.92 Height (cm) 152 - 190 169.12 7.92 Weight (kg) 48 - 105 72.89 12.13 SBP (mmHg) 102 - 169 129.64 14.08 HR (bpm) 43 - 85 63.1 8.07 CO (L/min) 2.8 - 7.5 5.1 0.96 
+
+2.3. Neural network surrogate 
+
+We consider a fully connected neural network with two core modes. The forward mode is deployed to map seven hemodynamic features to the diastolic and systolic blood pressures of the brachial artery: 
+
+fθ(λD, λ L, λ C , λ CT , λ RT , HR, CO, ) = ( DBP, SBP ), fθ : R7 −→ R2. (6) 5For the inverse mode, we take advantage of only the parameters that can be estimated in clinical practice to provide information about the central hemodynamics, namely the CO 
+
+and the central systolic blood pressure ( cSBP ) inside the ascending aorta: 
+
+fθ(λD, λ L, λ C , λ CT , λ RT , HR, DBP, SBP ) = ( CO, cSBP ), fθ : R8 −→ R2. (7) The schematic representation of the complete workflow is depicted in Fig. 1.    
+
+> Figure 1. Real-time prediction workflow : The Asklepios dataset is used to draw physiologically correlated values within the parameter space which can be clinically estimated noninvasively. The dataset is augmented using LHS method and 2000 1-D forward simulations are performed using the 1-D cardio-vascular code. The parameter space can be adjusted depending on the physiological range depending on the study. The surrogate model is trained either in forward or inverse mode to provide real-time hemodynamic predictions.
+
+The ML model chosen for this study is a fully connected neural network designed to map the hemodynamic features to the output features ( DBP, SBP ) for forward or (CO, cSBP ) for inverse. Its architecture follows a symmetric expansion-compression pat-tern with hidden layers of 128, 256, and 128 neurons with batch-normalization, each using the tanh activation and a dropout rate of 0.1 to reduce variance. A linear output layer yields the target predictions. All inputs and outputs are standardized to zero mean and unit variance, which stabilizes the optimization landscape and improves gradient flow. The smooth L1 loss (Huber loss) is chosen to provide quadratic sensitivity for small resid-uals while remaining robust to occasional outliers in blood-pressure measurements. Its piecewise form behaves as an ℓ2 loss for |y − ˆy|< β and transitions to a linear penalty beyond that threshold, preventing gradient explosions and improving stability when the data include measurement noise or imperfect labels, common in physiological sensing tasks. 6Lδ(y, ˆy) = 
+
+ 
+
+> 12
+
+(y − ˆy)2, if |y − ˆy|< β, β
+
+
+
+|y − ˆy|− 12β
+
+
+
+, otherwise . (8) Training is performed using AdamW with a learning rate of 3 × 10 −4, a weight decay of 10 −4, batch size 128, and an 80/20 train-test split under a fixed random seed for re-producibility. Indicative convergence curves are shown in Fig. 2(a) for the forward mode, which show consistent monotonic reduction of both training and test MSE, with the test loss descending more sharply due to stronger regularization effects from dropout at in-ference time. The absence of divergence or widening separation between curves indicates no signs of overfitting, and the late-epoch plateau demonstrates that the optimizer ap-proaches a stable minimum. The correlation and Bland-Altman plots in Fig. 2(b) further confirm reliable predictive behaviour: the regression outputs exhibit strong linear agree-ment with ground truth and narrow limits of agreement, with no systematic bias across the pressure range. Excluding a few outliers at the extrema, the DBP and SBP errors lie within ± 5 mmHg. Together, the convergence trends and error distributions indicate a well-behaved model with robust generalization properties.   
+
+> Figure 2. Training performance: Indicative convergence of the forward surrogate mode. (a) Mean-squared error loss over 2000 epochs for training and test sets. The convergence minimum indicates no overfitting and good model generalization. (b) Correlation and Bland-Altman plots: agreement between predicted and measured blood pressures for the brachial DBP (left) and SBP (right) network outputs.
+
+73. Results 
+
+3.1. Sensitivity analysis 
+
+The primary criterion for accepting a virtual subject as physiological forward solu-tion is the requirement that the predicted SBP and DBP fall within their admissible ranges. To quantify which parameters have the strongest influence on arterial pressure, we construct three square pairwise matrices (Fig. 3) in which each entry represents the pressure variation across the full range of a given parameter pair, while the remaining parameters are kept fixed at a reference value. The diagonal shows the sensitivity of each individual parameter. Fig. 4 illustrates the six most sensitive pairs for representative comparisons. All continuous fields are generated in near real time by the trained DNN, enabling exhaustive exploration of the parameter space. From the sensitivity matrix of Fig. 3 we see that the geometric scaling parameters 
+
+λD and λL produce only minor changes in ∆ P of DBP and SBP , reflecting their limited hemodynamic influence. Therefore we can safely assume that simply scaling a refer-ence geometry can accurately model most of the healthy arterial networks (e.g. without aneurysms or stenoses). Likewise, the terminal compliance CT exhibits weak influence, consistent with its contribution of only a small fraction of the total arterial compliance. In contrast, RT , CO , C and HR emerge as the dominant factors shaping the pressure re-sponse. For the pulse pressure ( P P ) (given by SBP-DBP), the most dominant parameters are the CO , the RT and RC . The pairwise contour maps between the more influencing parameters are plotted in Fig. 4 for SBP (top) and DBP (bottom), overlaid with the training patient dataset (in white), provide a clear depiction of how hemodynamic in-teractions cause the resulting pressure ranges, and reveal the correlation patterns that govern the system’s global behavior.                
+
+> Figure 3. Pair-wise parameter sensitivity: The sensitivity heatmap of varying pair-wise parameters (while the rest are held fixed), reveals the parameters with the highest influence on the diastolic/systolic blood pressure are the terminal resistance RT, the CO , the compliance Cand the HR .For the pulse pressure ( P P ), the most dominant parameters are the CO , the RTand RC. The geometry, as well as the terminal compliance have negligible influence in the ∆ Pover the full parameter range variation.
+
+8Figure 4. Pair-wise contour maps: The hemodynamic interactions between each parameter pair (while the rest are held fixed) cause distinct 2-D variations in the resulting pressure fields for both SBP     
+
+> (top), and DBP (bottom). The white points represent the in silico patients used for the training.
+
+3.2. Arterial pressure study 
+
+To better visualize the physiological domains associated with the most sensitive input parameters, Fig. 5 displays 4-D iso-surfaces illustrating the regions corresponding to low, normal, stage 1, and stage 2 hypertensive groups. Points lying outside the extremal pres-sure bounds are classified as non-physiological. These surfaces reveal the global structure of the pressure fields within the cardiovascular network as CO , RT , and C are varied simultaneously, exposing how changes in flow, peripheral resistance scaling, and arterial compliance jointly shape the admissible hemodynamic space. It is worth noting that these iso-surfaces were constructed from a 30 × 30 × 30 grid of DNN predictions evaluated in real-time. Comparable manifolds can be generated for any other combination of input and output variables, enabling systematic exploration of the multidimensional parameter-response landscape. For context, computing this many forward simulations with the original physics-based model would require more than ∼ 50 CPU days on a single core, which emphasizes the computational flexibility provided by the surrogate model. 9Figure 5. Pressure iso-surfaces: Plotting the most sensitive hemodynamic parameters reveal distinct regions of low, normal and hypertensive patients for the DBP (left) and SBP (right). The regions outside this range are non-physiological cases. 
+
+3.3. Real population matching 
+
+So far, we have shown that the surrogate outperforms the full solver in predicting gen-eralized fields of virtual patients in near-real time. We now examine whether constraining the pressure range yields realistic distributions comparable to a large clinical dataset such as Asklepios. The distributions of all known input parameters ( D, L, cf P W V , HR , CO )have already been matched, so together with the injected LHS points they closely follow the clinical statistics. The two unknown parameters ( RT , CT ), however, were sampled randomly and may strongly influence the numerical output. Our aim is therefore to assess whether constraining only the numerical outputs of diastolic and systolic pressures ( DBP , SBP ), is sufficient to bring their distributions in line with the clinical ones. To this end, we extract 620 patients from the full set of 2000 whose pressures fall within 95% of the corresponding Asklepios ranges (i.e., within 
+
+±1.96 SD). As shown in Fig. 6, the numerical model initially produces broad pressure distributions despite sampling the known parameters from the clinical dataset. Once we enforce only the pressure ranges, however, the shapes of the DBP and SBP distributions align closely with their clinical counterparts. 10 Figure 6. Population matching: (a) The distribution of naively sampled terminal resistance ( RT )widens the output pressure distributions, even though the rest of the known parameters are sampled directly from the clinical dataset of Asklepios. (b) Constraining only the range of pressures indicates that the 1-D model is able to closely match the clinical distributions of Asklepios for both DBP and SBP ,while the distribution of RT takes a triangular shape. 
+
+Interestingly, the range of RT remains almost unchanged (consistent with values re-ported in the literature), but its initially uniform sampling shifts toward a triangular distribution. In contrast, the distribution of CT remains essentially unaffected, reflecting its low sensitivity in this setting. These findings both support the validity of the 1-D modeling framework and indicate that, for population matching, the dominant factor is the sampling distribution of the terminal resistance, while its admissible range is already well established in the literature. Finally, we can easily train a custom neural model to produce the mapping fθ(D, L, cf P W V, HR, CO, SBP, DBP ) → RT , yielding a Pearson coefficient of 0.998 (not shown here), that reproduces exactly the numerical distributions of DBP, SBP and RT , shown in Fig. 6 (b). This mapping enables the generation of any in silico dataset composed solely of admissible patients that match any given in vivo 
+
+population, given that the CO distribution is also available as input. 
+
+3.4. Inverse solution uniqueness 
+
+To demonstrate the versatility of the surrogate, we deploy different versions of the model of Eq. 7 to perform a study on the inverse estimation of the CO on the matched vir-tual population of the previous section, considering three main inverse scenarios: (a) given only the parameters which can be clinically estimated (no information about Windkessel parameters ( RT , C T ), (b) introducing an additional pressure measurement at the radial artery ( rSBP, rDBP ) which complements the ( SBP, DBP ) measurements at the brachial artery, and (c) by using the full parameter information including ( RT , C T ). This analysis will investigate the solution uniqueness of the Eqs. 1-4, which can be an informative prior with clinical relevance. In Fig. 7(a), the model is used in a purely “noninvasive” configu-ration, taking only the easily-measured parameters X = ( λL, λ D, λ C , HR, SBP, DBP ) as 11 inputs and predicting CO , it yields strong correlation ( r ≈ 0.94) but with significant dis-persion. A Bland-Altman analysis shows limits of agreement of approximately ±1 L/min, which is large relative to the full physiological range of CO . This wide error margin in-dicates that, although the central parameters encode partial information about flow, the inverse problem remains effectively ill-posed: multiple combinations of the unobserved terminal parameters can reproduce nearly identical pressure signatures, and the network correspondingly struggles to converge to a unique solution across many virtual subjects. Once either the extra pressure measurement site at the radial ( rDBP, rSBP ), or the terminal resistance and compliance ( RT , C T ) are supplied as inputs (Fig. 7 (b, c)), the inverse mapping becomes essentially identifiable. In this setting the model recovers CO 
+
+with near-perfect accuracy, producing mean errors within ±0.03 L/min and ±0.01 L/min, respectively.               
+
+> Figure 7. CO identification: (a) Using only the noninvasively obtainable parameters ( L,D,C,HR ,
+> SBP ,DBP ) yields high correlation but large limits of agreement, reflecting a strong indication of non-uniqueness for the inverse mapping. (b) Introducing an extra pressure reading at the radial artery (b) or the terminal resistance and compliance ( RT,CT) (c), resolves the ambiguity and recovers CO with near-perfect accuracy.
+
+To investigate the minimal requirements for an optimal prediction, we will examine each parameter’s predictive information content with respect to the solution of CO . Let 
+
+X ∈ X ⊂ R6 denote the parameter vector which can be clinically inferred: 
+
+X = ( λD, λ L, λ C , HR, DBP, SBP ), (9) and let Y = CO be the true cardiac output computed by the 1-D hemodynamic solver. 12 For this inverse scenario (Fig. 7(a)), we consider a neural network surrogate fθ : X → R
+
+trained by minimizing the mean-squared error L(θ) = E[( Y − fθ(X)) 2]. Now let bYopt =
+
+fθ(X, λ CT , λ RT ) denote the optimal predictor, obtained when all relevant inputs are pro-vided (full model with Windkessel parameters, Fig. 7(c)). Its irreducible variance σ2opt 
+
+can be calculated from the coefficient of determination as follows: 
+
+σ2opt = E[Var( Y | X)] = Var( Y − bYopt ),
+
+where the total variance of the true CO can be decomposed into the explained and unexplained (residual) components: Var( Y ) = Var( bYopt ) + Var( Y − bYopt ).
+
+Var( Y − bYopt )Var( Y ) = 1 − R2opt = 1 − 0.996 = 0 .004 = 0 .4% .
+
+Thus the irreducible variance percentage for the optimal predictor is less than 1%, which makes it equivalent with the true CO . Now, let bYred be a reduced predictor that excludes some inputs (e.g. omitting RT ). Its residual variance is: 
+
+σ2red = Var( Y − bYred )Var( Y ) = 1 − R2red .
+
+The additional unexplained variance caused by the missing inputs is ∆ σ2 = σ2red −σ2opt ,and in normalized form, ∆σ2u = ∆σ2u
+
+Var( Y ) = R2opt − R2red . (10) This quantity measures precisely how much predictive information is lost by removing those inputs, or the irreducible uncertainty in CO due to the missing variables. In Table 2 we consider all possible sub-cases that fall within the three main scenarios.  
+
+> Table 2. Inverse cases with the percentage of irreducible uncertainty ∆ σ2u.
+
+Case r R2 Error (%) ∆σ2u (%) 
+
+fθ(X) 0.942 0.887 0.6 11 
+
+fθ(X, rDBP, rSBP ) 0.984 0.968 0.32 2.7 
+
+fθ(X, rDBP ) 0.945 0.893 0.58 9.6 
+
+fθ(X, rSBP ) 0.982 0.964 0.3 3.1 
+
+fθ(X, λ RT , λ CT ) 0.998 0.996 0.1 -
+
+fθ(X, λ RT ) 0.998 0.996 0.12 0
+
+fθ(X, λ CT ) 0.994 0.989 0.19 0.6 From a practical standpoint, a 11% of information loss when only X is taken into account is acceptable for a rough estimation of the CO , even if this can lead to errors of 20% for certain patients, as shown in Fig. 7(a). However, in clinical practice this error is expected to be more significant due to several complex physiological factors which are not accounted for by the 1-D numerical model. Interestingly, as also shown in Table 2, an additional pressure reading at the radial artery is enough to provide a very high 13 correlation of r = 0 .984, with 2 .7% of unexplained variance, which is a strong indication that the accuracy in prediction CO can be greatly enhanced via an additional pressure measurement site, even when the terminal Windkessel parameters are unknown. As expected, using only RT still constrains the parameter space sufficiently to maintain strong correlation, with limits of agreement around ±0.15 L/min (Fig. 7 (c)). This reflects the dominant contribution of terminal resistance to the mean pressure-flow relationship and its central role in eliminating most of the ambiguity present in the reduced input set. A particularly interesting behavior emerges when only CT is provided (Table 2). Despite representing merely 1–2% of the total arterial compliance and exerting only a minimal direct influence on central hemodynamics, its inclusion still yields an excellent correlation ( r = 0 .996) with limits of agreement of about ±0.2 L/min, apart from a small number of outliers. This suggests that even weakly sensitive parameters can impart enough structural information to partially regularize the inverse problem, reducing the admissible solution manifold and guiding the network toward a nearly unique CO estimate. To further investigate the cause of the unexplained variance due to CT , we fix an input state X0, which represents one of the patients with the worst correlation, and evaluate 
+
+fθ(X0, R T , C T ) = CO on a 2-D grid varying the terminal compliance and resistance mul-tipliers (Fig. 8(a)). The dominant effect of RT is apparent from the monotonic increase for every fixed CT 0 value, so to isolate the sensitivity of CO to CT , for each fixed RT 0,we normalize with the maximum CO value of that column (Fig. 8(b)). This removes the dominant effect of RT on the absolute scale of CO , leaving only the relative varia-tion of CO across CT . Empirically, we observe that for any admissible normalized CO 
+
+level α and any fixed CT = CT 0, the one-dimensional inverse problem f (CT 0, R T ) = α
+
+has at most m solutions in R, with m ≤ 4 over the sampled domain. Thus, although (CT , R T ) 7 → ˜f (C, R ) is not injective, conditioning on CT reduces the two-dimensional inverse ambiguity for ( CT , R T ) at a given output level α from a 2-D continuum (the full contour ( CT , R T )-plane) to at most m isolated points.                  
+
+> Figure 8. R-Cvs CO grids: (a) Indicative patient contour show that the terminal resistance has a strong monotonic influence on CO . (b) To isolate the effect of CT, we normalize each RTcolumn with its max CO value to reveal that there are at most 4 solutions of the same CT, which constrains the possible combinations even when only CTis given as input along with X.
+
+3.5. Clinical application: aortic noninvasive hemodynamics 
+
+While numerical simulations provide a powerful tool for hemodynamic analysis, it remains essential to quantify their deviation from real-world applications and assess the 14 extend of their practical use. For that reason, we also employ the surrogate model fθ(X)of Table 2, for the inverse estimation of both CO and cSBP in a clinical setting, which constitute two key indicators of cardiac function. The clinical dataset we choose to test on for this study is composed of 20 healthy patients of relatively young age, while the measurement protocol is described in detail on the original publication [24]. For the training dataset, we use the clinically-matched virtual population of Section 3.3. The prediction results are shown in Fig. 9 for both output variables. Having seen only numerically derived patient solutions, our model attains correlations of r = 0 .615 for the CO , and r = 0 .959 for the cSBP , within errors of ±1.6L/min and ±7.5mmHg ,respectively. Although the model shows noticeable scatter for the CO estimation, it is able to capture the dominant flow characteristics and especially the aortic blood pressure trends across the full range of our patients. It is worth noting that training on the entire in silico 
+
+population (including the non-admissible cases) yielded a CO correlation of r = 0 .5, which further highlights the importance of our distribution-matching methodology workflow of Fig. 1.   
+
+> Figure 9. Cardiac hemodynamics prediction: Using only noninvasive inputs X, the surrogate (a) captures the dominant flow across the clinical dataset, while (b) it provides a very accurate estimate for the aortic pressure.
+
+15 4. Limitations 
+
+The current 1-D formulation reflects healthy physiology under idealized assumptions and does not capture the full variability seen across diseased states, age groups, or other patient-specific factors; these gaps would require targeted model extensions or the inte-gration of complementary clinical information during training. The sensitivity matrix and hemodynamic parameters should be viewed as qualitative guides rather than defini-tive physiological relations, since true responses can deviate substantially across broader clinical populations. Available clinical datasets are typically sparse, cardiac output in par-ticular is prone to large measurement errors, so they often support only population-level statistical use rather than precise individualized calibration. For example, the Asklepios dataset could not yield a correlation higher than 0 .4, with significant errors for the CO 
+
+(even when attempting to train surrogates using purely clinical data), suggesting the exis-tence of additional unknown factors affecting the bloodflow or noise in the measurements. Ultimately, any clinical deployment demands cross-validation against multiple indepen-dent reliable datasets to demonstrate robustness, with the 1-D surrogate serving as a foundational layer for such expanded studies. 
+
+5. Summary 
+
+In this work, we develop an efficient methodology for training a surrogate model based on a physiologically grounded virtual cohort of 1-D arterial simulations, enabling real-time prediction, validation, and interpretation of hemodynamic behavior. By preserving the multivariate structure of the Asklepios clinical dataset, the virtual cohort provides realistic parameter correlations, while the neural surrogate reproduces arterial pressure and CO 
+
+across the admissible physiological range. The model performs instantaneous a priori rejection of non-physiological inputs, reducing the cost of generating targeted in silico 
+
+populations. It is also deployed for global sensitivity analysis and the construction of generalized pressure-response surfaces, revealing how dominant physiological parameters and their interactions shape systolic and diastolic arterial pressure. The surrogate is also used to quantify the degree to which CO is identifiable from patient-specific parameters alone, and to demonstrate how terminal resistance and com-pliance progressively constraint the parameter-output manifold. The resulting analysis shows the existence of non-uniqueness until the terminal parameters are supplied, with resistance having the strongest effect, while the compliance is able to provide an informa-tive direction in the admissible solution space. On the practical side, since the Windkessel parameters are unknown, we show that providing an additional pressure reading on the radial artery (e.g. wrist) significantly reduces the uncertainty in predicting aortic hemody-namic parameters of CO and cSBP . These insights provide a theoretical expectation on the optimal methodology for fast and accurate noninvasive monitoring of cardiovascular function during clinical scenarios. Finally, we apply our surrogate on a clinical dataset, which yields satisfactory corre-lations for CO and even better for cSBP . Attempts for testing on the larger dataset of Asklepios did not yield as good results, suggesting that mapping parameter-output man-ifolds or constructing generalized hemodynamic fields is not attainable using clinical data alone: measurements could be sparse, heterogeneous, and noisy, making numerical mod-eling indispensable for resolving the full multidimensional landscape. Clinical datasets 16 are therefore useful to capture broad trends and correlation patterns rather than to pro-vide exact patient-specific solutions. Future work will incorporate age-dependent markers to extend this framework to a wider population study. Along with additional clinical datasets, the surrogate can be a reliable foundation model, serving as an informative prior for specialized studies on disease indices and live health monitoring. 
+
+References 
+
+[1] Y. Shi, P. Lawford, D. R. Hose, Review of Zero-D and 1-D models of blood flow in the cardiovascular system, BioMedical Engineering OnLine 10 (2011) 33. [2] L. Formaggia, D. Lamponi, A. Quarteroni, One-dimensional models for blood flow in arteries, Journal of Engineering Mathematics 47 (3-4) (2003) 251–276. [3] S. J. Sherwin, V. Franke, J. Peir´ o, K. H. Parker, One-dimensional modelling of a vascular network in space-time variables, Journal of Engineering Mathematics 47 (3-4) (2003) 217–250. [4] K. S. Matthys, J. Alastruey, J. Peir´ o, A. W. Khir, P. Segers, P. R. Verdonck, K. H. Parker, S. J. Sherwin, Pulse wave propagation in a model human arterial network: Assessment of 1-D numerical simulations against in vitro measurements, Journal of Biomechanics 40 (15) (2007) 3476–3486. [5] P. Reymond, F. Merenda, F. Perren, D. Rufenacht, N. Stergiopulos, Validation of a one-dimensional model of the systemic arterial tree, American Journal of Physiology-Heart and Circulatory Physiology 297 (1) (2009) H208–H222. [6] J. Alastruey, K. H. Parker, J. Peir´ o, S. J. Sherwin, Analysing the pattern of pulse waves in arterial networks: A time-domain study, Journal of Engineering Mathemat-ics 64 (2009) 331–351. [7] V. Bikia, S. Pagoulatou, B. Trachet, D. Soulis, A. D. Protogerou, T. G. Papaioannou, N. Stergiopulos, Noninvasive cardiac output and central systolic pressure from cuff-pressure and pulse wave velocity, IEEE journal of biomedical and health informatics 24 (7) (2019) 1968–1981. [8] S. Laurent, J. Cockcroft, L. Van Bortel, P. Boutouyrie, C. Giannattasio, D. Hayoz, B. Pannier, C. Vlachopoulos, I. Wilkinson, H. Struijker-Boudier, et al., Expert con-sensus document on arterial stiffness: Methodological issues and clinical applications, European Heart Journal 27 (21) (2006) 2588–2605. [9] L. M. Van Bortel, S. Laurent, P. Boutouyrie, P. Chowienczyk, J. K. Cruickshank, T. De Backer, J. Filipovsk´ y, S. Huybrechts, F. U. S. Mattace-Raso, A. D. Protogerou, et al., Expert consensus document on the measurement of aortic stiffness in daily practice using carotid-femoral pulse wave velocity, Journal of Hypertension 30 (3) (2012) 445–448. [10] M. R. Pfaller, J. Pham, A. Verma, L. Pegolotti, N. M. Wilson, D. W. Parker, W. Yang, A. L. Marsden, Automated generation of 0D and 1D reduced-order mod-els of patient-specific blood flow, International Journal for Numerical Methods in Biomedical Engineering 38 (10) (2022) e3639. 17 [11] L. Pegolotti, M. R. Pfaller, N. L. Rubio, K. Ding, R. Brugarolas Brufau, E. Darve, A. L. Marsden, Learning reduced-order models for cardiovascular simulations with graph neural networks, Computers in Biology and Medicine 168 (2024) 107676. [12] V. Bikia, G. Rovas, S. Pagoulatou, N. Stergiopulos, Determination of aortic charac-teristic impedance and total arterial compliance from regional pulse wave velocities using machine learning: an in-silico study, Frontiers in bioengineering and biotech-nology 9 (2021) 649866. [13] V. Bikia, P. Segers, G. Rovas, S. Pagoulatou, N. Stergiopulos, On the assessment of arterial compliance from carotid pressure waveform, American Journal of Physiology-Heart and Circulatory Physiology 321 (2) (2021) H424–H434. [14] V. Bikia, T. G. Papaioannou, S. Pagoulatou, G. Rovas, E. Oikonomou, G. Siasos, D. Tousoulis, N. Stergiopulos, Noninvasive estimation of aortic hemodynamics and cardiac contractility using machine learning, Scientific reports 10 (1) (2020) 15015. [15] E. R. Rietzschel, M. L. De Buyzere, S. Bekaert, P. Segers, D. De Bacquer, L. Cooman, P. Van Damme, P. Cassiman, M. Langlois, P. Van Oostveldt, et al., Rationale, design, methods and baseline characteristics of the Asklepios study, European Journal of Cardiovascular Prevention & Rehabilitation 14 (2) (2007) 179–191. [16] M. D. McKay, R. J. Beckman, W. J. Conover, A comparison of three methods for selecting values of input variables in the analysis of output from a computer code, Technometrics 21 (2) (1979) 239–245. [17] G. J. Langewouters, Visco-elasticity of the human aorta in vitro in relation to pressure and age, Ph.D. thesis, Krips Repro (1982). [18] P. Segers, E. Rietzschel, M. De Buyzere, N. Stergiopulos, N. Westerhof, L. Van Bor-tel, T. Gillebert, P. Verdonck, Three-and four-element windkessel models: assessment of their fitting performance in a large cohort of healthy middle-aged individuals, Pro-ceedings of the Institution of Mechanical Engineers, Part H: Journal of Engineering in Medicine 222 (4) (2008) 417–428. [19] Z. Lu, R. Mukkamala, Continuous cardiac output monitoring in humans by invasive and noninvasive peripheral blood pressure waveform analysis, Journal of Applied Physiology 101 (2) (2006) 598–608. [20] A. Wolak, H. Gransar, L. E. Thomson, J. D. Friedman, R. Hachamovitch, A. Gut-stein, L. J. Shaw, D. Polk, N. D. Wong, R. Saouaf, et al., Aortic size assessment by noncontrast cardiac computed tomography: normal limits by age, gender, and body surface area, JACC: Cardiovascular Imaging 1 (2) (2008) 200–209. [21] P. Segers, E. R. Rietzschel, M. L. D. Buyzere, S. J. Vermeersch, D. D. Bacquer, L. M. V. Bortel, G. D. Backer, T. C. Gillebert, P. R. Verdonck, Noninvasive (input) impedance, pulse wave velocity, and wave reflection in healthy middle-aged men and women, Hypertension 49 (6) (2007) 1248–1255. 18 [22] E.-R. Rietzschel, M. L. De Buyzere, S. Bekaert, P. Segers, D. De Bacquer, L. Cooman, P. Van Damme, P. Cassiman, M. Langlois, P. van Oostveldt, P. Ver-donck, G. De Backer, T. C. Gillebert, the Asklepios investigators, Rationale, design, methods and baseline characteristics of the asklepios study, European journal of car-diovascular prevention and rehabilitation 14 (2) (2007) 179–191. [23] E.-R. Rietzschel, M. L. De Buyzere, S. Bekaert, P. Segers, D. De Bacquer, L. Cooman, P. Van Damme, P. Cassiman, M. Langlois, P. van Oostveldt, et al., Rationale, design, methods and baseline characteristics of the asklepios study, European Journal of Preventive Cardiology 14 (2) (2007) 179–191. [24] T. G. Papaioannou, D. Soulis, O. Vardoulis, A. Protogerou, P. P. Sfikakis, N. Ster-giopulos, C. Stefanadis, First in vivo application and evaluation of a novel method for non-invasive estimation of cardiac output, Medical engineering & physics 36 (10) (2014) 1352–1357. 19
