@@ -1,0 +1,1225 @@
+Title: DAGAF: A directed acyclic generative adversarial framework for joint structure learning and tabular data synthesis
+
+URL Source: https://arxiv.org/pdf/2604.04290v1
+
+Published Time: Tue, 07 Apr 2026 01:16:16 GMT
+
+Number of Pages: 43
+
+Markdown Content:
+# DAGAF: A Directed Acyclic Generative Adversarial Framework for Joint Structure Learning and Tabular Data Synthesis 
+
+## Hristo Petkov 1* , Calum MacLellan 1† and Feng Dong 1†
+
+1Department of Computer and Information Sciences, University of Strathclyde, 16 Richmond Street, Glasgow, G1 1XQ, Lanarkshire, United Kingdom. *Corresponding author(s). E-mail(s): hristo.petkov@strath.ac.uk; Contributing authors: calum.maclellan@strath.ac.uk; feng.dong@strath.ac.uk; 
+
+†These authors contributed equally to this work. 
+
+Abstract 
+
+Understanding the causal relationships between data variables can provide cru-cial insights into the construction of tabular datasets. Most existing causality learning methods typically focus on applying a single identifiable causal model, such as the Additive Noise Model (ANM) or the Linear non-Gaussian Acyclic Model (LiNGAM), to discover the dependencies exhibited in observational data. We improve on this approach by introducing a novel dual-step framework capa-ble of performing both causal structure learning and tabular data synthesis under multiple causal model assumptions. Our approach uses Directed Acyclic Graphs (DAG) to represent causal relationships among data variables. By applying var-ious functional causal models including ANM, LiNGAM and the Post-Nonlinear model (PNL), we implicitly learn the contents of DAG to simulate the generative process of observational data, effectively replicating the real data distribution. This is supported by a theoretical analysis to explain the multiple loss terms comprising the objective function of the framework. Experimental results demon-strate that DAGAF outperforms many existing methods in structure learning, achieving significantly lower Structural Hamming Distance (SHD) scores across both real-world and benchmark datasets (Sachs: 47%, Child: 11%, Hailfinder: 5%, Pathfinder: 7% improvement compared to state-of-the-art), while being able to produce diverse, high-quality samples. 
+
+1 
+
+> arXiv:2604.04290v1 [cs.LG] 5 Apr 2026 Keywords: Adversarial Causal Discovery, Tabular Data Synthesis, Directed Acyclic Graph Learning, Post-Nonlinear Model, Additive Noise Model, Linear on-Gaussian Acyclic Model
+
+# 1 Introduction 
+
+Understanding causal relationships between variables in a dataset is a crucial aspect of data analysis, as it can lead to numerous scientific discoveries. Although random-ized controlled trials, which involve manipulating data through interventions, are still considered the gold standard for learning causal structures, such experiments are often impractical or even impossible due to many ethical, technical, or resource constraints. Addressing this challenge has led to a growing demand for causal studies to identify causal relationships from passive observational data. In the last few decades, numerous approaches have emerged for performing obser-vational causal discovery across various scientific fields, including bioinformatics [1–3], economics [4], biology [5, 6], climate science [7, 8], and social sciences [9]. Most causal studies employ conditional independence-based algorithms, such as PC [10], FCI [11], and RFCI [12]; discrete score-based methods like GES [13], GES-mod [14], and GIES [15]; or continuous optimization techniques, including NOTEARS [16], DAG-GNN [17], GraN-DAG [18], and DAG-WGAN [19]. All these methodologies for causal struc-ture learning have been rigorously tested and demonstrated substantial empirical evidence of their ability to produce accurate graphical representations of dependencies within datasets. However, strong performance does not necessarily resolve the issue of non-uniqueness in causal models, where multiple causal graphs can be used to define the same distribution. To resolve the issue of non-uniqueness in causal models (e.g. Markov equivalent), where a single observed dataset may have multiple underlying structures, researchers often introduce additional assumptions [20]. They employ Functional Causal Mod-els (FCM) parameterized with various structural equations to ensure that a unique causal graph is identified from a given distribution. Currently, there exist a signifi-cant amount of works that apply various identifiable (in most cases) models to learn causal structures from observational data. Noteworthy examples include the exten-sively researched linear non-Gaussian acyclic model (LiNGAM) [21], the additive noise model (ANM) [22], which provides limited support for non-linearity by assuming the relationships between variables are additive and the post-nonlinear model (PNL) [23] designed for studying complex non-linear relationships. Among the aforementioned FCMs, the post-nonlinear (PNL) model is notable for being realistic and more accurately representing the sensor or measurement distor-tions commonly observed in real-world data [24]. It is also considered a superset that encompasses both ANM and LiNGAM. The PNL model consists of two functions: 1) an initial function that transforms data variables, with independent noise subse-quently added to all transformations; and 2) an invertible function that applies an additional post-nonlinear transformation to each variable. Although the PNL model 2is one of the most general FCMs for modeling causal mechanisms in real data distri-butions, it is less studied than other identifiable models due to challenges associated with its post-nonlinearity and invertibility constraints. Several approaches have been developed to investigate causal structure learning under the assumption of post-nonlinear (PNL) models, with most focusing on accu-rately approximating the invertibility function. For example, AbPNL [25] uses an autoencoder architecture to learn a function and its inverse by minimizing a com-bination of independence and reconstruction loss terms. This model is applied to both bivariate and multivariate causal discovery within the context of PNL. Another approach, DeepPNL [26], parameterizes both functions of the PNL model using deep neural networks. Similarly, CAF-PoNo [27] employs normalizing flows to model the invertibility constraint associated with PNL. Rank-PNL, proposed by [28], adapts rank-based methods to estimate the invertible function of the causal model. The lat-est work in this area, MC-PNL [29], aims to efficiently perform structure learning for PNL estimation by modeling nonlinear causal relationships using a novel objective function and block coordinate descent optimization. Despite recent advances in PNL estimation, causal structure learning under this functional causal model assumption remains relatively unexplored compared to other models such as ANM. Most existing causality learning methods typically focus on applying a single iden-tifiable causal model to discover the dependencies exhibited in observational data. This presents a significant disadvantage as such approaches have no way to determine whether the model they assumed can learn an accurate representation of the underly-ing structure in a dataset. This is a critical problem to address, as misidentification of causal relationships in a dataset can result in incorrect data analysis, leading to bias in classification or inaccurate predictions. Moreover, causal discovery is also closely related to tabular data synthesis, where externally learned causal mechanisms are applied in Deep Generative Models (DGM) (e.g. DECAF [30], Causal-TGAN [31] and TabFairGAN [32]) to synthesize new data samples. This method has its limitations because the accuracy of the causal knowledge must be evaluated prior to its applica-tion, which requires the availability of the true underlying structure of the dataset. This assumption proves to be impractical for real-world data, as such datasets are usually complex and extensive, with their causal structures often remaining unknown. Recent advancements in generative modeling, including Digital Twins and transformer-based multi-attention networks, provide alternative approaches for mod-eling complex data relationships. Digital Twin models aim to create virtual representa-tions of real-world systems, making them highly relevant for synthetic data generation. Similarly, attention-based architectures, such as multi-attention networks, dynami-cally weigh dependencies between variables. As generative models continue to gain popularity, there is significant potential to integrate them with causal discovery under a unified framework, enabling more accurate and interpretable data generation that remains faithful to underlying causal structures. In this paper, we aim to address some of the challenges outlined above by proposing a novel framework called DAGAF, which is capable of modeling causality resembling the underlying causal mechanisms of the input data (i.e learnable causal structure 3approximations) and employing them to synthesize diverse, high-fidelity data sam-ples. DAGAF learns multivariate causal structures by applying various functional causal models and determines through experimentation which one best describes the causality in a tabular dataset. Specifically, the framework supports the PNL model along with its subsets, which include LiNGAM and ANM. Unlike other methods that assume data generation is limited to a single causal model, DAGAF satisfies mul-tiple semi-parametric assumptions. Additionally, supporting such a broad spectrum of identifiable models enables us to extensively compare our approach against the state-of-the-art in the field. We complete our study by investigating the quality of the discovered causality from a tabular data generation standpoint. We hypothesize that a precise approximation of the original causal mechanisms in a given probability dis-tribution can be leveraged to produce realistic data samples. To prove our hypothesis, DAGAF incorporates an adversarial tabular data synthesis step, based on transfer learning, into our causal discovery framework. The contributions made throughout this work are outlined as follows: 
+
+• We unify causal structure learning and tabular data synthesis under a single frame-work capable of approximating the generative process of observational data and producing realistic samples. This approach allows us to generate quality synthetic data from the input, while preserving its causality (Section 3). 
+
+• The proposed framework seamlessly integrates ANM, LiNGAM, and PNL models by leveraging a multi-objective loss function that combines adversarial loss, recon-struction loss, KL divergence, and MMD. This flexible formulation enables robust causal structure learning under diverse data-generating assumptions. Additionally, we provide a theoretical analysis to elucidate the contributions of these loss terms and how they complement each other in guiding convergence toward the true causal structure. We also analyze causal identifiability, providing conditions under which causal relationships can be uniquely determined, and examine how real-world data characteristics—such as noise, missing values, and distribution shifts—can impact identifiability (Section 3.1 and Section 4). 
+
+• We employ transfer learning in the context of causally-aware tabular data synthe-sis. DAGAF uses a two-step iterative approach that combines causal knowledge acquisition with high-quality data generation. The causal relationships identified in the first step are transferred and leveraged in the second step to facilitate causal-based tabular data generation. This enables more faithful synthetic data generation, preserving the underlying causal mechanisms (Section 3.2). 
+
+• We validate the effectiveness of DAGAF on synthetic, benchmark, and real-world datasets. Our results show significant improvement in DAG learning in compari-son with other methods (Sachs: 47%, Child: 11%, Hailfinder: 5%, Pathfinder: 7% improvement compared to state-of-the-art). They also demonstrate that the learned causal mechanism approximations can be used to generate high-quality, realistic data (Section 5). 42 Prerequisites 
+
+This section explores the mathematical aspects of causality, relevant to the field of machine learning. In particular, we provide a brief overview of Functional Causal Models (FCM) [33] and the assumptions employed in our causal structure learning algorithm. Let χ denote a tabular dataset such that X = {X1, . . . , X d} is a set of d random data variables, and χ ⊆ Rn×d represents a dataset consisting of n samples X =
+
+{X1, . . . , Xn} drawn from the joint distribution P (X). Individual data points and their attributes are denoted as Xi and Xj , respectively. Additionally, let GA ∈ D be a ground truth Directed Acyclic Graph (DAG) representing the relationships between all the attributes {X1, . . . , X d}. Then, P (X) can be expressed using a functional causal model (FCM), which describes the relationships within {X1, . . . , X d}. In this context, FCMs facilitate causal discovery from tabular datasets by encoding variables as nodes, and edges between them represent the underlying causal mechanisms responsible for data generation. According to theory, an FCM is formulated as a triplet MGA ⟨X, F, Z⟩ , where 
+
+X = {X1, . . . , X d} is a set of endogenous variables, F = {f1, . . . , f d} is a set of structural equations, and Z = {Z 1, . . . , Zd} is a set of exogenous (noise) variables. Under the local Markov condition and the causal sufficiency assumption, the joint distribution of X can be factorized as P (X) = Qdj=1 P (Xj | P a j ), where Xj is a child of its parent variables P a j in the graph GA. Each Xj can be modeled in its non-parametric form as: 
+
+Xj := fj (Pa j , Zj ). (1) This representation of P (X) allows us to sequentially model the causal mechanisms underlying χ, defining its generative process. Furthermore, we assume faithfulness, which enables the discovery of causal struc-tures from continuous observational data using various nonlinear and semi-parametric models. Our framework is applied to several types of models, including: Linear non-Gaussian Acyclic Models (LiNGAM), Additive Noise Models (ANM), and Post-Nonlinear Models (PNL). Each of these models has been proven to be causally identifiable under specific assumptions: 
+
+• LiNGAM : The causal identifiability of LiNGAM is guaranteed under the assump-tion of non-Gaussianity in the noise terms. Specifically, if the noise variables are non-Gaussian and independent from X, it has been shown that the underlying causal structure can be uniquely identified [21]. 
+
+• ANM : Additive Noise Models (ANM) assume that the Gaussian noise term Zj is independent of the parent variables P a j . This assumption enables the identifiability of the causal direction between variables. Additionally, the function fj (·) must be non-linear and three times differentiable, to ensure that the application of this model results in a unique determination of the causal direction between variables [22]. 
+
+• PNL : Post-Nonlinear Models (PNL) extend the ANM framework by introducing an additional non-linear transformation gj (·) after the function fj (·). The key assump-tions for identifiability in PNL include the independence of the Gaussian noise 5terms and the non-linear and invertible nature of the function gj (·). Under these conditions, the causal structure can be identified, even in the presence of complex non-linear interactions [23]. 
+
+# 3 DAGAF: a general framework for simultaneous causal discovery and tabular data synthesis 
+
+DAGAF learns DAG structures from input data to simulate the generative process of their probability distribution. We model GA to represent the causal relationships within a dataset χ. The model is capable of facilitating realistic sample synthesis with minimal loss of fidelity and diversity. We formalize our goal as follows. 
+
+Goal : Given n i.i.d. observations X ∼ P (X) ∈ χ, we propose a general framework to learn GA ≈ G A ∈ D together with a set of structural equations F = {f1, ...f d}, such that ˜Xj := fj (P a j , Zj ) yields ˜X ∼ PGA ( ˜X) ∈ ˜χ matching the input. The DAGAF framework focuses on learning an approximation of the causal mechanisms {fj (P a j , Zj )} involved in the generation of observations X. The (semi)parametric assumptions outlined in Section 2 define each node Xj ∈ GA as a function fj : Rd → R. Under such circumstances, the general nonparametric form 
+
+E[Xj |Xpa (j)] := EZ (fj (X, Z)) can be reduced to one of the following: 1) Linear non-Gaussian Acyclic Models (LiNGAM) : ˜X := f (X) + Z, where f (X) is a linear function of X and Z is a non-Gaussian noise term independent of X; 2) Additive Noise Models (ANM) : ˜Xj := fj (P a j ) + Zj , where fj is a nonlinear function of the parent variables P a j , and Zj ⊥⊥ fj (P a j ), Zj ∼ N (μ, σ 2 
+
+> j
+
+); 3) Post-Nonlinear Models (PNL) : ˜Xj := gj (fj (P a j ) + Zj ), where gj is a nonlinear function and 
+
+Zj ⊥⊥ fj (P a j ), Zj ∼ N (μ, σ 2 
+
+> j
+
+). Algorithm 1 provides an overview of the training process. Section 3.1 details Step 1, which focuses on causal structure learning. Furthermore, since the framework recov-ers the causal structure by learning the underlying data generative process of X, it is naturally well-suited for data synthesis. However, it requires training a separate Deep Generative Model (DGM) involving a discriminator and a generator in an additional training phase, which is explained in detail in Section 3.2. The architecture and train-ing procedure of DAGAF are described in Section 3.3. A visual representation of the model pipeline is provided in Figure 1. 
+
+Fig. 1 : Pipeline of the DAGAF algorithm 6Algorithm 1 DAGAF training algorithm 
+
+Require: Sample n observational data points {X1, . . . , Xn} from the training data and d
+
+noise vectors {Z1, . . . , Z d} from normal or uniform distributions. Generate n synthetic data samples { ˜X1, . . . , ˜Xn}, with data attributes ˜X := f (X) + Z, ˜Xj := fj (P a j ) + Zj or ˜Xj := gj (fj (P a j ) + Zj ) depending on whether LiNGAM, ANM or PNL is assumed. 
+
+Ensure: The acyclicity constraint value h(AL0 (f )) is higher than its tolerance of error h tol 
+
+set to 1e-8. Each step during training has its own instance of DAG-Notears-MLP. Causal information is transferred from the FCM into the DGM architecture. 
+
+Step 1 : Poly-assumptive causal structure learning LiNGAM, ANM → learn f by minimizing a combination of loss terms including adversarial loss (2), Mean Squared Error (3), Kullback-Lieber divergence (4), Maximum Mean Discrepancy (5) and the acyclicity constraint from [34] PNL → learn f using the loss terms described in the LiNGAM, ANM case and 
+
+g−1 by solving (8) This step recovers a graph representation GA of the causal mechanisms in X.
+
+Step 2 : Generative process simulation under multiple causal model assumptions LiNGAM, ANM → learn f by computing (2) PNL → learn f and g by finding the optimal value for (2) This step models a generative process involving GA through adversarial training, producing new data samples. 
+
+## 3.1 Loss functions for causal structure learning 
+
+In Step 1 of DAGAF training, the goal is to model DAGs using a sophisticated objec-tive function that integrates a combination of loss terms used for causal structure learning. In its basic form, the framework covers LiNGAM and ANM by utilizing adversarial training and reconstruction loss, along with some regularization terms, to learn how to generate ˜X from X. One benefit of our framework is its flexibility, allowing the basic approach to be easily adapted to support causal structure learning using PNL. The advanced form further extends the functionality of the framework to cover PNL by adding an additional reconstruction loss term to model the non-linear function gj .
+
+3.1.1 Adversarial loss with gradient penalty 
+
+DAGAF simulates X by learning how to generate ˜X using causal mechanism approx-imations of {fj (P a j , Zj )} ∈ P (X). To achieve this, we do not directly model ˜X but instead focus on recovering the causal mechanisms F = {f1, . . . , f d}, where each fj
+
+is defined as fj (P a j ; W 1 
+
+> j
+
+, . . . , W Lj ) + Zj . Learning the causal mechanisms involves determining the immediate parents of each variable, which are encoded in the causal structure of X. We minimize the Wasserstein distance Wp(P (X), P GA ( ˜X)) through adversarial training, which implicitly refines the causal structure GA, facilitating the identification of the causal mechanisms. The Wasserstein distance with gradient penalty loss term is defined as follows: 7Ladv (X, ˜X) = sup 
+
+> ∥ϕ∥L≤1
+
+EX∼P (X)[ϕ(X)] − E ˜X∼PGA (x|G)[ϕ( ˜X)] = EX∼P (X)[D(X)] − E ˜X∼PGA ( ˜X)[D( ˜X)] + E ˆX∼P ( ˆX)[( ||∇ ˆXD( ˆX)|| 2 − 1) 2],
+
+(2) where ϕ(X) is a 1-Lipschitz function used to approximate the Wasserstein distance 
+
+Wp(P (X), P GA ( ˜X)). The function D(X) serves as the discriminator, which is trained adversarially to learn ϕ(X) and distinguish between real and generated samples. In this framework, adversarial training to optimise (2) involves learning the set of structural equations F = {f1, . . . , f d}, where each fj models the causal mechanism of node Xj . The FCM-based generator M learns to generate synthetic data that mimics the true distribution, while the discriminator D(X) evaluates the divergence between real and generated samples. The objective is formulated as a min-max optimization, where M aims to minimize the discrepancy measured by D(X), while D(X) is trained to distinguish between real and generated distributions, typically using the Wasserstein distance. Theoretically, this min-max optimization problem achieves its optimal point typically characterized as a Nash equilibrium, when the generator can yield synthetic data that is indistinguishable from X, thereby approximating the generative process of X (i.f.f. the causal structure in GA is correctly identified). 
+
+Proposition 1. Let the ground-truth DAG GA be uniquely identifiable from P (X),then, under the causal identifiability assumption, minimizing adversarial loss ensures that the implicitly generated distribution PGA ( ˜X) aligns with P (X).
+
+Wp(P (X), P GA ( ˜X)) = 0 → PGA ( ˜X) = P (X) ⇐⇒ GA = GA.
+
+Proof. The proof of Proposition 1 is available in Appendix A.1. 
+
+3.1.2 Reconstruction loss 
+
+We add a reconstruction loss to enhance causal structure learning. In this context, we use Mean Squared Error (MSE) as the reconstruction loss: 
+
+LMSE (X, ˜X) = EX, ˜X(|| X − ˜X|| 2) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+> d
+
+X
+
+> j=1
+
+|| Xij − { fj (P a j ; W 1 
+
+> j
+
+, ..., W Lj ) + Zj }i|| 2
+
+(3) By reducing (3) through parameter optimization, we minimize the residual distance between individual samples || X − ˜X|| such that our model produces ˜X ∼ PGA ( ˜X) by implicitly learning the causal dependencies of X represented in GA. Essentially, this reconstruction process results in a closer approximation of the causal mechanisms responsible for producing X.8Proposition 2. The MSE loss ensures point-wise alignment between the data and the prediction of the model, improving the smoothness of the gradient and the stability of adversarial optimization. 
+
+inf  
+
+> GA∈D
+
+LMSE (X, ˜X) = 0 ⇒ ∀ i, ˜Xi = Xi
+
+Proof. The proof of Proposition 2 is available in Appendix A.2. The MSE loss plays a key role in DAG learning, as evidenced by our experiments. This aligns with the approach taken by most existing works in DAG-learning, where MSE is the most commonly used loss function. 
+
+3.1.3 Kullback–Leibler Divergence 
+
+We introduce Kullback–Leibler divergence (KLD) [35] as a regularization term for nonlinear cases with additive Gaussian noise in ANM to prevent overfitting of X
+
+and inaccurate causal mechanisms in the generative process of ˜X. The KLD term is typically applied in Variational Autoencoders (VAE) as a regularization component of the Evidence Lower Bound (ELBO) loss function for latent variables. It is defined as DKL 
+
+ N (μ, σ 2)∥N (0 , 1)  = 12
+
+Pni=1 
+
+ σ2 
+
+> i
+
++ μ2 
+
+> i
+
+− log( σ2 
+
+> i
+
+) − 1 where μ and σ denote the mean and standard deviation of ˜X. In our setup, we apply this to regularize ˜X.Additionally, we only model the mean of PGA ( ˜X) and set its variance to 1, hence reducing the regularization function to: 
+
+LKLD (X, ˜X) = DKL (P (X)|| PGA ( ˜X)) = 12
+
+> n
+
+X
+
+> i=1
+
+(μ2 
+
+> i
+
+). (4) We use the Kullback–Leibler divergence (KLD) as a regularization term for ˜X,the model-generated data, to simulate an additive noise scenario where noise is incor-porated into each data point. By applying KLD to ˜X, we encourage the model to produce ˜X that closely matches the true data distribution while accounting for the variability introduced by noise. This regularization helps the model avoid overfitting by ensuring that the generated data reflects the natural variations present in the real data, leading to more robust and realistic samples. As our model involves learning causal mechanisms, this prevents the model from learning incorrect causal structures, such as misidentifying child nodes as parent nodes. 
+
+Proposition 3. The LKLD (X, ˜X) regularization provides a statistical prior on the learned distribution PGA ( ˜X), ensuring it adheres to a Gaussian assumption. It also acts as a stabilizing factor in optimization, particularly under the additive Gaussian noise model. It complements the adversarial and MSE losses, ensuring both alignment and smoothness of PGA ( ˜X).Proof. The proof of Proposition 3 is available in Appendix A.3. Note, this is not applicable to the LiNGAM causal model, due to the non-Gaussianity of the noise term Z under that specific assumption. 93.1.4 Maximum Mean Discrepancy 
+
+The reconstruction loss and its regularization term focus solely on learning the mean of 
+
+P (X), while completely disregarding its variance. This implies that the reconstruction process involved in DAGAF is highly sensitive to rare occurrences (i.e. outliers) in 
+
+P (X). To address this issue, we further reduce the residual distance between the input distribution X ∼ P (X) and the generated data distribution ˜X ∼ PGA ( ˜X) by introducing the Maximum Mean Discrepancy (MMD) [36]. We apply the kernel trick [37] to compute the solution to this formula. 
+
+LMMD (X, ˜X) = || EX∼P (X)[k(X)] − E ˜X∼PGA ( ˜X)[k( ˜X)] || 2
+
+> H
+
+= 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k(Xi, Xj ) − 2
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k(Xi, ˜Xj ) + 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k( ˜Xi, ˜Xj ), (5) where H denotes the reproducing kernel Hilbert space (RKHS) and k ∈ H is a kernel function. The MMD maximizes mutual information between P (X) and PGA ( ˜X), leading to alignment in both their means and overall shapes. Specifically, by matching the shapes of the distributions, the MMD term can help bring their variances closer together. Hence, by applying (5) we indirectly model the standard deviation of PGA ( ˜X) to mitigate mode collapse in ˜X and discover the causal mechanisms responsible for producing its outliers. 
+
+Proposition 4. Minimizing the Maximum Mean Discrepancy (MMD) loss 
+
+LMMD (X, ˜X) aligns higher-order statistics of P (X) and PGA ( ˜X), complementing adversarial loss to achieve overall distributional alignment. Proof. The proof of Proposition 4 is available in Appendix A.4. Our ablation study in Appendix B indicates that the MMD term incorporated from DAG-GAN [38] makes contributions to causal discovery. 
+
+3.1.5 Post-Nonlinear FCM 
+
+So far, we have discussed the loss terms for the LiNGAM and ANM cases, where ˜X
+
+generated using causal mechanism approximations ˜X := f (X) + Z or ˜Xj = fj (P a j ) + 
+
+Zj is treated as the final output of the model to mimic the training data X via minimizing || P (X) − PGA ( ˜X)|| . One of the key advantages of DAGAF is its flexibility, allowing this to be extended to handle Post-Nonlinear Models (PNL). PNL is crucial for causal discovery as it provides a more realistic approach to modeling causality by capturing non-linear effects in observational data. Furthermore, PNL is considered a general superset that encompasses other identifiable models, such as ANM [39] and LiNGAM [21]. ˜Xj := gj (fj (P a j ) + Zj ), ∀j, Zj ⊥⊥ fj (P a j ) (6) 10 Without loss of generality, we rearrange (6) into 
+
+Zj = g−1 
+
+> j
+
+( ˜Xj ) − fj (P a j ), (7) where g−1 is the inverse of g. Under this setting (from the rearranged equation), the problem has been broken into two parts, which are to learn f (·) and g−1(·) respectively. Learning f (·) follows the same process as in the ANM and LiNGAM cases, as described so far in Section 3.1.1 to Section 3.1.4. However, learning g−1(·) is an addi-tional step specific to the PNL case. In practice, both functions g−1(·) and f (·) are modeled using two different neural networks, where f (·) is the same as before and 
+
+g−1(·) is the inverse of a general MLP. There is an additional Mean Squared Error (MSE) term involved in the training procedure, which we define as: 
+
+LPNL ( ˆX, ˜X) = M SE ( ˆX, ˜X) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+> d
+
+X
+
+> j=1
+
+|| g−1 
+
+> j
+
+(Xj )i − fj (P a j )i|| 2, (8) where ˆX is the output of g−1.It is worth noting that the reason why the loss terms in Sections 3.1.1-3.1.4 (where 
+
+f (.) is treated as the final output of the model) can be used by the PNL case is based on the idea of skip connections, as those used in ResNet. Although the output from 
+
+f (·) in the PNL case is not the final output, we can still use it directly in these loss terms by essentially skipping the final function g(·), allowing the model to apply the same loss terms as in the ANM and LiNGAM cases. For more information on this concept, see [40]. 
+
+3.1.6 Causal structure acyclicity 
+
+Minimizing the reconstruction and adversarial loss terms does not guarantee that GA
+
+will be acyclic. To prevent cycles from occurring in the learned causal structures, we employ the implicit acyclicity constraint from [34] h(AL0 (f )) = 0, where AL0 ∈ Rd×d
+
+is the weighted adjacency matrix described implicitly by the model weights. More details can be found in [34]. 
+
+## 3.2 Simulating data generative processes 
+
+In the second stage of Algorithm 1, we focus on synthesizing realistic tabular data samples using the causal graph GA produced from Step 1. Our data generation process assumes a different instance of the FCM M used in the causal discovery step, which we refer to as generator G here. Causal knowledge is transferred between FCM instances by loading W L0 from M into L0 ∈ G. To enable tabular data synthesis, we incorporate an additional noise vector Z = {Z1, ...Z d} ∼ N (μ, σ 2) into the architecture of the generator. The models used in this step are trained adversarially to ensure that PGA ( ˜X)closely approximates P (X). Specifically, the network G creates samples while compet-ing against a discriminator D : Rd → R, whose aim is to distinguish between synthetic samples and observational samples. We apply Wasserstein-1 with gradient penalty to train our DGM, resulting in realistic samples indistinguishable from X. The loss func-tion is the same as Equation (2). More specifically, we consider each connected layer 11 α(Lj ) ∈ { α(L1), ...α (Ld)} as an individual generator Gj (Zj ) ∈ { G1(Z1), ...G d(Zd)}.This approach enables us to model each causal mechanism fj ∈ { f1, ...f d} such that ˜Xj
+
+is generated as either ˜X := G(X)+ Z; ˜Xj := Gj (P a j )+ Zj or ˜Xj := gj (Gj (P a j )+ Zj ), depending on whether we assume LiNGAM, ANM or PNL. In other words, we gen-erate a synthetic tabular dataset ˜X ∈ ˜χ ⊆ Rn×d = F(Z) = {fj (P a j , Z j )}. During training, we only update the parameters W = {W 1, ..., W L} of the locally connected hidden layers, since modifying the weights of L0 would affect the structural equations 
+
+F used to produce ˜X.Our experiments in Section 5.4 indicate that our DMG can produce high-quality data under both the ANM and PNL structural assumptions. 
+
+## 3.3 Model architecture and training specifications 
+
+Figure 2 presents the overall architecture of the DAGAF framework. Figure 2a illus-trates the ANM and LiNGAM setting, where input data X is processed by function 
+
+f to produce ˆX. The optimization is guided by multiple loss terms: Ladv (X, ˜X), 
+
+LMSE (X, ˜X), LKLD (X, ˜X), and LMMD (X, ˜X), with LKLD (X, ˜X) specifically excluded in the LiNGAM case. Figure 2b extends Figure 2a by incorporating the PNL model. The right-hand branch follows the same structure as Figure 2a, while the additional left-hand branch applies g−1 to invert X. This inversion contributes to computing 
+
+LPNL (X, ˜X), which is then integrated with the other loss terms from the right-hand branch, forming a unified optimization framework. Figure 2c depicts the data gen-eration process used to synthesize artificial data, demonstrating how the framework facilitates structured data synthesis. We incorporate the Multi-Layer Perceptron (MLP) from [34] as an FCM M to model f in the causal structure learning step. Its architecture consists of two com-ponents: 1) an initial linear layer L0, which constitutes an implicit definition of GA,enabling the modelling of causal structures and 2) a set of locally connected hidden layers L = {α(L1), ..., α (Ld)}, with α being a nonlinear transformation applied to each layer, designed to approximate and learn F = {f1, ..., f d} ∈ GA. Meanwhile, g is a general MLP with five linear layers [ d - 10 d - 10 d - 10 d - d] (1 input, 3 hidden and 1 output) and nonlinearity applied using the ReLU activation function (only used in the PNL case). More specifically, each feature in X is modeled with a neural network of 
+
+L hidden layers fj (P a j , Zj ; W 1 
+
+> j
+
+, ..., W Lj ), j ∈ [1 , d ], where W lj denotes the parameters of the lth layer. Let W (0)  
+
+> j
+
+∈ Rh×d be the weight matrix within L0 connecting to the local neural network modeling Xj , where h is the latent size and d is the number of input variables. For each pair of variables Xj and Xk, the Ridge regression norm of the weights connecting Xk to all latent units in the network for Xj is computed as: 
+
+Ajk = W (1)  
+
+> j,k, :2
+
+=
+
+vuut hX
+
+> m=1
+
+
+
+W (1) 
+
+> j,k,m
+
+2
+
+, (9) where W (1)  
+
+> j,k,m
+
+represents the weight connecting the k-th input variable Xk to the m-th latent unit in the first layer of the network for Xj .12 Start    
+
+> X
+> g-1 f
+> argmin
+> argmin
+> End
+> Start
+> X
+> f
+> End
+> Start
+> X
+> f
+> PNL?
+> g
+> Yes
+> End
+> No
+> End
+> argmin
+> abc
+> Skip Connection
+> PNL
+> ANM, LiNGAM
+
+Fig. 2 : A Visual Representation of DAGAF. (a) The optimization structure under ANM and LiNGAM, where input data is processed to reconstruct ˜X using multiple loss terms, excluding LKLD in the LiNGAM case. (b) The extended framework integrating ANM, LiNGAM, and PNL, where an additional inversion function g−1 is introduced to compute LPNL , unifying the optimization process. (c) The synthetic data genera-tion process, illustrating how the framework enables structured data synthesis while preserving underlying causal relationships. Throughout the training process, a learning rate of 3 × 10 −3 is employed, with a batch size set at 1000. Ridge regression regularization is applied in both steps by setting the weight decay of both discriminators to 1 × 10 −6. The models within our framework undergo iterative optimization, with their parameters updated through gradient descent. The adversarial loss is applied to the reconstructed distribution PGA ( ˜X), hence, in the causal structure learning step, a noise vector is not involved during training. Once the parameters in AL0 have been updated, we convert AL0 to GA using the post-processing step GA = pAL0 (f ), w 2 
+
+> jk
+
+∈ AL0 (f ) followed by thresholding with 13 value 0.3, considered best by existing works such as DAG-GNN [17], GAE [41] and many others. These final two steps are required to recover the weights wjk ∈ GA from 
+
+AL0 (f ) and to reduce the number of false discoveries in GA.To learn g−1 for the PNL case, we need to invert the architecture and training procedure of g such that ˜X is used as input to produce the original X. We opt to focus on the training algorithm only as due to the generality of g inverting its archi-tecture will not result in any changes to its configuration. 
+
+Remark 1. The output data ˜X from Step 1 is solely used to compute the loss terms during training and then it is discarded. This happens because the reconstruction loss used to learn the causal structure of X significantly reduces the range of the generated samples, resulting in ˜X with high fidelity but low diversity. 
+
+We treat the training as a constraint continuous optimization problem because of the requirement to adjust the parameters of the acyclicity constraint together with the weights of the model. Hence, we use the modified version of the augmented Lagrangian [42] employed in DAG-Notears-MLP to solve it. 
+
+## 3.4 Computational Complexity Analysis 
+
+The DAGAF framework comprises three distinct models: the FCM/Generator ( M/G ), the Discriminator D (in the ANM and LiNGAM settings), and an additional MLP 
+
+g for the PNL case. These models are trained using an algorithm that integrates three interconnected components: Causal Structure Learning, Tabular Data Synthesis, and Augmented Lagrangian-based Continuous Optimization. This complex architec-ture and training methodology make DAGAF significantly more intricate compared to other state-of-the-art methods, such as DAG-GNN [17], GraN-DAG [18], DECAF [30], and Causal-TGAN [31], which focus solely on causal discovery or tabular data syn-thesis and involve fewer models. This complexity motivated us to assess the efficiency and practicality of our approach. We examine the resource requirements of DAGAF for performing causal structure learning and tabular data synthesis simultaneously. To achieve this, we provide pseudo-code for Algorithm 1 and analyze its time complexity. This alternative representation of the training process for our framework is presented in Appendix E. The space complexity of DAGAF is O(d), where d represents the number of variables in X,aligning with the complexity of Notears and its extensions. To perform a thorough time complexity analysis of our framework, we evaluate the efficiency of each stage in the pseudo-code from Appendix E separately. This analysis also incorporates the augmented Lagrangian and causal knowledge transfer compo-nents. The total computational complexity is determined by summing the individual complexities of each component in the pseudo-code for Algorithm 1 and identifying the most resource-intensive stage. We start with the initial phase of the framework, which involves declaring variables, hyperparameters, and model instances. These operations are treated as atomic and require constant time O(1). 14 Next, the training procedure is executed by directly applying the augmented Lagrangian, which involves three nested loops: 1) governed by k max iter , 2) con-strained by the range of values for c, and 3) determined by the number of epochs in the training process. In the worst-case scenario, each loop runs to its maximum limit, and each has linear complexity. Assuming the range for each loop is constant, the time complexity of optimizing the augmented Lagrangian parameters depends solely on the number of data variables in the input dataset, resulting in a complexity of O(d) per each individual loop, where d represents the number of variables in the observational data. Considering the three nested loops and the parameter optimization step (which takes constant time, O(1)), the overall computational complexity of the augmented Lagrangian is cubic, O(d3). Inside the augmented Lagrangian, the training algorithm is divided into two stages: causal structure learning and tabular data synthesis, with an additional step for trans-ferring causal knowledge between the stages, which takes constant time O(1). Both stages utilize stochastic gradient descent (SGD) for optimizing model parameters. Generally, the computational complexity of SGD is O(knd ), where k is the number of epochs, n is the number of samples, and d is the number of variables in X. For DAGAF, both k and n are constant hyperparameters, meaning the optimization com-plexity depends solely on the number of data attributes in the input. Therefore, the total computational complexity for both stages is linear, O(d). The overall time complexity of Algorithm 1 is given by O(d)3 + 2 O(d), which simplifies to O(d)3 as we focus on the fastest-growing term. This analysis shows that DAGAF has a cubic computational complexity, aligning with results reported for similar algorithms in previous studies [16], [18]. 
+
+# 4 Causal identifiability 
+
+Our theoretical analysis demonstrates that the DAG model is unique and hence identifiable under the assumptions of the DAGAF framework, which include ANM, LiNGAM, and PNL. This analysis is conducted under the assumption that the data is continuous and follows i.i.d. conditions. 
+
+Proposition 5. Under the Additive Noise Model (ANM), Linear non-Gaussian Acyclic Model (LiNGAM) or Post-Nonlinear Model (PNL) assumption, there exists a unique DAG GA capable of defining the observed joint distribution P (X).Proof. The proof of Proposition 5 is available in Appendix A.5. Proposition 5 establishes that for a joint distribution P (X) over random variables 
+
+{X1, ..., X d} generated by a true causal graph GA, there exists an identifiable causal graph GA such that GA = GA, provided that the causal model follows the ANM, LiNGAM, or PNL assumptions. In addition, we analyze how the loss terms used to train DAGAF behave under challenging conditions, including non-i.i.d. data, missing values, and discrete variables. 15 4.1 Impact of Non-i.i.d. Conditions 
+
+Now we consider some real-world data case, where the samples {X1, ..., Xn} are no longer independent (i.e. Xi̸ ⊥⊥ Xj ) and each data point Xi is drawn from heterogeneous distributions Pi(X). In such settings, the empirical distribution P ′(X) becomes a biased estimate of the true distribution P (X), impacting the optimization. We assume that the true and the implicitly generated distributions are defined as 
+
+P ′(X) = P (X) + δ(X) and P ′ 
+
+> GA
+
+( ˜X) = PGA ( ˜X) + δ( ˜X), where δ(X) and δ( ˜X) capture deviations from the i.i.d. assumptions. 
+
+4.1.1 Adversarial Loss and Identifiability 
+
+Under non i.i.d. condition, L′
+
+> adv
+
+(X, ˜X) = D(P ′(X)|| PGA ( ˜X)). The bias δ(X) affects the gradients of L′
+
+> adv
+
+(X, ˜X): 
+
+∇ϕL′
+
+> adv
+
+(X, ˜X) = ∇ϕD(P (X)|| PGA ( ˜X)) + ∇ϕD(δ(X)|| PGA ( ˜X)) .
+
+The additional term ∇ϕD(δ(X)|| PGA ( ˜X)) can destabilize optimization by adding spu-rious gradient components due to dependencies or heterogeneity, and by amplifying sensitivity to noise in the data. 
+
+4.1.2 MSE Loss and Identifiability 
+
+Under the non-i.i.d. conditions: 
+
+L′
+
+> MSE
+
+(X, ˜X) = LMSE (X, ˜X) + δ(X).
+
+If δ(X) introduces correlations between samples Xi and Xj , this violates the indepen-dence of the noise terms Zj . As a result, the non-i.i.d. MSE loss term L′
+
+> MSE
+
+(X, ˜X)may incorrectly fit spurious patterns across samples. In turn, the output of fj (P a j )may no longer capture the true functional relationship. Furthermore, the gradient of L′
+
+> MSE
+
+(X, ˜X) with respect to θ is: 
+
+∇θ L′
+
+> MSE
+
+(X, ˜X) = ∇θ LMSE (X, ˜X) + ∇θ δ(X).
+
+The additional term ∇θ δ(X) introduces instability due to spurious gradients from dependencies across samples, and heterogeneity-induced noise in gradients. This insta-bility makes optimization sensitive to the choice of initialization and hyperparameters, thus reducing convergence reliability. 
+
+4.1.3 Kullback-Leibler Divergence Loss and Identifiability 
+
+The empirical estimate of the KLD under non-i.i.d. conditions becomes: 
+
+L′
+
+> KLD
+
+(X, ˜X) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+log PGA ( ˜Xi)
+
+P ′(Xi) .
+
+16 Expanding L′
+
+> KLD
+
+(X, ˜X) and applying a first-order Taylor expansion P (Xi), we have 
+
+L′
+
+> KLD
+
+(X, ˜X) ≈ L KLD (X, ˜X) − 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+δ(Xi)
+
+P (Xi) .
+
+The term δ(Xi)  
+
+> P(Xi)
+
+introduces bias, particularly when δ(Xi) varies significantly across samples. This bias skews the optimization of PGA ( ˜X), which potentially leads to an approximate distribution PGA ( ˜X) that deviates from P (X). The gradient of the KLD loss under non-i.i.d. conditions is defined as: 
+
+∇θ L′
+
+> KLD
+
+(X, ˜X) ≈ ∇ θ LKLD (X, ˜X) −
+
+Z
+
+∇θ PGA ( ˜X) δ(X)
+
+P (X) dXd ˜X.
+
+The additional term R ∇θ PGA ( ˜X) δ(X)  
+
+> P(X)
+
+dXd ˜X adds noise to the gradients, reducing the stability of optimization. This may introduce spurious directions in the parameter space, which make convergence to the true distribution P (X) more challenging. 
+
+4.1.4 MMD Loss and Identifiability 
+
+Expanding all instances of k(.), we have: 
+
+k(Xi, Xj ) = k(P (Xi), P (Xj )) + ∆ P (X)(Xi, Xj ),k(Xi, ˜Xj ) = k(P (Xi), P GA ( ˜Xj )) + ∆ P (X),P GA ( ˜X)(Xi, ˜Xj ),k( ˜Xi, ˜Xj ) = k(PGA ( ˜Xi), P GA ( ˜Xj ) + ∆ PGA ( ˜X)( ˜Xi, ˜Xj ),
+
+where ∆ P (X)(Xi, Xj ), ∆ P (X),P GA ( ˜X)(Xi, ˜Xj ) and ∆ PGA ( ˜X)( ˜Xi, ˜Xj ) represent pertur-bations due to non-i.i.d. effects. The empirical MMD becomes: 
+
+L′
+
+> MMD
+
+(X, ˜X) ≈ L MMD (X, ˜X) + ∆ ,
+
+where the non-i.i.d. effect ∆ is defined as follows: ∆ = 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+∆P (X)(Xi, Xj ) − 2
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+∆P (X),P GA ( ˜X)(Xi, ˜Xj ) + 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+∆PGA ( ˜X)( ˜Xi, ˜Xj )The term ∆ introduces bias into the empirical MMD estimate, which may no longer converge to the true population MMD even as n → ∞ .The gradient of L′
+
+> MMD
+
+(X, ˜X) with respect to model parameters θ is: 
+
+∇θ L′
+
+> MMD
+
+(X, ˜X) = 2 
+
+
+
+EX,X′∼P ′(X)[∇θ k(X, X′)] − EX∼P ′(X), ˜X∼P ′ 
+
+> GA( ˜X)
+
+[∇θ k(X, ˜X)] 
+
+
+
+.
+
+The additional perturbations ∆ P (X), ∆ P (X),P GA ( ˜X) and ∆ PGA ( ˜X) introduce noise into the gradients, potentially destabilizing optimization and making convergence difficult. 17 4.2 DAG identifiability in Discrete Variables 
+
+Different DAGs can give rise to the same joint distribution in the discrete setting, thereby leading to non-uniqueness in identifying the true DAG GA. For simplicity, consider two DAGs G1A1 and G2A2 that are structurally different but induce the same joint distribution. In a discrete setting , the symmetry between causal relations often implies that reversing edges or reparameterizing certain relationships leads to the same joint distribution. More formally: 
+
+P (Xi | Pa( Xi)) = P (Xj | Pa( Xj )) for some ( Xi, X j ) such that Xj ∈ Pa( Xi) or Xi ∈ Pa( Xj ).
+
+This symmetry implies that the conditional distributions from both DAG are equal. Thus, the identifiability of the DAG is lost in the discrete setting due to the 
+
+equivalence of the conditional distributions, even though the underlying structural graph may differ. 
+
+## 4.3 Impact of Missing Data 
+
+Missing data in real-world datasets can arise from different mechanisms. If data is Missing Completely at Random, the missingness is unrelated to any variables, reduc-ing sample size but preserving identifiability with sufficient data. Missing at Random occurs when missingness depends only on observed variables, potentially introducing bias in independence tests but still allowing DAG discovery with robust imputa-tion. Missing Not at Random is the most problematic, as missingness depends on unobserved factors, making the dataset unrepresentative of the true causal structure. As the identifiability of the true DAG GA relies heavily on correctly testing con-ditional independence relationships (e.g., Zj ⊥⊥ P a j in the PNL model), missing data reduces the statistical power of these tests. Missing large portions of data may lead to unreliable or incorrect conditional independence tests. Spurious dependencies or independencies may arise due to imputation strategies or biased sampling. The ANM, LiGAM and PNL model assume that the noise term Zj is independent of its parents (Zj ⊥⊥ P a j ). Missing data can obscure or distort observed relationships, making it difficult to separate noise from modeled contributions. In addition, the functional forms fj (nonlinear for ANM, linear for LiNGAM) and gj (nonlinear for PNL) are assumed to be known or learnable. However, the data incompleteness characteristic often associated with real-world data violates this assumption. More specifically, missing data biases noise estimates Zj , affecting residual independence. In the LiNGAM case, non-Gaussian noise becomes harder to test. Identifiability relies on correctly estimating marginal distributions. Missing data distorts these estimates, especially when parent variables or structural nodes are disproportionately missing. 18 5 Experimental Results 
+
+We conduct a range of experiments on the proposed general framework for causal structure learning using various datasets that include continuous and discrete data types to assess the following aspects: 
+
+• Structure learning accuracy, which assesses the effectiveness of modeling the rela-tionships between features in observational data. 
+
+• Synthetic data quality, which investigates the quality of the data produced from the learned generative process. 
+
+• Ablation study and sensitivity analysis to assess the configuration of the loss terms and the hyper-parameter settings for the training. - for more information, the reader is referred to Appendices B and C. In this section, we outline the configurations for the causal discovery and data qual-ity experiments, and present the results along with the metrics employed for their evaluation. For evaluating structure learning, our model is compared with leading DAG-learning methods, including DAG-WGAN [19], DAG-WGAN+ [43], DAG-Notears-MLP [34], Dag-Notears [16], DAG-GNN [17], GraN-DAG [18], GAE [41], CAREFL [44], DAG-NF [45], DCRL [46] and VI-DP-DAG [47]. The metric used throughout all experiments to measure the quality of the discovered causality is the Structural Hamming Distance (SHD) [48]. We selected SHD because it integrates several individ-ual metrics, including True Positive Rate (TPR), False Discovery Rate (FDR), and False Positive Rate (FPR). It is important to acknowledge that the set of metrics SHD = {TPR , FDR , FPR } used in this study is not the only approach to evaluat-ing the accuracy of the learned structures. Other metrics, such as Area Under Curve (AUC) and Area Over Curve (AOC), can also be employed. We also analyze the quality of the synthetic data produced by DAGAF. In partic-ular, we conduct various tests to examine the statistical properties of ˜X. We evaluate the similarity between P (X) and PGA ( ˜X) using boxplot analysis and marginal dis-tributions. Additionally, we calculate the correlation matrices for both χ and ˜ χ to explore the interdependencies among their covariates. 
+
+## 5.1 Continuous data 
+
+We conduct tests on continuous data types using simulated data produced from predefined structural equations and Directed Acyclic Graph (DAG) structures. Specif-ically, we construct an Erdos-Renyi [49] causal graph with an expected node degree of 3, which serves as the ground-truth DAG GA and can be represented by a weighted adjacency matrix A. Afterwards, we generate 5000 observational data samples for each test by utilizing different equations (namely linear: ˜X := AT X + Z, non-linear-1: ˜X := Acos (X + 1) + Z, non-linear-2: ˜X := 2 sin (A(X + 0 .5)) + A(X + 0 .5) + Z,19 post-non-linear-1: ˜X := sinh (Acos (X + 1) + Z), and post-non-linear-2: ˜X := tanh (2 sin (A(X +0 .5))+ A(X +0 .5)+ Z)). These structural equations have been widely used in numerous papers in DAG learning, including the DAG-GNN model [17], Gran-DAG [18], GAE [41], DAG-WGAN [19], DAG-WGAN+ [43] and Notears-MLP [34] - to name but a few. The application of these popular equations allow us to perform a comprehensive and robust comparison against other leading models in the field. The final two equations are modifications of the second and third ones designed to provide suitable test cases for experiments involving the PNL assumption. Ensuring the acyclicity of GA and satisfying the causal model assumptions outlined in Section 2, with the given above equations, enables us to generate i.i.d. samples that are appropriate for causal structure learning under the faithfulness condition. 
+
+Remark 2. Although the list of equations provided in this section serves as a good collection of test cases for the continuous data experiments, it is not exhaustive. Other equations can be used as well. 
+
+Our work follows the same methodology used in most other state-of-the-art DAG learning models, such as DAG-GNN, GraN-DAG, DAG-Notears and GAE among others, where the process of splitting data into training and validation sets is not as commonly applied as in traditional machine learning. Train-test splitting or cross-validation is typically used in predictive modeling tasks, but causal struc-ture identification is focused on structural constraints and conditional independencies rather than predictive accuracy. Since causal relationships are structural, they are gen-erally assumed to hold throughout the dataset, and therefore, partitioning the data may not provide significant additional benefit in terms of discovering the structure. To evaluate the scalability of the model, we perform experiments with datasets that have 10, 20, 50, and 100 columns. To account for sample randomness and ensure fairness, each experiment is repeated five times, and the average Structural Hamming Distance (SHD) is reported. The results are shown in Tables 1, 2, 3, 4 and 5. 
+
+Table 1 : DAG structures recovered from linear data                                                                                                                                                     
+
+> Model SHD (5000 linear samples) d=10 d=20 d=50 d=100 DAG-Notears 8.6 ±7.2 13.8 ±9.6 41.8 ±29.4 102.8 ±53.2 DAG-Notears-MLP 4.6 ±4.3 7.6 ±6.3 29.6 ±18.5 74 ±30.6 DAG-GNN 6±6.9 11.4 ±8.2 33.6 ±21.2 85.4 ±46.4 GAE 5.5 ±4.9 10.3 ±7.2 31.3 ±13.8 80.2 ±24.6 GraN-DAG 3.4 ±5.2 6.4 ±7.5 25.2 ±14.6 68.4 ±25.8 CAREFL 2.7 ±4.8 5.9 ±7.1 24.9 ±14.1 66.9 ±24.7 DAG-NF 2.4 ±4.6 5.2 ±6.9 23.1 ±13.4 64.2 ±24.3 VI-DP-DAG 2.1 ±4.5 4.5 ±6.7 22.4 ±12.7 63.7 ±23.5 DCRL 1.8 ±2.7 3.1 ±4.8 18.7 ±11.9 53.3 ±21.9 DAG-WGAN 5.2 ±3.8 9.2 ±5.7 19.6 ±12.3 58.6 ±22.7 DAG-WGAN+ 3.7 ±3.1 5.6 ±4.9 17.2 ±10.5 49.1 ±20.1 DAGAF 1.4 ±2.3 2±4.4 16.4 ±9.8 38.8 ±18.3
+
+20 Table 2 : DAG structures recovered from non-linear-1 data 
+
+Model SHD (5000 non-linear-1 samples) d=10 d=20 d=50 d=100 DAG-Notears 11.4 ± 4.5 28.2 ± 10.2 55 ± 23.1 105.6 ± 48.3 DAG-Notears-MLP 5.2 ± 1.8 15.4 ± 4.6 43.8 ± 15.4 86.2 ± 29.8 DAG-GNN 9.2 ± 3.3 23.4 ± 8.4 50.2 ± 19.5 98.6 ± 37.6 GAE 8.6 ± 2.2 20 ± 5.7 47.5 ± 10.2 92.3 ± 18.9 GraN-DAG 4 ± 2.4 11.2 ± 6.5 36.4 ± 11.9 72.8 ± 21.7 CAREFL 3.8 ± 2.2 10.9 ± 6.2 34.1 ± 11.2 71.7 ± 19.1 DAG-NF 3.4 ± 2.1 10.4 ± 5.6 31.6 ± 10.7 69.5 ± 17.3 VI-DP-DAG 3.1 ± 2 9.8 ± 5.1 28.7 ± 9.3 68.1 ± 16.5 DCRL 2.9 ± 1.7 7.5 ± 4 24.3 ± 7.8 61.4 ± 14.9 DAG-WGAN 6.4 ± 1.4 18.6 ± 3.7 22 ± 8.6 64.6 ± 15.2 DAG-WGAN+ 4.9 ± 1.2 14.2 ± 3.3 20.5 ± 6.9 57.1 ± 14.5 DAGAF 2.6 ± 1 5.2 ± 2.8 18.8 ± 6.2 50.2 ± 13.4 
+
+Table 3 : DAG structures recovered from non-linear-2 data 
+
+Model SHD (5000 non-linear-2 samples) d=10 d=20 d=50 d=100 DAG-Notears 10.4 ± 3.9 22.4 ± 8.1 47.6 ± 21.2 112.8 ± 57.8 DAG-Notears-MLP 5.4 ± 1.5 13.8 ± 4.3 30.4 ± 15.7 85.6 ± 35.6 DAG-GNN 8.4 ± 3.2 19.2 ± 7.7 36.2 ± 18.6 91.8 ± 49.3 GAE 7.3 ± 1.8 17.4 ± 5.1 33.7 ± 13.7 88.4 ± 26.6 GraN-DAG 4.2 ± 2.1 11.6 ± 5.6 25.2 ± 14.5 71.6 ± 29.7 CAREFL 3.8 ± 1.8 10.5 ± 5.3 24.8 ± 13.8 69.9 ± 26.1 DAG-NF 3.3 ± 1.7 9.7 ± 4.9 24.3 ± 13.1 68.1 ± 24.3 VI-DP-DAG 2.8 ± 1.6 9.3 ± 4.7 23.8 ± 13.3 67.3 ± 23.8 DCRL 2.2 ± 1.3 7.1 ± 2.9 15.1 ± 9.4 59.5 ± 17.2 DAG-WGAN 6.6 ± 1.2 15.2 ± 3.4 22.6 ± 12.9 64.2 ± 21.5 DAG-WGAN+ 5.1 ± 1.1 12.3 ± 2.5 17.5 ± 10.2 56.7 ± 18.4 DAGAF 1.4 ± 0.9 5.8 ± 2.2 14.2 ± 8.3 51.8 ± 16.2 
+
+Table 4 : DAG structures recovered from post-non-linear-1 data 
+
+Model SHD (5000 post-non-linear-1 samples) d=10 d=20 d=50 d=100 DAG-GNN 13.7 ± 9.2 21.7 ± 10.4 63.7 ± 31.2 118.6 ± 50.1 GAE 12.3 ± 8.1 19.1 ± 8.8 56.2 ± 24.6 101.3 ± 37.4 CAREFL 11.8 ± 6.4 18.5 ± 7.9 52.1 ± 22.8 97.2 ± 34.9 DAG-NF 11.2 ± 5.3 16.2 ± 6.1 47.3 ± 19.5 92.5 ± 31.3 DAG-WGAN 10.5 ± 4.7 15.6 ± 5.8 44.5 ± 17.7 88.7 ± 29.6 DAG-WGAN+ 8.4 ± 3.3 12.8 ± 4.3 32.8 ± 13.6 66.1 ± 21.2 DAGAF 5.6 ± 2.5 7.3 ± 3.2 25.4 ± 11.3 52.4 ± 15.7 
+
+The results presented in Tables 1, 2, 3, 4 and 5 demonstrate that our pro-posed general framework for causal discovery consistently outperforms state-of-the-art DAG-learning methods across all tested scenarios—linear, non-linear-1, non-linear-2, 21 Table 5 : DAG structures recovered from post-non-linear-2 data                                                                                         
+
+> Model SHD (5000 post-non-linear-2 samples) d=10 d=20 d=50 d=100 DAG-GNN 10.8 ±8.7 16.1 ±11.9 37.1 ±30.3 128.3 ±48.2 GAE 9.1 ±6.3 14.3 ±9.5 31.5 ±24.8 105.7 ±34.4 CAREFL 8.3 ±5.8 13.5 ±8.3 29.8 ±22.4 92.1 ±32.3 DAG-NF 7.7 ±5.5 12.8 ±7.4 28.4 ±21.7 84.8 ±28.5 DAG-WGAN 7.2 ±5.2 11.4 ±6.2 25.2 ±18.6 76.5 ±27.6 DAG-WGAN+ 4.5 ±3.6 8.6 ±5.1 21.7 ±12.3 69.4 ±19.1 DAGAF 2.9 ±2.4 5.7 ±3.6 18.6 ±10.5 47.2 ±14.7
+
+post-nonlinear-1, and post-nonlinear-2—regardless of whether the underlying data-generating process follows LiNGAM, ANM, or PNL assumptions. Notably, the gap in SHD between our model and the others grows further in our favor with the increase in data dimensionality. This observation highlights the enhanced performance of our approach for DAG-learning in datasets with a large number of variables. It is also worth mentioning that, according to our results, DAGAF surpasses both traditional models in the field, including Notears, GAE, DAG-GNN, and GraN-DAG, as well as more recent approaches like DAG-WGAN(+), CAREFL, DAG-NF, DCRL and VI-DP-DAG, demonstrating the superiority of our model. 
+
+## 5.2 Benchmark experiments 
+
+In our experiments, we also included discrete datasets as part of an empirical study to demonstrate how our framework performs on such data. However, from our theoretical analysis presented in Section 4, we recognize that identifiability issues arise when applying our method to discrete datasets. Specifically, we obtained the Child, Alarm, Hailfinder, and Pathfinder benchmark datasets, with their ground truths, from the Bayesian Network Repository https:// www.bnlearn.com/bnrepository. These datasets are specifically organized to facilitate scalability testing and enable a fair comparison with state-of-the-art methods. We evaluated our model against DAG-GNN and both versions of DAG-WGAN, with the results presented in Table 6. 
+
+Table 6 : DAG structures recovered from benchmark data                          
+
+> Datasets Nodes SHD DAG-WGAN DAG-WGAN+ DAG-GNN DAGAF Child 20 20 19 30 17
+> Alarm 37 36 35 55 43 Hailfinder 56 73 66 71 63
+> Pathfinder 109 196 194 218 181
+
+According to the benchmark experiment results shown in Table 6, our method significantly outperforms DAG-GNN across all four datasets (Child, Alarm, Hilfinder, 22 and Pathfinder). Additionally, both DAG-WGAN and its improved version, DAG-WGAN+, deliver inferior results compared to our framework on three out of the four datasets. Similar outcomes are observed in experiments with continuous datasets, where the SHD gap between our method and the others widens as the number of data variables increases. 
+
+## 5.3 Real data experiments 
+
+While our experiments with simulated data show the ability of DAGAF to generate decent results, they are not entirely conclusive, as simulations differ from real-world scenarios. To address this issue, we conducted experiments using a well-known real-world dataset called Sachs [50], which is widely recognized in the research community. This dataset comprises 7466 samples across 11 columns, with an estimated ground truth containing 20 edges. Additionally, our approach assumed both ANM and PNL during this test and compared the SHD produced by these FCM to determine whether the post-nonlinear model is superior when applied to real-world data. The results are presented in Table 7. 
+
+Table 7: DAG structures recovered from real data             
+
+> Model Sachs Dataset SHD DAG-WGAN 17 DAG-WGAN+ 15 DAG-NF 15 DAG-GNN 25 GAE 20 GraN-DAG 17 VI-DP-DAG 16 DAGAF ANM 9/ PNL 8
+
+The experiment with the Sachs dataset shows that our method can also accu-rately discover DAG structures from real data. As indicated in Table 7, our framework significantly outperforms all other state-of-the-art algorithms involved in the study. Additionally, the empirical evidence suggests that the PNL assumption enables our approach to learn a more precise causal structure approximation compared to the application of other identifiable causal models. 
+
+## 5.4 Synthetic data quality 
+
+In this work, we have advocated for the superiority of our method over current state-of-the-art models by combining causality learning with synthetic data generation. To further support this claim, we compare the features (d=10) from two tabular datasets of simulation data (one based on the ANM and the other on the PNL assumption) with the features generated by our approach. We consider the special case where our 23 model achieves an SHD of 0 on the simulation data, as this would result in the highest quality samples due to the complete knowledge of causal mechanisms in the generative process. We conduct the following analyses to compare the real and synthetic data: com-puting the correlation matrices, visualizing the joint and marginal distributions, investigating distributional consistency with Principal Component Analysis (PCA) [51] and performing machine learning regression to compare the feature importance in both datasets. Our findings demonstrate that the synthetic samples generated by the proposed framework accurately replicate the correlations (Figure 3) along with the joint and marginal distributions of the features present in the observational data (Figure 7). Furthermore, the generated data captures the underlying patterns and structure of the original data (Figure 4), and contains enough predictive information to support regression tasks (Figure 5). We present only a few examples of each analysis in this section; additional results can be found in Appendix D. 
+
+Fig. 3 : Comparison of the correlation matrices for real (left) and synthetic (right) features reveals that the statistical correlations across the feature space for both real and synthetic data are nearly identical, in both the ANM (first row) and the PNL (second row) case. 24 Fig. 4 : Principal Component Analysis (PCA) between the original and synthetic samples for both the ANM (left) and the PNL (right) case. We observe both the input and the synthetic samples have similar clusters and outliers. The results indicate that the implicitly generated distribution resembles the original distribution in both mean and standard deviation, making them indistinguishable from each other. 
+
+Fig. 5 : Feature importance comparison between real (left) and synthetic (right) data, in both the ANM (first row) and the PNL (second row) case. The synthetic features with their relevance are indistinguishable from the original ones, allowing for their application in regression tasks. 25 Fig. 6 : Visualizing the Wasserstein distance between the original and synthetic data over the course of the augmented Lagrangian algorithm. The significant discrepancy between the real and the generated samples (165-170 and from 300 epochs onward) occurs because of fluctuations in the SHD, courtesy of the parameter-tuning for the continuous optimization approach. Conversely, the lowest SHD is detected when the Wasserstein Distance is at its lower conversions (50-150 and 175 - 275 epochs). 
+
+Fig. 7 : Visualizing the distributions of the real and synthetic features, we plotted x5 against x8 (left), x3 against x6 (right), in the case of ANM, and x3 against x4 for the PNL case. The joint and marginal distributions are accurately modeled with no significant differences between the real and synthetic features. 26 6 Conclusion & Future Work 
+
+This research introduces a novel framework for multivariate causal structure learning aimed at holistically discovering DAG structures in a dataset to model its generative mechanisms and produce synthetic samples that closely resemble real data. We con-ducted a theoretical analysis demonstrating that the Wasserstein-1 distance metric can be leveraged for structure learning and explained how the integration of regularization and reconstruction loss terms in our training process can enhance the identifica-tion of causal relationships from observational data. Furthermore, we showcased the performance of our approach through extensive experiments, where the method sig-nificantly outperformed state-of-the-art DAG-learning techniques. The experimental results demonstrate that our method effectively handles numerical and categorical data types to accurately recover DAG structures under LiNGAM, ANM or PNL assump-tions, while generating realistic data samples. The analysis of our results suggests that the Wasserstein distance plays a significant role in enhancing DAG learning. Our find-ings also indicate a close relationship between the simultaneous generation of diverse high-quality data and the learning of accurate DAG structures, suggesting that the synthesis of realistic data samples is facilitated by the recovery of meaningful variable relationships. All results are generated using LiNGAM, ANM or PNL, which are proven to be identifiable [21], [22], [52], [23]. However, our experiments have been restricted to these models, which is a limitation. In future work, we plan to explore other identifiable structures, such as generalized linear models, polynomial regression and index mod-els. Furthermore, our tabular data synthesis experiments have also been quite limited, focusing only on analyzing primitive features of datasets. We plan to extend our inves-tigations by comparing the output of DAGAF with other causality-based tabular data generation methods [30], [32], [31]. This comparison will be conducted using more appropriate metrics, such as Cross-Validation Score (CVS) [53], Kolmogorov-Smirnov (KS) test [54] or Chi-Square test [55], to offer a more comprehensive qualitative analysis of the data generation capabilities of our framework. In essence, our approach identifies DAG structures by integrating MLE with adversarial loss components and enforcing an acyclicity constraint via an augmented Lagrangian. Consequently, our model exhibits high computational complexity and a complicated loss function. We plan to explore more efficient structure learning meth-ods and adversarial loss training to develop a faster model that relies exclusively on the Wasserstein loss. The proposed causal learning-based synthetic data generation framework is closely connected to recent advances in generative modeling, including Digital Twins and transformer-based architectures. DAG learning naturally embodies the essence of attention mechanisms by identifying the direct causal parents of each variable, similar to how transformers dynamically weigh relevant dependencies. Moreover, our approach aligns with the principles of Digital Twins, which aim to simulate real-world sys-tems and generate data that accurately reflect their underlying causal structures. This study establishes a unified framework for causal discovery and generative modeling, leveraging adversarial learning, MSE, MMD, and KLD regularization to ensure robust structure learning and high-fidelity synthetic data generation. 27 Our future work will include several mitigation strategies to address missing data. We will employ data imputation techniques such as mean/mode imputation, multiple imputation, and advanced methods like matrix completion and variational autoen-coders (VAEs), while acknowledging that imputation introduces assumptions about missingness that may bias results. Additionally, we will leverage structural informa-tion, using partial knowledge of the directed acyclic graph (DAG), such as domain expertise, to help compensate for missing data. Another approach involves explic-itly modeling missingness mechanisms by introducing a missingness variable into the DAG to represent whether a specific variable is missing. Moreover, we will also apply causal inference techniques, including latent variable models and specialized methods designed for incomplete data, to ensure robust and accurate analyses. Finally, as part of our future work, we will examine the flexibility of our frame-work by experimenting with different combinations of FCM and DGM to identify the optimal configuration for enhancing the output quality of the proposed method and extending its application to time-series data. For example, recently developed con-cepts such as digital twin layer via multi-attention networks [56], [57] can offer exciting avenues for future exploration. This can be achieved through their multi-attention mechanisms, which effectively highlight relevant features while filtering out irrelevant noise and misleading correlations. Their ability to adaptively handle mixed-variable datasets, align higher-order statistics of distributions, and dynamically capture multi-modal dependencies can complement the causal discovery framework presented in this work. Future research could focus on integrating these mechanisms to improve the robustness and scalability of causal discovery and synthetic data generation for com-plex real-world datasets. Such integration would bridge the gap between foundational theoretical insights and practical applications, addressing challenges like non-i.i.d. data and variable heterogeneity while enabling the creation of robust, high-fidelity synthetic datasets for downstream tasks. The novel setup will be supported by an extensive study of hyper-parameters to determine their best possible values, resulting in more realistic data samples generated through a more accurately simulated generative process. 
+
+# Appendix A Mathematical Proofs 
+
+This appendix provides the proofs associated with the propositions and theorems found in Section 3. 
+
+## A.1 Proof of Proposition 1 
+
+Proposition 1. Let the ground-truth DAG GA be uniquely identifiable from P (X),then, under the causal identifiability assumption, minimizing adversarial loss ensures that the implicitly generated distribution PGA ( ˜X) aligns with P (X).
+
+Wp(P (X), P GA ( ˜X)) = 0 → PGA ( ˜X) = P (X) ⇐⇒ GA = GA.
+
+Proof. Let ˜X ∼ PGA ( ˜X) denote the distribution generated by a DAG GA. Assume the true data distribution X ∼ P (X) is generated from the ground-truth graph GA. The 28 adversarial loss Ladv (X, ˜X) based on the Wasserstein distance Wp(P (X), P GA ( ˜X)) is expressed in Equation (2). Therefore, minimizing Ladv (X, ˜X) aligns PGA ( ˜X) with 
+
+P (X): 
+
+PGA ( ˜X) = P (X) = ⇒ Wp(P (X), P GA ( ˜X)) = 0 ,
+
+at the global minimum of the distance metric 
+
+Wp(P (X), P GA ( ˜X)) = 0 = ⇒ PGA ( ˜X) = P (X).
+
+For GA̸ = GA, the generated distribution PGA ( ˜X) cannot match P (X) because the structure GA is incorrect: 
+
+Wp(P (X), P GA ( ˜X)) > 0.
+
+Therefore, minimizing Ladv (X, ˜X) aligns PGA ( ˜X) with P (X), and the identifiability assumption guarantees that this occurs only when GA = GA, thus concluding the proof. 
+
+## A.2 Proof of Proposition 2 
+
+Proposition 2. The MSE loss ensures point-wise alignment between the data and the prediction of the model, improving the smoothness of the gradient and the stability of adversarial optimization. 
+
+inf  
+
+> GA∈D
+
+LMSE (X, ˜X) = 0 ⇒ ∀ i, ˜Xi = Xi
+
+Proof. From the definition of LMSE (X, ˜X), it is minimized if and only if: 
+
+∥Xi − ˜Xi∥2 = 0 , ∀Xi ∈ P (X), ∀ ˜Xi ∈ PGA ( ˜X), ∀i ∈ { 1, . . . , n },
+
+which implies Xi = ˜Xi, ∀i ∈ { 1, . . . , n }.The gradient of LMSE (X, ˜X) with respect to the model parameters θ (which define 
+
+GA) is given by: 
+
+∇θ LMSE (X, ˜X) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+2 · || Xi − ˜Xi|| · ∇ θ ˜Xi.
+
+As the model predictions ˜Xi approach the true data Xi the residual distance ∥Xi − ˜Xi∥
+
+becomes smaller: 
+
+∥Xi − ˜Xi∥ → 0 =⇒ ∇θ LMSE (X, ˜X) → 0.
+
+This behavior arises because the residual distance ∥Xi − ˜Xi∥ directly scales the gra-dient. As ˜Xi aligns with Xi, the gradient magnitude decreases, reducing the size of updates during optimization. Therefore, the MSE loss offers optimization stability by smooth gradients. By steady convergence as ˜Xi → Xi, preventing oscillatory behavior, thus concluding the proof. 29 A.3 Proof of Proposition 3 
+
+Proposition 3. The LKLD (X, ˜X) regularization provides a statistical prior on the learned distribution PGA ( ˜X), ensuring it adheres to a Gaussian assumption. It also acts as a stabilizing factor in optimization, particularly under the additive Gaussian noise model. It complements the adversarial and MSE losses, ensuring both alignment and smoothness of PGA ( ˜X).Proof. This term is used to ensure that the residual noise Zj conditioned on P a j is Gaussian. The residual Zj can be expressed as Zj = Xj − fj (P a j ). By minimizing 
+
+LKLD (X, ˜X), the model is encouraged to fit fj such that Zj ∼ N (0 , σ 2 
+
+> j
+
+), namely: 
+
+P (Zj |P a j ) ≈ N (0 , σ 2 
+
+> j
+
+). Let LKLD (X, ˜X) act as a penalty on deviations of P (Zj |P a j )from N (0 , σ 2 
+
+> j
+
+). The gradient of LKLD (X, ˜X) with respect to GA is: 
+
+∇GA LKLD (X, ˜X) = 
+
+> d
+
+X
+
+> j=1
+
+EP a j
+
+"
+
+∇GA log P (Zj | P a j )
+
+N (Zj ; 0 , σ 2 
+
+> j
+
+)
+
+#
+
+.
+
+The term log N (Zj ; 0 , σ 2 
+
+> j
+
+) is quadratic in Zj , making ∇GA LKLD (X, ˜X) smooth and less sensitive to small variations in GA. This prevents overfitting to noise in Xj , sta-bilizing the optimization of fj . Hence, the KLD term can improve the overall stability of our model by approximating the implicitly generated distribution PGA ( ˜X) to a normal (Gaussian) distribution. The KLD term also complements other loss terms. The adversarial loss Ladv (X, ˜X)ensures global alignment of P (X) and PGA ( ˜X), but does not directly enforce the addi-tive Gaussian assumption. The MSE loss LMSE (X, ˜X) focuses on point-wise alignment of Xi and ˜Xi, but does not account for statistical properties of Zj . The KLD regular-ization LKLD (X, ˜X) explicitly enforces the Gaussianity of Zj , ensuring Zj matches the additive Gaussian assumption, preventing fj from overfitting to non-Gaussian noise, thus concluding the proof. 
+
+## A.4 Proof of Proposition 4 
+
+Proposition 4. Minimizing the Maximum Mean Discrepancy (MMD) loss 
+
+LMMD (X, ˜X) aligns higher-order statistics of P (X) and PGA ( ˜X), complementing adversarial loss to achieve overall distributional alignment. Proof. The MMD loss term is 
+
+LMMD (X, ˜X) = 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k(Xi, Xj ) − 2
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k(Xi, ˜Xj ) + 1
+
+n
+
+> n
+
+X
+
+> i̸=j
+
+k( ˜Xi, ˜Xj ).
+
+30 The gradient of LMMD (X, ˜X) with respect to the parameters θ defining the model GA
+
+can be written as: 
+
+∇θ LMMD (X, ˜X) = 2( E ˜X∼PGA ( ˜X)[∇θ k( ˜Xi, ˜Xj )] 
+
+− EX∼P (X), ˜X∼PGA ( ˜X)[∇θ k(Xi, ˜Xj )]) ,
+
+where ˜X ∼ PGA ( ˜X) are samples from the model-generated distribution, X ∼ P (X)are samples from the true distribution and k(X, ˜X) is a positive-definite kernel, often chosen as a Gaussian kernel or other characteristic kernel. The kernel function k(X, ˜X) implicitly captures higher-order statistics of the dis-tributions P (X) and PGA ( ˜X), including the internal consistency of the model distribution via the third term in LMMD (X, ˜X), E ˜X∼PGA ( ˜X)[k( ˜Xi, ˜Xj )], which aligns model-generated samples ˜Xi and ˜Xj to ensure that the higher-order moments within 
+
+PGA ( ˜X) are coherent. It also allows alignment with the true distribution via the second term, EX∼P (X), ˜X∼PGA ( ˜X)[k(Xi, ˜Xj )]. 
+
+LMMD (X, ˜X) explicitly captures higher-order discrepancies through the kernel-induced feature mappings k(.). This provides a complementary mechanism to adversarial losses, ensuring both global and fine-grained alignment between P (X) and PGA ( ˜X). Together, 
+
+LMMD (X, ˜X) and Ladv (X, ˜X) form a robust framework for distributional alignment, addressing both large-scale and higher-order mismatches, thus completing the proof. 
+
+## A.5 Proof of Proposition 5 
+
+Proposition 5. Under the Additive Noise Model (ANM), Linear non-Gaussian Acyclic Model (LiNGAM) or Post-Nonlinear Model (PNL) assumption, there exists a unique DAG GA capable of defining the observed joint distribution P (X).Proof. We split the proposition into two lemmas for identifiability under: 1) LiNGAM and ANM; 2) PNL, respectively. 
+
+Lemma 6. Under the additive noise model (ANM) or the linear non-Gaussian acyclic model (LiNGAM) assumption, the true DAG GA is uniquely identifiable from P (X)
+
+P (X)̸ = P ′(X) = ⇒ G A̸ = G′A′ .
+
+Proof. Let the dataset χ consist of X = {X1, ..., X d} data attributes, where each Xj is generated under the ANM or LiNGAM assumption, both described using the following equation: 
+
+Xj = fj (P a j ) + Zj ,
+
+where fj : Rd → R are deterministic functions (nonlinear in ANM, linear in LiNGAM), Zj ∼ P (Z) are independent noise variables (non-Gaussian in LiNGAM, 31 Gaussian in ANM), P a j represents the set of direct parents of Xj in the DAG. For both ANM and LiNGAM, the independence of Zj from P a j plays a crucial role: 
+
+Zj ⊥⊥ P a j . The independence of Zj in the true DAG GA imposes strong constraints on the functional relationships in GA:
+
+P (Zj ) = PZj (Xj − fj (P a j )) ,
+
+where Zj is the independent noise term. In the case when G′A′̸ = GA, the functional relationships f ′ 
+
+> j
+
+∈ G ′A′ must satisfy: 
+
+P (Z′ 
+
+> j
+
+) = PZ′ 
+
+> j
+
+(Xj − f ′ 
+
+> j
+
+(P a ′ 
+
+> j
+
+)) ,
+
+where Z′ 
+
+> j
+
+are the noise terms under G′A′ .However, when G′A′̸ = GA, the new functional relationships f ′ 
+
+> j
+
+will be different from 
+
+fj in the true DAG. Furthermore, the new noise terms Z′ 
+
+> j
+
+will not remain independent of P a ′ 
+
+> j
+
+because the independence of Zj is specific to the true causal structure in GA.This implies that G′A′ cannot satisfy the independence assumptions simultaneously with GA, leading to a contradiction. Hence, under the assumptions of the ANM with nonlinear functions and independent noise or the LiNGAM model with linear functions and non-Gaussian noise, there exists no other DAG G′A′̸ = GA that can generate the same observational data distribution 
+
+P (X). Therefore, the true DAG GA is uniquely identifiable only from P (X), thus concluding the proof. 
+
+Lemma 7. Under the Post-Nonlinear (PNL) model assumption, there exists an iden-tifiable DAG GA that generates the observed joint distribution of the data variables 
+
+{X1, ..., X d}.Proof. Let χ be a dataset consisting of {X1, ..., X d} data attributes, where each Xj is described as follows: 
+
+Xj := gj (fj (P a j ) + Zj ), ∀j, Zj ⊥⊥ fj (P a j ), Zj ∼ N (μ, σ 2 
+
+> j
+
+),
+
+where P a j is the set of parent nodes for Xj , fj are nonlinear functions modeling parent contributions, gj is a nonlinear function applied post-summation and Zj is an independent Gaussian noise term, satisfying Zj ⊥⊥ P a j .Moreover, let Nj be the input to gj such that: 
+
+Nj = fj (P a j ) + Zj .
+
+32 Under the assumption that P a j is the true parent set, the noise term Zj is independent of its parents: 
+
+Zj ⊥⊥ P a j .
+
+In addition, gj does not affect the independence structure. Thus, for the true set of parents P a j , the residual noise Zj remains independent of the parent variables. Under this setting, the statistical relationship between Xj , its parents, and the residual noise satisfies specific invariances: 
+
+P (Xj , P a j ) = P (Xj |P a j )P (P a j ),
+
+where P (Xj |P a j ) is derived from the PNL structure. Now, consider any alternative parent set P a ′
+
+> j
+
+̸ = P a j . For this incorrect set of parents, the residual noise Zj is reconstructed as: 
+
+Zj = Nj − fj (P a ′ 
+
+> j
+
+).
+
+In this case, the core independence condition Zj ⊥⊥ P a ′ 
+
+> j
+
+is violated. Therefore, when the parent set is incorrect, the residual noise Zj will exhibit statistical dependencies with the variables in P a ′ 
+
+> j
+
+. This implies that the conditional distribution P (Xj |P a ′ 
+
+> j
+
+)cannot reproduce the same invariance due to the introduced dependencies, thus concluding the proof. 
+
+Corollary 7.1. Under Lemmas 6 and 7, the uniqueness property of GA allows us to reconstruct the generative process of X.
+
+Corollary 7.1 implies that under the causal model assumption employed in DAGAF, we can accurately generate synthetic samples with preserved causal structures, which is only possible if GA = GA. In turn, this implies that the implicitly generated dis-tribution PGA ( ˜X) is the same as the observed distribution P (X). Therefore, we have demonstrated that there exists a single unique DAG capable of constructing the input data distribution, thus concluding the proof. 
+
+# Appendix B Ablation study 
+
+We conducted an ablation study to determine the optimal configuration of the terms in the loss function for Step 1. We carried out nine experiments on the Sachs, ECOLI70, MAGIC-IRRI and ARTH150 datasets under the ANM assumption, testing various combinations of loss terms. These continuous (Gaussian) datasets are avail-able at https://www.bnlearn.com/bnrepository/. All cases include the Wasserstein-1 distance. The first configuration is labeled ” w/o recon loss ”, where the reconstruc-tion loss with its regularization is excluded from the training algorithm. The rest are named according to the terms included in the reconstruction loss, such as MSE [58] and NLL [59]. We also tested combinations of additional terms such as MMD [36] and KLD [35]. The results of this study are shown in Table B1. 33 Table B1 : DAGAF ablation study                                         
+
+> Loss function SHD Sachs ECOLI70 MAGIC-IRRI ARTH150 w/o recon loss 21 115 163 377 recon loss (MSE) 14 91 117 288 recon loss (NLL) 16 106 132 320 MSE + MMD 10 57 80 189 NLL + MMD 14 91 117 288 MSE + KLD 12 69 99 221 NLL + KLD 12 69 99 221 MSE + KLD + MMD 952 71 175
+> NLL + KLD + MMD 11 60 86 197
+
+The ablation study reveals the optimal combination of loss terms for our method. As shown in Table B1, the best set of loss terms in Step 1 includes MSE, KLD, MMD, and adversarial training. Further details on each of these metrics and regularization are provided in Section 3.1. 
+
+# Appendix C Sensitivity analysis 
+
+To ensure model robustness, we perform a sensitivity analysis to examine how the training responds to different hyper-parameter settings. This study measures the accu-racy of DAG reconstruction (i.e., SHD) under various hyper-parameters, including learning and dropout rates ( lr, dropout ), noise vector and batch sizes ( z-size, batch-size ). We begin with a baseline setting of lr = 0.001, dropout = 0.5, z-size = 1, batch-size = 100 , then modify each value individually to observe the changes in SHD. All experiments were conducted on the Sachs dataset by applying the ANM causal model, and the results are presented in Table C2. 
+
+Table C2 : DAGAF sensitivity analysis          
+
+> Hyper-parameters Sachs Dataset SHD lr = 3e-3, dropout = 0.5, z-size = 1, batch-size = 100 9lr = 3e-3, dropout = 0.0, z-size = 1, batch-size = 100 10 lr = 3e-3, dropout = 0.5, z-size = 2, batch-size = 100 10 lr = 3e-3, dropout = 0.5, z-size = 5, batch-size = 100 11 lr = 3e-3, dropout = 0.5, z-size = 1, batch-size = 500 9lr = 3e-3, dropout = 0.5, z-size = 1, batch-size = 1000 10 lr = 2e-4, dropout = 0.5, z-size = 1, batch-size = 100 11 lr = 1e-3, dropout = 0.5, z-size = 1, batch-size = 100 12
+
+The results from Table C2 indicate that lowering the learning and dropout rates significantly affects the performance of our model. On the other hand, increasing the size of the noise vector and the input data batch results in only minor variations in the accuracy of the algorithm. 34 Appendix D Additional results 
+
+In this section, we present further examples to reinforce the data quality analysis dis-cussed in Section 5.4. We provide real-synthetic statistical comparisons for all features (Table D3), additional visualizations of the synthetic feature distributions (Figure D1), and the remaining machine learning regression results (Figure D2). 
+
+Fig. D1 : Further examples of the synthetic joint and marginal distributions for our method on the dataset presented in Section 5.4. We observe multiple cases with dif-ferent distribution shapes. Additionally, we depict one case of severe mode collapse (bottom) in the produced data from DAGAF. 35 36 Table D3 : Mann-Whitney t-test results for all real and synthetic features to sup-plement Figure 7. We observe some failure cases, where the real and synthetic features differ significantly ( p < 0.05). 
+
+Feature p-value x1 7.7952e-07 x2 0.5004 x3 0.1683 x4 0.0020 x5 0.8563 x6 0.9127 x7 0.0364 x8 0.1747 x9 0.2089 x10 6.4502e-26 
+
+# Appendix E DAGAF pseudo-code  
+
+> 1:
+
+λ ← 0, c ← 1 
+
+> 2:
+
+current h (AL0 (f )) ← ∞ , h tol ← 1e − 8 
+
+> 3:
+
+k max iter ← 100, epochs ← 300  
+
+> 4:
+
+for k < k max iter do  
+
+> 5:
+
+while c < 1e + 20 do  
+
+> 6:
+
+for epoch < epochs do  
+
+> 7: 8:
+
+if pnl == T rue then ▷ The beginning of the Causal Discovery (CD) Step  
+
+> 9:
+
+˜X := {g1(f1(P a 1; W 11 , ..., W L 
+
+> 1
+
+) + Z1), ..., g d(fd(P a d; W 1 
+
+> d
+
+, ..., W Ld ) + Zd)} 
+
+> 10:
+
+else  
+
+> 11:
+
+˜X := {f1(P a 1; W 11 , ..., W L 
+
+> 1
+
+) + Z1, ..., f d(P a d; W 1 
+
+> d
+
+, ..., W Ld ) + Zd} 
+
+> 12:
+
+end if  
+
+> 13: 14:
+
+DiscLoss = LD (X, ˜X) 
+
+> 15:
+
+GenLoss = LG(X) 
+
+> 16:
+
+RecLoss = LREC (X, ˜X) + c 
+
+> 2
+
+|h(AL0 )|2 + λh (AL0 ) 
+
+> 17:
+
+PnlLoss = LP N L (X−1, ˜X) ▷ if PNL is assumed  
+
+> 18: 19:
+
+DiscGradients = DiscLoss.backward()  
+
+> 20:
+
+GenGradients = GenLoss.backward()  
+
+> 21:
+
+RecGradients = RecLoss.backward()  
+
+> 22:
+
+PnlGradients = PnlLoss.backward() ▷ if PNL is assumed  
+
+> 23: 24:
+
+DiscParameters = DiscParameters - 1 e − 3 * DiscGradients  
+
+> 25:
+
+GenParameters = GenParameters - 1 e − 3 * GenGradients  
+
+> 26:
+
+RecParameters = RecParameters - 1 e − 3 * RecGradients  
+
+> 27:
+
+PnlParameters = PnlParameters - 1 e − 3 * PnlGradients ▷ if PNL is assumed  
+
+> 28: 29:
+
+DS {W L0 } ← CD {W L0 } ▷ Parameter transfer between steps  
+
+> 30: 31:
+
+if pnl == T rue then ▷ The beginning of the Data Synthesis (DS) Step  
+
+> 32:
+
+˜X := {g1(G1(P a 1; W 11 , ..., W L 
+
+> 1
+
+) + Z1), ..., g d(Gd(P a d; W 1 
+
+> d
+
+, ..., W Ld ) + Zd)} 
+
+> 33:
+
+else  
+
+> 34:
+
+˜X := {G1(P a 1; W 11 , ..., W L 
+
+> 1
+
+) + Z1, ..., G d(P a d; W 1 
+
+> d
+
+, ..., W Ld ) + Zd} 
+
+> 35:
+
+end if 
+
+37 36: 37: DiscLoss = LD (X, ˜X) 
+
+> 38:
+
+GenLoss = LG(Z) 
+
+> 39: 40:
+
+DiscGradients = DiscLoss.backward()  
+
+> 41:
+
+GenGradients = GenLoss.backward()  
+
+> 42: 43:
+
+DiscParameters = DiscParameters - 1 e − 3 * DiscGradients  
+
+> 44:
+
+GenParameters = GenParameters - 1 e − 3 * GenGradients  
+
+> 45: 46:
+
+end for  
+
+> 47:
+
+if h(AL0 (f )) > 0.25 then  
+
+> 48:
+
+c ← c ∗ 10  
+
+> 49:
+
+else  
+
+> 50:
+
+break  
+
+> 51:
+
+end if  
+
+> 52:
+
+end while  
+
+> 53:
+
+current h (AL0 (f )) ← h(AL0 (f ))  
+
+> 54:
+
+λ ← c ∗ current h (AL0 (f ))  
+
+> 55:
+
+if current h (AL0 (f )) ≤ h tol then  
+
+> 56:
+
+break  
+
+> 57:
+
+end if  
+
+> 58:
+
+end for 
+
+# Declarations 
+
+Competing interests The authors declare that they have no competing financial or non-financial interests in relation to this work. 
+
+Ethical and informed consent for data used Not applicable. 
+
+Data availability The authors confirm that all data (with their corresponding repository and citation links) relevant to the research carried out to support their work are included in this article. 
+
+Authors contribution Hristo Petkov (First Author) is responsible for software development, theoretical analysis, conducting causal experiments and draft prepara-tion. Calum MacLellan (Second Author) is responsible for performing data synthesis experiments and draft revision. Feng Dong (Third Author) is responsible for overall draft proofreading and refactoring. 
+
+Funding The authors declare that their work has been funded by the United Kingdom Medical Research Council (Grant Reference: MR/X005925/1) throughout the duration of their associated research project (Virtual Clinical Trial Emulation with Generative AI Models, Duration: Sept 2022 – Feb 2023). 
+
+# References 
+
+[1] J. Choi, R.S. Chapkin, Y. Ni, Supplementary Material of ”Bayesian Causal Structural Learning with Zero-Inflated Poisson Bayesian Networks” , in NIPS 
+
+38 (2020) [2] R. Foraita, J. Friemel, K. G¨ unther, T. Behrens, J. Bullerdiek, R. Nimzyk, W. Ahrens, V. Didelez, Causal discovery of gene regulation with incomplete data. Journal of the Royal Statistical Society: Series A (Statistics in Society) 183 (2020) [3] X. Shen, S. Ma, P. Vemuri, G.J. Simon, Challenges and opportunities with causal discovery algorithms: Application to alzheimer’s pathophysiology. Scientific Reports 10 (2020) [4] A. Moneta, D. Entner, P.O. Hoyer, A. Coad, Causal inference by independent component analysis: Theory and applications. Econometrics: Econometric & Statistical Methods - Special Topics eJournal (2013) [5] R. Opgen-Rhein, K. Strimmer, From correlation to causation networks: a simple approximate learning algorithm and its application to high-dimensional plant gene expression data. BMC Systems Biology 1, 37 – 37 (2007) [6] A. Londei, A. D’Ausilio, D. Basso, M.O. Belardinelli, A new method for detecting causality in fmri data of cognitive processing. Cognitive Processing 7, 42–52 (2006) [7] I. Ebert-Uphoff, Y. Deng, Causal discovery for climate research using graphical models. Journal of Climate 25 , 5648–5665 (2012) [8] J. Runge, S. Bathiany, E.M. Bollt, G. Camps-Valls, D. Coumou, E.R. Deyle, C. Glymour, M. Kretschmer, M.D. Mahecha, J. Mu˜ noz-Mar´ ı, E.H. van Nes, J. Peters, R. Quax, M. Reichstein, M. Scheffer, B. Scholkopf, P. Spirtes, G. Sug-ihara, J. Sun, K. Zhang, J. Zscheischler, Inferring causation from time series in earth system sciences. Nature Communications 10 (2019) [9] S.L. Morgan, C. Winship, Counterfactuals and Causal Inference: Methods and Principles for Social Research , in Cambridge University Press (2007) [10] P.L. Spirtes, C. Glymour, R. Scheines, Causation, Prediction, and Search, 2nd Edition (MIT press, Cambridge, Massachusetts, 2001) [11] P. Spirtes, C. Glymour, R. Scheines, S.A. Kauffman, V. Aimale, F.C. Wim-berly, Constructing Bayesian Network Models of Gene Expression Networks from Microarray Data , in Atlantic Symposium on Computational Biology (2000) [12] D. Colombo, M.H. Maathuis, M. Kalisch, T.S. Richardson, Learning high-dimensional directed acyclic graphs with latent and selection variables. Annals of Statistics 40 , 294–321 (2011) [13] D.M. Chickering, Optimal structure identification with greedy search. J. Mach. Learn. Res. 3, 507–554 (2003) 39 [14] J.I. Alonso-Barba, L. de la Ossa, J.A. Gamez, J.M. Puerta, Scaling up the Greedy Equivalence Search algorithm by constraining the search space of equivalence classes , in International Journal of Approximate Reasoning (2011) [15] A. Hauser, P. B¨ uhlmann, Characterization and greedy learning of interventional markov equivalence classes of directed acyclic graphs. Journal of machine learning research 13 (1) , 2409–2464 (2011) [16] X. Zheng, B. Aragam, P. Ravikumar, E.P. Xing, DAGs with NO TEARS: Con-tinuous Optimization for Structure Learning , in Neural Information Processing Systems (2018) [17] Y. Yu, J. Chen, T. Gao, M. Yu, DAG-GNN: DAG Structure Learning with Graph Neural Networks , in International Conference on Machine Learning (2019) [18] S. Lachapelle, P. Brouillard, T. Deleu, S. Lacoste-Julien, Gradient-based neural dag learning. ArXiv abs/1906.02226 (2020) [19] H.H. Petkov, C. Hanley, F. Dong, Dag-wgan: Causal structure learning with wasserstein generative adversarial networks. ArXiv abs/2204.00387 (2022) [20] J. Peters, J. Mooij, D. Janzing, B. Sch¨ olkopf, Identifiability of causal graphs using functional models. arXiv preprint arXiv:1202.3757 (2012) [21] S. Shimizu, P.O. Hoyer, A. Hyv¨ arinen, A.J. Kerminen, A linear non-gaussian acyclic model for causal discovery. J. Mach. Learn. Res. 7, 2003–2030 (2006) [22] P.O. Hoyer, D. Janzing, J.M. Mooij, J. Peters, B. Scholkopf, Nonlinear causal discovery with additive noise models , in Neural Information Processing Systems 
+
+(2008) [23] K. Zhang, A. Hyv¨ arinen, On the Identifiability of the Post-Nonlinear Causal Model , in Conference on Uncertainty in Artificial Intelligence (2009) [24] K. Zhang, A. Hyv¨ arinen, Distinguishing causes from effects using nonlinear acyclic causal models , in Causality: Objectives and Assessment (PMLR, 2010), pp. 157–164 [25] K. Uemura, T. Takagi, K. Takayuki, H. Yoshida, S. Shimizu, A multivariate causal discovery based on post-nonlinear model , in Conference on Causal Learning and Reasoning (PMLR, 2022), pp. 826–839 [26] Y. Chung, J. Kim, T. Yan, H. Zhou. Post-nonlinear causal model with deep neural networks (2019) [27] N. Hoang, B. Duong, T. Nguyen, Enabling causal discovery in post-nonlinear models with normalizing flows. arXiv preprint arXiv:2407.04980 (2024) 40 [28] G. Keropyan, D. Strieder, M. Drton, Rank-based causal discovery for post-nonlinear models , in International Conference on Artificial Intelligence and Statistics (PMLR, 2023), pp. 7849–7870 [29] T. Zhang, F. Yin, Z.Q. Luo. Post-nonlinear causal relationship with finite samples: A maximal correlation perspective (2024) [30] B. van Breugel, T. Kyono, J. Berrevoets, M. van der Schaar, DECAF: Gener-ating Fair Synthetic Data Using Causally-Aware Generative Networks , in Neural Information Processing Systems (2021) [31] B. Wen, L.O. Colon, K. Subbalakshmi, R. Chandramouli, Causal-tgan: Gen-erating tabular data using causal generative adversarial networks. ArXiv 
+
+abs/2104.10680 (2021) [32] A. Rajabi, O.O. Garibay, Tabfairgan: Fair tabular data generation with generative adversarial networks. Mach. Learn. Knowl. Extr. 4, 488–501 (2021) [33] J. Pearl, Causality (Cambridge university press, 2009) [34] X. Zheng, C. Dan, B. Aragam, P. Ravikumar, E.P. Xing, Learning sparse nonparametric dags. ArXiv abs/1909.13189 (2019) [35] S. Kullback, R.A. Leibler, On information and sufficiency. Annals of Mathemat-ical Statistics 22 , 79–86 (1951) [36] I.O. Tolstikhin, B.K. Sriperumbudur, B. Sch¨ olkopf, Minimax estimation of maximum mean discrepancy with radial kernels. NIPS (2016) [37] I. Khemakhem, R. Monti, R. Leech, A. Hyvarinen, Causal autoregressive flows ,in International conference on artificial intelligence and statistics (PMLR, 2021), pp. 3520–3528 [38] Y. Gao, L. Shen, S.T. Xia, DAG-GAN: Causal Structure Learning with Generative Adversarial Nets , in ICASSP 2021 - 2021 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP) (2021), pp. 3320–3324. https: //doi.org/10.1109/ICASSP39728.2021.9414770 [39] J. Peters, J.M. Mooij, D. Janzing, B. Sch¨ olkopf, Causal discovery with continuous additive noise models. J. Mach. Learn. Res. 15 , 2009–2053 (2013) [40] K. He, X. Zhang, S. Ren, J. Sun, Deep residual learning for image recognition. 2016 IEEE Conference on Computer Vision and Pattern Recognition (CVPR) pp. 770–778 (2015) [41] I. Ng, S. Zhu, Z. Chen, Z. Fang, A graph autoencoder approach to causal structure learning. ArXiv abs/1911.07420 (2019) 41 [42] D. Bertsekas, Nonlinear Programming (Athena Scientific, 2nd edition, 1999) [43] H.H. Petkov, F. Dong, Efficient generative adversarial dag learning with no-curl. 2023 International Conference Automatics and Informatics (ICAI) pp. 164–169 (2023) [44] I. Khemakhem, R.P. Monti, R. Leech, A. Hyv¨ arinen, Causal autoregressive flows. ArXiv abs/2011.02268 (2020) [45] A. Wehenkel, G. Louppe, Graphical Normalizing Flows , in International Confer-ence on Artificial Intelligence and Statistics (2020) [46] A.M.K. Mamaghan, A. Dittadi, S. Bauer, K.H. Johansson, F. Quinzan, Diffusion-based causal representation learning. Entropy 26 (2024) [47] B. Charpentier, S. Kibler, S. G¨ unnemann, Differentiable dag sampling. ArXiv 
+
+abs/2203.08509 (2022) [48] M. de Jongh, M.J. Druzdzel, A comparison of structural distance measures for causal bayesian network models. Recent Advances in Intelligent Information Systems p. 443–456 (2009) [49] P. Erd¨ os, On random graphs, I (1959) [50] K. Sachs, O. Perez, D. Pe´ er, D.A. Lauffenburger, G.P. Nolan, Causal protein-signaling networks derived from multiparameter single-cell data. Science 
+
+308 (5721), 523–529 (2005) [51] I.T. Jolliffe, J. Cadima, Principal component analysis: a review and recent devel-opments. Philosophical Transactions of the Royal Society A: Mathematical, Physical and Engineering Sciences 374 (2016) [52] G. Park, Identifiability of additive noise models using conditional variances. Jour-nal of Machine Learning Research 21 (75), 1–34 (2020). URL http://jmlr.org/ papers/v21/19-664.html [53] M. Stone, Cross-validatory choice and assessment of statistical predictions. Journal of the royal statistical society series b-methodological 36 , 111–133 (1976) [54] R.J. Simard, P. L’Ecuyer, Computing the two-sided kolmogorov-smirnov distri-bution. Journal of Statistical Software 39 , 1–18 (2011) [55] C.A. Williams, The choice of the number and width of classes for the chi-square test of goodness of fit. Journal of the American Statistical Association 45 , 77–86 (1950) [56] D. Polap, A. Jaszcz, Sonar digital twin layer via multiattention networks with feature transfer. IEEE Transactions on Geoscience and Remote Sensing 62 , 1–10 42 (2024) [57] C.K. Thomas, W. Saad, Y. Xiao, Causal semantic communication for digital twins: A generalizable imitation learning approach. IEEE Journal on Selected Areas in Information Theory 4, 698–717 (2023) [58] P.J. Bickel, K.A. Doksum, Mathematical statistics: Basic ideas and selected topics, volume i, second edition (2015) [59] S. Grof, M.D. Transpersonal, On the mathematical foundations of theoretical statistics. Philosophical Transactions of the Royal Society A 222 , 309–368 (1921) 43

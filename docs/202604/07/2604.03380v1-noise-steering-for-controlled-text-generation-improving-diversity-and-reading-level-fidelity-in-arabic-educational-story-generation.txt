@@ -1,0 +1,389 @@
+Title: Noise Steering for Controlled Text Generation: Improving Diversity and Reading-Level Fidelity in Arabic Educational Story Generation
+
+URL Source: https://arxiv.org/pdf/2604.03380v1
+
+Published Time: Tue, 07 Apr 2026 00:05:58 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Noise Steering for Controlled Text Generation: Improving Diversity and Reading-Level Fidelity in Arabic Educational Story Generation 
+
+Haziq Mohammad Khalid 
+
+b00100601@aus.edu 
+
+Salsabeel Shapsough 
+
+sshapsough@aus.edu 
+
+Imran Zualkernan 
+
+izualkernan@aus.edu 
+
+American University of Sharjah 
+
+Abstract 
+
+Generating diverse, pedagogically valid sto-ries for Arabic early-grade reading assessments requires balancing tight constraints on vocab-ulary, reading level, and narrative structure against the need to avoid repetitive plots that undermine assessment validity. We investi-gate noise steering – injecting calibrated Gaus-sian perturbations into the internal representa-tions of transformer models at inference time — as a training-free diversity method evalu-ated across five small Arabic-centric language models (7–9B parameters). We compare four injection strategies against high-temperature sampling baselines, measuring diversity, qual-ity, constraint adherence, and reading grade level. Residual stream noise consistently im-proves narrative diversity with minimal qual-ity or constraint cost and preserves early-grade reading level across all models. Attention en-tropy noise injection (AENI) stabilizes the oth-erwise unreliable attention-logit noise while recovering quality. High-temperature sampling inflates reading grade level and causes catas-trophic collapse on several models. We find internal representation-level perturbation to be a more suitable diversity strategy than output-level stochasticity for constrained educational content generation. 
+
+1 Introduction 
+
+The Early Grade Reading Assessment (EGRA) is a widely used framework for evaluating founda-tional reading skills in young learners (Dubeck and Gove, 2015). A key component involves short nar-rative passages that must satisfy strict pedagogi-cal constraints: controlled vocabulary, appropriate reading level, clear narrative structure, and cultural neutrality. Manually producing such passages at scale is labor-intensive, making automatic genera-tion an attractive alternative, particularly in Arabic, where rich morphology, orthographic variation, and diglossia introduce additional linguistic complexity (Habash, 2010). Recent work has shown that large language mod-els can generate fluent Arabic stories aligned with EGRA criteria, but two tensions persist (Abdelgha-fur et al., 2025; Rai et al., 2024). First, diversity vs. constraint adherence : increasing output vari-ety risks violating the tight pedagogical require-ments that make EGRA passages valid assessment instruments (Holtzman et al., 2020). Second, prac-tical deployment in under-resourced educational settings favors small language models (SLMs) of 7–9 billion parameters over large frontier models, yet these smaller Arabic-centric models are more susceptible to generation instability when diversity is pushed. We address both tensions by investigat-ing noise steering : injecting calibrated Gaussian perturbations into the internal representations of transformer models at inference time, without any fine-tuning. We evaluate four injection strategies across five Arabic SLMs and show that residual stream noise and attention entropy noise injection (AENI) consistently improve narrative diversity while preserving reading grade level and constraint adherence, outperforming output-level approaches such as high-temperature sampling that raise diver-sity at the cost of pedagogical validity. 
+
+2 Background 
+
+2.1 EGRA Constraints 
+
+EGRA-aligned texts are constructed under strict pedagogical and linguistic constraints (Dubeck and Gove, 2015). These include controlled passage length, age-appropriate vocabulary, a clear narra-tive structure, limited characters, grammatical cor-rectness, and cultural neutrality. These constraints ensure comparability across assessments and sup-port the generation of both literal and inferential comprehension questions. However, manually cre-ating such passages is labor-intensive and requires domain expertise, limiting scalability (Abdelghafur et al., 2025). 
+
+> arXiv:2604.03380v1 [cs.CL] 3 Apr 2026
+
+2.2 Challenges in Arabic EGRA Generation 
+
+Generating EGRA-aligned content in Arabic intro-duces additional challenges due to the language’s rich morphology, orthographic ambiguity, and diglossia between Modern Standard Arabic and di-alectal varieties, compounded by the limited avail-ability of high-quality annotated datasets for chil-dren’s literature (Habash, 2010; Abdelghafur et al., 2025). While recent work has shown that mod-els such as GPT-4 and Jais can generate fluent, EGRA-aligned stories, inconsistencies in narrative structure, deviations from target word counts, and repetitive outputs with minimal structural variation remain persistent issues (Abdelghafur et al., 2025; Rai et al., 2024; El-Shangiti et al., 2024). 
+
+2.3 Diversity vs. Constraint Trade-off 
+
+A central challenge in EGRA-based generation is balancing diversity with constraint satisfaction. In-creasing diversity through stochastic decoding can lead to output degeneration and reduced control over pedagogical requirements (Holtzman et al., 2020), while overly constrained prompting often results in repetitive and structurally similar outputs (Rai et al., 2024). Recent approaches attempt to address this trade-off. Shankarnarayanan et al. (2024) show that inspiration-based prompting can improve narra-tive diversity, while Madaan et al. (2023) demon-strate that iterative self-refinement can enhance output quality without model fine-tuning. De-spite these advances, achieving consistent diversity while maintaining strict adherence to EGRA con-straints remains unresolved, particularly in Arabic. 
+
+3 Related Works 
+
+3.1 Output-Level Diversity: Stochastic Decoding Strategies 
+
+A common approach to diversity in LLM gener-ation is stochastic decoding, which modifies the token probability distribution at each step. Temper-ature scaling (Ackley et al., 1985) flattens or sharp-ens this distribution, while top-k sampling (Fan et al., 2018) restricts candidates to the k most prob-able tokens, and nucleus (top-p) sampling (Holtz-man et al., 2020) selects the smallest token set whose cumulative probability exceeds a threshold. These methods trade output quality for diversity as their parameters increase, yet they share a fun-damental limitation: all intervention occurs at the final vocabulary logit, leaving the model’s internal computations, embeddings, attention patterns, and intermediate representations entirely unchanged. Locally Typical Sampling (Meister et al., 2023) ap-proaches diversity differently by selecting tokens whose information content stays close to the con-ditional entropy of the model, reducing degenerate repetition while preserving fluency. We use tem-perature, top-p, top-k primary decoding baselines. Our internal noise methods are independent to all of them and can be combined with any output-level sampler. 
+
+3.2 Internal Noise Injection in Transformers 
+
+A smaller but closely related body of work explores injecting perturbations into the internal represen-tations of transformer models rather than into the output distribution. Kang et al. (2024) is the most directly comparable prior work, they apply input-dependent Gaussian noise to the hidden states of early LLM layers during fine-tuning to produce di-verse paraphrases of training examples for knowl-edge injection. Kang et al. (2024) demonstrates that latent-level perturbation yields more semantically diverse augmentations than data-level paraphrasing alone. This finding motivates our hypothesis that similar perturbations at inference time can promote creative diversity in generation. Unlike Kang et al. (2024)’s method of applying noise during training to improve knowledge retention, our methods apply noise at inference time to diversify outputs without modifying model weights. The residual stream framework of Elhage et al. (2021) motivates our choice of injection sites. Em-beddings, attention logits, and block outputs each represent distinct points at which information is written to the model’s shared communication chan-nel, producing qualitatively different perturbation effects. 
+
+3.3 Entropy-Aware Generation 
+
+Several works use the model’s own uncertainty as a signal for adaptive decoding. EDT (Zhang et al., 2024) raises temperature when the output vocabu-lary entropy is low, encouraging exploration pre-cisely when the model is overconfident. Our atten-tion entropy-based method shares this motivation but monitors entropy over attention distributions rather than output logits, intervening at the atten-tion level, before the model’s repetitive tendencies manifest in the output distribution. 3.4 Constrained Generation and Arabic Educational LLMs 
+
+Constrained decoding methods (Willard and Louf, 2023) enforce formal output constraints by mask-ing invalid tokens at each step, but do so at the cost of forcing the model toward low-probability and often repetitive continuations. This phenom-ena is seen clearly in Early-Grade Reading Assess-ment (EGRA) story generation (RTI International, 2016; Zualkernan and Shapsough, 2024), where tight vocabulary and structural constraints narrow the valid token set and exacerbate the repetitive nature of outputs. Noise injection has been shown to systemically degrade a model’s ability to follow constraints and guidelines (Shahani et al., 2025), motivating careful calibration. Our noise decay strategy addresses this directly by reducing pertur-bation magnitude as generation progresses, allow-ing the model to explore creative directions early in the story while gradually restoring constraint fol-lowing behaviour toward the conclusion. We eval-uate story generation in this setting using a suite of small Arabic-centric and multilingual instruct models (Sengupta et al., 2023; Bari et al., 2024; Huang et al., 2024; Fanar Team et al., 2025), mea-suring diversity via Self-BLEU (Zhu et al., 2018) and semantic dispersion. 
+
+4 Noise Steering methods 
+
+4.1 Embedding Noise 
+
+Embedding noise injects Gaussian noise directly into the output of the token embedding lookup ta-ble during the decoding phase. This is the earli-est possible injection site: the perturbed vector is the model’s sole representation of the newly gen-erated token before any transformer computation has occurred. All subsequent hidden-layer inputs are equivalent to the previous block’s residual out-put and therefore have no independent embedding-level analogue. Formally, let et ∈ RD denote the embedding of the token sampled at decode step t. We perturb it as: 
+
+˜et = et + ε, ε ∼ N  0, σ (t)2I (1) where σ(t) = σemb · δ(t) is the decayed stan-dard deviation from Section 4.5. Noise is applied exclusively to decode steps, the prefill pass over the prompt is left unperturbed, ensuring that the model’s understanding of the instruction and con-straints is not corrupted. Because the perturbation enters at the base of the residual stream, it is ampli-fied and transformed by every subsequent attention and MLP layer, producing broad, high-level varia-tion in the story’s trajectory. 
+
+4.2 Attention-logit Noise 
+
+Attention-logit noise injects Gaussian noise into the output of the self-attention sub-layer at selected transformer blocks, specifically after the output projection WO but before the subsequent MLP sub-layer and before the residual addition. Within each targeted block the computation is: 
+
+x = LayerNorm (h(l−1) ) (2) 
+
+a = softmax 
+
+ QK ⊤
+
+√d
+
+
+
+V W O + ε (3) 
+
+h(l) = h(l−1) + a + MLP 
+
+
+
+a + h(l−1) 
+
+(4) 
+
+ε ∼ N  0, σ (t)2I
+
+where h(l) is the residual stream at layer l and 
+
+σ(t) = σattn ·δ(t) follows the cosine decay schedule of Section 4.5. The KV cache is left intact: only the last token position of the attention output tensor (shape B1D during decoding) is perturbed, leaving all cached key and value states unchanged. By targeting the attention branch’s contribution to the residual stream in isolation, before the MLP has processed the attended context, this method per-turbs the information routing step of each selected block without corrupting the feed-forward trans-formation. This gives it a qualitatively different character from residual stream noise, which acts on the full block output after both sub-layers have run. 
+
+4.3 Residual Stream Noise 
+
+Residual stream noise injects Gaussian noise into the transformer’s residual stream after each se-lected block has completed its full computation of both the self-attention and MLP sub-layers. The noise at layer l and decode step t is: 
+
+˜h(l) 
+
+> t
+
+= h(l) 
+
+> t
+
++ ε, ε ∼ N (0 , σ (t)2 )
+
+where h(l) 
+
+> t
+
+is the block output at the last token posi-tion and σ(t) = σres · δ(t) is the decayed standard deviation from Section 4.5. Noise is applied only during the decoding phase when new tokens are being generated, leaving the prompt representa-tion unperturbed. Injecting at the full block output means the noise enters the residual stream at the point where the block’s complete contribution has been written, and propagates forward through all subsequent layers. 
+
+4.4 Attention Entropy Noise Injection 
+
+Attention Entropy Noise Injection (AENI) condi-tions noise magnitude on the peakedness of the model’s own attention distribution at each decode step. The motivation, shared with EDT (Zhang et al., 2024), is that a model is most likely to pro-duce repetitive or formulaic output precisely when it is most confident: attention heads that concen-trate their weight on a small set of tokens signal over-reliance on a narrow context window, which in constrained story generation often corresponds to copying earlier story elements. AENI responds by injecting more noise when attention is peaked and less when it is diffuse, intervening adaptively rather than applying a fixed perturbation schedule. At each targeted layer l and decode step t,we read the post-softmax attention weight tensor 
+
+W(l) ∈ RBHT k , where H is the number of heads and Tk is the current key-sequence length. We extract the last query row (the current token’s atten-tion pattern) w = W(l):,:,−1,: and compute a peaked-ness score as the mean per-head maximum atten-tion weight: 
+
+ϕ(w) = mean h max  
+
+> j
+
+wh,j (5) This score lies naturally in [0 , 1] , is independent of context length, and requires no normalisation: a peaked head drives its maximum toward 1, while a uniform distribution drives it toward 1/T k. Gaus-sian noise is then added to the self-attention output after WO but before the MLP and residual addition, with effective standard deviation: 
+
+σeff (t) = σaeni · ϕ(w) (6) where σaeni is the per-model ceiling calibrated by RMS as in Section 5.1. As with attention-logit noise, only the last token position of the attention output (shape B1D during decoding) is perturbed and the KV cache is left intact. 
+
+4.5 Noise Decay 
+
+Applying constant noise throughout generation risks degrading constraint adherence, consistent with findings that activation-level noise systemi-cally harms instruction and constraint following in LLMs (Shahani et al., 2025). We therefore apply a cosine decay schedule that reduces noise magni-tude as generation progresses, allowing the model to explore creatively in the early tokens while re-covering clean, constraint respecting decoding for the middle and conclusion of its story. Let t denote the current decode step and T the decay horizon. The noise standard deviation at step 
+
+t is scaled by: 
+
+δ(t) = 12
+
+
+
+1 + cos 
+
+ π · min( t, T )
+
+T
+
+ 
+
+so that δ(0) = 1 (full noise at the first generated to-ken) and δ(T ) = 0 (no noise at and beyond the hori-zon), with the effective standard deviation given by 
+
+σ(t) = σ(t −1) · δ(t).
+
+5 Experimental Setup 
+
+5.1 Noise Magnitude and Model Calibration 
+
+A key challenge when applying noise across multi-ple models is that the scale of internal representa-tions varies substantially between architectures and models (Dettmers et al., 2022; Sun et al., 2024). A fixed noise standard deviation that is undetectable for one model may be catastrophically large for an-other. To ensure that noise is applied at a consistent 
+
+relative scale across all models, we calibrate the noise magnitude using the root mean square (RMS) of each model’s residual stream activations. For each model we register forward hooks on nearly all transformer blocks (excluding the first and last layers) and collect block output tensors during decode steps only (i.e., when the sequence length is 1 and the KV cache is active), matching the phase at which noise is actually injected. The per-layer RMS is computed over the last generated token as: 
+
+RMS( l) = 
+
+s 1
+
+C
+
+X
+
+> C
+
+x2
+
+where x is the block output tensor at layer l aver-aged over the batch and hidden dimensions, and C
+
+is the number of decode steps collected. We then aggregate these per-layer values into a single scalar using the median across layers, which is robust to outlier layers at either extreme of the network. The residual noise standard deviation for each model is then set as: 
+
+σres = α · median l
+
+ RMS( l)where α is a fixed scaling coefficient set to 0.175 
+
+across all experiments. This formulation ensures that the injected noise is always proportional to the model’s own activation scale, making the effective perturbation strength comparable across models. 
+
+5.2 Generation 
+
+We compare each noise-injection method to the fol-lowing baselines: A noise-free baseline ( T = 1 .0), A High-temperature (T = 1 .8) noise-free baseline with topk = 40 , A High-temperature (T = 1 .8)noise-free baseline with topp = 0 .9,Each condition generates 50 stories indepen-dently. To isolate the effect of noise from stochas-tic variation in sampling, each story index shares a fixed seed across all conditions and models. Story 
+
+i under every condition is generated with the same seed, ensuring that any observed differences in output are attributable to the noise intervention rather than sampling randomness. All models are prompted with the same instruction to produce a story adhering to the EGRA constraints described in Section 5.3.3. 
+
+5.3 Evaluation 5.3.1 Creativity Scores Vendi Score: The Vendi Score (Friedman and Dieng, 2023) measures the diversity of a set of items by quantifying how evenly distributed they are across predefined categories. For our stories, embeddings were obtained using the BAAI/bge-m3 
+
+model, with higher values indicating greater diver-sity. 
+
+Lexical Diversity: We compute Self-BLEU (Zhu et al., 2018), treating each story in turn as a can-didate and the remaining 49 as references. The lexical diversity score is 1 − Self -BLEU , so that higher values indicate less overlap across the gen-erated set. 
+
+5.3.2 Readability and Linguistic Quality 
+
+We judge readability, grammatical correctness, lin-guistic quality, and appropriateness of reading level are evaluated using GPT5.3 C HAT (OpenAI, 2026) as an LLM judge. Each story is scored inde-pendently on these dimensions, providing a com-plementary quality signal to the diversity metrics above. 
+
+5.3.3 Constraint Following 
+
+EGRA constraint adherence is evaluated through a combination of rule-based checks and LLM judge-ment. Constraints that are able to be verified ex-actly are checked programmatically. These con-straints include: Story length not exceeding 60 words, Use of exactly one proper noun, Use of present tense Constraints requiring semantic and structural un-derstanding are evaluated using GPT5.3 CHAT (OpenAI, 2026) as a judge. These constraints in-clude: - Narrative structure includes intro, middle dilemma, and ending with resolution. - Gender-balanced: includes both a boy and a girl. - Avoids gender/religion/other stereotypes. - Vocabulary suitable for children and local context. 
+
+5.4 Models and Metrics Models: We evaluate five small ( ≤9B parameter) Arabic-centric instruct models. Jais 8B (Sengupta et al., 2023) is pretrained from scratch on a large Arabic and English corpus. ALLaM 7B (Bari et al., 2024) adapts LLaMA via Arabic tokeniser expansion and continued pretraining. Fanar 9B 
+
+(Fanar Team et al., 2025) emphasises morphology-aware Arabic tokenisation and dialectal coverage. 
+
+AceGPT (Huang et al., 2024) is a bilingual (Arabic– English) model built on the LLaMA architecture with continued pretraining on large-scale Arabic data and instruction tuning for dialogue and gen-eration tasks. Phi-4-mini is included as a com-pact multilingual baseline. Together these models span the main architectural and training strategies present in the current Arabic SLM landscape. 
+
+Quality (Qual. ↑). The quality score is an aver-age of four LLM-judge dimensions assessed per story: overall readability, logical soundness, gram-matical correctness, linguistic quality. Each dimen-sion is scored independently out of 10 and the four scores are averaged into a single value per story, which is then averaged across the 50 stories in a condition. 
+
+Constraint Violations (Viol. ↓). We report the average number of constraints broken per story and the total constraints broken, where a lower score is better and zero indicates full compliance. This combines the programmatic and LLM-judge checks from Section 5.3.3: each of the seven con-straints (three programmatic, four LLM-judged) contributes one violation point if failed, giving a maximum possible score of 7 per story. 6 Results 
+
+6.1 Total Modal Collapse 
+
+Before comparing diversity and quality metrics, we first examine instances of Total modal collapse (TMC): cases where generation degenerates into repetitive or incoherent token sequences, produc-ing stories that are effectively unusable. Table 1 reports the collapse rate for each model and decod-ing condition. Any condition with a collapse rate at or above 40% is excluded from further evalua-tion, as the surviving outputs would constitute a non-representative sample. 
+
+High-temperature baselines. The high-temperature conditions (HiTemp-k and HiTemp-p) are the most fragile overall. AceGPT and Phi-4-mini both exceed the 40% threshold under both high-temperature settings, with collapse rates as high as 84% and 66% respectively. This confirms the well-known instability of aggressive output-level sampling: flattening the output distribution beyond a certain point causes the model to assign non-negligible probability to incoherent continuations, from which recovery is rare once the context has been corrupted (Nguyen et al., 2025). 
+
+Residual stream noise. residual stream noise (L-R ES ), records a 0% collapse rate across every model tested. Because this method injects noise after each transformer block has already completed its full computation, the perturbation enters the net-work at a point where the model’s internal represen-tations are well-formed, and the signal propagates forward in a controlled manner. This makes resid-ual noise a reliable location to inject noise without worrying about generation failures. 
+
+Attention noise and AENI. Raw attention-logit noise (A TTN ) shows high collapse rates, reaching 28% and 34% on ALLaM and Fanar respectively. However, our Attention Entropy Noise Injection method (AENI) eliminates collapse entirely across all five models. Rather than applying a fixed per-turbation at every step, AENI scales the noise mag-nitude according to how peaked the model’s own attention distribution is at that moment. When the model attends broadly and diffusely, little or no noise is injected; perturbation is reserved for steps where attention has collapsed onto a narrow set of tokens, which is precisely when formulaic or repet-itive output is most likely to follow. This adaptive gating prevents the runaway instability that fixed attention noise produces. 
+
+Embedding noise. Embedding noise (E MBED )causes complete collapse on Phi-4-mini (100%), and elevated rates on ALLaM (22%) and Fanar (22%). The Phi-4-mini model in particular is very sensitive to embedding noise, even at noise levels 
+
+α < 0.175 virtually every generation collapses. As a compact multilingual model, Phi-4-mini has had comparatively less Arabic training data, mean-ing its token embedding space for Arabic is more sparsely and less robustly organized. Because em-bedding noise acts at the very first step of the resid-ual stream, before any transformer computation has occurred, any perturbation there propagates through every subsequent layer. For a model whose Arabic representations are already fragile, this earliest injection site offers no opportunity for the model to compensate. 
+
+6.2 Diversity, Quality, and Constraint Adherence 
+
+Figure 1 plots each model-method condition in the space of Vendi Score (diversity, x-axis) against LLM-judged quality (y-axis), with marker size en-coding the average number of constraint violations per story. Beyond these core metrics, we also track estimated reading grade level per condition, as di-versity methods that push stories toward richer vo-cabulary or more complex sentence structures may improve narrative variety and quality scores while                                              
+
+> Table 1: Modal collapse rate (% of 50 generated stories) per model and decoding strategy. Italic : method excluded from further evaluation due to ( ≥40% collapse rate);
+> Model Baseline HiTemp-kHiTemp-pEMBED ATTN AENI L-R ES
+> ALLaM 7B 0% 0% 4% 22 %28 %0% 0% AceGPT 8B 2% 84% 80% 0% 0% 0% 0% Fanar 9B 0% 2% 0% 22 %34 %2% 0% Jais 8B 0% 0% 0% 2% 4% 0% 0% Phi-4-mini 0% 50% 66% 100% 44% 0% 0%
+
+silently violating the early-grade readability that EGRA passages require. Full numerical results are in Appendix Tables 4 and 2. 
+
+Residual Stream Noise. L-R ES is the most con-sistently beneficial intervention. It achieves a 0% collapse rate for every model and improves Vendi Score in all five cases: +1.28 for ALLaM (7.14 →8.42), +0.28 for AceGPT (9.95 →10.23), +0.14 for Fanar (8.47 →8.61), +2.38 for Jais (4.71 →7.09), and +1.19 for Phi-4 (10.45 →11.64). Constraint adherence is largely undisturbed, with violations changing by at most 0.78 per story across all models. Reading grade level is preserved throughout: ALLaM and Fanar remain at Grade 3, Jais at Grade 2, and AceGPT at Grade 4, all consis-tent with their respective baselines. These results indicate that perturbing the model’s internal repre-sentations allows it to diversify narrative choices, such as character, setting, and plot structure, with-out reaching for more complex language to do so. The quality impact depends on the baseline. For Fa-nar and ALLaM, which already produce strong sto-ries (quality scores of 7.97 and 7.23 respectively), L-R ES maintains or improves quality outright: Fa-nar reaches 8.33 while gaining diversity, placing it in a genuinely better region of the quality-diversity space. For weaker models the diversity gains come at a greater quality cost: AceGPT drops from 5.78 to 5.11, Jais from 8.08 to 6.97, and Phi-4 from 4.64 to 3.67. In Jais’s case the large Vendi Score gain suggests the model was simply not exploring the narrative space at baseline. In Phi-4’s case, even gentle perturbation strains its more limited Ara-bic generation capability, and grade level drifts to Grade 5, the one exception to L-R ES ’s otherwise consistent grade-level preservation. 
+
+Attention Entropy Noise Injection vs. Raw At-tention Noise. Raw attention-logit noise (A TTN )can achieve high diversity, with Vendi Scores of 9.51 for ALLaM and 7.44 for Jais, but at severe cost: collapse rates of 28% and 34% on ALLaM and Fanar respectively, constraint violations spik-ing to 5.36, and ALLaM quality collapsing to 2.55, the lowest value in the entire evaluation result in the surviving scores being a biased subset of an otherwise unreliable condition. AENI resolves this 5 6 7 8 9 10 11 
+
+> Vendi Score
+> 4
+> 5
+> 6
+> 7
+> 8
+> Quality (  )
+> Story Generation: Quality vs. Vendi Score
+> (size=violations, color=method, shape=model)
+> Legend
+> Model: ALLaM
+> Model: AceGPT
+> Model: Fanar
+> Model: Jais
+> Model: Phi-4
+> Method: Baseline
+> Method: HiTemp-k
+> Method: HiTemp-p
+> Method: Embed
+> Method: Attn
+> Method: AENI
+> Method: L-Res
+
+Figure 1: Story quality versus output diversity (Vendi Score) for all evaluated conditions with ≤ 10 total modal collapses. Each point represents one model–method combination: marker shape encodes the model and marker 
+
+colour encodes the decoding method; marker area is proportional to the total number of EGRA constraint violations across the 50 generated stories (larger = more violations). Methods that cluster toward the lower-left or produce large markers trade quality or diversity for higher violation rates. Conditions with > 10 modal collapses are excluded to avoid diversity scores inflated by repetitive collapse outputs by conditioning noise magnitude on the model’s own attention entropy, injecting more perturbation when attention is sharply peaked and backing off when it is already diffuse. Collapse rates fall to 0% on ALLaM, AceGPT, and Jais, and just 2% on Fa-nar, with quality recovering substantially: ALLaM to 6.73, Fanar to 6.39, and Jais to 7.88. Crucially, AENI also preserves reading grade level across all Arabic-centric models and for Phi-4 actually im-proves it to Grade 3 from the baseline Grade 4, a stronger result than L-R ES on that model. The cost of this stability is a moderate Vendi Score reduction relative to raw A TTN , but this trade-off is clearly worthwhile for an educational generation system. On AceGPT, already a high-diversity model, the two methods produce near-identical Vendi Scores (10.21 vs. 10.05), confirming that AENI’s adaptive mechanism does not sacrifice diversity unnecessar-ily when it is not needed. 
+
+High-temperature Baselines High-temperature sampling is effective only for Jais, whose baseline Vendi Score of 4.71 is the lowest in the evaluation. Both H ITEMP -K and H ITEMP -P raise diversity meaningfully (to 6.37 and 5.87) while quality stays high at 8.18 and 7.95, suggesting Jais’s cautious baseline was due to overfitting to the EGRA task format, producing structurally valid but narratively repetitive stories, and that output-level stochasticity was sufficient to break this pattern without destabil-ising the underlying generation quality. For every other model the picture is far worse: ALLaM’s quality falls to 4.89 and 5.13, Fanar’s to 4.32 and 3.67, and both AceGPT and Phi-4 exceed the col-lapse threshold entirely. The grade-level results are equally damaging: ALLaM’s Grade 3 base-line rises to Grade 6 and Grade 5 under the two conditions, and Fanar’s Grade 3 baseline drifts to Grade 5 and Grade 6 respectively. By flattening the output probability distribution, high-temperature sampling makes models more likely to reach for less common, more sophisticated vocabulary, pre-cisely the kind of variation that is undesirable in an early-grade assessment context. It treats all forms of output variation as equivalent and has no mecha-nism for distinguishing a more creative plot from a more adult vocabulary, a distinction that is central to the EGRA task. Appendix A contains one-way ANOVA and Tukey HSD significance tests that re-affirm these findings: L-RES and AENI are the only methods that consistently preserve quality and constraint adherence at a level statistically indistinguishable from the Baseline, while high-temperature sam-pling, embedding noise and raw attention noise injections are significantly worse on both metrics across the majority of models. 
+
+7 Conclusion 
+
+We investigated noise steering as a lightweight, fine-tuning-free approach to improving narrative diversity in Arabic EGRA-style story generation across five small language models. L-R ES and AENI are the only methods that consistently im-prove diversity without compromising quality, con-straint adherence, or early-grade readability — the last of which proves a critical differentiator from high-temperature sampling, which inflates reading level and causes catastrophic collapse on several models. Residual stream noise is the most reliable all-around method and yields the greatest gains on models that already generate high-quality stories at baseline. AENI trades a small diversity mar-gin for substantially better stability, making it the stronger choice when attention-level intervention is preferred. A consistent finding across all methods is that a model’s baseline generation quality is a strong predictor of how gracefully it absorbs noise: models with weaker Arabic representation degrade faster regardless of the intervention applied, sug-gesting that noise steering is best understood as a tool for unlocking latent diversity rather than com-pensating for limited language capability. Future work should explore layer-specific targeting strate-gies and extension to other low-resource languages and assessment frameworks. 
+
+Limitations 
+
+LLM-as-a-Judge Evaluation. Our quality and parts of our constraint adherence scores rely on GPT as an LLM judge, which introduces well-documented limitations. LLM judges are known to exhibit systematic biases — including verbosity bias, where longer outputs receive inflated scores, and self-enhancement bias, where a model tends to favor outputs stylistically similar to its own gen-erations (Chen et al., 2024). A particular concern in comparative evaluations is relative scoring bias, where a story may receive an inflated score simply by virtue of being better than the others it is pre-sented alongside rather than on absolute merit. We took two steps to mitigate this: stories were sub-mitted to the judge in fixed-size batches rather than all at once, and stories from different experimental conditions were shuffled together before evaluation, preventing the judge from implicitly comparing out-puts within a single run. Despite these precautions, the judge evaluates Arabic educational stories with-out access to the target learners, the specific peda-gogical context, or native speaker intuitions about age-appropriate Arabic. Quality dimensions such as narrative clarity and vocabulary suitability ide-ally require human annotators with relevant exper-tise. The programmatic constraint checks mitigate this concern for verifiable constraints such as word count and tense, but the LLM-judged dimensions — narrative structure, cultural neutrality, and read-ing appropriateness — should be interpreted with caution. Future work should incorporate human evaluation by Arabic literacy educators to validate the automated scores reported here. 
+
+References 
+
+Y. Abdelghafur, Y. Kaddoura, S. Shapsough, I. Zualker-nan, and E. Kochmar. 2025. Tales from the algorithm: Enhancing reading comprehension assessments with ai-generated arabic stories. In Proceedings of the 10th International Congress on Information and Com-munication Technology (ICICT 2025) , volume 1443 of Lecture Notes in Networks and Systems , pages 277–288. David H. Ackley, Geoffrey E. Hinton, and Terrence J. Sejnowski. 1985. A learning algorithm for Boltz-mann machines. Cognitive Science , 9(1):147–169. M Saiful Bari, Yazeed Alnumay, Norah A. Alzahrani, Nouf M. Alotaibi, Hisham A. Alyahya, Sultan Al-Rashed, Faisal A. Mirza, Shaykhah Z. Alsubaie, Has-san A. Alahmed, Ghadah Alabduljabbar, Raghad Alkhathran, Yousef Almushayqih, Raneem Alnajim, Salman Alsubaihi, Maryam Al Mansour, Majed Al-rubaian, Ali Alammari, Zaki Alawami, and Abdul-mohsen Al-Thubaity. 2024. ALLAM: Large lan-guage models for Arabic and English. arXiv preprint arXiv:2407.15390 .Guiming Hardy Chen, Shunian Chen, Ziche Liu, Feng Jiang, and Benyou Wang. 2024. Humans or LLMs as the judge? a study on judgement bias. In Proceed-ings of the 2024 Conference on Empirical Methods in Natural Language Processing , pages 8301–8327, Miami, Florida, USA. Association for Computational Linguistics. Tim Dettmers, Mike Lewis, Younes Belkada, and Luke Zettlemoyer. 2022. LLM.int8(): 8-bit matrix multi-plication for transformers at scale. In Advances in Neural Information Processing Systems , volume 35. Margaret M. Dubeck and Amber Gove. 2015. The early grade reading assessment (EGRA): Its theoretical foundation, purpose, and limitations. International Journal of Educational Development , 40:315–322. Mahmoud El-Haj and Paul Rayson. 2016. OSMAN — a novel Arabic readability metric. In Proceedings of the Tenth International Conference on Language Re-sources and Evaluation (LREC’16) , pages 250–255, Portorož, Slovenia. European Language Resources Association (ELRA). Ahmed O. El-Shangiti and 1 others. 2024. Arabic au-tomatic story generation with large language models. In Proceedings of the First Workshop on Arabic Nat-ural Language Processing .Nelson Elhage, Neel Nanda, Catherine Olsson, Tom Henighan, Nicholas Joseph, Ben Mann, Amanda Askell, Yuntao Bai, Anna Chen, Tom Conerly, Nova DasSarma, Dawn Drain, Deep Ganguli, Zac Hatfield-Dodds, Danny Hernandez, Andy Jones, Jackson Kernion, Liane Lovitt, Kamal Ndousse, and 6 others. 2021. A mathematical framework for transformer circuits. Transformer Circuits Thread .Angela Fan, Mike Lewis, and Yann Dauphin. 2018. Hierarchical neural story generation. In Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,pages 889–898, Melbourne, Australia. Association for Computational Linguistics. Fanar Team, Ummar Abbas, Mohammad Shahmeer Ahmad, Firoj Alam, Enes Altinisik, Ehsannedin Asgari, Yazan Boshmaf, Sabri Boughorbel, Sanjay Chawla, Shammur Chowdhury, Fahim Dalvi, Ka-reem Darwish, Nadir Durrani, Mohamed Elfeky, Ahmed Elmagarmid, Mohamed Eltabakh, and Ma-soomali Fatehkia. 2025. Fanar: An Arabic-centric multimodal generative AI platform. arXiv preprint arXiv:2501.13944 .Dan Friedman and Adji Bousso Dieng. 2023. The vendi score: A diversity evaluation metric for machine learning. Preprint , arXiv:2210.02410. Nizar Y. Habash. 2010. Introduction to Arabic Natural Language Processing . Morgan & Claypool Publish-ers. Ari Holtzman, Jan Buys, Li Du, Maxwell Forbes, and Yejin Choi. 2020. The curious case of neural text de-generation. In International Conference on Learning Representations .Huang Huang, Fei Yu, Jianqing Zhu, Xuening Sun, Hao Cheng, Dingjie Song, Zhihong Chen, Mosen Alharthi, Bang An, Juncai He, Ziche Liu, Juny-ing Chen, Jianquan Li, Benyou Wang, Lian Zhang, Ruoyu Sun, Xiang Wan, Haizhou Li, and Jinchao Xu. 2024. AceGPT, localizing large language models in Arabic. In Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Tech-nologies (Volume 1: Long Papers) , pages 8139–8163, Mexico City, Mexico. Association for Computational Linguistics. Minki Kang, Sung Ju Hwang, Gibbeum Lee, and Jae-woong Cho. 2024. Latent paraphrasing: Perturbation on layers improves knowledge injection in language models. In Advances in Neural Information Process-ing Systems , volume 37. Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, and 1 others. 2023. Self-refine: Iterative refinement with self-feedback. In Advances in Neural Informa-tion Processing Systems .Clara Meister, Tiago Pimentel, Gian Wiher, and Ryan Cotterell. 2023. Locally typical sampling. Transac-tions of the Association for Computational Linguis-tics , 11:102–121. Minh Nhat Nguyen, Andrew Baker, Clement Neo, Allen Roush, Andreas Kirsch, and Ravid Shwartz-Ziv. 2025. Turning up the heat: Min-p sampling for creative and coherent llm outputs. Preprint ,arXiv:2407.01082. OpenAI. 2026. GPT-5.3 Instant ChatGPT model. Ac-cessed: 2026-03-06. Samarth Rai, Salsabeel Shapsough, and Imran Zualker-nan. 2024. Measuring fluency, coherency and logical-ity of GPT-4 generated EGRA comprehension stories. In Proceedings of the 2024 IEEE International Con-ference on Advanced Learning Technologies (ICALT) ,pages 201–203. RTI International. 2016. Early grade reading assessment toolkit. Technical report, RTI International / USAID. Neha Sengupta, Sunil Kumar Sahu, Bokang Jia, Satheesh Katipomu, Haonan Li, Fajri Koto, Osama Mohammed Afzal, Samta Kamboj, Onkar Pandit, Rahul Pal, Lalit Pradhan, Zain Muhammad Mujahid, Massa Baali, Alham Fikri Aji, Zhengzhong Liu, Andy Hock, Andrew Feldman, Jonathan Lee, Andrew Jackson, and 3 others. 2023. Jais and jais-chat: Arabic-centric foundation and instruction-tuned open generative large language models. arXiv preprint arXiv:2308.16149 .Prithviraj Singh Shahani and 1 others. 2025. Noise injection systemically degrades large language model safety guardrails. arXiv preprint arXiv:2505.13500 .Aadhith Shankarnarayanan, Taufiq Syed, Salsabeel Y. Shapsough, and Imran A. Zualkernan. 2024. Once upon a GPT-4: Enhancing diversity in automated reading comprehension story generation with clas-sic tales. In Proceedings of the 2024 IEEE Interna-tional Conference on Advanced Learning Technolo-gies (ICALT) , pages 196–200. Mingjie Sun, Xinlei Chen, J. Zico Kolter, and Zhuang Liu. 2024. Massive activations in large language models. arXiv preprint arXiv:2402.17762 .Brandon T. Willard and Rémi Louf. 2023. Efficient guided generation for large language models. arXiv preprint arXiv:2307.09702 .Shimao Zhang, Yu Bao, and Shujian Huang. 2024. EDT: Improving large language models’ generation by entropy-based dynamic temperature sampling. arXiv preprint arXiv:2403.14541 .Yaoming Zhu, Sidi Lu, Lei Zheng, Jiaxian Guo, Weinan Zhang, Jun Wang, and Yong Yu. 2018. Texygen: A benchmarking platform for text generation models. In The 41st International ACM SIGIR Conference on Research and Development in Information Retrieval ,pages 1097–1100. Imran Zualkernan and Salsabeel Shapsough. 2024. To-wards using large language models to automatically generate reading comprehension assessments for early grade reading assessment. pages 3772–3782. A Statistical Significance of L-RES and AENI 
+
+To assess whether the quality and constraint-adherence advantages of residual stream noise (L-RES) and attention entropy noise injection (AENI) are statistically reliable, we conducted one-way ANOVA tests across all methods within each model, followed by Tukey’s Honest Significant Dif-ference (HSD) post-hoc procedure to control the family-wise error rate at α = 0 .05 . Each observa-tion is one generated story, giving 50 observations per condition in most cases. No significance test is reported for the Vendi Score diversity metric, as the Vendi Score is a single aggregate statistic computed over the full set of 50 stories rather than a per-story quantity, which precludes pairwise inference. 
+
+Quality: The omnibus ANOVA is significant for every model group (all p < 0.001 ), confirming that decoding strategy has a reliable effect on LLM-judged quality. The post-hoc comparisons paint a consistent picture across models. For ALLaM, neither AENI nor L-RES differs significantly from the Baseline ( p = 0 .53 and p = 0 .39 respectively), while ATTN is significantly worse than every other method (all p < 0.001 ) and EMBED also falls significantly below Baseline ( p < 0.001 ). For AceGPT, AENI and L-RES are each statistically indistinguishable from the Baseline, whereas both high-temperature conditions are significantly worse than all noise methods (all p < 0.001 ). For Fanar, L-RES is not significantly different from the Base-line ( p = 0 .998 ), whereas AENI sits marginally below it ( p = 0 .015 ); critically, L-RES is sig-nificantly better than AENI ( p < 0.001 ), ATTN (p < 0.001 ), EMBED ( p < 0.001 ), and both high-temperature conditions (all p < 0.001 ). For Jais, neither AENI nor L-RES differs significantly from the Baseline ( p = 0 .997 and p = 0 .087 respec-tively), and EMBED is the only method signifi-cantly below Baseline ( p < 0.001 ). For Phi-4, AENI does not differ significantly from the Base-line ( p = 0 .083 ). For Phi-4-mini, L-RES is signif-icantly better than ATTN ( p < 0.001 ), HiTemp-k (p < 0.001 ), and HiTemp-p ( p < 0.001 ). Taken to-gether, L-RES and AENI are the only methods that consistently fail to be significantly worse than the Baseline across all models. A result that is not seen at any point with the high-temperature or ATTN conditions. 
+
+Constraint Violations: The omnibus ANOVA is again significant for all model groups with suf-ficient method coverage (all p < 0.001 ), with the exception of the PHI-4 group which contains only two distinguishable conditions due to the TMC (To-tal Modal Collapse) rate for the other methods ( p =0.18 ). For ALLaM, neither AENI ( p = 0 .999 ) nor L-RES ( p = 0 .355 ) produces significantly more violations than the Baseline, while EMBED and HiTemp-k are each significantly worse than Base-line ( p < 0.001 and p = 0 .003 respectively). For AceGPT, AENI, ATTN, EMBED, and L-RES are all statistically indistinguishable from the Baseline (all p = 1 .00 ), while both HiTemp conditions pro-duce significantly more violations ( p < 0.001 ). For Fanar, AENI does not differ significantly from Baseline ( p = 0 .478 ), and neither does L-RES (p = 0 .343 ); however, L-RES produces signifi-cantly fewer violations than AENI ( p < 0.001 ), EMBED ( p < 0.001 ), and both high-temperature conditions (all p < 0.001 ). For Jais, no noise method differs significantly from the Baseline in violations. For Phi-4, AENI produces significantly fewer violations than the Baseline ( p < 0.001 ), a direction favourable to AENI. For Phi-4-mini, L-RES produces significantly fewer violations than all other included conditions (all p ≤ 0.013 ). Across both quality and constraint-violation met-rics, L-RES and AENI are the only methods that consistently do not degrade significantly relative to the Baseline, while simultaneously being sig-nificantly better than high-temperature sampling and raw ATTN noise on the models where those conditions remain evaluable. This confirms that the diversity improvements reported for L-RES and AENI in the main results are not gained at a statis-tically detectable cost to pedagogical validity. B Story Generation Prompt 
+
+> System Prompt:
+
+# tÁ sAd¿ ufyd¿ u `dÄ OwQ r º¿ uOOT¿ °VfA  OAC tnmyT hAC  h ¨ h  mqr¤º. 
+
+> User Prompt:
+
+#  t O¢. * §  kw  qOT Fr §T stwA w  r º  ±VfA, ¤ tSm: * qdT u `rÄ AKOyA * zº¾A ¤FWyA¾A §tSm `SlT A * zº¾A tAyA¾A §tSm dA¾A   m`SlT * § ¯ tA¤E  qOT 60 lmT. * §  d¤C  qOT w JOyT ¤ JOyty, FmAº JA¶`T ¨  lT  `ryT ¤FyA  Wf, ¤knhA yr JA¶`T  ¯Ftd  ¨  kt  mdCFyT. * nAF °VfA  
+
+> –
+
+# tw« r bX d  wT ¤ ¡tmAA h ¤Swh, ¤§yr KAr §AyT. * §tw© lY nA}r  qOT  qOyr: JOyT, FyA, d §T, qbT ¤ KklT, ¤. * tw E y  nsy – §S ®¾   ±¤¯ ¤ bnA. * §tn  OwC  nmWyT  mt`lqT AnH ¤  d§ ¤ yr¡A. * ¯ §wd P ww sbqA¾A ¤¯ §@r  ±VfA qOP ¤ FAVyr §`rwhA. * §std E  mSAC. * §std fr   nAFbT lmnWqT ¤ f·T  `mr§T °VfA  @§ Fyt  tbAC¡. * §  kw  mlT  ±¤Y FhlT lA§T. * §std nyT tnwT ¤knhA ys  yT ¤ `qd. * §std  FmA¾A lmA¾A ¤ d¾A )JA¶`A¾A( qX. * tn  qOT  Ftd   klmA  mbhmT,  lmT §mk  d lY r  `nY nd tAthA Wr§qT `ynT, ¤ lmT §mk  u std r  h·T tmy `nY ¤ d. * yH A¶mT   m  mtr WT Kk R`y. * § n  Ftd  FmAº  KOyA  KA¶`T ¨  kt  mdCFyT, ±  W® d §qdw AA lqA¶yT nAº¾ lY  qOP  t¨ §`rwhA. * tw©  qOT lY JOyT ¤ JOyty qX, tn w  mhmT Y  tbAC l@ r. * §tw© P  qOT lY `{  mfr    m`qd¤ r y  m. Ot © rF Pn TOq  t  Amysq ¤ Ayms ¤ §¤An ¤.Tylky¡  rJ¥ © ¤ C LLM-as-a-judge prompt 
+
+The following prompt was given to GPT5.3 C HAT ,stories were given to the model in batches of 10, with stories from different runs jumbled in each batch. 
+
+Listing 1: Judging prompt fed to GPT5.3 C HAT 
+
+The following are a set of Arabic stories. I want you to rate each story out of 10 on the following metrics: - Readability: How well does the story read, is it just a set of weakly connected sentences or does it flow well etc. - Logic: How much does the story make sense, does it have logical fallacies etc. -Grammar and Linguistic: Correctness of grammar and linguistic, this metric is just about correctness, do not include level of grammar in your rating of this metric. Here are other metrics to include also - Reading Level: What grade level is this story appropriate for? - Total Modal Collapse: If this story indicates total modal collapse, give zero on every other metrics and output a 1 here, if not then leave as zero - Structure: Does the narrative structure includes intro, middle dilemma, and ending with resolution. 1 if yes and 0 if no - Vocabulary level: Vocabulary suitable for children and local context or not, 1 if yes and 0 if not - Stereotypes: Avoids gender/religion/other stereotypes. 1 if yes and 0 if not - Gender-balanced: includes both a boy and a girl. 1 if yes and 0 if not Your response should be as a table format csv with the following column names: Story number, Readability, Logic, GrammarandLinguistics, ReadingLevel, TotalModalCollapse, Structure, VocabularyLevel, Stereotypes, Gender-balanced" 
+
+D Readability and Grade Level Scores 
+
+Table 2 contains OsmanReadability Scores (El-Haj and Rayson, 2016) that were calculated to go along with the Grade level assessments made from our LLM-as-a-judge model. While Figure 2 contains a figure comparing Os-man Readability and Vendi Scores between Base-line, AENI and L-Res methods. 
+
+E Complete Diversity Scores 
+
+Table 3 contains the complete vendi and lexical diversity scores of methods that resulted in a Total modal collapse rate of less than 40% 
+
+F Quality Scores 
+
+Table 4 contains the complete quality scores for each run with the exception of Phi-4-mini Embed-ding Noise as it failed to produce any coherent output. Table 2: Readability and constraint-violation metrics for all conditions with < 40% modal collapse. Read. ↑: mean OsmanReadability score (El-Haj and Rayson, 2016) ± std (higher = easier to read). Grade : modal estimated grade level across generated stories (G1–G3 = EGRA target range; higher grades indicate above-target reading difficulty; 
+
+0 = output mostly unreadable). Viol. ↓: mean EGRA constraint violations per story ± std. Bold : best readability and fewest violations among methods with ≤ 1 collapse per model group. † method has ≥ 1 collapse (count in Table 1). 
+
+Model Method Read. ↑ Grade Viol. ↓
+
+ALLaM 7B Baseline 70.42 ± 9.40 G3 3.38 ± 0.67 HiTemp-k 62.90 ± 20.30 G6 4.40 ± 1.55 HiTemp-p† 76.57 ± 21.89 G5 4.10 ± 1.42 EMBED † 59.76 ± 117.64 0 4.92 ± 1.44 ATTN † 74.07 ± 32.86 0 5.36 ± 1.57 AENI 39.78 ± 211.51 G3 3.22 ± 0.42 L-R ES 76.81 ± 10.86 G3 3.40 ± 0.86 AceGPT 8B Baseline † 82.12 ± 6.59 G4 3.08 ± 1.05 EMBED 85.84 ± 7.29 G3 3.54 ± 1.13 ATTN 85.02 ± 6.39 G3 3.12 ± 0.87 AENI 81.84 ± 9.43 G4 3.14 ± 0.88 L-R ES 85.48 ± 11.85 G4 4.70 ± 1.28 Fanar 9B Baseline 79.25 ± 6.33 G3 2.86 ± 0.57 HiTemp-k† 52.65 ± 16.99 G5 3.48 ± 1.11 HiTemp-p 53.55 ± 17.34 G6 3.83 ± 1.14 EMBED † 42.94 ± 66.52 0 4.42 ± 1.94 ATTN † 82.95 ± 5.91 0 3.54 ± 1.49 AENI † 80.56 ± 5.81 G3 3.32 ± 1.08 L-R ES 77.97 ± 5.26 G3 2.90 ± 0.46 Jais 8B Baseline 85.63 ± 7.62 G2 2.74 ± 0.94 HiTemp-k 84.21 ± 7.48 G2 3.18 ± 1.10 HiTemp-p 84.85 ± 7.55 G2 3.18 ± 1.17 EMBED † 34.67 ± 177.19 G2 3.46 ± 1.07 ATTN † 78.63 ± 41.50 G2 3.18 ± 1.02 AENI 85.45 ± 6.12 G2 3.32 ± 0.89 L-R ES 82.93 ± 10.13 G2 3.20 ± 1.04 Phi-4-mini Baseline 82.02 ± 6.30 G4 3.16 ± 1.02 AENI 80.59 ± 15.23 G3 3.96 ± 1.16 L-R ES 82.37 ± 7.50 G5 3.94 ± 1.42 ALLaM AceGPT Fanar Jais Phi-4        
+
+> 0
+> 20
+> 40
+> 60
+> 80
+> 100
+> Osman Readability
+> +
+> +
+> ++
+> ALLaM AceGPT Fanar Jais Phi-4
+> 0
+> 2
+> 4
+> 6
+> 8
+> 10
+> 12
+> 14
+> Vendi Score (Diversity)
+> +
+> +
+> +
+> +
+> +
+> +
+> +
+> +
+> +
+> Readability and Diversity by Model and Method
+> Baseline AENI L-Res
+
+Figure 2: Osman readability score (left) and Vendi Score (right) for Baseline, AENI, and L-Res across all five models. A + marker above a bar indicates the method exceeds the Baseline for that model. Error bars are omitted for clarity. Model Method VS LD ALLaM 7B Baseline 7.14 0.748 ± 0.071 HiTemp-k 7.61 0.949 ± 0.018 HiTemp-p† 9.15 0.956 ± 0.013 Embed † 6.92 0.838 ± 0.097 Attn † 9.51 0.906 ± 0.036 AENI 7.19 0.752 ± 0.119 L-Res 8.42 0.833 ± 0.066 (a) ALLaM 7B 
+
+Model Method VS LD AceGPT 8B Baseline † 9.95 0.942 ± 0.021 Embed 10.24 0.943 ± 0.026 Attn 10.21 0.940 ± 0.019 AENI 10.05 0.944 ± 0.022 L-Res 10.23 0.941 ± 0.022 Phi-4-mini Baseline 10.45 0.949 ± 0.013 AENI 11.12 0.954 ± 0.012 L-Res 11.64 0.951 ± 0.017 (b) AceGPT 8B + Phi-4-mini 
+
+Model Method VS LD Fanar 9B Baseline 8.47 0.939 ± 0.018 HiTemp-k† 9.69 0.979 ± 0.005 HiTemp-p 9.40 0.979 ± 0.005 Embed † 8.92 0.976 ± 0.012 Attn † 8.64 0.953 ± 0.013 AENI † 8.10 0.950 ± 0.019 L-Res 8.61 0.940 ± 0.024 (c) Fanar 9B 
+
+Model Method VS LD Jais 8B Baseline 4.71 0.762 ± 0.139 HiTemp-k 6.37 0.876 ± 0.067 HiTemp-p 5.87 0.848 ± 0.076 Embed † 6.52 0.916 ± 0.052 Attn † 7.44 0.922 ± 0.031 AENI 6.21 0.867 ± 0.056 L-Res 7.09 0.928 ± 0.027 (d) Jais 8B 
+
+Table 3: Diversity metrics for all conditions with < 40% modal collapse. VS : Vendi Score. LD : Lexical Diversity (1 − Self-BLEU). Bold : best per model under ≤ 1 collapse. †: ≥ 1 collapse. Model Baseline HiTemp-k HiTemp-p Embed Attn ALLaM 7.23 ± 0.81 4.89 ± 1.80 5.13 ± 1.97 4.09 ± 2.89 2.55 ± 1.24 
+
+AceGPT 5.78 ± 1.61 0.42 ± 1.03 0.60 ± 1.24 4.31 ± 1.50 4.88 ± 1.22 
+
+Fanar 7.97 ± 0.66 4.32 ± 2.00 3.67 ± 1.11 3.86 ± 2.74 4.77 ± 2.76 
+
+Jais 8.08 ± 0.92 8.18 ± 0.74 7.95 ± 0.75 6.18 ± 1.80 6.58 ± 1.85 
+
+Phi-4-mini 4.64 ± 1.18 2.59 ± 1.51 1.99 ± 0.70 – 2.41 ± 1.02 
+
+Model AENI L-Res ALLaM 6.73 ± 1.05 7.30 ± 0.80 
+
+AceGPT 5.29 ± 1.38 5.11 ± 1.47 
+
+Fanar 6.39 ± 1.38 8.33 ± 0.71 
+
+Jais 7.88 ± 0.96 6.97 ± 1.36 
+
+Phi-4-mini 4.35 ± 1.29 3.67 ± 1.15

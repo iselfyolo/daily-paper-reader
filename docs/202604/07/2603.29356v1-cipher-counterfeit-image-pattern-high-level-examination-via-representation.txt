@@ -1,0 +1,175 @@
+Title: CIPHER: Counterfeit Image Pattern High-level Examination via Representation
+
+URL Source: https://arxiv.org/pdf/2603.29356v1
+
+Published Time: Wed, 01 Apr 2026 00:38:31 GMT
+
+Number of Pages: 6
+
+Markdown Content:
+# CIPHER: Counterfeit Image Pattern High-level Examination via Representation for GAN and Diffusion Discriminator Learning 
+
+Kyeonghun Kim Youngung Han * Seoyoung Ju YeonJu Jean YooHyun Kim 
+
+OUTTA OUTTA OUTTA OUTTA OUTTA 
+
+kyeonghun.kim@outta.ai youngung.han@outta.ai seoyoung.ju@outta.ai yeonju.jean@outta.ai yoohyun.kim@outta.ai Minseo Choi SuYeon Lim Kyungtae Park Seungwoo Baek Sieun Hyeon *
+
+OUTTA OUTTA OUTTA OUTTA OUTTA 
+
+minseo.choi@outta.ai suyeon.lim@outta.ai kyungtae.park@outta.ai seungwoo.baek@outta.ai sieun.hyeon@outta.ai Nam-Joon Kim *,† Hyuk-Jae Lee *
+
+Seoul National University Seoul National University 
+
+knj01@snu.ac.kr hjlee@capp.snu.ac.kr 
+
+Abstract —The rapid progress of generative adversarial net-works (GANs) and diffusion models has enabled the creation of synthetic faces that are increasingly difficult to distinguish from real images. This progress, however, has also amplified the risks of misinformation, fraud, and identity abuse, underscoring the urgent need for detectors that remain robust across diverse generative models. In this work, we introduce Counterfeit Image Pattern High-level Examination via Representation(CIPHER), a deepfake detection framework that systematically reuses and fine-tunes discriminators originally trained for image generation. By extracting scale-adaptive features from ProGAN discriminators and temporal-consistency features from diffusion models, CI-PHER captures generation-agnostic artifacts that conventional detectors often overlook. Through extensive experiments across nine state-of-the-art generative models, CIPHER demonstrates superior cross-model detection performance, achieving up to 74.33% F1-score and outperforming existing ViT-based detectors by over 30% in F1-score on average. Notably, our approach maintains robust performance on challenging datasets where baseline methods fail, with up to 88% F1-score on CIFAKE compared to near-zero performance from conventional detectors. These results validate the effectiveness of discriminator reuse and cross-model fine-tuning, establishing CIPHER as a promising approach toward building more generalizable and robust deep-fake detection systems in an era of rapidly evolving generative technologies. 
+
+Index Terms —Deepfake detection, GAN, Diffusion, Discrimi-nator learning, Representation learning 
+
+I. I NTRODUCTION 
+
+Rapid advancement of generative models such as Gen-erative Adversarial Networks (GAN) [1]–[6] and diffusion models [7]–[12] has enabled the creation of synthetic me-dia that are increasingly indistinguishable from real content. Parallel progress in face-manipulation techniques-including face-swapping [13]–[18] and reenactment [19], [20]-has ac-companied these improvements, and these developments have 
+
+* Seoul National University † Corresponding author 
+
+continued to advance. Although these technologies provide creative applications in art, advertising, and privacy protection, they also introduce severe risks, including misinformation, fraud, and identity abuse. In response, the field of deepfake detection has matured: The initial approaches used deep neural networks to perform binary classification between real and generated images [21]– [23], but these models commonly learned generator-specific artifacts and did not generalize well to images produced by newer or unseen generative models. To address this general-ization problem, researchers have pursued multiple strategies. One line of work searches for model-agnostic discrepancies in embedding spaces or internal representations [24]–[26]; another uses reconstruction or reverse process techniques to reveal inconsistencies introduced during generation [27]–[29]. Recent work [30] has argued for training and evaluating detectors on a broad mixture of outputs from many generative models to better approximate real-world variations. Build-ing on this idea, we propose CIPHER, a hybrid detection framework that reuses and fine-tunes discriminators origi-nally trained for image generation. Specifically, we transfer the ProGAN [2] discriminator trained on CelebA-HQ to the diffusion training stage, allowing the model to generalize across different generative paradigms. Our contributions can be summarized as follows:  
+
+> •
+
+We construct a synthetic face dataset using ProGAN and diffusion models (DDPM/DDIM) trained on CelebA-HQ [2] and FFHQ [3], providing a diverse benchmark.  
+
+> •
+
+We propose CIPHER, a discriminator-reuse framework that integrates scale-adaptive features from GANs and temporal consistency features from diffusion models for deepfake detection.  
+
+> •
+
+We show that this unified representation improves ro-bustness and generalization, achieving superior detection       
+
+> arXiv:2603.29356v1 [cs.CV] 31 Mar 2026 FFHQ
+> CelebA -HQ
+> Generator
+> Diffusion U -Net
+> Input Image s
+> ProGAN trained on CelebA -HQ
+> Discriminator
+> Diffusion trained on FFHQ
+> Real Image s
+> Discriminator
+> Fak eImage sFig. 1. Framework overview of CIPHER. ProGAN is trained on CelebA-HQ to obtain a discriminator. A diffusion model is trained on FFHQ and generates fake images via DDIM sampling. The ProGAN discriminator is fine-tuned on FFHQ real images versus DDIM-generated fakes to learn generalizable forgery cues. Finally, a real/fake decision is made.
+
+accuracy compared to baseline detectors. II. M ETHODOLOGY 
+
+A. Dataset Preparation and Preprocessing 
+
+Our experimental framework utilizes multiple high-quality face datasets to ensure comprehensive coverage of facial variations and attributes. The primary datasets employed in this study include: 
+
+CelebA-HQ: A high-quality version of the CelebA dataset [31] containing 30,000 celebrity face images at 1, 024 ×1, 024 
+
+resolution. We resize these images to 64 × 64 pixels for computational efficiency while maintaining essential facial features necessary for deepfake detection. 
+
+FFHQ (Flickr-Faces-HQ): This dataset comprises 70,000 high-quality face images crawled from Flickr [3], offering greater diversity in age, ethnicity, and image conditions com-pared to celebrity-focused datasets. We utilize a subset of 33,000 images, standardized to 64 × 64 resolution for con-sistency with our experimental setup. For data preprocessing, we employ MTCNN (Multi-task Cascaded Convolutional Networks) [32] for face detection and alignment. MTCNN utilizes a three-stage cascade architecture consisting of P-Net, R-Net, and O-Net to ensure consistent facial positioning across all images. We apply strict frontal face filtering criteria to maintain dataset quality, rejecting profile views and severely rotated faces that could introduce unwanted variability. All accepted images undergo center crop-ping based on detected facial landmarks and are subsequently resized to 64 × 64 pixels using bicubic interpolation, which preserves facial details while enabling efficient training on limited computational resources. 
+
+B. GAN-based Detection: ProGAN Discriminator 
+
+ProGAN (Progressive GAN) [2] represents a significant milestone in high-quality image generation through its inno-vative progressive growing strategy. The architecture initiates training at low resolution ( 4 × 4) and progressively doubles the resolution through carefully orchestrated layer additions, ultimately reaching our target resolution of 64 ×64 pixels. This progressive approach offers unique advantages for deepfake detection, as the discriminator learns hierarchical features at multiple scales, capturing both coarse structural patterns and fine-grained textural details. The ProGAN discriminator architecture employs several key components that ensure stable training and effective feature extraction: 
+
+Weight-Scaled Convolution (WSConv2d): This layer nor-malizes weight matrices to control signal magnitude through-out the network, effectively preventing gradient explosion and ensuring stable feature learning across progressive training stages. 
+
+MinibatchStd Layer: This component computes statistical measures across the minibatch and concatenates them as additional feature maps, enabling the discriminator to detect mode collapse and identify lack of variation in generated sam-ples—a crucial capability for recognizing synthetic patterns characteristic of deepfakes. 
+
+Progressive Architecture: The discriminator mirrors the generator’s progressive structure, processing images from 64 ×
+
+64 resolution down to 4 × 4 through staged downsampling blocks. Each block contains fromRGB layers for resolution-specific processing, paired WSConv2d layers with LeakyReLU activation ( α = 0 .2) for non-linear feature transformation, and average pooling for spatial dimension reduction. During the training process, we implement smooth fade-in transitions when introducing new resolution blocks. This is TABLE I ACC (%) AND F1-SCORE (%) PERFORMANCE COMPARISON ACROSS MULTIPLE DATASETS .Methods (CelebA-HQ) [31] UADFV [33] StarGAN [3] StarGANv2 [4] StyleCLIP [34] OpenForensics [35] Inpainting [36] Insight [37] CIFAKE [38] DALL-E3 [39] Average Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 dima806/deepfake vs real image detection [40] 62.0 50.0 55.0 34.0 65.0 55.0 74.0 70.0 98.0 98.0 50.0 21.0 53.0 29.0 82.0 80.9 46.0 10.0 65.2 49.77 Wvolf/ViT Deepfake Detection [41] 77.0 75.79 63.0 54.32 68.0 62.79 79.0 78.35 98.0 98.0 47.0 0.00 49.0 0.00 48.96 0.00 49.0 0.00 64.33 41.03 DF40 XceptionNet [42] 56.0 48.88 48.0 23.5 45.0 45.54 52.0 42.86 44.0 42.86 48.0 46 94 55.0 60.87 47.0 51.38 65.67 77.67 51.19 48.94 strangerguardhf/vit deepfake detection [43] 45.0 44.0 39.0 38.3 22.0 20.4 36.0 38.0 64.0 63.0 67.0 65.0 74.0 74.0 78.0 77.0 73.0 72.0 55.33 54.63 prithivMLmods/open-deepfake-detection [44] 54.0 54.0 50.0 50.0 58.0 58.0 24.0 24.0 36.0 36.0 42.0 42.0 36.0 36.0 38.5 35.1 44.0 44.0 42.5 45.12 prithivMLmods/Deep-Fake-Detector-Model [45] 46.0 46.0 50.0 50.0 42.0 42.0 76.0 76.0 64.0 64.0 58.0 58.0 64.0 64.0 59.38 58.06 56.0 56.0 57.26 57.12 Ours(CIPHER-Disc trained on CelebA-HQ) 68.0 67.0 78.0 74.0 65.0 65.0 63.0 63.0 73.0 70.0 61.0 63.0 63.0 64.0 65.0 66.0 82.0 78.0 68.67 67.78 
+
+Ours(CIPHER-Disc trained on CelebA-HQ and FFHQ) 36.0 46.0 53.0 53.0 27.0 43.0 30.0 44.0 47.0 51.0 46.0 50.0 39.0 49.0 68.0 64.0 60.0 57.0 45.11 50.78 Methods (IMDB-WIKI) [46] UADFV [33] StarGAN [3] StarGANv2 [4] StyleCLIP [34] OpenForensics [35] Inpainting [36] Insight [37] CIFAKE [38] DALL-E3 [39] Average Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 dima806/deepfake vs real image detection [40] 59.0 48.0 52.0 33.3 62.0 53.6 71.0 68.1 100.0 100.0 47.0 20.9 50.0 28.5 79.1 78.2 43.0 9.00 62.57 48.84 Wvolf/ViT Deepfake Detection [41] 68.0 67.35 56.0 50.0 61.0 58.06 70.0 70.0 98.0 98.0 50.0 0.00 50.0 0.00 52.08 0.00 50.0 0.00 61.68 38.16 DF40 XceptionNet [42] 72.0 66.67 61.0 55.17 54.0 64.06 51.0 50.51 46.0 44.9 54.0 58.18 48.0 50.0 59.0 42.25 83.05 90.74 58.67 58.05 strangerguardhf/vit deepfake detection [43] 16.0 14.2 17.0 16.1 5.00 2.00 11.0 13.5 37.0 37.6 40.0 38.7 50.0 50.9 46.8 45.1 43.0 43.5 29.53 29.07 prithivMLmods/open-deepfake-detection [44] 63.0 62.6 56.0 56.0 66.0 66.0 23.0 23.7 50.0 50.0 56.0 56.0 44.0 44.0 53.2 51.6 50.0 50.0 51.24 51.1 prithivMLmods/Deep-Fake-Detector-Model [45] 37.0 37.62 44.0 44.0 34.0 34.0 75.0 75.25 50.0 50.0 44.0 44.0 56.0 56.0 45.83 45.84 50.0 50.0 48.43 48.3 Ours(CIPHER-Disc trained on CelebA-HQ) 68.0 67.0 78.0 74.0 65.0 65.0 63.0 63.0 72.0 70.0 60.0 62.0 63.0 64.0 64.0 65.0 82.0 78.0 68.33 67.56 
+
+Ours(CIPHER-Disc trained on CelebA-HQ and FFHQ) 56.0 68.0 78.0 81.0 48.0 65.0 51.0 66.0 100.0 74.0 67.0 74.0 59.0 70.0 87.0 88.0 81.0 83.0 66.0 74.33 
+
+Methods (Real Person) [47] UADFV [33] StarGAN [3] StarGANv2 [4] StyleCLIP [34] OpenForensics [35] Inpainting [36] Insight [37] CIFAKE [38] DALL-E3 [39] Average Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 Acc F1 dima806/deepfake vs real image detection [40] 14.0 14.0 11.0 11.8 20.0 21.5 15.0 15.8 60.0 69.2 2.00 2.00 1.00 0.00 4.00 0.00 2.00 2.00 14.33 15.14 Wvolf/ViT Deepfake Detection [41] 20.0 21.57 12.0 12.0 21.0 23.3 12.0 12.0 100.0 71.21 2.00 2.00 2.00 2.00 1.04 0.00 2.00 2.00 19.12 16.23 DF40 XceptionNet [42] 55.0 68.97 64.0 68.97 35.0 46.28 52.0 66.67 53.0 37.33 58.0 61.82 58.0 67.69 44.0 17.65 74.63 85.47 54.85 57.87 strangerguardhf/vit deepfake detection [43] 70.0 69.3 63.0 63.3 43.0 42.4 59.0 57.7 78.0 78.8 85.0 84.8 89.0 89.3 96.8 96.7 94.0 93.8 75.31 75.12 prithivMLmods/open-deepfake-detection [44] 82.0 82.0 78.0 78.0 88.0 88.0 62.0 62.0 77.0 77.2 82.0 82.0 78.0 78.0 81.2 80.4 77.0 77.2 78.36 78.31 
+
+prithivMLmods/Deep-Fake-Detector-Model [45] 19.0 18.18 22.0 22.0 12.0 12.0 36.0 37.25 24.0 24.0 20.0 20.0 23.0 22.22 18.75 15.22 25.0 24.24 22.19 21.68 Ours(CIPHER-Disc trained on CelebA-HQ) 50.0 23.0 61.0 28.0 49.0 23.0 44.0 21.0 60.0 28.0 43.0 21.0 48.0 22.0 49.0 24.0 70.0 33.0 52.67 24.78 Ours(CIPHER-Disc trained on CelebA-HQ and FFHQ) 31.0 38.0 51.0 46.0 21.0 35.0 26.0 36.0 40.0 41.0 41.0 42.0 31.0 38.0 61.0 51.0 55.0 48.0 39.67 41.67 
+
+achieved through linear interpolation with a blending factor 
+
+α ∈ [0 , 1] , which smoothly combines features from previous and current resolution stages. This approach enables the dis-criminator to maintain previously learned feature representa-tions while progressively adapting to higher-resolution details. The final discriminator output passes through a sigmoid acti-vation function, producing a probability score in the range 
+
+[0 , 1] for real versus fake classification. An overview of the proposed CIPHER framework is illustrated in Figure 1. 
+
+C. Diffusion-based Detection: DDPM/DDIM Framework 
+
+Denoising Diffusion Probabilistic Models (DDPMs) [7] operate by adding noise through a forward diffusion process and learning to reverse this process through a neural network. The forward process is mathematically defined as: 
+
+q(xt | x0) = N  xt; √¯αt x0, (1 − ¯αt) I , (1) where ¯αt = Qts=1 (1 − βs) represents the cumulative product of noise schedule parameters, and βt follows a predefined variance schedule that controls the rate of noise addition. The model employs a U-Net architecture [48] to predict the noise ε added at each timestep, optimizing the following objective function: 
+
+L = Ex0,ε,t 
+
+∥ε − εθ (xt, t )∥22
+
+, (2) where εθ denotes the neural network parameterized by θ.The architectural design incorporates several sophisticated features: 
+
+Timestep Embedding: We utilize sinusoidal positional encodings to transform the discrete timestep t into a high-dimensional continuous representation. This embedding is injected into each residual block through adaptive group normalization layers, allowing the network to condition its predictions on the specific noise level present in the input. 
+
+Residual Blocks: Each residual block follows a carefully designed architecture consisting of group normalization, fol-lowed by SiLU activation, a convolutional layer, timestep embedding injection, another group normalization layer, SiLU activation, and a final convolutional layer. Skip connections preserve fine-grained details crucial for artifact detection in synthesized images. 
+
+Attention Mechanisms: We incorporate self-attention lay-ers at the 32 × 32 resolution level to capture long-range dependencies and global context, which proves essential for identifying coherence artifacts in generated faces. For detection purposes, we adopt the Denoising Diffusion Implicit Models (DDIM) [8] sampling strategy with determin-istic transitions (setting σt = 0 ), which enables consistent artifact exposure and significantly accelerated inference. This approach reduces the required sampling steps from 1000 to approximately 200 while maintaining detection accuracy. The diffusion branch and its interaction with the discriminator are summarized in Figure 1. 
+
+D. Cross-Model Fine-tuning Strategy 
+
+The core innovation of CIPHER lies in its systematic fine-tuning approach that effectively transfers learned representa-tions from generation tasks to detection tasks. Our compre-hensive strategy involves three key components: 
+
+Feature Extraction: We extract intermediate representa-tions from both the ProGAN discriminator and DDPM U-Net encoder at multiple network depths. These multi-scale features capture different aspects of image authenticity, from low-level texture patterns to high-level semantic consistency. Ensemble Learning: Rather than relying on a single de-tection model, we combine predictions from multiple dis-criminators trained on different generative architectures. This ensemble approach leverages the complementary strengths of each model, as different generators exhibit distinct artifact signatures that can be effectively identified by specialized detectors. 
+
+Adversarial Fine-tuning: We fine-tune the ProGAN dis-criminator on a carefully balanced dataset containing real FFHQ images and synthetic faces generated by DDIM. This adversarial training regime encourages the model to learn generation-agnostic artifacts rather than overfitting to specific generator characteristics, thereby improving generalization to unseen synthesis methods. This multi-faceted approach enables CIPHER to achieve ro-bust detection performance across diverse deepfake generation techniques while maintaining computational efficiency suitable for real-world deployment scenarios. III. E XPERIMENTS 
+
+A. Experimental Setup 
+
+Our experiments evaluate CIPHER’s deepfake detection ca-pabilities through a two-phase training approach using Google Colab T4 GPU with 16GB VRAM. First, we trained a Pro-gressive GAN on the CelebA-HQ dataset (30,000 celebrity face images) to extract a discriminator capable of identifying GAN-generated artifacts. Second, we trained a DDPM/DDIM diffusion model on the FFHQ dataset (33,000 diverse face im-ages from Flickr) to obtain a denoising network for detecting diffusion-based forgeries. Both models were trained at 64 ×64 
+
+resolution with mixed precision (FP16) to maximize efficiency within computational constraints, using a fixed random seed (42) for reproducibility. 
+
+B. GAN Training 
+
+We implemented Progressive GAN following the standard progressive growing strategy, gradually increasing resolution from 4 × 4 to 64 × 64 pixels over five stages. The model was trained on CelebA-HQ using a batch size of 16, Adam optimizer ( β1 = 0 , β2 = 0 .99 ), and learning rate of 0.001 with linear decay. Each resolution stage required 50,000 iterations with 10,000 fade-in iterations for smooth transitions, totaling approximately 40 hours of training on the T4 GPU. We employed a 2:1 generator-to-discriminator update ratio and simplified the loss function to MSE for stability on limited resources. The discriminator architecture incorporates weight-scaled convolutions and minibatch standard deviation layers, which prove crucial for detecting synthetic patterns in the final detection phase. 
+
+C. Diffusion Model Training 
+
+The DDPM implementation utilized a U-Net architecture with 64 base channels, channel multipliers of (1, 2, 4), and self-attention at 32 × 32 resolution. Training on the FFHQ dataset proceeded for 100,000 iterations with batch size 32 (enabled through gradient checkpointing), learning rate 2 ×(a) Real  Image s (b)  Generated  Image s 
+
+> Fig. 2. Visual comparison between real and generated face images. (a) Real images from the FFHQ dataset showing authentic facial features and natural variations. (b) Generated images produced by state-of-the-art generative mod-els, demonstrating increasingly realistic synthetic faces that are challenging to distinguish from real photographs.
+
+10 −4 with cosine annealing, and a linear noise schedule from 
+
+10 −4 to 0.02 over 1,000 timesteps. The training completed in approximately 12 hours on the T4 GPU. For synthetic image generation, we employed DDIM sampling with 200 denoising steps, reducing generation time by 80% while maintaining comparable quality. This approach generated 15,000 synthetic faces for subsequent discriminator fine-tuning. 
+
+D. Discriminator Fine-tuning 
+
+The core of CIPHER involves fine-tuning the pre-trained discriminators for deepfake detection. We created a balanced dataset of 15,000 real FFHQ images and 15,000 DDIM-generated synthetic images. The ProGAN discriminator check-point from epoch 100 was fine-tuned for 50 epochs using a reduced learning rate of 10 −4, batch size 64, and binary cross-entropy loss with label smoothing ( α = 0 .1). Data aug-mentation included random horizontal flips and color jittering (brightness, contrast, saturation at 0.2) but avoided geometric transformations to preserve facial structure. The fine-tuning process took approximately 3 hours and incorporated dropout (p = 0 .2) in final layers for regularization. IV. R ESULTS 
+
+A. Performance Comparison with Existing Methods 
+
+Table II summarizes representative deepfake detection mod-els, their underlying architectures, and reported accuracies on standard benchmarks.                  
+
+> TABLE II COMPARISON OF DEEPFAKE DETECTION MODELS
+> Model Name Architecture Accuracy dima806/deepfake vs real [40] ViT-base 99.27% Wvolf/ViT Deepfake [41] ViT 98.70% DF40 XceptionNet [42] XceptionNet 98.84% strangerguardhf/vit deepfake [43] ViT-base 95.16% prithivMLmods/open-deepfake [44] SigLIP-2 94.44% prithivMLmods/Deep-Fake [45] SigLIP 94.44%
+
+Transformer-based methods achieve the highest accuracy, with dima806/ViT-base reaching 99.27% and Wvolf/ViT achieving 98.70%. CNN-based approaches such as DF40/XceptionNet remain competitive at 98.84%. More recent SigLIP-based methods achieve approximately 94.4% accuracy. These results highlight that existing detectors achieve strong performance on standard benchmarks but are often customized to specific generative models, limiting their generalization ability to unseen circumstances. This observation supports the need for a unified detection approach that is robust across both GAN and diffusion-generated forgeries. 
+
+B. Cross-Generator Evaluation 
+
+Table I presents a comprehensive comparison of accuracy and F1-scores across diverse generative methods and datasets. The evaluation includes UADFV [33], StarGAN [3], [4], StyleCLIP [34], OpenForensics [35], Inpainting [36], Insight [37], CIFAKE [38], and DALL-E3 [39] datasets, representing a wide spectrum of generation techniques. Several key observations emerge from our experimental results: 
+
+Baseline variance across generators. Existing detectors exhibit strong performance on certain datasets, achieving over 95% accuracy on UADFV and OpenForensics. However, they struggle significantly with challenging generative models such as CIFAKE and DALL-E3, where accuracy often drops below 50%. This dramatic performance degradation underscores the vulnerability of current methods to novel generation tech-niques. 
+
+Effectiveness of GAN discriminator reuse. Our approach using only GAN discriminators demonstrates substantial im-provements over baselines, achieving an average accuracy of 68.67% and F1-score of 67.78%. This improvement validates our hypothesis that discriminators trained for generation in-herently learn robust features for distinguishing real from synthetic images. 
+
+Superior performance of the CIPHER framework. Inte-grating both GAN and diffusion discriminators yields the best overall performance. CIPHER achieves an average accuracy of 66.0% and F1-score of 74.33%, demonstrating significantly stronger generalization across disparate generation methods. The framework shows particular strength in maintaining con-sistent performance across all tested generators, with less dramatic accuracy drops on challenging datasets. 
+
+Robustness to diverse generators. The hybrid approach achieves substantial gains on difficult cases such as Star-GANv2, StyleCLIP, and CIFAKE, with improvements of 10-15% over baseline methods. This confirms that combining spatial features from GAN discriminators with temporal and noise-consistency features from diffusion discriminators en-hances robustness against diverse synthesis techniques. Figure 2 illustrates the visual challenge posed by modern deepfake generation methods. The real images (a) and gener-ated images (b) are increasingly difficult to distinguish, even for human observers. This visual similarity underscores the necessity for sophisticated detection methods that can identify subtle artifacts beyond human perceptual capabilities. V. C ONCLUSION 
+
+In this work, we introduced CIPHER, a novel framework designed to address the critical challenge of generalizable deepfake detection. We demonstrated that by systematically reusing and fine-tuning discriminators, it is possible to cre-ate a robust detector that integrates the hierarchical features of GANs with the temporal artifacts of diffusion models. The core of our contribution lies in the cross-model fine-tuning strategy, which forces the model to learn generation-agnostic artifacts. Our experiments validate this approach, demonstrating that CIPHER achieves strong performance and generalization on challenging cross-model detection tasks. Despite these promising results, we acknowledge a crucial next step for ensuring real-world viability. Our current evalua-tion relies on curated academic datasets, which may not fully detect the complexity and diversity of deepfakes encountered real-world environments on social media and other platforms. The true test of a detector’s robustness lies in its ability to perform in such uncontrolled environments, where even state-of-the-art models often experience a significant drop in performance. This consideration directly informs our future direction. The primary goal is to scale and validate the CIPHER framework against large-scale, in-the-wild datasets, thereby bridging the gap between academic research and practical application. ACKNOWLEDGMENT 
+
+This work was funded by the Next Generation Semi-conductor Convergence and Open Sharing System, and by the Institute of Information & Communications Technology Planning & Evaluation (IITP) under the Artificial Intelligence Semiconductor Support Program to Nurture the Best Talents (IITP-2023-RS-2023-00256081), supported by the Korea gov-ernment (MSIT). REFERENCES [1] I. Goodfellow, J. Pouget-Abadie, M. Mirza, B. Xu, D. Warde-Farley, S. Ozair, A. Courville, and Y. Bengio, “Generative adversarial networks,” pp. 139–144, 2020. [2] T. Karras, T. Aila, S. Laine, and J. Lehtinen, “Progressive growing of gans for improved quality, stability, and variation,” 2018. [Online]. Available: https://arxiv.org/abs/1710.10196 [3] T. Karras, S. Laine, and T. Aila, “A style-based generator architecture for generative adversarial networks,” 2019. [Online]. Available: https://arxiv.org/abs/1812.04948 [4] T. Karras, S. Laine, M. Aittala, J. Hellsten, J. Lehtinen, and T. Aila, “Analyzing and improving the image quality of stylegan,” 2020. [Online]. Available: https://arxiv.org/abs/1912.04958 [5] T. Karras, M. Aittala, S. Laine, E. H¨ ark¨ onen, J. Hellsten, J. Lehtinen, and T. Aila, “Alias-free generative adversarial networks,” 2021. [Online]. Available: https://arxiv.org/abs/2106.12423 [6] A. Sauer, K. Schwarz, and A. Geiger, “Stylegan-xl: Scaling stylegan to large diverse datasets,” 2022. [Online]. Available: https://arxiv.org/abs/2202.00273 [7] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,” 2020. [Online]. Available: https://arxiv.org/abs/2006.11239 [8] J. Song, C. Meng, and S. Ermon, “Denoising diffusion implicit models,” 2022. [Online]. Available: https://arxiv.org/abs/2010.02502 [9] P. Dhariwal and A. Nichol, “Diffusion models beat gans on image synthesis,” 2021. [Online]. Available: https://arxiv.org/abs/2105.05233 [10] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “High-resolution image synthesis with latent diffusion models,” 2022. [Online]. Available: https://arxiv.org/abs/2112.10752 [11] W. Peebles and S. Xie, “Scalable diffusion models with transformers,” 2023. [Online]. Available: https://arxiv.org/abs/2212.09748 [12] T. Karras, M. Aittala, T. Aila, and S. Laine, “Elucidating the design space of diffusion-based generative models,” 2022. [Online]. Available: https://arxiv.org/abs/2206.00364 [13] Y. Nirkin, Y. Keller, and T. Hassner, “Fsgan: Subject agnostic face swapping and reenactment,” 2019. [Online]. Available: https: //arxiv.org/abs/1908.05932 [14] L. Li, J. Bao, H. Yang, D. Chen, and F. Wen, “Faceshifter: Towards high fidelity and occlusion aware face swapping,” 2020. [Online]. Available: https://arxiv.org/abs/1912.13457 [15] R. Chen, X. Chen, B. Ni, and Y. Ge, “Simswap: An efficient framework for high fidelity face swapping,” in Proceedings of the 28th ACM International Conference on Multimedia , ser. MM ’20. ACM, Oct. 2020, p. 2003–2011. [Online]. Available: http: //dx.doi.org/10.1145/3394171.3413630 [16] Y. Zhu, Q. Li, J. Wang, C. Xu, and Z. Sun, “One shot face swapping on megapixels,” 2022. [Online]. Available: https://arxiv.org/abs/2105.04932 [17] Y. Xu, B. Deng, J. Wang, Y. Jing, J. Pan, and S. He, “High-resolution face swapping via latent semantics disentanglement,” 2022. [Online]. Available: https://arxiv.org/abs/2203.15958 [18] A. Groshev, A. Iashchenko, P. Paramonov, D. Dimitrov, and A. Kuznetsov, “Ghost 2.0: generative high-fidelity one shot transfer of heads,” 2025. [Online]. Available: https://arxiv.org/abs/2502.18417 [19] H. Kim, P. Garrido, A. Tewari, W. Xu, J. Thies, M. Nießner, P. P´ erez, C. Richardt, M. Zollh¨ ofer, and C. Theobalt, “Deep video portraits,” 2018. [Online]. Available: https://arxiv.org/abs/1805.11714 [20] J. Thies, M. Zollh¨ ofer, M. Stamminger, C. Theobalt, and M. Nießner, “Face2face: Real-time face capture and reenactment of rgb videos,” in 
+
+Proc. Computer Vision and Pattern Recognition (CVPR), IEEE , 2016. [21] D. Afchar, V. Nozick, J. Yamagishi, and I. Echizen, “Mesonet: a compact facial video forgery detection network,” in 2018 IEEE International Workshop on Information Forensics and Security (WIFS) . IEEE, Dec. 2018, p. 1–7. [Online]. Available: http: //dx.doi.org/10.1109/WIFS.2018.8630761 [22] H. H. Nguyen, J. Yamagishi, and I. Echizen, “Capsule-forensics: Using capsule networks to detect forged images and videos,” 2018. [Online]. Available: https://arxiv.org/abs/1810.11215 [23] A. R¨ ossler, D. Cozzolino, L. Verdoliva, C. Riess, J. Thies, and M. Nießner, “Faceforensics++: Learning to detect manipulated facial images,” 2019. [Online]. Available: https://arxiv.org/abs/1901.08971 [24] U. Ojha, Y. Li, and Y. J. Lee, “Towards universal fake image detectors that generalize across generative models,” 2024. [Online]. Available: https://arxiv.org/abs/2302.10174 [25] D. Cozzolino, G. Poggi, R. Corvi, M. Nießner, and L. Verdoliva, “Raising the bar of ai-generated image detection with clip,” 2024. [Online]. Available: https://arxiv.org/abs/2312.00195 [26] D. Cozzolino, G. Poggi, M. Nießner, and L. Verdoliva, “Zero-shot detection of ai-generated images,” 2024. [Online]. Available: https://arxiv.org/abs/2409.15875 [27] Z. Wang, J. Bao, W. Zhou, W. Wang, H. Hu, H. Chen, and H. Li, “Dire for diffusion-generated image detection,” 2023. [Online]. Available: https://arxiv.org/abs/2303.09295 [28] G. Cazenavette, A. Sud, T. Leung, and B. Usman, “Fakeinversion: Learning to detect images from unseen text-to-image models by inverting stable diffusion,” 2024. [Online]. Available: https: //arxiv.org/abs/2406.08603 [29] B. Chu, X. Xu, X. Wang, Y. Zhang, W. You, and L. Zhou, “Fire: Robust detection of diffusion-generated images via frequency-guided reconstruction error,” 2025. [Online]. Available: https://arxiv.org/abs/ 2412.07140 [30] Y. Yang, Z. Qian, Y. Zhu, O. Russakovsky, and Y. Wu, “D 3: Scaling up deepfake detection by learning from discrepancy,” 2025. [Online]. Available: https://arxiv.org/abs/2404.04584 [31] Z. Liu, P. Luo, X. Wang, and X. Tang, “Deep learning face attributes in the wild,” in Proceedings of International Conference on Computer Vision (ICCV) , December 2015. [32] K. Zhang, Z. Zhang, Z. Li, and Y. Qiao, “Joint face detection and alignment using multitask cascaded convolutional networks,” IEEE Signal Processing Letters , vol. 23, no. 10, p. 1499–1503, Oct. 2016. [Online]. Available: http://dx.doi.org/10.1109/LSP.2016.2603342 [33] X. Yang, Y. Li, and S. Lyu, “Exposing deep fakes using inconsistent head poses,” 2019. [Online]. Available: https://arxiv.org/abs/1811.00661 [34] O. Patashnik, Z. Wu, E. Shechtman, D. Cohen-Or, and D. Lischinski, “StyleCLIP: Text-driven manipulation of StyleGAN imagery,” 2021. [Online]. Available: https://arxiv.org/abs/2103.17249 [35] T.-N. Le, H. H. Nguyen, J. Yamagishi, and I. Echizen, “OpenForensics: Large-scale challenging dataset for multi-face forgery detection and segmentation in-the-wild,” 2021. [Online]. Available: https: //arxiv.org/abs/2107.14480 [36] OpenRL, “Deepfakeface dataset – inpainting,” 2024, available: https: //huggingface.co/datasets/OpenRL/DeepFakeFace/tree/main (Accessed: Sep. 6, 2025). [37] ——, “Deepfakeface dataset – insight,” 2024, available: https: //huggingface.co/datasets/OpenRL/DeepFakeFace/tree/main (Accessed: Sep. 6, 2025). [38] J. J. Bird and A. Lotfi, “CIFAKE: Image classification and explainable identification of AI-generated synthetic images,” 2024. [Online]. Available: https://arxiv.org/abs/2303.14126 [39] OpenAI, “DALL-E 3,” OpenAI, 2023. [Online]. Available: https: //openai.com/index/dall-e-3/ [40] dima806, “Deepfake vs real image detection,” Hugging Face, 2024, available: https://huggingface.co/dima806/deepfake vs real image detection. [41] Wvolf, “Vit deepfake detection,” Hugging Face, 2024, available: https: //huggingface.co/Wvolf/ViT Deepfake Detection. [42] Z. Yan, T. Yao, S. Chen, Y. Zhao, X. Fu, J. Zhu, D. Luo, C. Wang, S. Ding, Y. Wu, and L. Yuan, “Df40: Toward next-generation deepfake detection,” 2024. [Online]. Available: https://arxiv.org/abs/2406.13495 [43] strangerguardhf, “Vit deepfake detection,” Hugging Face, 2024, avail-able: https://huggingface.co/strangerguardhf/vit deepfake detection. [44] prithivMLmods, “Open deepfake detection,” Hugging Face, 2024, avail-able: https://huggingface.co/prithivMLmods/open-deepfake-detection. [45] ——, “Deep fake detector model v1,” Hugging Face, 2024, available: https://huggingface.co/prithivMLmods/deepfake-detector-model-v1. [46] OpenRL, “Deepfakeface dataset – wiki,” 2024, available: https: //huggingface.co/datasets/OpenRL/DeepFakeFace/tree/main (Accessed: Sep. 6, 2025). [47] ——, “Scripts for real-data collection,” 2024, available: https://drive.google.com/drive/folders/1bjdc9hjBDa0do kVbXM93F66AKV5OYVg?usp=sharing (Accessed: Sep. 6, 2025). [48] O. Ronneberger, P. Fischer, and T. Brox, “U-net: Convolutional networks for biomedical image segmentation,” 2015. [Online]. Available: https://arxiv.org/abs/1505.04597

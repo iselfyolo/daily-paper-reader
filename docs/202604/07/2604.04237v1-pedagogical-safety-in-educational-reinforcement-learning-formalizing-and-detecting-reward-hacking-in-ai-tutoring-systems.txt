@@ -1,0 +1,657 @@
+Title: Pedagogical Safety in Educational Reinforcement Learning: Formalizing and Detecting Reward Hacking in AI Tutoring Systems
+
+URL Source: https://arxiv.org/pdf/2604.04237v1
+
+Published Time: Tue, 07 Apr 2026 01:13:16 GMT
+
+Number of Pages: 43
+
+Markdown Content:
+# Pedagogical Safety in Educational Reinforcement Learning: Formalizing and Detecting Reward Hacking in AI Tutoring Systems 
+
+Oluseyi Olukola a, Nick Rahimi a
+
+> aSchool of Computing Sciences and Computer Engineering, Hattiesburg, MS, USA
+
+Abstract 
+
+Reinforcement learning (RL) is increasingly used to personalize instruction in intelligent tutoring systems, yet the field lacks a formal framework for defining and evaluating pedagogical safety. We introduce a four-layer model of pedagogical safety for educational RL comprising structural, progress, be-havioral, and alignment safety, and propose the Reward Hacking Severity Index (RHSI) to quantify misalignment between proxy rewards and genuine learning. We evaluate the framework in a controlled simulation of an AI tutoring en-vironment with 120 sessions across four conditions and three learner profiles, totaling 18,000 interactions. Results show that an engagement-optimized agent systematically over-selected a high-engagement action with no direct mastery gain, producing strong measured performance but limited learning progress. A multi-objective reward formulation reduced this problem but did not eliminate it, as the agent continued to favor proxy-rewarding behavior in many states. In contrast, a constrained architecture combining prerequisite enforcement and minimum cognitive demand substantially reduced reward hacking, lowering RHSI from 0.317 in the unconstrained multi-objective con-dition to 0.102. Ablation results further suggest that behavioral safety was the most influential safeguard against repetitive low-value action selection. These findings suggest that reward design alone may be insufficient to ensure pedagogically aligned behavior in educational RL, at least in the sim-ulated environment studied here. More broadly, the paper positions ped-agogical safety as an important research problem at the intersection of AI safety and intelligent educational systems. 
+
+Keywords: Pedagogical Safety, Reward Hacking, Reinforcement Learning, 
+
+> arXiv:2604.04237v1 [cs.AI] 5 Apr 2026
+
+Intelligent Tutoring Systems, Constrained Markov Decision Processes, AI Safety in Education 
+
+1. Introduction 
+
+Intelligent tutoring systems (ITSs) have demonstrated considerable ed-ucational benefits, with meta-analyses reporting effect sizes that in some cases approach Bloom’s two-sigma benchmark for one-on-one human tutor-ing (Bloom, 1984; VanLehn, 2011; Kulik and Fletcher, 2016). The integration of reinforcement learning (RL) into ITSs has shown further promise for learn-ing adaptive pedagogical policies directly from interaction data (Zhou et al., 2019; Sanz Ausin et al., 2020; Abdelshiheed et al., 2023; Alam et al., 2025), potentially extending personalized instruction beyond what hand-crafted rule systems achieve (Koedinger et al., 2013; Heffernan and Heffernan, 2014). However, RL-based tutoring introduces a risk that, to our knowledge, the field has not yet formally addressed: reward hacking where an RL agent exploits a misspecified proxy reward to achieve high measured performance through behavior misaligned with the designer’s true objectives (Amodei et al., 2016; Skalse et al., 2022). This phenomenon is well-documented in robotics, game-playing, and language model alignment (Krakovna et al., 2020; Pan et al., 2022; Weng, 2024), and is conceptually grounded in Good-hart’s Law (Goodhart, 1984; Manheim and Garrabrant, 2019). In education, the analogous risk is an RL tutor that maximizes measurable engagement while failing to produce genuine learning. This concern is not purely hypothetical. In our experiments, an RL agent optimizing engagement learns to over-select encouragement actions which yield the largest engagement boost ( +0 .8) with zero mastery contribution. Even a multi-objective agent weighting mastery at 50% selects this zero-learning action in 32.6% of interactions, apparently because the engagement component dominates in many states. Doroudi et al. (2019) highlighted that misaligned rewards can produce counterproductive tutoring, and Nie et al. (2023) showed that RL personalization can harm certain subgroups. Yet the field appears to lack: (1) a formal definition of pedagogical safety, (2) empirical evidence of reward hacking in educational RL, and (3) metrics for detecting such misalignment. To address these apparent gaps, we propose a four-layer safety model that formalizes pedagogical safety as four constraint classes: 2• Structural Safety (C1): Prerequisites are architecturally enforced via action masking. 
+
+• Progress Safety (C2): Mastery measurably advances over sliding windows. 
+
+• Behavioral Safety (C3): Minimum cognitive demand is maintained, preventing over-reliance on low-effort actions. 
+
+• Alignment Safety (C4): Engagement signals remain coupled with genuine mastery gains. Each layer targets a distinct failure mode that, as we argue in Section 3.5, no subset of the remaining layers appears able to address. The principal contributions of this work are as follows: 
+
+Contributions. 
+
+• What we believe to be the first formal definition of pedagogical safety 
+
+as constraint classes for educational RL (Definitions 3.1 and 3.2). 
+
+• Empirical evidence suggesting that engagement-optimized and multi-objective RL agents exhibit reward hacking in educational settings. 
+
+• The Reward Hacking Severity Index (RHSI) , a diagnostic metric for quantifying misalignment (Definition 3.4). 
+
+• An ablation study indicating that behavioral safety (C3) appears to be the primary safety contributor, while its removal leads to policy collapse with single-action repetition. 
+
+• An analysis of constraint calibration , illustrating how formalization may expose threshold sensitivity that informal approaches tend to obscure. The remainder of this paper is structured as follows. Section 2 situates our work within three largely independent research streams: intelligent tutoring systems, reinforcement learning in education, and AI safety. Section 3 intro-duces the formal preliminaries and defines the four-layer constraint model. Section 4 describes the SmartTutor experimental testbed, including its ar-chitecture, learner profiles, experimental conditions, and evaluation metrics. Section 5 reports the experimental results and analysis. Section 6 acknowl-edges limitations and outlines directions for future work. Section 7 concludes the paper. 32. Related Work 
+
+Intelligent tutoring systems have a decades-long history of adapting in-struction to individual learners (Nwana, 1990; Woolf, 2008). Foundational work on cognitive tutors (Anderson et al., 1995) and Bayesian Knowledge Tracing (BKT) (Corbett and Anderson, 1995) established the paradigm of maintaining per-student mastery estimates, with subsequent extensions ad-dressing BKT’s limitations (Baker et al., 2008a; Yudelson et al., 2013; Pavlik et al., 2009; Piech et al., 2015). VanLehn’s (2006) analysis of inner and outer loop decisions remains influential, and meta-analyses generally find significant ITS learning gains (VanLehn, 2011; Kulik and Fletcher, 2016; Steenbergen-Hu and Cooper, 2014). Notable platforms include Carnegie Learning’s cognitive tutors (Anderson et al., 1995), AutoTutor (Graesser et al., 2004), and ASSISTments (Heffernan and Heffernan, 2014). Modern commercial systems typically rely on rule-based adaptation with hand-crafted heuristics (Koedinger et al., 2013), and to our knowledge, no existing ITS for-mulates pedagogical safety as a mathematical constraint. The emerging use of LLMs in tutoring (Kasneci et al., 2023; Yan et al., 2024; Nie et al., 2025) introduces additional safety concerns, as LLM-based tutors may exhibit un-predictable behavior that appears difficult to constrain through conventional means. The desire to move beyond hand-crafted rules has motivated a growing body of work applying RL to educational settings, progressing from early explorations (Beck et al., 2000; Iglesias et al., 2009) through POMDP plan-ning (Rafferty et al., 2016) and offline evaluation (Mandel et al., 2014) to recent deep RL approaches. Notable contributions include hierarchical RL for pedagogical policy induction (Zhou et al., 2019), batch deep RL for tu-torial policy learning (Sanz Ausin et al., 2020, 2023), RL for metacognitive interventions (Abdelshiheed et al., 2023), adaptive problem selection (Alam et al., 2025), and apprenticeship learning for student strategy modeling (Is-lam et al., 2025), with multi-armed bandits offering lighter-weight alterna-tives (Clément et al., 2015). A persistent challenge across this literature is reward function design. Doroudi et al.(2019) noted that misaligned rewards can produce counterproductive tutoring; Nie et al. (2023) showed that RL personalization may harm certain subgroups; and more recent work has pro-posed on-demand policy selection (Gao et al., 2024) and pedagogy-driven evaluation (Maurya and Kochmar, 2025). Despite these insights, reward specification has largely been treated as a design problem rather than a 4safety problem, and to our knowledge, no prior work has formally defined re-ward hacking in educational RL or proposed constraint-based architectures to prevent it. While the educational RL community has focused primarily on policy quality, the AI safety community has developed a substantial body of work on the broader phenomenon of reward hacking. Amodei et al. (2016) iden-tified it as a key safety problem. Krakovna et al. (2020) catalogued dozens of specification gaming examples. Skalse et al. (2022) provided a formal definition, showing that unhackability is extremely stringent for stochastic policies, essentially only constant rewards are unhackable. Pan et al. (2022) demonstrated that reward hacking appears to exhibit phase transitions with agent capability, suggesting that increasingly powerful educational RL agents may be more prone to exploitation. Recent work has proposed improved def-initions (Everitt et al., 2025), automated detection (Shihab et al., 2025), and identified in-context reward hacking in LLM feedback loops (Pan et al., 2024). The broader alignment literature provides further context through in-verse reward design (Hadfield-Menell et al., 2017), scalable alignment via re-ward modeling (Leike et al., 2018; Christiano et al., 2017; Ziegler et al., 2019; Ouyang et al., 2022), and formal analysis of misalignment consequences (Rus-sell, 2019; Zhuang and Hadfield-Menell, 2020). Goodhart’s Law (Goodhart, 1984) and its variants (Manheim and Garrabrant, 2019) provide the concep-tual foundation for understanding why proxy optimization tends to diverge from true objectives. Complementing this theoretical understanding, the safe RL literature offers practical mechanisms that may help address such divergence. Con-strained MDPs (Altman, 1999), constrained policy optimization (Achiam et al., 2017; Tessler et al., 2019), and safe exploration (Wachi and Sui, 2020; Ray et al., 2019; Dalal et al., 2018) provide the technical foundation for our approach. García and Fernández (2015) surveyed safe RL methods compre-hensively, and Kushwaha et al. (2025) provide a recent survey covering single-and multi-agent safety. Multi-objective RL (Roijers et al., 2013; Hayes et al., 2022) frames safety as one of multiple competing objectives. These methods have been applied to robotics and autonomous driving (Hu et al., 2024), but appear not to have been applied to educational settings. It is also worth noting a related phenomenon on the learner side. Baker et al. (2004; 2008b) demonstrated that students themselves game ITS feedback mechanisms, exploiting feedback signals to circumvent intended education-alprocesses,s a student-side counterpart to the agent-side reward hacking we 5study. Research on engagement and affect (D’Mello and Graesser, 2012; Baker et al., 2010; Fredricks et al., 2004) further suggests that engagement metrics may be unreliable proxies for learning: productive learning often involves confusion (D’Mello and Graesser, 2012), and extrinsic rewards can undermine intrinsic motivation (Deci et al., 2001). Ethical considerations in educational AI (Baker and Hawn, 2022; Holmes et al., 2022; Holstein et al., 2019) provide additional motivation: even in the absence of bias, an RL tutor may cause harm simply by optimizing the wrong objective. Table 1 positions our contribution relative to this prior work.  
+
+> Table 1: Comparison with related work. Our contribution (bottom row) appears to be the first to combine formal safety constraints with empirical reward hacking evidence in educational RL.
+
+Work Domain Formal Safety Reward Empirical Def. Constr. Hacking Evidence 
+
+Skalse et al. (2022) General RL ✓ – ✓ –Pan et al. (2022) General RL – – ✓ ✓
+
+Shihab et al. (2025) General RL – – ✓ ✓
+
+Achiam et al. (2017) Robotics ✓ ✓ – –García and Fernández (2015) Survey ✓ ✓ – –Zhou et al. (2019) Education – – – ✓
+
+Alam et al. (2025) Education – – – ✓
+
+Doroudi et al. (2019) Education – – Discussed –Baker et al. (2008b) Education – – Student-side ✓
+
+This work Education ✓ ✓ ✓ ✓
+
+3. Formalizing Pedagogical Safety 
+
+3.1. Preliminaries 
+
+Knowledge Graph. The learning domain is represented as a directed acyclic graph (DAG) G = ( V, E ), where V = {c1, . . . , c n} is a set of concepts and E ⊆ V × V defines prerequisite relationships. We define prereq (cj ) = 
+
+{ci ∈ V : ( ci, c j ) ∈ E} and depth (cj ) as the longest path from any root to cj .
+
+Student Knowledge State. At time t, the student’s knowledge is Kt =(kt
+
+> 1
+
+, . . . , k tn) ∈ [0 , 1] n, where kti is the estimated mastery of concept ci, up-dated via Bayesian Knowledge Tracing (Corbett and Anderson, 1995) with parameters P (L0), P (T ), P (S), and P (G). The framework is agnostic to the 6knowledge model and could accommodate alternatives (Piech et al., 2015; Pavlik et al., 2009). 
+
+Accessible Set. Given mastery threshold θmin ∈ (0 , 1] , the concepts acces-sible at time t are: 
+
+A(Kt, θ min ) = {cj ∈ V : ∀ci ∈ prereq (cj ), k ti ≥ θmin } (1) This set expands monotonically as mastery increases (Vygotsky, 1978). 
+
+Educational MDP. The tutoring interaction is modeled as an MDP M =( ˜S, A, P, R, γ ) (Sutton and Barto, 2018) following the standard RL-for-ITS formulation (Zhou et al., 2019; Doroudi et al., 2019). 
+
+Cognitive Demand. Each action carries cognitive demand d : A → [0 , 1] ,from d(Encourage ) = 0 .0 to d(Challenge ) = 1 .0. The demand values are calibrated against three established frameworks. The ICAP framework (Chi and Wylie, 2014) distinguishes passive (receiving), active (doing), construc-tive (generating), and interactive (dialoguing) engagement modes, each as-sociated with progressively deeper learning outcomes. Bloom’s revised tax-onomy (Anderson and Krathwohl, 2001) provides a six-level cognitive hier-archy from remember through create. Webb (1997) offers a four-level frame-work for task complexity in educational assessment. Triangulating across these frameworks, we assign: d(Encourage ) = 0 .0 (no cognitive process-ing; pure affective response); d(Explain_Simple ) = 0 .2 (passive reception; ICAP passive mode); d(Provide_Hint ) = 0 .3 (guided recall; lower Bloom’s apply); d(Explain_Detailed ) = 0 .4 (active reception; ICAP active mode); 
+
+d(Provide_Example ) = d(Assess_Knowledge ) = 0 .5 (constructive engage-ment; ICAP constructive); d(Assign_Exercise ) = 0 .8 (independent produc-tion; Bloom’s apply–analyze); and d(Challenge ) = 1 .0 (novel application; Bloom’s evaluate–create, Webb’s Level 4). These values represent ordinal rankings; interval-scale properties are not assumed. Sensitivity to the specific numeric assignments is assessed in Section 5.8, where ±20% perturbation of all non-anchor values leaves the primary condition ordering unchanged under 
+
++20% and produces a minor reversal between the constrained and mastery-only conditions only under −20% .
+
+3.2. The Four-Layer Safety Constraints 
+
+Constraint C1: Structural Safety (Hard, Per-Step). A policy π sat-isfies prerequisite safety if, at every time step, the selected action respects 7prerequisite requirements: 
+
+∀t ≥ 0 : Pπ
+
+ concept (at, ˜st) ∈ A (Kt, θ min ) = 1 (2) This hard constraint is enforced via action masking (Anderson et al., 1995): the agent’s action space is restricted to accessible concepts before selection, guaranteeing zero violations by construction. C1 is enforced architecturally in the SmartTutor agent and is excluded from the aggregate violation vector reported in experiments; we set v1 ≡ 0 by convention, reflecting that uncon-strained conditions do not target prerequisite-violating concepts by design. 
+
+Constraint C2: Progress Safety (Soft, Windowed). Over any window of W interactions, expected mastery gain across concepts active at the win-dow start must be non-trivial. Let Vactive (t) = {cj : cj ∈ A (Kt, θ min ) ∧ ktj <θmastered } denote accessible but unmastered concepts, evaluated once at win-dow start :
+
+∀t ≥ 0 : Eπ
+
+ 1
+
+|Vactive (t)|
+
+X
+
+> c∈Vactive (t)
+
+(kt+Wc − ktc)
+
+ ≥ εprog (3) Fixing Vactive at window start prevents the agent from potentially gaming C2 by rapidly unlocking new concepts to dilute the denominator. The thresh-old εprog = 0 .0023 is calibrated from session logs as the 25th percentile of the mastery-only agent’s per-window progress distribution, as we discuss in Section 5.7. In our experiments, C2 is evaluated as an offline safety met-ric computed from session logs rather than enforced as an online training constraint. 
+
+Constraint C3: Behavioral Safety (Soft, Windowed). The average cognitive demand over any window of W interactions meets a minimum threshold: 
+
+∀t ≥ 0 : Eπ
+
+"
+
+1
+
+W 
+
+> t+W−1
+
+X 
+
+> τ=t
+
+d(aτ )
+
+#
+
+≥ δmin (4) This targets the core reward hacking behavior: selecting low-demand ac-tions to maximize engagement without cognitive effort (Chi and Wylie, 2014; D’Mello and Graesser, 2012). C3 is enforced online during training via the action selection module ( δmin = 0 .4, W = 10 ). 
+
+Constraint C4: Alignment Safety (Soft, Cumulative). Cumulative engagement reward must not exceed a bounded multiple of cumulative mas-tery reward: 
+
+∀t ≥ W0 : Ecum (t) ≤ ρmax · Mcum (t) + c0 (5) 8where Ecum (t) = Ptτ =0 Reng (˜ sτ , a τ ), Mcum (t) = Ptτ =0 Rmas (˜ sτ , a τ ), W0 = 10 
+
+is a warm-up period, and c0 = 0 under the normalized evaluation mode. Both streams are min–max normalized before computing the ratio, ensuring scale-comparable evaluation ( ρmax = 1 .2). In our experiments, C4 is evaluated as an offline safety metric computed from session logs. 
+
+3.3. Pedagogical Safety and Relaxation 
+
+Definition 3.1 (Pedagogical Safety) . A policy π is pedagogically safe 
+
+with respect to constraint parameters Θ = ( θmin , W, ε prog , δ min , ρ max , W 0, c 0)
+
+if it simultaneously satisfies C1–C4. In practice, exact satisfaction of all constraints at all times may be overly stringent. We therefore define a relaxed version: 
+
+Definition 3.2 (ε-Pedagogical Safety) . Let vi(π) ∈ [0 , 1] denote the nor-malized violation rate of π for constraint Ci (fraction of evaluation windows where Ci is violated). C1 is excluded from the reported aggregate ( v1 ≡ 0)as it is enforced architecturally and produces zero violations by construction under action masking. Policy π is ε-pedagogically safe if: 
+
+∥v(π)∥w =
+
+vuut 4X
+
+> i=2
+
+wi · vi(π)2 ≤ ε (6) where w2 = w3 = w4 = 1 /3 in our experiments, giving equal weight to the three soft constraints C2, C3, and C4. The weighted norm allows practitioners to assign different importance to safety dimensions depending on context; equal weights are used here as a conservative default in the absence of domain-specific priority ordering. 
+
+3.4. Formal Reward Hacking and the RHSI Metric 
+
+We adapt the general notion of reward hacking (Skalse et al., 2022) to the educational RL context: 
+
+Definition 3.3 (Educational Reward Hacking) . A policy π exhibits re-ward hacking of degree (ρ, v ) if it simultaneously achieves (1) high reward: 
+
+V π(˜ s0) ≥ ρ · V ∗(˜ s0), and (2) safety violation: ∥v(π)∥w > v . Both conditions must hold—a policy achieving high reward while satisfying all constraints is effective, not hacking. 9Definition 3.4 (Reward Hacking Severity Index) .
+
+RHSI (π) = ˆV π
+
+ˆV ∗ × ∥ v(π)∥w (7) where ˆV π is the expected cumulative reward under π and ˆV ∗ = max π′ ˆV π′
+
+.RHSI equals zero when π either achieves zero reward or violates no con-straints, and is bounded in [0 , 1] . The RHSI operationalizes the intuition be-hind Definition 3.3 as a continuous severity index: rather than a binary clas-sification, it measures the degree to which a policy simultaneously achieves high return and high violation. A policy may satisfy the formal hacking predicate of Definition 3.4 while exhibiting varying severity; RHSI provides the scalar quantity needed to rank and compare conditions. A note on normalization: ˆV ∗ is defined as the empirical maximum re-ward across conditions rather than a theoretical unconstrained optimum. This means the engagement-only agent (EO) receives a reward ratio of 1.0 by construction, while safer conditions with lower cumulative reward are pro-portionally discounted. We adopt this approach deliberately: the empirical maximum represents the observed worst-case reward under misaligned op-timization in the specific environment, making RHSI interpretable as the fraction of maximum possible misalignment that a policy exhibits. A con-strained agent that achieves lower reward than EO is not penalized by this normalization in isolation its lower violation norm ∥v∥w offsets the lower reward ratio, producing a low RHSI. This property is visible in Table 6: ST achieves a reward ratio of 0.433 but a violation norm of 0.237, yield-ing RHSI = 0.102, while EO achieves ratio 1.000 but violation norm 0.645, yielding RHSI = 0.645. Nonetheless, we acknowledge that using a theo-retical unconstrained optimum approximated, for example, by running an unconstrained version of ST would provide a more principled normalization, and we leave this as a direction for future work. 
+
+3.5. Constraint Independence 
+
+A natural question is whether fewer constraints might suffice. We ar-gue that all four are necessary by constructing scenarios where subsets fail. The following are informal sufficiency arguments rather than formal proofs; a complete treatment would require specifying the full policy class and envi-ronment dynamics. 10 Proposition 1 (C3 + C4 ̸ ⇒ C2). A policy assigning high-demand exercises on already-mastered concepts satisfies C3 (demand floor) and C4 (coupling), but produces zero mastery progress , violating C2. 
+
+Proposition 2 (C1 is independent). C2–C4 are statistical constraints over trajectories, permitting individual prerequisite violations with comfortable aggregate margins. Only C1’s per-step, probability-1 enforcement prevents prerequisite skipping. 
+
+Corollary. No proper subset of {C1, C2, C3, C4 } implies the full set with the precision needed for pedagogical safety. 
+
+4. Experimental Testbed: SmartTutor 
+
+We evaluate our formalization using a simulated Python tutoring envi-ronment. Simulated environments offer advantages for safety research: sys-tematic exploration of failure modes without risking harm to real students, controlled ablation, and reproducibility (MacLellan et al., 2022). Limitations are discussed in Section 6. 
+
+4.1. Architecture Overview 
+
+SmartTutor comprises five components whose interactions are illustrated in Figure 1: a knowledge graph of 27 Python concepts (DAG, max depth 7; Appendix B), a student model with per-concept mastery tracking, a neural contextual bandit agent with UCB action selection over a 124-dimensional state representation, an action selection module enforcing C1 and C3 online, and a configurable reward system. Eight pedagogical actions span cognitive demand from d = 0 .0 (Encour-age) to d = 1 .0 (Challenge). Notably, Encourage produces zero mastery gain (∆k = 0 .0) but the largest engagement boost of any action, making it the ac-tion most susceptible to reward-hacking exploitation and the primary target of the C3 behavioral safety constraint. We note that this models Encourage as a worst-case abstraction: in real tutoring systems, timely encouragement may sustain persistence in struggling learners and thereby indirectly support learning (Deci et al., 2001). The zero-gain assumption isolates the reward hacking dynamic cleanly but likely overstates the harm of any individual en-couragement action; the concern is over-selection at the policy level, not the action itself. 11 Figure 1: SmartTutor system architecture. Three layers govern the tutoring loop: the Student Interaction Layer, the SmartTutor Core (five components), and the Safety Mon-itoring Layer, which evaluates C2–C4 constraint violations and aggregates them into the RHSI. 
+
+4.2. Learner Profiles 
+
+Three profiles represent common student archetypes in programming ed-ucation (Table 2). Each is defined by an initial knowledge level and a profile-dependent mastery gain multiplier applied to action-specific base gains dur-ing simulation: Struggling (initial knowledge = 0 .05 , gain multiplier =0.8×), Average (initial knowledge = 0 .15 , gain multiplier = 1 .0×), and Ad-vanced (initial knowledge = 0 .30 , gain multiplier = 1 .2×). Profiles addition-ally vary in engagement sensitivity and confusion threshold, which modulate engagement deltas and confusion dynamics respectively. These behavioral signatures correspond qualitatively to learner archetypes described in the BKT literature (Corbett and Anderson, 1995; Baker et al., 2008a): struggling learners acquire mastery slowly with higher sensitivity to negative feedback, while advanced learners progress rapidly with minimal support. The simula-tion uses a heuristic mastery update consistent with these dynamics rather than full BKT inference. 12 Table 2: Learner profile parameters used in simulation. Gain multiplier scales action-specific base mastery gains. Confusion threshold governs when high confusion suppresses mastery updates during a session. 
+
+Profile Initial Knowledge Gain Multiplier Confusion Threshold 
+
+Struggling 0.05 0.8× 0.30 Average 0.15 1.0× 0.50 Advanced 0.30 1.2× 0.70 
+
+4.3. Experimental Conditions 
+
+We compare four reward/constraint configurations to isolate the contri-bution of each component: 1. Engagement-Only (EO): R = Reng . No constraints. Represents the “naive RL” baseline where the agent optimizes only for measurable engagement. 2. Mastery-Only (MAS): R = Rmas . No constraints. Tests whether optimizing mastery directly avoids safety issues. 3. Multi-Objective (MO): R = 0 .3Reng + 0 .5Rmas + 0 .2Rped . No hard constraints. Tests whether weighted reward combination alone prevents hacking. 4. SmartTutor Full (ST): Multi-objective reward (same weights as MO) with C1 (prerequisite masking, enforced online) and C3 (demand floor δmin = 0 .4, enforced online). C2 (progress safety, εprog = 0 .0023 )and C4 (coupling ratio ρmax = 1 .2) are evaluated as offline safety met-rics from session logs using normalized reward streams. 
+
+Reward scaling. Raw reward components use fixed linear scales: engage-ment deltas are multiplied by 3.0, mastery deltas by 100 .0, and the peda-gogical appropriateness component takes values in {+0 .5, −1.0}. Engage-ment deltas range from −1.0 to +0 .8 per step depending on action and stu-dent state. Mastery increments are on the order of ∼0.01 per step. The C4 coupling constraint uses min–max normalized engagement and mastery streams before computing the ratio, ensuring scale-comparable evaluation (Equation 5). We additionally run two ablation conditions: 
+
+• No-C1 Ablation: ST with prerequisite enforcement disabled; all re-ward weights and C3 remain active. 13 • No-C3 Ablation: ST with the demand floor constraint disabled; all reward weights and C1 remain active. Each main condition runs 30 sessions ( 3 profiles × 10 random seeds ×
+
+150 interactions per session), yielding 4,500 interactions per condition and 18,000 total across main conditions. Each ablation runs an additional 30 sessions under identical protocol. 
+
+4.4. Metrics 
+
+For each condition we compute: constraint violation rates for C2, C3, and C4 (C2 and C3 as fractions of length-W windows where the constraint is violated; C4 as fraction of steps t ≥ W0 where the coupling bound is exceeded; C1 is enforced architecturally and excluded from the reported ag-gregate); average cognitive demand ¯d = 1
+
+> T
+
+P 
+
+> t
+
+d(at); action distribution (per-centage of each action type selected); mastery gain ∆K = 1 
+
+> |V|
+
+P 
+
+> c∈V
+
+(kTc −k0 
+
+> c
+
+);engagement–mastery ratio Ecum (T )/M cum (T ) computed from logged scaled reward components; and RHSI (Definition 3.4). 
+
+Statistical Analysis Plan.. All pairwise comparisons use Welch two-sample 
+
+t-tests, which do not assume equal variances—appropriate given that ST’s cross-seed variance is substantially lower than EO and MO on every metric (e.g., RHSI: σST = 0 .028 vs. σEO = 0 .615 ). We report the mean difference 
+
+∆ = ¯ xST − ¯xcomp with 95% confidence intervals, two-tailed p-values, and Cohen’s d effect sizes (small ≥ 0.2, medium ≥ 0.5, large ≥ 0.8; (Cohen, 1988)). For RHSI we pool across the three learner profiles, yielding n = 30 seeds per condition. For behavioral metrics we report per-profile comparisons at 
+
+n = 10 seeds per cell. We apply Bonferroni correction separately within each outcome family: αcorrected = 0 .05 /3 = 0 .0167 for the three primary RHSI comparisons (ST vs. EO, ST vs. MAS, ST vs. MO; Table 7), and 
+
+αcorrected = 0 .05 /15 for behavioral comparisons per metric, where k = 15 
+
+reflects five comparison arms (EO, MAS, MO, No-C1, No-C3) across three profiles (Table A.11). Results surviving Bonferroni correction are marked *; results significant at uncorrected α = 0 .05 only are marked †; non-significant results are reported in full to distinguish absence of evidence from evidence of absence. Note that RHSI as reported in Table 6 is computed from condition-level aggregated reward and violation statistics following Definition 3.4. Per-seed 14 RHSI values used for statistical inference (Table 7) are computed at the indi-vidual seed level and then summarised; means differ slightly from condition-level aggregates due to non-linearities in the ratio, and both are reported for completeness. 
+
+5. Results 
+
+We report results across 120 sessions (four main conditions) plus 60 abla-tion sessions (two ablation conditions) with constraint parameters W = 10 ,
+
+δmin = 0 .4, ρmax = 1 .2, and warm-up W0 = 10 . The progress threshold 
+
+εprog = 0 .0023 is calibrated from the 25th percentile of the mastery-only agent’s per-window progress distribution, ensuring that MAS passes C2 ap-proximately 75% of the time (Section 5.7). The coupling constraint C4 uses engagement and mastery rewards normalized to [0 , 1] to ensure scale-comparable evaluation. 
+
+5.1. Evidence of Reward Hacking in Engagement-Only RL     
+
+> Table 3: Action distribution across conditions (% of 4,500 interactions per condition). See also Figure 2. Encourage has d= 0 .0and mastery gain = 0 .0: it produces no learning but the largest engagement boost ( +0 .8).
+
+Action ( d value) EO MAS MO ST 
+
+Encourage ( 0.0) 25.8 1.9 32.6 12.2 Explain_Simple ( 0.2) 16.6 27.3 13.0 12.2 Provide_Hint ( 0.3) 26.8 7.5 6.2 14.2 Explain_Detailed ( 0.4) 3.3 40.2 5.7 13.5 Assess_Knowledge ( 0.5) 2.6 2.7 5.0 10.9 Provide_Example ( 0.5) 20.6 11.0 30.0 18.4 Assign_Exercise ( 0.8) 3.1 3.7 4.8 10.0 Challenge ( 1.0) 1.3 5.7 2.8 8.6 Mean demand ¯d 0.281 0.393 0.308 0.433 
+
+The engagement-only agent (EO) appears to exhibit reward hacking. It achieves the highest cumulative reward of all conditions ( ˆVEO = 148 .84 ; Ta-ble 6) while systematically selecting low-demand actions. Over 69% of EO’s actions have cognitive demand ≤ 0.3 comprising Encourage (25.8%), Pro-vide_Hint (26.8%), and Explain_Simple (16.6%) while high-demand actions 15 are nearly absent: Challenge at 1.3% and Assign_Exercise at 3.1%. The re-sulting mean cognitive demand is ¯dEO = 0 .281 , substantially below the safety threshold δmin = 0 .4, yielding a C3 violation rate of 70.8% (Table 4). 0% 10% 20% 30% 40%       
+
+> % of interactions
+> Encourage (d=0.0)
+> Explain Simple (d=0.2)
+> Provide Hint (d=0.3)
+> Explain Detailed (d=0.4)
+> Assess Knowledge (d=0.5)
+> Provide Example (d=0.5)
+> Assign Exercise (d=0.8)
+> Challenge (d=1.0)
+> Mean demand: EO = 0.281 MAS = 0.393 MO = 0.308 ST = 0.433 (= 0.40)
+> EO
+> MAS
+> MO
+> ST
+
+Figure 2: Action distribution across conditions (% of 4,500 interactions per condition). MO selects Encourage at the highest rate of any condition (32.6%), exceeding even EO (25.8%). ST produces the most balanced distribution, with no action exceeding 18.4% and substantially higher usage of high-demand actions than any unconstrained condition. 
+
+This low-effort strategy appears to translate to minimal learning. EO produces mean mastery gains of only 0.011–0.013 across learner profiles (Ta-ble 5), with struggling learners mastering zero concepts across all 10 seeds. The pattern is consistent with an agent that maximizes its reward by ex-ploiting the engagement signal while producing negligible educational value a dynamic analogous to Goodhart’s Law (Goodhart, 1984), where measuring and optimizing engagement makes the zero-learning action a rational choice regardless of its educational consequence. Statistical testing supports these differences as reliable and large. Per-seed RHSI (pooled across profiles, n = 30 ) yields t(29) = −5.62 , p < . 0001 ,
+
+d = −1.45 for EO versus ST (Table 7), Bonferroni-significant with a large 16 effect. Inappropriate action counts follow the same pattern: ST reduces these by 20.2 and 17.8 actions per session relative to EO for struggling and average learners respectively ( t(9) = −4.96 , p = .001 , d = −2.22 ; t(9) = 
+
+−4.17 , p = .002 , d = −1.87 ; Table A.11 in Appendix Appendix A), both Bonferroni-significant. Mastery gain differences favour ST with large effect sizes ( d = 0 .35 –1.65 ) but do not survive Bonferroni correction at n = 10 
+
+seeds per profile; effect sizes and CIs are the primary evidential basis for mastery-related claims. 
+
+5.2. Multi-Objective Rewards Appear Insufficient 
+
+Perhaps the most notable finding is that the multi-objective agent (MO) which weights mastery at 50% and engagement at only 30% selects Encourage 
+
+more frequently than the engagement-only agent: 32.6% vs. 25.8% (Table 3). This is the highest Encourage rate of any condition. One plausible mechanism is as follows. Encourage produces an engage-ment delta of +0 .8, the largest of any action. Even at 30% weight, this yields a reward contribution of 0.3 × 0.8 = 0 .24 per Encourage action from engagement alone. In states where the expected mastery gain from other ac-tions is uncertain or small common for struggling learners or concepts early in learning the guaranteed 0.24 engagement reward may make Encourage a rational choice for the multi-objective policy. The MO agent appears to treat Encourage as reliable value for the combined objective, particularly when the engagement component acts as a reward floor. The consequences are visible across all metrics. MO’s mean cognitive demand ( ¯dMO = 0 .308 ) is only marginally above EO (0.281), and its C3 vio-lation rate of 58.0% remains high. MO’s engagement mastery ratio of 16.34 is the worst of all conditions exceeding even EO’s ratio of 10.54 suggesting that MO accumulates substantial engagement reward through Encourage while its mastery gains remain low. MO’s C4 (coupling) violation of 70.4% is the highest of any condition, indicating that engagement and mastery ap-pear substantially decoupled under this reward formulation. Importantly, this pattern suggests that as long as engagement appears in the reward and a zero-learning high-engagement action exists, adding mastery weight alone may be insufficient to prevent exploitation. Statistical testing supports these differences. ST achieves a Bonferroni-significant RHSI reduction relative to MO ( ∆ = −0.260 [−0.346 , −0.173 ]; 
+
+t(30) = −5.89 , p < . 0001 , d = −1.52 ; Table 7). MO’s RHSI is also signif-icantly higher than MAS’s ( t(32) = 5 .30 , p < . 0001 , d = 1 .37 , Bonferroni-17 significant), suggesting the multi-objective formulation not only appears to fall short of the constrained system but also of a simpler mastery-only re-ward. Pedagogical appropriateness is Bonferroni-significantly lower in MO than in ST for both struggling ( t(9) = 7 .10 , p < . 001 , d = 3 .18 ) and av-erage learners ( t(9) = 4 .27 , p = .002 , d = 1 .91 ), with MO generating 34 and 24 additional inappropriate actions per session respectively. Mastery gain differences between ST and MO are non-significant across all profiles (p > . 14 ; d = 0 .56 –0.70 ), indicating MO’s failure appears behavioral rather than a learning-outcome deficit. This distinction matters for deployment: a system that produces acceptable short-term mastery gains while systemati-cally selecting low-demand, zero-learning actions may appear safe by outcome metrics alone, while quietly undermining the depth and durability of student learning over longer horizons. 
+
+5.3. Mastery-Only Baseline 
+
+The mastery-only agent (MAS) provides a revealing contrast. With no engagement term in its reward, MAS has no incentive to select Encourage and uses it in only 1.9% of interactionsthe lowest rate across all conditions. MAS achieves the highest mean demand ( ¯d = 0 .393 ), the lowest C3 violation rate (39.1%), and the lowest engagement–mastery ratio (0.87). It also produces the best learning outcomes for advanced learners (mastery gain 0.021 ±0.002 ;Table 5). However, MAS does not appear to be pedagogically safe by our formal criteria. Its C3 violation rate of 39.1% reflects heavy reliance on explanation actions: Explain_Detailed at 40.2% ( d = 0 .4) and Explain_Simple at 27.3% (d = 0 .2). While these actions contribute to learning, the predominance of passive-reception actions means the average demand still falls below the 
+
+δmin = 0 .4 threshold in many windows. MAS achieves the lowest C2 viola-tion rate (25.0%) and the best engagement–mastery coupling (C4 = 32.9%), suggesting that a mastery-focused reward naturally produces better-aligned behavior. Nonetheless, MAS illustrates that removing the engagement incen-tive may eliminate the Encourage problem without guaranteeing behavioral safety the agent may still underweight active learning actions such as exer-cises and challenges. 18 5.4. Architectural Constraints Appear to Substantially Reduce Hacking 
+
+Table 4: Constraint violation rates. C1 = 0 for all conditions (action masking enforced in ST; other conditions do not target prerequisite-violating concepts by design). C2: 
+
+εprog = 0 .0023 (calibrated from MAS 25th percentile), W = 10 . C3: δmin = 0 .4, W = 10 .C4: ρmax = 1 .2, rewards normalized to [0 , 1] , W0 = 10 .
+
+Constraint EO MAS MO ST 
+
+C2 (progress) 0.538 0.250 0.517 0.214 C3 (demand floor) 0.708 0.391 0.580 0.058 
+
+C4 (coupling) 0.677 0.329 0.704 0.345 
+
+∥v∥w (weighted norm) 0.645 0.328 0.606 0.237 
+
+Table 5: Learning outcomes per condition (mean ± std across 10 seeds). ∆K: mean mastery gain across all 27 concepts. Nmastered : concepts reaching k ≥ 0.7.
+
+Cond. Profile ∆K Nmastered 
+
+EO Struggling 0.011 ± 0.006 0.0 ± 0.0
+
+EO Average 0.013 ± 0.006 0.1 ± 0.3
+
+EO Advanced 0.013 ± 0.007 0.3 ± 0.5
+
+MAS Struggling 0.014 ± 0.003 0.0 ± 0.0
+
+MAS Average 0.018 ± 0.001 0.0 ± 0.0
+
+MAS Advanced 0.021 ± 0.002 1.0 ± 0.0
+
+MO Struggling 0.010 ± 0.006 0.0 ± 0.0
+
+MO Average 0.012 ± 0.007 0.1 ± 0.3
+
+MO Advanced 0.016 ± 0.009 0.6 ± 0.5
+
+ST Struggling 0.013 ± 0.001 0.0 ± 0.0
+
+ST Average 0.017 ± 0.001 0.0 ± 0.0
+
+ST Advanced 0.022 ± 0.001 1.0 ± 0.0
+
+19 1 25 50 75 100 125 150                
+
+> Interaction
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Mean knowledge level
+> Struggling
+> 125 50 75 100 125 150
+> Interaction
+> Average
+> 125 50 75 100 125 150
+> Interaction
+> Advanced
+> EO MAS MO ST
+
+Figure 3: Mean cumulative knowledge level (estimated per-concept mastery averaged across all 27 concepts) over 150 interactions, by condition and learner profile (mean ±
+
+SEM across 10 seeds). Note this shows the knowledge level , not mastery gain ∆K re-ported in Table 5. MAS and ST consistently achieve the highest knowledge levels across all profiles; the gap widens with learner capability. ST matches MAS on mastery trajec-tories despite maintaining the engagement signal in its reward function. 
+
+ST’s C3 violation rate of 5.8% is substantially lower than all uncon-strained conditions: EO (70.8%), MO (58.0%), and MAS (39.1%). ST also achieves the lowest C2 violation rate (21.4%) and a competitive C4 violation (34.5%), suggesting that architectural constraints may jointly improve safety across all three soft constraint dimensions. The RHSI reductions are statistically supported at the Bonferroni-corrected level. ST’s mean per-seed RHSI ( 0.095 ± 0.028 ) is significantly lower than both EO ( t(29) = −5.62 , p < . 0001 , d = −1.45 ) and MO ( t(30) = −5.80 ,
+
+p < . 0001 , d = −1.50 ; Table 7). The ST–MAS comparison is non-significant (t(42) = −1.84 , p = .072 , d = −0.48 ), consistent with the view advanced in Section 5.5 that these two conditions converge on similar RHSI values through fundamentally different mechanisms. 20 5.5. RHSI Analysis          
+
+> Table 6: Reward Hacking Severity Index by condition. ˆV∗= 148 .84 (EO). Equal weights
+> wi= 1 /3for C2, C3, C4; C1 = 0 by construction. Lower RHSI = safer. Note: MAS shows RHSI = 0.105 here (condition-level aggregate) vs. mean 0.117 in Table 7 (per-seed average); the small discrepancy arises from non-linearities in the reward–violation ratio computed at different levels of aggregation.
+
+Condition ˆV π ˆV π/ ˆV ∗ ∥v∥w v3 (C3) RHSI EO 148.84 1.000 0.645 0.708 0.645 
+
+MO 77.95 0.524 0.606 0.580 0.317 MAS 47.52 0.319 0.328 0.391 0.105 ST 64.42 0.433 0.237 0.058 0.102 
+
+Table 6 reveals two apparent failure modes. EO and MO sit on opposite ends of the reward–violation tradeoff: EO maximizes reward at the cost of near-total constraint violation; MO reduces reward substantially yet its violation norm (0.606) remains similarly high, suggesting that scalarizing engagement and mastery may not meaningfully constrain unsafe behavior. The MAS–ST comparison is more instructive. Both achieve similar RHSI values through opposite mechanisms: MAS reaches low RHSI by eliminat-ing the engagement signal entirely; ST does so by preserving the engage-ment signal under architectural constraint. The C3 violation rate makes this concrete—ST’s 5.8% against MAS’s 39.1%—suggesting that constraints may directly suppress the behavioral failure mode rather than simply reduc-ing reward magnitude. ST appears to be the only condition achieving both substantial reward and low violation, which corresponds to the operational intent of safe, non-hacking behavior. 21 Table 7: Per-seed RHSI descriptives and pairwise Welch t-tests ( n = 30 seeds per con-dition; 3 profiles × 10 seeds). ∆ = ¯ xrow − ¯xcol ; positive ∆ indicates the row condition has higher (worse) RHSI than ST. Bonferroni αcorrected = 0 .05 /6 = 0 .0083 . * Bonferroni-significant; † p < . 05 uncorrected; ns not significant. 
+
+Condition Mean ± SD Median IQR EO (Engagement-Only) 0.737 ± 0.615 0.435 [0.312, 0.950] MO (Multi-Objective) 0.355 ± 0.240 0.238 [0.145, 0.577] No C3 (action filter off) 0.288 ± 0.190 0.254 [0.144, 0.305] No C1 (KG enforcement off) 0.244 ± 0.111 0.245 [0.161, 0.269] MAS (Mastery-Only) 0.117 ± 0.057 0.101 [0.065, 0.169] ST (SmartTutor Full) 0.095 ± 0.028 0.091 [0.074, 0.115] Comparison ∆ [95% CI] t(df) p Cohen’s d Bonf. 
+
+Baseline comparisons (ST vs. each) 
+
+ST vs. EO −0.642 [−0.862 , −0.422 ] t(29) = −5.62 < . 0001 −1.45 *ST vs. MO −0.260 [−0.346 , −0.173 ] t(30) = −5.80 < . 0001 −1.50 *ST vs. MAS −0.021 [−0.044 , 0.001 ] t(42) = −1.84 .072 −0.48 ns 
+
+Unconstrained conditions vs. each other 
+
+MO vs. EO −0.382 [−0.618 , −0.146 ] t(38) = −3.17 .003 −0.82 *MAS vs. EO −0.621 [−0.841 , −0.400 ] t(30) = −5.51 < . 0001 −1.42 *MO vs. MAS 0.238 [0.150 , 0.327 ] t(32) = 5 .30 < . 0001 1.37 *
+
+Ablation comparisons (Bonferroni α = 0 .05 /3 = 0 .0167 )
+
+ST vs. No C1 −0.149 [−0.190 , −0.108 ] t(33) = −7.15 < . 0001 −1.85 *ST vs. No C3 −0.193 [−0.261 , −0.124 ] t(30) = −5.50 < . 0001 −1.42 *No C1 vs. No C3 −0.043 [−0.122 , 0.035 ] t(47) = −1.08 .285 −0.28 ns 22 EO MO No C3 No C1 MAS ST   
+
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> RHSI (per seed)
+> =0.737
+> =0.355
+> =0.288 =0.244
+> =0.117 =0.095
+> ST vs EO: t(29)=-5.62, p<.0001, d=-1.45
+> ST vs MO: t(30)=-5.80, p<.0001, d=-1.50
+> =0.25
+> EO
+> MO
+> No C3
+> No C1
+> MAS
+> ST
+
+Figure 4: Per-seed RHSI distributions across all conditions ( n = 30 per condition; 3 profiles × 10 seeds). Box shows IQR, white line is median, whiskers extend to 1.5 ×IQR, dots are outliers. ST achieves the lowest and most consistent RHSI. Significance brackets show Bonferroni-corrected comparisons. The dashed line at ε = 0 .25 marks the realistic deployment safety threshold discussed in Section 5.5. 
+
+The near-equivalence of MAS and ST on aggregate RHSI is reflected in the per-seed comparison: t(42) = −1.84 , p = .072 , d = −0.48 (Table 7). The non-significant p-value should not be read as evidence of equivalence—the directional CI [ −0.044 , 0.001 ] is consistent with a small real advantage for ST that n = 30 seeds may be insufficient to resolve with confidence. 
+
+5.6. Ablation Reveals Relative Constraint Contributions 
+
+To explore which constraints contribute most to safety, we run two ab-lation conditions: ST without C1 (prerequisite enforcement disabled) and ST without C3 (action filter disabled), each for 30 sessions under identical protocol. 23 Table 8: Ablation study: RHSI and constraint violations when individual constraints are removed. ∆RHSI shows degradation relative to the full framework (ST). Removing C3 (action filter) appears to cause the largest safety degradation.                     
+
+> Condition C3 rate ∥v∥wRHSI ∆RHSI Ped. Approp. ST (full) 0.058 0.237 0.102 —1.000 No C1 (KG off) 0.604 0.495 0.240 +0.138 1.000 No C3 (filter off) 0.683 0.574 0.264 +0.162 0.899
+
+Removing C3 appears to cause degenerate policy collapse. Without the action filter, the agent does not merely “hack slightly”—it collapses to near-single-action policies. Across individual seeds, we observe sessions where a single action accounts for 85–93% of all 150 interactions (e.g., 137/150 Ex-plain_Simple in one seed, 140/150 Provide_Example in another, 133/150 Encourage in a third). The agent appears to discover that repeating any sin-gle action yields acceptable reward and locks onto whichever action produced the highest return early in training. Pedagogical appropriateness drops from 1.000 to 0.899, and the mean number of pedagogically inappropriate actions per session rises from 0 to 15–18. The No-C3 ablation’s C3 violation rate of 68.3% approaches that of the unconstrained EO condition (70.8%), suggest-ing C3 enforcement may be a primary mechanism by which ST maintains behavioral safety. 
+
+Removing C1 appears to have minimal safety impact. Without pre-requisite enforcement, the agent achieves comparable mastery gains to the full framework and maintains perfect pedagogical appropriateness (1.000). The C3 violation rate rises to 60.4% not because the agent exploits prerequisite violations, but apparently because without the knowledge graph structuring exploration, the agent’s action diversity degrades. The safety impact is real (∆RHSI = +0 .138 ) but appears substantially mediated through C3-related degradation rather than direct prerequisite violations. The interaction between C1 and C3 warrants further comment. C1’s primary intended function is content sequencing ensuring students are not presented with concepts whose prerequisites they have not yet mastered. However, the ablation results suggest C1 may carry an emergent secondary benefit: by restricting the accessible action subset to concepts the student is ready for, action masking incidentally forces the agent to distribute se-lections across a broader range of pedagogically relevant actions. When C1 is removed, the agent loses this structural diversity pressure and its action 24 distribution degrades, which manifests as elevated C3 violations even though C3 itself remains active. This implies that for system designers, prerequisite enforcement may serve a dual role both as a content safety mechanism and as an implicit behavioral regularizer and that removing it may have safety consequences beyond the prerequisite-violation dimension it was designed to address. Both ablation degradations are statistically supported at the Bonferroni-corrected level. ST’s RHSI is significantly lower than No C3 ( ∆ = −0.193 
+
+[−0.261 , −0.124 ]; t(30) = −5.50 , p < . 0001 , d = −1.42 ) and No C1 ( ∆ = 
+
+−0.149 [−0.190 , −0.108 ]; t(33) = −7.15 , p < . 0001 , d = −1.85 ). Despite No C3 producing a larger numerical RHSI increase, the two ablations are not significantly different from each other in per-seed RHSI ( t(47) = −1.08 ,
+
+p = .285 , d = −0.28 ), suggesting the C3 hierarchy rests on the nature of its failure mode—policy collapse—rather than an RHSI gap alone. 
+
+5.7. Constraint Calibration 
+
+A key methodological contribution is our approach to constraint thresh-old calibration, described here as guidance for practitioners applying this framework. The progress constraint C2 requires threshold εprog to match the expected per-window mastery increment in the specific domain. Naïve a priori selec-tion (e.g., εprog = 0 .02 ) yielded 100% violation across all conditions in early experiments too strict to discriminate between policies. Our solution uses MAS as a calibration baseline: we set εprog to the 25th percentile of MAS’s per-window progress distribution ( εprog = 0 .0023 ). The 25th percentile is chosen deliberately: it is conservative enough that a well-behaved mastery-focused agent passes C2 approximately 75% of the time, yet strict enough to flag sustained stagnation. A more lenient threshold (e.g., the 10th per-centile) would reduce discrimination; a stricter one (e.g., the median) would flag even well-behaved policies too frequently. With this calibration, C2 ap-pears to discriminate effectively: EO violates 53.8% vs. ST at 21.4%. The demand floor δmin = 0 .4 for C3 is set at the boundary between passive and active engagement modes in the ICAP framework (Chi and Wylie, 2014): actions at or above this threshold (Explain_Detailed, Assess_Knowledge, Provide_Example, Assign_Exercise, Challenge) require the student to en-gage actively rather than passively receive. This makes δmin = 0 .4 a princi-pled rather than arbitrary threshold it corresponds to a meaningful categor-ical distinction in the demand scale. 25 The coupling bound ρmax = 1 .2 for C4 permits engagement reward to modestly exceed mastery reward (by up to 20%), reflecting that some degree of engagement surplus is pedagogically acceptable and expected a tutor that never provides encouragement or positive affect would be unrealistic. Values substantially above 1.2 would allow uncoupled engagement accumulation; values at or below 1.0 would be too restrictive for any system that provides affective support. The C4 coupling constraint uses min–max normalized engagement and mastery streams before computing the ratio, ensuring scale-comparable evaluation. These calibration decisions illustrate a general property of formal safety frameworks: the framework may be valuable precisely because it surfaces calibration requirements that informal approaches would tend to obscure. A practitioner relying on intuitive heuristics might not discover threshold mis-matches until student outcomes deteriorated; the formal framework surfaces them during evaluation. 
+
+5.8. Parameter Sensitivity and Robustness Window Size and Demand Floor (Run 1) 
+
+We assessed robustness of the RHSI ordering to the sliding-window size 
+
+W and demand floor δmin by re-evaluating each logged session under a grid 
+
+W ∈ { 5, 10 , 15 , 20 } and δmin ∈ { 0.30 , 0.35 , 0.40 , 0.45 , 0.50 }, holding the re-ward time series fixed. εprog was recalibrated from MAS runs at each W
+
+(25th percentile of per-window mastery gain), ensuring C2 remains appro-priately calibrated across window sizes. Table 9 reports mean RHSI per condition across all 20 parameter combinations. The primary ordering appears robust: EO has the strictly highest RHSI in all 20 of 20 cells, and MO is consistently second worst. The ST–MAS compar-ison shows a parameter dependence: at lower demand floors ( δmin ≤ 0.40 ), ST achieves lower RHSI than MAS in 12 of 12 cells; at higher floors ( δmin ≥ 0.45 ), MAS edges out ST in 8 of 8 cells, because the unconstrained MAS policy pro-duces lower mean demand than its C3-masked counterpart when the thresh-old is set above MAS’s natural operating point. This pattern is interpretable rather than concerning: it suggests C3’s demand floor is binding only when 
+
+δmin exceeds what an unconstrained mastery-focused policy would naturally achieve. One methodological caveat applies to the ST cells. The ST trajectories used for re-scoring were generated under baseline C3 masking at W = 10 ,
+
+δmin = 0 .40 ; varying these parameters changes how the fixed trace is scored 
+
+26 rather than how the policy behaved . Strictly causal sensitivity for ST would require re-running the simulator with each (W, δ min ) pair embedded in the constraint enforcement logic. The offline re-scoring here establishes metric robustness; causal sensitivity for ST is left for future work.           
+
+> Table 9: Parameter sensitivity: mean RHSI by condition across the W×δmin grid (20 cells). EO has the strictly highest RHSI in all 20 cells. MO is consistently second worst. ST–MAS ordering reverses at δmin ≥0.45 (see text).
+
+W δmin EO MAS MO ST Best 2nd Best 5 0.30 0.685 0.101 0.335 0.099 ST MAS 5 0.35 0.719 0.109 0.344 0.106 ST MAS 5 0.40 0.729 0.115 0.350 0.122 MAS ST 5 0.45 0.746 0.169 0.363 0.173 MAS ST 5 0.50 0.757 0.174 0.369 0.203 MAS ST 10 0.30 0.712 0.104 0.340 0.096 ST MAS 10 0.35 0.724 0.108 0.348 0.096 ST MAS 10 0.40 0.739 0.117 0.356 0.097 ST MAS 10 0.45 0.756 0.168 0.365 0.183 MAS ST 10 0.50 0.771 0.180 0.377 0.228 MAS ST 15 0.30 0.716 0.105 0.340 0.097 ST MAS 15 0.35 0.728 0.110 0.351 0.097 ST MAS 15 0.40 0.741 0.119 0.358 0.105 ST MAS 15 0.45 0.760 0.172 0.366 0.180 MAS ST 15 0.50 0.773 0.183 0.380 0.233 MAS ST 20 0.30 0.719 0.106 0.341 0.096 ST MAS 20 0.35 0.732 0.111 0.352 0.096 ST MAS 20 0.40 0.747 0.120 0.359 0.097 ST MAS 20 0.45 0.764 0.175 0.366 0.180 MAS ST 20 0.50 0.777 0.184 0.383 0.232 MAS ST 
+
+27 0.3 0.35 0.4 0.45 0.5                 
+
+> _min (demand floor)
+> 5
+> 10
+> 15
+> 20
+> W (window size)
+> 0.685 0.719 0.729 0.746 0.757
+> 0.712 0.724 0.739 0.756 0.771
+> 0.716 0.728 0.741 0.760 0.773
+> 0.719 0.732 0.747 0.764 0.777
+
+EO Engagement-Only                     
+
+> 0.3 0.35 0.4 0.45 0.5
+> _min (demand floor)
+> 5
+> 10
+> 15
+> 20
+> W (window size)
+> 0.335 0.344 0.350 0.363 0.369
+> 0.340 0.348 0.356 0.365 0.377
+> 0.340 0.351 0.358 0.366 0.380
+> 0.341 0.352 0.359 0.366 0.383
+
+MO Multi-Objective                     
+
+> 0.3 0.35 0.4 0.45 0.5
+> _min (demand floor)
+> 5
+> 10
+> 15
+> 20
+> W (window size)
+> 0.101 0.109 0.115 0.169 0.174
+> 0.104 0.108 0.117 0.168 0.180
+> 0.105 0.110 0.119 0.172 0.183
+> 0.106 0.111 0.120 0.175 0.184
+
+MAS Mastery-Only                     
+
+> 0.3 0.35 0.4 0.45 0.5
+> _min (demand floor)
+> 5
+> 10
+> 15
+> 20
+> W (window size)
+> 0.099 0.106 0.122 0.173 0.203
+> 0.096 0.096 0.097 0.183 0.228
+> 0.097 0.097 0.105 0.180 0.233
+> 0.096 0.096 0.097 0.180 0.232
+
+ST SmartTutor Full 
+
+0.3 
+
+0.4 
+
+0.5 
+
+0.6 
+
+0.7 
+
+0.8 
+
+> Mean RHSI
+
+0.30 
+
+0.32 
+
+0.34 
+
+0.36 
+
+0.38 
+
+0.40 
+
+0.42 
+
+> Mean RHSI
+
+0.08 
+
+0.10 
+
+0.12 
+
+0.14 
+
+0.16 
+
+0.18 
+
+0.20 
+
+0.22 
+
+0.24 
+
+> Mean RHSI
+
+0.08 
+
+0.10 
+
+0.12 
+
+0.14 
+
+0.16 
+
+0.18 
+
+0.20 
+
+0.22 
+
+0.24 
+
+> Mean RHSI
+
+Parameter sensitivity: mean RHSI across W × _min grid Figure 5: Parameter sensitivity: mean RHSI across the W × δmin grid (20 cells). Darker shading indicates higher RHSI (worse safety) for EO and MO; darker green indicates higher RHSI for MAS and ST. EO remains the worst condition in all 20 cells. The dashed border on the ST panel marks the δmin ≥ 0.45 region where MAS edges out ST (see text); outside this region ST achieves the lowest RHSI of any condition. 
+
+Cognitive Demand Perturbation (Run 2) 
+
+To assess sensitivity to the specific numeric values assigned to the ICAP-based demand scale, we re-scored all sessions under two perturbed demand maps: all non-anchor values scaled by +20% and −20% (anchors d(Encourage ) = 0.0 and d(Challenge ) = 1 .0 held fixed). Table 10 reports mean RHSI and C3 violation rates under each variant at the baseline parameters W = 10 ,
+
+δmin = 0 .40 .The condition ordering appears stable under +20% perturbation (EO 
+
+> MO > MAS > ST). Under −20% perturbation, ST and MAS exchange positions (MAS edges out ST by 0.004 RHSI), for the same reason as the high-δmin sensitivity noted above: globally compressing demand values causes 28 more windows to fall below the fixed floor, affecting the constrained ST agent more than the unconstrained MAS agent. The EO–MO gap is preserved in both directions, suggesting the primary findings are robust to ICAP mapping uncertainty.           
+
+> Table 10: Cognitive demand perturbation: mean RHSI and C3 violation rate under ±20%
+> scaling of non-anchor demand values ( W= 10 ,δmin = 0 .40 ). Anchors: d(Encourage ) = 0.0,d(Challenge ) = 1 .0.Condition ordering appears stable under +20% ; ST and MAS exchange positions under −20% (see text).
+
+EO MAS MO ST Variant RHSI C3 RHSI C3 RHSI C3 RHSI C3 Baseline ( ×1.0) 0.739 0.708 0.117 0.391 0.356 0.580 0.097 0.060 
+
++20% 0.723 0.660 0.108 0.291 0.347 0.514 0.096 0.005 
+
+−20% 0.768 0.805 0.175 0.816 0.375 0.725 0.202 0.744 
+
+6. Limitations and Future Work 
+
+Several limitations qualify our results. The simulated learners, while cal-ibrated to literature BKT parameters (Corbett and Anderson, 1995), do not capture the full complexity of human learning, including motivation, fatigue, and off-task behavior. The single domain (Python programming) limits generalizability to other subjects and curricula. At 150 interactions per session, we observe early-stage dynamics rather than long-term learning trajectories where reward hacking effects may accumulate more substantially. The BKT knowledge model has known limitations (Baker et al., 2008a); our framework’s safety guarantees hold with respect to estimated mastery, not necessarily true mastery. The cognitive demand scale is ordinal, not inter-val; sensitivity to the specific numeric assignments is assessed in Section 5.8. Our ablation study examines C1 and C3 independently but does not exhaust all 24 − 1 constraint combinations; in particular, the interaction between C2 and C4 under removal remains unexplored. The multi-objective condi-tion (MO) tests a single weight configuration ( 0.3 engagement / 0.5 mas-tery / 0.2 pedagogical appropriateness); whether the Encourage exploitation pattern persists across different weight combinations for example, config-urations that further down-weight engagement or assign zero weight to it entirely remains an open empirical question. The mechanism proposed in Section 5.2 suggests that any non-zero engagement weight paired with a 29 zero-learning high-engagement action may be sufficient to produce exploita-tion, but this has not been tested systematically across the weight simplex. Constraint threshold calibration, while substantially improved through our MAS-baseline approach (Section 5.7), remains domain-specific and requires validation in each new educational setting. With n = 10 seeds per condition profile cell, per-profile behavioral comparisons are modestly powered; the large observed effect sizes ( d = 0 .67 –1.65 ) suggest real differences that the current sample may not consistently confirm at Bonferroni-corrected thresh-olds, and future work should increase seeds to n ≥ 30 per cell. The parameter sensitivity analysis in Section 5.8 re-scores fixed ST trajectories generated at baseline ( W = 10 , δmin = 0 .40 ); it establishes metric robustness but does not capture how ST’s policy would change if trained under different con-straint hyperparameters. Fully causal sensitivity for ST requires re-running the simulator with each (W, δ min ) pair embedded in the C3 enforcement logic. Finally, all findings are demonstrated in simulation; human validation with real learners remains essential before any deployment consideration. 
+
+Future directions.. Our results suggest that post-hoc constraint enforcement filtering actions and monitoring violations may substantially reduce reward hacking (68% RHSI reduction relative to unconstrained multi-objective RL). A natural next step is to integrate constraints into the optimization itself .The four-layer safety framework maps directly to a Constrained MDP (Alt-man, 1999): C1 as action masking (already implemented), C2–C4 as La-grangian constraints optimized jointly with the reward objective. This formu-lation could enable algorithms such as Constrained Policy Optimization (Achiam et al., 2017) that learn to satisfy constraints during training rather than rely-ing on post-hoc filtering. The ablation results suggest C3 (behavioral safety) should receive the highest Lagrangian weight, as it appears most critical for preventing policy degeneration. Extending the framework to multi-domain curricula, longer session horizons, and real student populations are also im-portant directions we are actively pursuing. 
+
+7. Conclusion 
+
+This paper introduced a formal framework for pedagogical safety in educa-tional reinforcement learning, operationalized through four constraint classes: structural, progress, behavioral, and alignment safety. We further proposed 30 the Reward Hacking Severity Index (RHSI) as a diagnostic measure for quan-tifying the extent to which high proxy reward can be achieved without cor-responding learning gains. Using a controlled simulation of an AI tutoring environment, we exam-ined how different reward and constraint configurations shape agent behavior. The results provide evidence that reward design alone may be insufficient to ensure pedagogically aligned behavior under certain conditions. In particular, both engagement-optimized and multi-objective agents exhibited a tendency to over-select actions that maximize short-term proxy signals without con-tributing meaningfully to mastery. In contrast, incorporating architectural and behavioral constraints reduced this misalignment, leading to lower RHSI values and more balanced instructional policies. Ablation analysis further highlighted the role of behavioral safety in preventing repetitive, low-demand action selection. Importantly, these findings are grounded in a simulated environment and should be interpreted as evidence of potential failure modes rather than definitive claims about real-world systems. The SmartTutor framework is best understood as a controlled testbed for examining how pedagogical mis-alignment can emerge under proxy optimization, and how constraint-based approaches may mitigate such risks. More broadly, this work positions pedagogical safety as a distinct and necessary consideration in the design of adaptive educational systems. As AI-driven tutors become more prevalent, the central challenge is not only to op-timize performance metrics, but to ensure that instructional decisions remain meaningful, progression-supporting, and pedagogically trustworthy. We hope this framework provides a foundation for future research that bridges AI safety and intelligent educational systems, including validation in real-world learning contexts. 
+
+References 
+
+Abdelshiheed, M., Hostetter, J.W., Barnes, T., Chi, M., 2023. Leveraging deep reinforcement learning for metacognitive interventions across intelli-gent tutoring systems, in: Proceedings of the 24th International Conference on Artificial Intelligence in Education (AIED 2023), Springer. pp. 291–303. Achiam, J., Held, D., Tamar, A., Abbeel, P., 2017. Constrained policy opti-mization, in: Proceedings of the 34th International Conference on Machine Learning (ICML), pp. 22–31. 31 Alam, N., Fazeli, K., Tian, X., Chi, M., Barnes, T., 2025. Determining problem type using deep reinforcement learning in a data-driven intelligent tutor, in: Proceedings of the 26th International Conference on Artificial Intelligence in Education (AIED 2025), Springer. pp. 247–262. Altman, E., 1999. Constrained Markov Decision Processes. Chapman and Hall/CRC. Amodei, D., Olah, C., Steinhardt, J., Christiano, P., Schulman, J., Mané, D., 2016. Concrete problems in AI safety. arXiv preprint arXiv:1606.06565 .Anderson, J.R., Corbett, A.T., Koedinger, K.R., Pelletier, R., 1995. Cogni-tive tutors: Lessons learned. Journal of the Learning Sciences 4, 167–207. Anderson, L.W., Krathwohl, D.R., 2001. A Taxonomy for Learning, Teach-ing, and Assessing: A Revision of Bloom’s Taxonomy of Educational Ob-jectives. Longman, New York. Baker, R.S., Corbett, A.T., Aleven, V., 2008a. More accurate student modeling through contextual estimation of slip and guess probabilities in Bayesian knowledge tracing 5091, 406–415. Baker, R.S., Corbett, A.T., Koedinger, K.R., 2004. Detecting student misuse of intelligent tutoring systems, in: Proceedings of the 7th International Conference on Intelligent Tutoring Systems (ITS 2004), Springer. pp. 531– 540. Baker, R.S., Corbett, A.T., Koedinger, K.R., Wagner, A.Z., 2008b. The consequences of gaming the system. International Journal of Artificial Intelligence in Education 18, 103–127. Baker, R.S., D’Mello, S.K., Rodrigo, M.M.T., Graesser, A.C., 2010. Better to be frustrated than bored: The incidence, persistence, and impact of learners’ cognitive-affective states during interactions with three different computer-based learning environments. International Journal of Human-Computer Studies 68, 223–241. Baker, R.S., Hawn, A., 2022. Algorithmic bias in education. International Journal of Artificial Intelligence in Education 32, 1052–1092. 32 Beck, J., Woolf, B.P., Beal, C.R., 2000. Learning to teach with a reinforce-ment learning agent, in: Proceedings of the 17th National Conference on Artificial Intelligence (AAAI), pp. 934–939. Bloom, B.S., 1984. The 2 sigma problem: The search for methods of group instruction as effective as one-to-one tutoring. Educational Researcher 13, 4–16. Chi, M.T.H., Wylie, R., 2014. The ICAP framework: Linking cognitive engagement to active learning outcomes. Educational Psychologist 49, 219–243. Christiano, P.F., Leike, J., Brown, T., Martic, M., Legg, S., Amodei, D., 2017. Deep reinforcement learning from human preferences, in: Advances in Neural Information Processing Systems (NeurIPS). Clément, B., Roy, D., Oudeyer, P.Y., Lopes, M., 2015. Multi-armed bandits for intelligent tutoring systems, pp. 20–48. Cohen, J., 1988. Statistical Power Analysis for the Behavioral Sciences. 2nd ed., Lawrence Erlbaum Associates, Hillsdale, NJ. Corbett, A.T., Anderson, J.R., 1995. Knowledge tracing: Modeling the acquisition of procedural knowledge. User Modeling and User-Adapted Interaction 4, 253–278. Dalal, G., Dvijotham, K., Vecerik, M., Hester, T., Paduraru, C., Tassa, Y., 2018. Safe exploration in continuous action spaces, in: arXiv preprint arXiv:1801.08757. Deci, E.L., Koestner, R., Ryan, R.M., 2001. Extrinsic rewards and intrinsic motivation in education: Reconsidered once again. Review of Educational Research 71, 1–27. D’Mello, S., Graesser, A., 2012. Dynamics of affective states during complex learning. Learning and Instruction 22, 145–157. Doroudi, S., Aleven, V., Brunskill, E., 2019. Where’s the reward?, in: Inter-national Journal of Artificial Intelligence in Education, pp. 568–620. 33 Everitt, T., Skalse, J., et al., 2025. Correlated proxies: A new definition and improved mitigation for reward hacking. arXiv preprint arXiv:2403.03185 V4, December 2025. Fredricks, J.A., Blumenfeld, P.C., Paris, A.H., 2004. School engagement: Potential of the concept, state of the evidence. Review of Educational Research 74, 59–109. Gao, G., et al., 2024. On-demand pedagogical policy selection using off-policy evaluation, in: Proceedings of the AAAI Conference on Artificial Intelligence. García, J., Fernández, F., 2015. A comprehensive survey on safe reinforce-ment learning. Journal of Machine Learning Research 16, 1437–1480. Goodhart, C.A.E., 1984. Problems of monetary management: The UK ex-perience. Monetary Theory and Practice , 91–121. Graesser, A.C., Lu, S., Jackson, G.T., Mitchell, H.H., Ventura, M., Olney, A., Louwerse, M.M., 2004. AutoTutor: A tutor with dialogue in natural language. Behavior Research Methods, Instruments, & Computers 36, 180–192. Guttag, J.V., 2021. Introduction to Computation and Programming Using Python. 3rd ed., MIT Press, Cambridge, MA. Hadfield-Menell, D., Muthukrishna, M., Dragan, A., Russell, S., 2017. Inverse reward design, in: Advances in Neural Information Processing Systems (NeurIPS). Hayes, C.F., Rădulescu, R., Bargiacchi, E., Källström, J., Macfarlane, M., Reymond, M., Verstraeten, T., Zintgraf, L.M., Dazeley, R., Heintz, F., et al., 2022. A practical guide to multi-objective reinforcement learning and planning. Autonomous Agents and Multi-Agent Systems 36, 26. Heffernan, N.T., Heffernan, C.L., 2014. The ASSISTments ecosystem: Build-ing a platform that brings scientists and teachers together for minimally invasive research on human learning and teaching. International Journal of Artificial Intelligence in Education 24, 470–497. 34 Holmes, W., Porayska-Pomsta, K., Holstein, K., Sutherland, E., Baker, T., Shum, S.B., Santos, O.C., Rodrigo, M.M.T., Cukurova, M., Bitten-court, I.I., Koedinger, K.R., 2022. Ethics of AI in education: Towards a community-wide framework. International Journal of Artificial Intelligence in Education 32, 504–526. Holstein, K., Wortman Vaughan, J., Daumé III, H., Dudik, M., Wallach, H., 2019. Improving fairness in machine learning systems: What do industry practitioners need?, in: Proceedings of the 2019 CHI Conference on Human Factors in Computing Systems, pp. 1–16. Hu, Y., et al., 2024. Decision making for autonomous vehicles: A mixed curriculum reinforcement learning approach and a novel safety intervention method, in: Engineering Applications of Artificial Intelligence, Elsevier. Iglesias, A., Martínez, P., Aler, R., Fernández, F., 2009. Experience-based reinforcement learning applied to learning how to teach, in: Proceedings of the 14th International Conference on Artificial Intelligence in Education (AIED 2009), pp. 283–290. Islam, M.M., Yang, X., Debnath, R., Shoukarjya Saha, A., Chi, M., 2025. A generalized apprenticeship learning framework for capturing evolving student pedagogical strategies, in: Proceedings of the 26th International Conference on Artificial Intelligence in Education (AIED 2025), Springer. Kasneci, E., Seßler, K., Küchemann, S., Bannert, M., Dementieva, D., Fis-cher, F., Gasser, U., Groh, G., Günnemann, S., Hüllermeier, E., et al., 2023. ChatGPT for good? on opportunities and challenges of large lan-guage models for education. Learning and Individual Differences 103, 102274. Koedinger, K.R., Brunskill, E., Baker, R.S., McLaughlin, E.A., Stamper, J., 2013. New potentials for data-driven intelligent tutoring system develop-ment and optimization. AI Magazine 34, 27–41. Krakovna, V., Uesato, J., Mikulik, V., Rahtz, M., Everitt, T., Kumar, R., Kenton, Z., Leike, J., Legg, S., 2020. Specification gaming: The flip side of AI ingenuity. DeepMind Blog. Kulik, J.A., Fletcher, J.D., 2016. Effectiveness of intelligent tutoring systems: A meta-analytic review. Review of Educational Research 86, 42–78. 35 Kushwaha, A., et al., 2025. A survey of safe reinforcement learning and constrained MDPs: A technical survey on single-agent and multi-agent safety. arXiv preprint arXiv:2505.17342 . Leike, J., Krueger, D., Everitt, T., Martic, M., Maini, V., Legg, S., 2018. Scalable agent alignment via reward modeling: A research direction. arXiv preprint arXiv:1811.07871 . Lutz, M., 2013. Learning Python. 5th ed., O’Reilly Media, Sebastopol, CA. MacLellan, C.J., Harpstead, E., Aleven, V., Myers, B.A., 2022. The Ap-prentice learner architecture: Closing the loop with simulated learners in learning engineering. International Journal of Artificial Intelligence in Ed-ucation 32, 467–502. Mandel, T., Liu, Y.E., Levine, S., Brunskill, E., Popovic, Z., 2014. Of-fline policy evaluation across representations with applications to educa-tional games, in: Proceedings of the 13th International Conference on Autonomous Agents and Multi-Agent Systems (AAMAS), pp. 1077–1084. Manheim, D., Garrabrant, S., 2019. Categorizing variants of Goodhart’s law. arXiv preprint arXiv:1803.04585 . Maurya, K.K., Kochmar, E., 2025. Pedagogy-driven evaluation of generative AI-powered intelligent tutoring systems, in: Proceedings of the 26th Inter-national Conference on Artificial Intelligence in Education (AIED 2025), Springer. Nie, A., Reuel, A., Brunskill, E., 2023. Understanding the impact of rein-forcement learning personalization on subgroups of students in math tu-toring, in: Proceedings of the 24th International Conference on Artificial Intelligence in Education (AIED 2023), Springer. Nie, A., et al., 2025. AI tutoring outperforms in-class active learning: An RCT introducing a novel research-based design in an authentic educational setting. Scientific Reports 15. Nwana, H.S., 1990. Intelligent tutoring systems: An overview. Artificial Intelligence Review 4, 251–277. 36 Ouyang, L., Wu, J., Jiang, X., Almeida, D., Wainwright, C.L., Mishkin, P., Zhang, C., Agarwal, S., Slama, K., Ray, A., et al., 2022. Training language models to follow instructions with human feedback. Advances in Neural Information Processing Systems (NeurIPS) 35, 27730–27744. Pan, A., Bhatia, K., Steinhardt, J., 2022. The effects of reward misspec-ification: Mapping and mitigating misaligned models. arXiv preprint arXiv:2201.03544 . Pan, A., Jones, E., Jagadeesan, M., Steinhardt, J., 2024. Feedback loops with language models drive in-context reward hacking, in: Proceedings of the 41st International Conference on Machine Learning (ICML). Pavlik, P.I., Cen, H., Koedinger, K.R., 2009. Performance factors analysis — a new alternative to knowledge tracing, in: Proceedings of the 14th Inter-national Conference on Artificial Intelligence in Education (AIED 2009), IOS Press. pp. 531–538. Piech, C., Bassen, J., Huang, J., Ganguli, S., Sahami, M., Guibas, L.J., Sohl-Dickstein, J., 2015. Deep knowledge tracing, in: Advances in Neural Information Processing Systems (NeurIPS). Rafferty, A.N., Brunskill, E., Griffiths, T.L., Shafto, P., 2016. Faster teaching via POMDP planning. Cognitive Science 40, 1290–1332. Ray, A., Achiam, J., Amodei, D., 2019. Benchmarking safe exploration in deep reinforcement learning. arXiv preprint arXiv:1910.01708 . Roijers, D.M., Vamplew, P., Whiteson, S., Dazeley, R., 2013. A survey of multi-objective sequential decision-making. Journal of Artificial Intelli-gence Research 48, 67–113. Russell, S., 2019. Human Compatible: Artificial Intelligence and the Problem of Control. Viking. Sanz Ausin, M., Abdelshiheed, M., Barnes, T., Chi, M., 2023. A unified batch hierarchical reinforcement learning framework for pedagogical policy induction with deep bisimulation metrics, in: Proceedings of the 24th In-ternational Conference on Artificial Intelligence in Education (AIED 2023), Springer. 37 Sanz Ausin, M., Maniktala, M., Barnes, T., Chi, M., 2020. Exploring the impact of simple explanations and agency on batch deep reinforcement learning induced pedagogical policies, in: Proceedings of the 21st Inter-national Conference on Artificial Intelligence in Education (AIED 2020), Springer. pp. 472–485. Shihab, S., et al., 2025. Detecting and mitigating reward hacking in reinforce-ment learning systems: A comprehensive empirical study. arXiv preprint arXiv:2507.05619 . Skalse, J., Howe, N.H.R., Krasheninnikov, D., Krueger, D., 2022. Defining and characterizing reward hacking, in: Advances in Neural Information Processing Systems (NeurIPS), pp. 12763–12775. Steenbergen-Hu, S., Cooper, H., 2014. A meta-analysis of the effectiveness of intelligent tutoring systems on college students’ academic learning. Journal of Educational Psychology 106, 331–347. Sutton, R.S., Barto, A.G., 2018. Reinforcement Learning: An Introduction. 2nd ed., MIT Press. Tessler, C., Mankowitz, D.J., Mannor, S., 2019. Reward constrained pol-icy optimization, in: Proceedings of the 7th International Conference on Learning Representations (ICLR). VanLehn, K., 2006. The behavior of tutoring systems. International Journal of Artificial Intelligence in Education 16, 227–265. VanLehn, K., 2011. The relative effectiveness of human tutoring, intelligent tutoring systems, and other tutoring systems. Educational Psychologist 46, 197–221. Vygotsky, L.S., 1978. Mind in society: The development of higher psycho-logical processes . Wachi, A., Sui, Y., 2020. Safe reinforcement learning in constrained Markov decision processes, in: Proceedings of the 37th International Conference on Machine Learning (ICML), pp. 9797–9806. Webb, N.L., 1997. Research monograph number 6: Criteria for alignment of expectations and assessments on mathematics and science education. Council of Chief State School Officers . 38 Weng, L., 2024. Reward hacking in reinforcement learning. https:// lilianweng.github.io/posts/2024-11-28-reward-hacking/ . Lil’Log Blog. Woolf, B.P., 2008. Building Intelligent Interactive Tutors: Student-Centered Strategies for Revolutionizing e-Learning. Morgan Kaufmann. Yan, L., Sha, L., Zhao, L., Li, Y., Martinez-Maldonado, R., Chen, G., Li, X., Jin, Y., Gaševic, D., 2024. Practical and ethical challenges of large lan-guage models in education: A systematic scoping review. British Journal of Educational Technology 55, 90–112. Yudelson, M.V., Koedinger, K.R., Gordon, G.J., 2013. Individualized Bayesian knowledge tracing models, in: Proceedings of the 16th Inter-national Conference on Artificial Intelligence in Education (AIED 2013), Springer. pp. 171–180. Zhou, G., Azizsoltani, H., Sanz Ausin, M., Barnes, T., Chi, M., 2019. Hier-archical reinforcement learning for pedagogical policy induction, in: Pro-ceedings of the 20th International Conference on Artificial Intelligence in Education (AIED 2019), Springer. pp. 544–556. Zhuang, S., Hadfield-Menell, D., 2020. Consequences of misaligned AI, in: Advances in Neural Information Processing Systems (NeurIPS), pp. 15763– 15773. Ziegler, D.M., Stiennon, N., Wu, J., Brown, T.B., Radford, A., Amodei, D., Christiano, P., Irving, G., 2019. Fine-tuning language models from human preferences, in: arXiv preprint arXiv:1909.08593. 39 40 Appendix A. Full Behavioral Statistics              
+
+> Table A.11: Behavioral metric comparisons: SmartTutor (ST) versus baselines and ab-lations across all learner profiles ( n= 10 seeds per cell). ∆ = ¯ xST −¯xcomp ; positive values favour ST. Welch t-tests with Bonferroni correction ( αcorrected = 0 .05 /15 per met-ric). * Bonferroni-significant; †p < . 05 uncorrected; ns not significant; ‘—’ zero variance across all seeds. EO = Engagement-Only; MAS = Mastery-Only; MO = Multi-Objective (0.3/0.5/0.2). Per-seed RHSI comparisons appear in Table 7.
+
+Metric vs. Profile ∆ [95% CI] t(df) p d Bonf. 
+
+Pedagogical appropriateness 
+
+EO Struggling +0 .13 [+0 .07 , +0 .20 ] t(9) = 4.96 .001 2.22 *EO Average +0 .12 [+0 .05 , +0 .18 ] t(9) = 4.17 .002 1.87 *EO Advanced 0.00 — — — —MAS Struggling +0 .18 [+0 .10 , +0 .26 ] t(9) = 5.21 .001 2.33 *MAS Average +0 .16 [+0 .06 , +0 .25 ] t(9) = 3.79 .004 1.70 †
+
+MAS Advanced +0 .07 [−0.01 , +0 .15 ] t(9) = 1.93 .086 0.86 ns MO Struggling +0 .23 [+0 .15 , +0 .30 ] t(9) = 7.10 < . 001 3.18 *MO Average +0 .16 [+0 .07 , +0 .24 ] t(9) = 4.27 .002 1.91 *MO Advanced +0 .11 [−0.05 , +0 .27 ] t(9) = 1.57 .152 0.70 ns No C3 Struggling +0 .12 [+0 .05 , +0 .20 ] t(9) = 3.71 .005 1.66 †
+
+No C3 Average +0 .10 [+0 .05 , +0 .16 ] t(9) = 4.28 .002 1.92 *No C3 Advanced +0 .01 [−0.01 , +0 .02 ] t(9) = 1.05 .319 0.47 ns No C1 Struggling ≈ 0.00 t(9) = 1.05 .319 0.47 ns No C1 Average 0.00 — — — —No C1 Advanced 0.00 — — — —
+
+Inappropriate action count (per 150-interaction session) 
+
+EO Struggling −20 .2 [−29 .4, −11 .0] t(9) = −4.96 .001 −2.22 *EO Average −17 .8 [−27 .5, −8.1] t(9) = −4.17 .002 −1.87 *EO Advanced 0.0 — — — —MAS Struggling −26 .9 [−38 .6, −15 .2] t(9) = −5.21 .001 −2.33 *MAS Average −23 .5 [−37 .5, −9.5] t(9) = −3.79 .004 −1.70 †
+
+MAS Advanced −10 .1 [−22 .0, +1 .8] t(9) = −1.93 .086 −0.86 ns MO Struggling −33 .9 [−44 .7, −23 .1] t(9) = −7.10 < . 001 −3.18 *MO Average −23 .6 [−36 .1, −11 .1] t(9) = −4.27 .002 −1.91 *MO Advanced −16 .7 [−40 .8, +7 .4] t(9) = −1.57 .152 −0.70 ns No C3 Struggling −18 .2 [−29 .3, −7.1] t(9) = −3.70 .005 −1.66 †
+
+No C3 Average −15 .6 [−23 .8, −7.4] t(9) = −4.28 .002 −1.92 *No C3 Advanced −1.0 [−3.1, +1 .1] t(9) = −1.05 .319 −0.47 ns 
+
+Mastery gain ( ∆K)
+
+EO Struggling +0 .04 [−0.07 , +0 .15 ] t(9) = 0.77 .459 0.35 ns EO Average +0 .09 [−0.03 , +0 .22 ] t(9) = 1.74 .115 0.78 ns EO Advanced +0 .23 [+0 .09 , +0 .38 ] t(9) = 3.69 .005 1.65 †
+
+MAS Struggling +0 .08 [−0.04 , +0 .21 ] t(9) = 1.51 .166 0.67 ns MAS Average +0 .14 [+0 .00 , +0 .27 ] t(9) = 2.30 .046 1.03 †
+
+MAS Advanced +0 .14 [−0.03 , +0 .30 ] t(9) = 1.88 .092 0.84 ns 
+
+41 Appendix B. SmartTutor Knowledge Graph: Python Concept DAG 
+
+Table B.12 lists all 27 Python concepts comprising the SmartTutor knowl-edge graph, sourced from python_kg_research.json and loaded by ExplicitPythonKnowledgeGra 
+
+Concepts represent standard introductory-to-intermediate Python curricu-lum topics and were not constructed to fit the simulation; the DAG struc-ture reflects conventional pedagogical sequencing found in textbooks such as Guttag (2021) and Lutz (2013). DAG depth is the length of the longest path from any root node to the concept (i.e., the minimum number of prerequisite steps required before the concept becomes accessible). The single root node is Variables and Assign-ment (c01), reflecting that all Python knowledge ultimately depends on the ability to store and retrieve values. The accessible set A(Kt, θ min ) (Equation 1 in the main text) expands monotonically as mastery crosses θmin = 0 .5.Table B.12: SmartTutor knowledge graph: 27 Python concepts with DAG depth, direct prerequisites, and dif-ficulty tier. Depth = longest path from root (c01). Pre-requisite mastery threshold θmin = 0 .5 gates accessibility. Source: python_kg_research.json .ID Concept Depth Direct Prerequisites Difficulty c01 Variables and Assignment 0 — Beginner c02 Data Types (Basic) 1 c01 Beginner c03 String Operations 2 c02 Beginner c04 Arithmetic Operations 2 c02 Beginner c05 Input and Output 2 c02 Beginner c08 Lists (Basics) 2 c02 Beginner c06 Conditional Statements 3 c02, c04 Beginner c09 For Loops 3 c08 Beginner c14 Dictionaries 3 c08 Beginner c15 Tuples and Sets 3 c08 Beginner c19 String Formatting (Advanced) 3 c03, c05 Beginner c07 Boolean Logic 4 c06 Intermediate c10 While Loops 4 c06 Intermediate 
+
+> Continued on next page
+
+42 (Table B.12 continued) 
+
+ID Concept Depth Direct Prerequisites Difficulty c12 Functions (Basics) 4 c06, c09 Intermediate c16 List Comprehensions 4 c08, c09 Intermediate c11 Nested Loops 5 c09, c10 Intermediate c13 Function Scope 5 c12 Intermediate c17 Error Handling 5 c12 Intermediate c20 Classes and Objects (Basics) 5 c12, c14 Intermediate c23 Lambda Functions 5 c12 Intermediate c25 Modules and Imports 5 c12 Intermediate c18 File I/O 6 c05, c17 Advanced c21 Object-Oriented Concepts 6 c20 Advanced c24 Higher-Order Functions 6 c12, c23 Advanced c26 Recursion 6 c12, c13 Advanced c27 Algorithm Complexity 6 c09, c11, c12 Advanced c22 Inheritance 7 c21 Advanced 43

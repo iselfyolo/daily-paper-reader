@@ -1,0 +1,707 @@
+Title: Synthesis4AD: Synthetic Anomalies are All You Need for 3D Anomaly Detection
+
+URL Source: https://arxiv.org/pdf/2604.04658v1
+
+Published Time: Tue, 07 Apr 2026 02:02:48 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+> 1
+
+# Synthesis4AD: Synthetic Anomalies are All You Need for 3D Anomaly Detection 
+
+Yihan Sun ∗, Student Member, IEEE , Yuqi Cheng ∗, Graduate Student Member, IEEE , Junjie Zu, Yuxiang Tan, Guoyang Xie, Member, IEEE , Yucheng Wang, Yunkang Cao †, Member, IEEE , Weiming Shen †, Fellow, IEEE 
+
+Abstract —Industrial 3D anomaly detection performance is fundamentally constrained by the scarcity and long-tailed dis-tribution of abnormal samples. To address this challenge, we propose Synthesis4AD , an end-to-end paradigm that leverages large-scale, high-fidelity synthetic anomalies to learn more dis-criminative representations for 3D anomaly detection. At the core of Synthesis4AD is 3D-DefectStudio , a software platform built upon the controllable synthesis engine MPAS , which injects geometrically realistic defects guided by higher-dimensional sup-port primitives while simultaneously generating accurate point-wise anomaly masks. Furthermore, Synthesis4AD incorporates a multimodal large language model (MLLM) to interpret product design information and automatically translate it into executable anomaly synthesis instructions, enabling scalable and knowledge-driven anomalous data generation. To improve the robustness and generalization of the downstream detector on unstructured point clouds, Synthesis4AD further introduces a training pipeline based on spatial-distribution normalization and geometry-faithful data augmentations, which alleviates the sensitivity of Point Transformer architectures to absolute coordinates and improves feature learning under realistic data variations. Extensive ex-periments demonstrate state-of-the-art performance on Real3D-AD, MulSen-AD, and a real-world industrial parts dataset. The proposed synthesis method MPAS and the interactive system 3D-DefectStudio will be publicly released at https://github.com/ hustCYQ/Synthesis4AD . 
+
+Index Terms —3D Anomaly Detection; Point Cloud Anomaly Detection; Anomaly Synthesis; Point Transformer; Multimodal Large Language Model 
+
+*These authors contributed equally to this work. 
+
+> †
+
+Co-corresponding authors. Manuscript received xxxx; revised xxxx; accepted xxxx. This work was supported by Fundamental Research Funds for the Central Universities (HUST: 2021GCRC058) and was part by the HPC Platform of Huazhong University of Science and Technology where the computation is completed. (Corresponding author: Yunkang Cao and Weiming Shen )Yihan Sun, Yuqi Cheng, Junjie Zu, Yuxiang Tan and Weiming Shen are with the National Center of Technology Innovation for Intelligent Design and Numerical Control, Huazhong University of Science and Technology, Wuhan 430074, China (e-mail: yihansun@hust.edu.cn; yuqicheng@hust.edu.cn; jjzu@hust.edu.cn; yuxiangtan@hust.edu.cn; wshen@ieee.org). Yunkang Cao is with the School of Artificial Intelligence and Robotics, Hunan University, Changsha 410082, China (e-mail: caoyunkang@ieee.org). Guoyang Xie is with the Department of Intelligent Manufacturing, Contemporary Amperex Technology Ltd., Ningde 352000, China (e-mail: guoyang.xie@ieee.org). Yucheng Wang is with the Institute for Infocomm Research, A*STAR, Singapore 138632, and also with the School of Electrical and Electronic Engineering, Nanyang Technological University, Singapore 639798 (e-mail: yucheng003@e.ntu.edu.sg). This work has been submitted to the IEEE for possible publication. Copyright may be transferred without notice, after which this version may no longer be accessible. 
+
+TABLE I COMPARISON OF SUPPORTED ANOMALY CATEGORIES BETWEEN CURRENT 3D ANOMALY SYNTHESIS METHODS AND OUR MPAS 
+
+METHOD . MPAS ENABLES DIVERSE AND REALISTIC DEFECT GENERATION ACROSS MULTIPLE DIMENSIONS OF PRIMITIVES .
+
+Method Type 1D Primitives 2D Primitives 3D Primitives 
+
+Sphere Scratch Bent Crack Freeform Defect Group3D [13] ✓ ✗ ✗ ✗ ✗
+
+R3D-AD [14] ✓ ✗ ✗ ✗ ✗
+
+GLFM [15] ✓ ✗ ✗ ✗ ✗
+
+MC4AD [16] ✓ ✓ ✗ ✗ ✗
+
+PLANE [17] ✓ ✓ ✗ ✗ ✗
+
+Ours ✓ ✓ ✓ ✓ ✓
+
+I. I NTRODUCTION 
+
+Industrial visual anomaly detection has long been con-strained by the limited availability of anomalous samples [1], [2], [3], [4], and this challenge is further intensified in 3D anomaly detection, where data acquisition is substantially more demanding. As a result, unsupervised anomaly detec-tion (UAD) has become a prevalent setting, where models are trained exclusively on normal data and are expected to flag abnormalities at deployment [5], [6], [7], [8]. However, real-world failures are inherently open-ended and long-tailed ,which induces a pronounced train–test distribution shift: mod-els learned on a narrow normal manifold must generalize to diverse, previously unseen structural defects [9], [10], [11], [12]. Consequently, learning only from normal samples often provides insufficient inductive bias to form representations that are reliably sensitive to subtle geometric/structural deviations. To inject anomaly awareness, recent paradigms synthesize artificial defects during training. However, this strategy is inherently limited by a lack of physics-isomorphism . As il-lustrated in the qualitative comparison in Fig. 1(a), existing approaches predominantly rely on 1D primitives (e.g., singu-lar points or thin curves) to anchor synthetic perturbations, as summarized in Table 1. This naive geometric tampering produces “toy-level” anomalies—such as homogeneous pro-trusions or regularized scratches—that are rigidly confined to highly localized regions. Because these formulations fail to model the spatially extended, complex topological distortions characteristic of real-world mechanical damage, their appli-cability to diverse industrial scenarios remains systematically bottlenecked. To transcend these limitations, we propose Multi-         
+
+> arXiv:2604.04658v1 [cs.CV] 6 Apr 2026 2(a) Previous methods (b) The proposed MPAS
+> Fig. 1: Comparison between previous methods and our method in 3D anomaly synthesis. In (b), from top to bottom, the rows illustrate anomalies synthesized based on 1D, 2D, and 3D primitives, respectively.
+
+dimensional Primitive-Guided Anomaly Synthesis (MPAS), a framework that shifts the synthesis paradigm from heuristic local perturbations to physics-isomorphic geometric modeling. In contrast to prior approaches that rely on point- or curve-based supports, our method considers higher-dimensional ge-ometric supports, such as surface regions or spatially bounded volumes, to guide anomaly generation. This design enables the synthesis of more complex defect patterns, including bending, structural damage, and free-form deformations, which are difficult to achieve with low-dimensional supports. As shown in Fig. 1(b), our method produces anomalies with irregular boundaries, heterogeneous surface deformations, and coherent structural distortions that are well aligned with the underlying object geometry. This comprehensive synthesis capability pro-vides more informative abnormal patterns and leads to more effective representation learning for 3D anomaly detection. To bridge the gap between abstract engineering knowl-edge and concrete geometric generation, we propose Syn-thesis4AD , an end-to-end procedural pipeline. At its core is 
+
+3D-DefectStudio , an interactive platform and programmatic Python API that enables scalable, high-fidelity defect injec-tion and simultaneous ground-truth mask generation. Synthe-sis4AD fundamentally elevates this process by introducing a Multimodal Large Language Model (MLLM) as a cognitive-to-geometric translator. The MLLM parses abstract product design specifications, autonomously converting them into exe-cutable MPAS synthesis instructions. Furthermore, to stabilize learning across diverse geometric topologies, Synthesis4AD introduces a robust detector training pipeline utilizing spatial-distribution normalization (SDN) and geometry-faithful aug-mentations. During deployment, the learned representations are evaluated via prototype-based feature matching, yielding both point-wise localization maps and object-wise anomaly scores. The main contributions of this work can be summarized as follows:  
+
+> •
+
+We propose MPAS, a novel physics-isomorphic gener-ation framework that mathematically models real-world defects across multi-dimensional primitives.  
+
+> •
+
+We develop Synthesis4AD and its core engine 3D-DefectStudio , pioneering the first cognitive-to-geometric synthesis paradigm. By leveraging MLLMs, it translates abstract engineering priors into scalable, high-fidelity 3D defect generation.  
+
+> •
+
+We introduce a robust representation learning pipeline featuring Spatial-Distribution Normalization (SDN) and geometry-faithful augmentations.  
+
+> •
+
+Extensive experiments demonstrate that our approach achieves state-of-the-art detection and localization per-formance on public benchmarks and exhibits exceptional generalization on real-world industrial scans. The remainder of this paper is organized as follows. Sec-tion II reviews related work on 3D anomaly detection and anomaly synthesis. Section III introduces the proposed MPAS framework and details its design principles. Section IV in-troduces 3D-DefectStudio and the Synthesis4AD workflow, including the detector training pipeline. Experimental results on multiple benchmarks and real-world scenarios are reported in Section V. Finally, Section VI concludes the paper and outlines directions for future work. II. R ELATED WORK 
+
+A. Unsupervised 3D Anomaly Detection 
+
+Unsupervised 3D anomaly detection [18], [19] aims to dis-tinguish abnormal samples from normal ones without access to defect annotations, where the core challenge lies in learning discriminative feature representations solely from normal data. Early methods predominantly relied on handcrafted geometric descriptors. For example, BTF [20] employs manually de-signed operators to characterize local geometric variations. However, such handcrafted features often lack sufficient ex-pressiveness to capture complex defect patterns. Subsequent works have attempted to leverage deep point cloud encoders to improve feature representation. M3DM [21] directly utilizes point features extracted from the pre-trained PointMAE [22]. Nevertheless, due to the limited availability of large-scale point cloud datasets, existing pre-trained models remain suboptimal in capturing fine-grained geometric anomalies, resulting in insufficient discriminative power for anomaly detection. To alleviate the scarcity of powerful 3D encoders, projection-based methods [23], [24], [25], [26] have been proposed to exploit the strong representation capabilities of 2D visual mod-els. These approaches project 3D point clouds into multiple 2D views and apply pre-trained image encoders for feature extraction. While effective for surface-level inspection, such methods are inherently limited to 2.5D representations and struggle to faithfully model full 3D geometric structures. Alternatively, some methods incorporate additional geometric priors to reduce feature ambiguity. Reg3D [27], RegAD [28], and PointCore [29] perform point cloud registration [30], [31] prior to feature extraction, leveraging spatial correspondences to mitigate feature mismatching across samples. Although registration-aware strategies improve robustness to pose varia-tions, they do not fundamentally address the limited anomaly sensitivity of the underlying feature representations. Recogniz-ing the critical role of representation learning, several works 3
+
+have attempted to explicitly train or fine-tune point cloud encoders to enhance their descriptive capacity. 3D-ST [32] introduces a self-supervised learning objective that encourages the encoder to reconstruct dense local descriptors. Similarly, Shape-Guided [33] leverages neural implicit functions to su-pervise the training of a PointNet-based encoder. While these approaches enhance general geometric representation, they are primarily designed for shape understanding rather than anomaly awareness, and thus remain limited in distinguishing subtle abnormal structures from normal geometry. 
+
+B. 3D Anomaly Synthesis 
+
+Anomaly synthesis has proven to be an effective strategy for enhancing feature discriminability in 2D anomaly detec-tion [34], [35], [36], [37], and recent studies have extended this idea to the 3D domain. R3D-AD [14] synthesizes anomalies and employs a diffusion model to reconstruct abnormal inputs toward normality, thereby improving detection robustness. Group3D [13] also utilizes synthetic anomalies, introducing Alignment Ranking Loss and Uniformity Ranking Loss to supervise the training of point cloud encoders. Further extend-ing this direction, GLFM [15] constructs point-level anomaly masks to formulate a segmentation task and fine-tunes a Point Transformer encoder, demonstrating that exposure to synthetic anomalies can significantly enhance anomaly sensitivity. In contrast, PO3AD [38] adopts a different strategy by directly supervising the learning of feature offsets using anomalous samples. Despite these advances, the effectiveness of anomaly synthesis-based methods critically depends on the realism and diversity of the generated anomalies. Most existing approaches synthesize defects using simple geometric operations, such as spherical protrusions, holes, or scratches. These defect categories are limited in number and exhibit low intra-class diversity; for instance, protrusions are typically constrained to regular shapes such as circles or ellipses. However, real industrial products often exhibit complex defects induced by external forces, resulting in irregular deformations, structural bending, or free-form distortions that cannot be adequately de-scribed by existing synthesis strategies. Consequently, current methods fail to fully exploit the potential of anomaly synthesis for representation learning. To address this gap, we conduct an in-depth analysis of de-fect patterns observed in real industrial scenarios and propose a high-fidelity anomaly synthesis framework that systematically models anomalies as geometry-guided deformations across different spatial extents. Furthermore, we release an open-source library and an interactive system to improve the accessi-bility and practicality of anomaly synthesis. Building upon this framework, we introduce Synthesis4AD as a representative example to demonstrate how large-scale, realistic synthetic anomalies can be effectively leveraged to train anomaly-aware point cloud encoders. III. MPAS M ETHOD 
+
+Existing 3D anomaly synthesis paradigms predominantly rely on single, regularized geometric perturbations, which inevitably yield morphologically homogeneous defects and often fail to preserve the physical plausibility consistent with real defect formation mechanisms. To address these limitations, we propose Multi-dimensional Primitive-Guided 
+
+Anomaly Synthesis ( MPAS ). As illustrated in Fig. 2, MPAS anchors deformation generation on supporting primitives and progressively expands the controllable deformation degrees of freedom across dimensions. Specifically, at the 1D level ,points or line segments are selected as supporting primitives to enable precise localization and fine-grained regulation of local deformations; at the 2D level , planar supporting prim-itives are introduced to guide deformation propagation along stable surface patches, facilitating directional and continuous morphological variations; and in the 3D level , the object convex hull serves as a global supporting primitives that imposes an explicit geometric shape prior, thereby providing a unified boundary for synthesizing more complex free-form distortions. Through this hierarchical primitive-driven design, MPAS integrates deformation onset, spatial extent, and mag-nitude into a unified parametric control framework, enabling the synthesis of complex anomalies with strong generative expressiveness while retaining structural interpretability and geometric credibility. 
+
+A. 1D Primitive-based Deformation 
+
+MPAS exploits 1D primitives, denoted as MPAS-1D, to specifically synthesize point-like or line-like defects, including circular protrusions and depressions, holes, scratches, and grooves. MPAS-1D first selects multiple anchors to construct a deformation skeleton. This skeleton is then locally dilated into a neighborhood support to delineate the deformation region, which not only preserves the capability of generating discrete point anomalies but also enables continuous deformations with smoothly varying curvature. In particular, MPAS-1D can synthesize complex trajectories that traverse arbitrary surface topologies, thereby capturing the structural complexity and stochastic nature of real-world industrial defects. The overall pipeline is organized into the following stages: 
+
+Multi-Anchor Sequence Selection: To characterize the ge-ometry of a 1D primitive, we employ an ordered sequence of 
+
+m anchor points, denoted as A = {a1, a2, . . . , am} ⊂ P ,where m ≥ 1. This sequence forms the skeleton. MPAS-1D synthesizes either discrete point anomalies ( m = 1 ) or continuous, smooth surface deformations ( m > 1), depending on the number of anchor points. 
+
+Composite Geodesic Path Construction: To articulate con-secutive anchors with a dense, geometry-consistent path on the point cloud surface, we build an undirected graph G =({pi}, {eij }) by defining edges eij = ⟨pi, pj ⟩, where pj is among the k nearest neighbors of pi ∈ P . For linear primitives (m ≥ 2), Dijkstra’s algorithm [39] is employed to compute the shortest geodesic path π∗ 
+
+> k
+
+between each pair of consecutive anchors (ak, ak+1 ). The final 1D support region Γ is defined as the union of these sub-paths (noting that for m = 1 , Γ
+
+degenerates to the single anchor point): 
+
+π∗ 
+
+> k
+
+= arg min  
+
+> π∈Π( ak,ak+1 )
+
+X 
+
+> eij ∈π
+
+w(eij ) (1) 41D Primitive-based Deformation 
+
+2D Primitive-based Deformation 
+
+> 3D Primitive-based Deformation
+> Freeform Defect Sphere
+> Crack
+
+# …   
+
+> Bent
+> Arbitrary Mask
+> Arbitrary Distortion
+> )y+(x -
+> yx
+> 22
+> ey) sin( x) sin( A=z
+> 
+> 
+> 
+> Convex Hull Guidance
+> Scratch
+> 2
+> r-
+> e)] ,(2arctan cos[ A=z
+> 
+> 
+> xyr
+
+Normal sample 
+
+Fig. 2: MPAS framework leverages different dimensional primitives to automatically synthesize massive, realistic, and diverse 3D anomalous data. 
+
+Γ =
+
+> m−1
+
+[
+
+> k=1
+
+{pj ∈ P | ∃ eij ∈ π∗ 
+
+> k
+
+or pj ∈ { ak, ak+1 }} (2) where Π( ak, ak+1 ) denotes the set of all possible paths connecting ak and ak+1 , and w(eij ) represents the Euclidean distance between connected nodes. This formulation allows the synthesized anomaly to traverse complex geometries with arbitrary turning angles, significantly enriching the morpho-logical variety. 
+
+Region Expansion and Distortion: Taking the established geodesic region Γ as the central axis, the deformation/mask region Mr is constructed by expanding outward from Γ with radius r, thereby including all points in P located within this neighborhood: 
+
+Mr = {pj ∈ P | dj < r } , dj = min   
+
+> pv∈Γ
+
+∥pj − pv ∥ (3) The distortion direction ¯navg is determined by normalizing the average normal of points within Mr :
+
+¯navg = ¯n
+
+∥ ¯n∥2
+
+, ¯n = 1
+
+|Mr |
+
+X 
+
+> pj∈Mr
+
+nj (4) We then synthesize the anomaly by displacing each point along 
+
+¯navg according to its distance-dependent weight. Specifically, a linearly decaying displacement field is applied so that points closer to the central skeleton undergo larger deformation, while those near the boundary are progressively attenuated, thereby ensuring a smooth geometric transition: 
+
+p′ 
+
+> j
+
+= pj + dir · ¯navg ·
+
+
+
+1 − dj
+
+dmax 
+
+
+
+· d (5) where dir ∈ {1, −1} controls the deformation polarity, corresponding to protrusive and depressive anomalies, re-spectively; d denotes the peak deformation magnitude; and 
+
+dmax = max pk ∈Mr dk is the maximum distance within the mask region used for normalization. 
+
+B. 2D Primitive-based Deformation 
+
+Compared with MPAS-1D, MPAS-2D provides a natural extension for modeling more global structural anomalies under planar geometric constraints. Given a primitive plane, MPAS-2D first extracts its intersection band with the object point cloud, and then uses this band either as a fracture region for crack synthesis or as a hinge region for bending synthesis. The details are described below: 
+
+Primitive Plane Instantiation. We define a 2D primitive as a plane: 
+
+Π( n, c) = x ∈ R3 | n⊤(x − c) = 0 , (6) where n is the unit normal vector and c is a point on the plane. For each point pi ∈ P, we compute its signed distance to the plane: 
+
+si = n⊤(pi − c). (7) 
+
+Plane-Intersection Band Extraction. Since the intersection between a plane and a discrete point cloud is observed as a thin band rather than an ideal analytic curve, we extract a narrow intersection band around the plane: 
+
+Bδ =
+
+
+
+pi ∈ P | | si| < δ
+
+2
+
+
+
+, (8) where δ controls the thickness of the extracted band. This band serves as the common geometric basis for both bending and cracking generation. 5
+
+Bending Generation. For bending synthesis, the intersection band Bδ is first used to estimate a geometrically meaningful hinge axis. Specifically, we compute the centroid of the band 
+
+x0 = 1
+
+|B δ |
+
+X
+
+> pi∈B δ
+
+pi, (9) and fit a 3D line to Bδ via PCA. Let h denote the dominant principal direction of the covariance matrix of Bδ ; the hinge axis is then defined as: 
+
+ℓ(t) = x0 + th, t ∈ R. (10) We then partition the point cloud according to the signed distance si and define a continuous angular weight 
+
+αi =
+
+
+
+0, si ≤ − δ 
+
+> 2
+
+,si + δ/ 2
+
+δ , − δ 
+
+> 2
+
+< s i < δ 
+
+> 2
+
+,
+
+1, si ≥ δ 
+
+> 2
+
+,
+
+(11) so that points on one side of the plane remain unchanged, points on the other side undergo the full bending rotation, and points inside the intersection band transition smoothly between the two states. The deformed point is given by: 
+
+p′ 
+
+> i
+
+= x0 + R(αiθ, h) ( pi − x0) , (12) where R(αiθ, h) denotes the rotation matrix around axis h
+
+with angle αiθ, and θ is the maximum bending angle. The corresponding anomaly mask is defined as: 
+
+Mbend = {pi ∈ P | αi > 0} . (13) 
+
+Cracking Generation. For crack synthesis, the same inter-section band is treated as the fracture support. To simulate irregular fracture boundaries, we perturb the signed distance with a stochastic offset: 
+
+˜si = si + ηi, ηi ∼ N (0 , σ 2). (14) The points to be removed are then defined as: 
+
+Sremove =
+
+n
+
+pi ∈ P | | ˜si| < τ
+
+2
+
+o
+
+, (15) where τ denotes the crack width. The cracked point cloud is obtained by: 
+
+P′ = P \ S remove . (16) To provide point-wise supervision on the retained point cloud, we define the crack mask as the boundary band adjacent to the removed region: 
+
+Mcrack =
+
+n
+
+pi ∈ P′ | τ
+
+2 ≤ | ˜si| < τ
+
+2 + rc
+
+o
+
+, (17) where rc controls the thickness of the labeled crack boundary region. 
+
+C. 3D Primitive-based Deformation 
+
+While MPAS-1D and MPAS-2D effectively capture local-ized line-like defects and plane-induced structural anomalies, many real-world industrial defects exhibit spatially extended, free-form geometric deviations that cannot be adequately de-scribed by low-dimensional supports. To model such irregular-ities, we further introduce MPAS-3D, a high-flexibility defor-mation module that employs a 3D support primitive to define an adaptive surface patch and then applies locally parameter-ized free-form distortion followed by geometric regularization. Unlike fixed analytic primitives, this formulation decouples the support region from a predefined defect template, thereby enabling the synthesis of diverse yet geometrically coherent anomalies with higher morphological complexity and stronger physical plausibility. The pipeline consists of three stages: convex hull-guided mask generation, local parametric surface distortion, and local surface smoothing. 
+
+Convex Hull-Guided Mask Generation. To obtain a spatially adaptive support region with irregular boundaries, we instan-tiate the 3D primitive using a stochastic anchor set: 
+
+A = {a1, . . . , am} ⊂ P, (18) where the anchor points are sampled from the input point cloud and serve as control vertices for defining the deformation extent. Based on these anchors, we construct a convex hull 
+
+H [40], defined as the set of all convex combinations of A:
+
+H =
+
+( mX
+
+> k=1
+
+αkak
+
+> m
+
+X
+
+> k=1
+
+αk = 1 , α k ≥ 0
+
+)
+
+. (19) Rather than treating H as a solid volumetric region, we use its boundary surface ∂H as a geometric support to localize surface-level defects. The anomaly mask is then defined as the set of points lying within a narrow neighborhood of this boundary: 
+
+MH =
+
+
+
+pi ∈ P min  
+
+> q∈∂H
+
+∥pi − q∥2 < ϵ 
+
+
+
+, (20) where ϵ is a proximity threshold controlling the thickness of the selected surface patch. In this way, the support region is determined by the spatial arrangement of the anchors rather than by a hand-crafted geometric template, allowing the mask to adapt naturally to non-planar and spatially irregular local structures. 
+
+Local Parametric Surface Distortion. Once the support mask 
+
+MH is established, we synthesize the defect by defining a free-form displacement field over the selected surface patch. To this end, we first construct a local tangent coordinate system via PCA [41] over MH. Let c denote the centroid of the masked subset, and let {u, v} denote the two dominant principal directions spanning the local tangent plane. Each point pi ∈ M H is then projected onto this local frame to obtain 2D coordinates: 
+
+ui = ( pi − c)⊤u, vi = ( pi − c)⊤v. (21) On this local parameter domain, we define a scalar height field h : R2 → R to control the deformation profile. To achieve 6
+
+high expressiveness while retaining smoothness, h(u, v ) is modeled as a superposition of Gaussian basis functions: 
+
+h(ui, v i) = 
+
+> K
+
+X
+
+> k=1
+
+Ak exp 
+
+
+
+− (ui − μu,k )2 + ( vi − μv,k )2
+
+2σ2
+
+> k
+
+
+
+,
+
+(22) where K is the number of kernels, and Ak, (μu,k , μ v,k ),and σk denote the amplitude, center, and spatial spread of the k-th component, respectively. By varying the number, sign, scale, and spatial arrangement of these kernels, the proposed formulation can generate a broad family of multi-modal surface profiles, ranging from simple dents and bulges to compound free-form distortions. To preserve the local surface geometry, the displacement is applied along the point normal direction ni:
+
+˜pi = pi + h(ui, v i)ni. (23) This normal-aligned update ensures that the deformation fol-lows the local surface manifold instead of introducing arbitrary Cartesian offsets that may break geometric consistency. 
+
+Local Surface Smoothing. Directly applying a highly flex-ible parametric deformation may produce undesired high-frequency artifacts, especially near the boundary of the se-lected mask. To improve geometric continuity and better mimic naturally occurring material deformation, we perform a local smoothing step on the deformed subset. Specifically, we construct a k-nearest-neighbor graph over the intermediate points {˜pi} and denote the neighbor set of ˜pi by Ni. The final point position is updated by distance-weighted averaging: 
+
+p′ 
+
+> i
+
+= (1 −λ)˜ pi +λ X
+
+> j∈N i
+
+wij ˜pj , wij = d−1
+
+> ij
+
+P 
+
+> l∈N i
+
+d−1
+
+> il
+
+, (24) where λ ∈ [0 , 1] controls the smoothing strength and 
+
+dij = ∥˜pi − ˜pj ∥2. (25) This regularization suppresses spurious local oscillations while preserving the overall defect morphology, thus allowing the synthesized anomaly to blend more naturally with the sur-rounding surface. In summary, MPAS-3D provides the highest representa-tional flexibility within the MPAS hierarchy by enabling adaptive support selection and free-form geometric deforma-tion on arbitrarily shaped surface patches. More importantly, it can be viewed as a generalized extension of the lower-dimensional primitives: when the support region degenerates to a narrow curve-like neighborhood or a plane-constrained band, the resulting deformation behavior approaches that of the 1D and 2D cases. This hierarchical design substantially enriches the diversity of synthetic anomalies and improves the coverage of complex defect distributions encountered in real industrial inspection scenarios. IV. S YNTHESIS 4AD S YSTEM 
+
+To move the proposed MPAS pipeline from an algorithmic design to a practically deployable industrial workflow, we further develop an end-to-end system, termed Synthesis4AD ,which unifies anomaly synthesis, detector training, and online inference within a single framework. Specifically, MPAS is encapsulated as a reusable Python library and an interac-tive software platform, 3D-DefectStudio , while an MLLM is introduced to transform multimodal product knowledge into structured synthesis instructions that can be directly executed by the MPAS backend. In this manner, Synthesis4AD enables the automatic generation of diverse, controllable, and labeled anomalous 3D samples from massive normal assets, thereby providing scalable supervision for downstream 3D anomaly detection. As illustrated in Fig. 3, Synthesis4AD is organized as a three-stage and tightly coupled pipeline that progressively transforms product-side knowledge into executable anomaly synthesis, then into effective supervisory signals for detector learning, and finally into reliable defect inference on real scanned data. 
+
+A. Stage I: Knowledge-Driven Data Synthesis 
+
+The first stage converts product knowledge into executable anomaly synthesis programs. Its inputs include: (i) design-side multimodal knowledge, and (ii) large collections of normal point clouds. The design-side knowledge is represented as: 
+
+Z = {I mv , Tspec , Eprior } , (26) where Imv denotes multi-view visual observations of the target asset (e.g., rendered views or CAD snapshots), Tspec denotes textual specifications such as structural descriptions, toler-ance constraints, and surface requirements, and Eprior denotes expert knowledge about plausible defect modes and critical regions. These complementary cues jointly inform what kind of anomaly should be synthesized, where it should be placed, and how strong the geometric perturbation should be. Given Z, the MLLM acts as a semantic parser to generate a machine-executable instruction tuple: 
+
+c = Φ ψ (Z) = {u, R, A, Θ} , (27) where Φψ is the MLLM-based parsing function, u specifies the anomaly type, R denotes the suggested anomaly region, 
+
+A specifies the algorithm interface to be invoked in 3D-DefectStudio (e.g., the corresponding MPAS-1D/2D/3D op-erator), and Θ denotes the synthesis parameter set, which may include operator-dependent geometric attributes such as length, width, depth, deformation magnitude, and other control variables. This structured representation serves as an interme-diate program layer that bridges semantic understanding and deterministic geometric synthesis. To ensure the generated instruction is physically executable on a target point cloud X, Synthesis4AD introduces a valida-tion module V(·, X ). This module performs schema checking to enforce format consistency and geometry-aware grounding to validate topological feasibility. Instructions that fail vali-dation are replaced by predefined rule-based templates from the operator library. The final executable instruction c∗ is formulated as: 
+
+c∗ =
+
+(
+
+c, if V(c, X ) is True ,
+
+crule , otherwise , (28) 7STAGE II: 
+
+Model Training 
+
+STAGE I: 
+
+Knowledge-Driven Data Synthesis 
+
+STAGE III: 
+
+Online Inference 
+
+Product Design Information 
+
+Text Expertise Multi-view 
+
+3D-DefectStudio 
+
+Anomaly Map 
+
+Data Scanning 
+
+Trained AD Model 
+
+> Track
+
+Call API 
+
+MLLM        
+
+> Location Type
+> Params Algo
+> [
+> { Type: Dent, Loc:{x:126,y:455,w:87,h:94},
+> Algo: 3D_Primitive, Params: { m: 6~10, A: 0.02 ~0.05 ,σ: 0.08 , ... }},
+> { Type: Scratch, Loc:{x:96,y:62,w:4,h:20} ,
+> Algo: 1D_Primitive, Params: { m: >20, r: 0.003 ~0.005 ,d: 0.002 , ... }}
+> ]
+
+Normal Data 
+
+…
+
+# …
+
+# …
+
+# …
+
+# …
+
+Generated Data 
+
+AD Model 
+
+> Spatial-Distribution
+> Normalization
+
+SDN 
+
+> Unified Voxel
+> Unit Ball
+
+Fig. 3: Overview of the proposed Synthesis4AD system. Stage I parses product-side knowledge, including expert priors, multi-view cues, and textual specifications, into executable synthesis instructions via an MLLM, and drives 3D-DefectStudio to inject controllable anomalies into large-scale normal 3D assets. Stage II trains the anomaly detector using the generated anomalous samples and their ground-truth masks. Stage III deploys the trained model for prototype-based online inference, producing both point-wise anomaly maps and object-wise anomaly scores from scanned test data. 
+
+where crule denotes a valid fallback instruction. This mecha-nism explicitly prevents physically implausible synthesis such as invalid placements or excessive deformations. Based on the validated instruction, 3D-DefectStudio calls the corresponding MPAS interface to inject anomalies into the normal sample and simultaneously produce the associated ground-truth annotation: 
+
+ Xanom , M gt  = GMPAS (X, c∗), (29) where GMPAS (·) denotes the deterministic anomaly generation operator implemented in the backend, Xanom is the synthesized anomalous point cloud, and M gt is its point-wise defect mask. Through this process, Stage I converts large-scale normal 3D assets into paired anomaly–annotation data suitable for downstream detector learning. 
+
+B. Stage II: Model Training 
+
+The synthesized anomaly–mask pairs generated in Stage I are subsequently used to train the downstream anomaly detector. By exposing the model to diverse anomaly types, spatial distributions, and geometric severities, Synthesis4AD provides effective supervision for learning discriminative 3D feature representations that generalize beyond a fixed product category. The detector adopts a Point Transformer [22] architec-ture for hierarchical point feature encoding, followed by a lightweight MLP-based segmentation head for dense point-wise supervision during training. Following the training pro-tocol of GLFM [15], each synthesized anomalous point cloud is fed into the encoder to produce contextualized point-wise representations, and the segmentation head predicts a dense bi-nary map that is optimized against the corresponding synthetic anomaly mask. In this way, the detector directly exploits large-scale, high-fidelity synthetic anomalies to learn task-aligned local geometric cues. It is worth noting that the segmentation head is introduced to inject dense supervisory signals during training, whereas the learned encoder is later reused in Stage III for feature-space prototype matching. Despite the availability of large-scale synthetic supervision, directly training Point Transformer backbones on raw point clouds remains non-trivial. First, point clouds are inherently unstructured, and industrial categories often exhibit substantial variations in object scale and sampling density, which can lead to unstable optimization and poor cross-category generaliza-tion. In addition, Point Transformer-style positional encodings are sensitive to absolute coordinates, making the learned features brittle, especially when the object pose changes at test time. To alleviate these issues, we introduce Spatial-Distribution Normalization (SDN) and a set of training-time data augmentations to regularize point statistics and reduce over-reliance on absolute coordinates. 
+
+Spatial-Distribution Normalization (SDN). Given an input point cloud P = {xi}Ni=1 with xi ∈ R3, SDN first maps each category into a canonical unit-ball space and then per-forms voxel downsampling with a unified voxel resolution. Specifically, for each category c, we compute its category-level bounding sphere characterized by a center oc and a radius rc.Each point is then normalized as: 
+
+˜xi = xi − oc
+
+rc
+
+, ˜P = {˜xi}Ni=1 , (30) 8
+
+such that ˜P lies within the unit ball, i.e., ∥˜xi∥2 ≤ 1.We subsequently apply voxel downsampling on ˜P with a fixed voxel size v0 shared across all categories, yielding a subsampled point set P ′ = {x′ 
+
+> j
+
+}N ′ 
+
+> j=1
+
+with N ′ ≪ N . In this way, SDN enforces a consistent effective geometric granu-larity across categories and reduces the scale-induced bias in coordinate statistics, which stabilizes training and improves cross-category generalization. 
+
+Data Augmentations. After SDN, we further apply a set of augmentations to improve robustness to pose changes and sensing artifacts commonly encountered in real acquisition. Concretely, for the normalized point set P ′, we utilize three standard transformations targeting specific geometric varia-tions: (1) Random Rotation to mitigate sensitivity to global object pose; (2) Noise Perturbation to simulate measurement uncertainty; and (3) Point Dropout to mimic missing observa-tions from self-occlusions or scanning limitations. In practice, these transformations are jointly applied during training. They encourage the encoder to learn local geometric representations that are less sensitive to global pose, while remaining robust to sensor noise and partial observations. 
+
+C. Stage III: Online Inference 
+
+After Stage II, the encoder has been trained to produce discriminative point-wise embeddings under dense synthetic supervision. To convert these learned representations into a practical detection mechanism, Synthesis4AD performs in-ference through a prototype-based matching scheme in the learned feature space. Before deployment, the trained encoder is first applied to normal training point clouds to extract point-wise features and construct a normal prototype set: 
+
+Q = {qk}Kk=1 , (31) which summarizes the distribution of normal local geometry in the embedding space. This prototype set serves as the reference model of normality for subsequent anomaly scoring. During online inference, a scanned test point cloud Xtest 
+
+is first processed using the same normalization pipeline as in Stage II, ensuring consistent geometric statistics between train-ing and deployment. The normalized test sample is then passed through the trained encoder to obtain point-wise features: 
+
+F(Xtest ) = {fi}Ni=1 . (32) For each point feature fi, its anomaly score is computed according to its deviation from the normal prototype set: 
+
+si = min  
+
+> 1≤k≤K
+
+d(fi, qk), (33) where d(·, ·) denotes the feature-space distance metric. In-tuitively, points that can be well explained by the normal prototypes receive low scores, whereas points that deviate significantly from the normal feature distribution are assigned higher anomaly scores. The point-wise scores {si}Ni=1 form a dense anomaly map for localized defect indication and visual assessment. To further support instance-level quality inspection, these point-wise responses are aggregated into an object-wise anomaly score: 
+
+S(Xtest ) = Agg  {si}Ni=1 
+
+ , (34) where Agg( ·) computes the mean of the top-K highest point-wise scores. In this way, Stage III simultaneously provides fine-grained defect localization and holistic sample-level ab-normality estimation. By tightly coupling knowledge-guided synthesis, supervised feature learning, and prototype-based deployment, Synthe-sis4AD forms a scalable and practical pipeline for 3D anomaly detection in complex industrial scenarios. V. E XPERIMENT 
+
+To comprehensively evaluate Synthesis4AD, we conduct ex-periments from four complementary perspectives: (i) assessing the realism of the synthesized anomalies, (ii) benchmarking Synthesis4AD on public 3D anomaly detection datasets, (iii) performing systematic ablations to quantify the impact of key design choices, and (iv) validating practical applicability through real-world experiments. 
+
+A. Evaluation of Synthetic Anomaly Realism 
+
+Anomaly realism is a prerequisite for using synthesized defects as effective supervision, since unrealistic perturbations tend to introduce spurious cues and yield biased representa-tions. Fig. 4 therefore visualizes our synthesis results against real defects. Real anomalies are shown as references, and MPAS is then applied to synthesize the same defect types under comparable geometric conditions; the magnified views reveal that the resulting distortions and boundary profiles closely follow those observed in real defects, indicating that MPAS can faithfully reproduce realistic defect morphologies at the geometric level. Importantly, MPAS is not limited to replicating existing patterns: by enabling compositional synthesis, it further produces more complex and heteroge-neous anomalies that combine multiple deformation modes, as illustrated by the additional rows. These compound defects substantially enrich the anomaly space and compensate for the limited coverage and diversity of real defect collections, thereby providing more challenging training signals for down-stream anomaly detection. The same conclusion is supported when the comparison is moved from geometry to representation space. We extract fea-tures of normal samples, real anomalies, and anomalies gener-ated by different synthesis strategies using the Synthesis4AD model trained in this work, and project them using t-SNE for distributional inspection. As shown in Fig. 5, generated anomalies consistently lie closer to the real-anomaly clusters and exhibit stronger overlap with them than competing synthe-sis methods, which either drift toward the normal manifold or form separated clusters. This feature-level alignment suggests that MPAS not only produces visually plausible defects, but also preserves the statistical characteristics of real anomalies that matter for representation learning. 9Real   
+
+> Anomalies
+> Realistic
+> Synthesis
+> Diverse
+> Synthesis
+> Fig. 4: Visualization of anomalies. From top to bottom: real anomalies, Synthesized anomalies by MPAS with the same types, and two rows of more diverse compound anomalies synthesized by MPAS. Red insets highlight defect regions for detailed comparison. Airplane Light
+> Fig. 5: t-SNE visualization of feature distributions. Normal samples and real anomalies are compared with synthetic anomalies generated by MPAS, GLFM, and R3D-AD.
+
+B. Performance on Public Benchmarks 1) Experimental Settings: We evaluate the proposed method on two public 3D anomaly detection benchmarks, Real3D-AD [27] and MulSen-AD [42]. Both datasets provide normal samples for training and contain anomalous instances for evaluation, together with point-wise anomaly annotations that enable fine-grained localization assessment. To quantify performance at different granularities, we report object-wise AUROC (O-ROC) and point-wise AUROC (P-ROC). O-ROC measures how well the model separates normal and anomalous objects using a single anomaly score per sample, whereas P-ROC evaluates the quality of localization by comparing predicted point-wise anomaly scores against the ground-truth masks across all points. 
+
+Implementation Details Synthesis4AD instantiates the MLLM component with Gemini 3 [43]. Guided by the cat-egory metadata provided by each benchmark, the MLLM generates structured synthesis instructions and invokes the 3D-DefectStudio APIs to construct 5,000 and 20,000 anomalous point clouds for Real3D-AD and MulSenAD, respectively. The feature extractor is then trained on these synthesized samples for 30k iterations with a batch size of 4 and a learning rate of 1e-5. All experiments are conducted on an NVIDIA RTX 5880 Ada (48GB) GPU. 
+
+Comparison Studies For a comprehensive comparison, we benchmark against representative 3D anomaly detection meth-ods including the widely used memory-bank baseline Patch-Core [29], instantiated with different feature representa-tions: using handcrafted FPFH [44] descriptors (PatchCore-FP), combining FPFH with additional raw geometric cues (PatchCore-FP-R), and using features extracted from a Point-MAE [22] backbone (PointCore-PM). We further com-pare with multi-view projection-based methods, including CPMF [23] and ISMP [25], as well as reconstruction-based approaches such as IMRNet [45] and MC3D-AD [19]. In ad-dition, we consider methods that exploit geometric alignment cues, including the registration-enhanced Reg3D-AD [27] and GroupAD [13]. Finally, we also include R3D-AD [14], GLFM [15], and PO3AD [38] to reflect the line of work that improves feature discriminability through synthesized anomalies. 
+
+2) Experimental Results: Table II summarizes the quan-titative results on Real3D-AD in terms of O-ROC/P-ROC. Overall, Synthesis4AD achieves the best mean performance with 80.9% O-ROC and 84.8% P-ROC, indicating superior ca-pability compared with competing methods. A key observation is that Synthesis4AD delivers robust detection across a wide range of categories: it reaches near-saturated accuracy on sev-eral classes with relatively clear abnormal patterns (e.g., Car: 96.3%/95.7%, Fish: 100%/97.0%, Toffees: 95.0%/97.0%), while still maintaining high P-ROC on categories where de-10 
+
+TABLE II 
+
+QUANTITATIVE RESULTS ON REAL 3D-AD. THE RESULTS ARE PRESENTED IN O-ROC%/P-ROC%. T HE BEST PERFORMANCE IS IN 
+
+> BOLD
+
+, AND THE SECOND BEST IS UNDERLINED .
+
+Method → CPMF R3D-AD R3D-AD Reg3D-AD Group3AD IMRNet ISMP PO3AD MC3D-AD GLFM Synthesis4AD 
+
+Category ↓ PR’24 ECCV’24 +MPAS NeurIPS’23 ACM MM’24 CVPR’24 AAAI’25 CVPR’25 IJCAI’25 TASE’25 Ours 
+
+Airplane 63.2/61.8 76.5/61.4 81.3/61.4 71.6/63.1 74.4/63.6 76.2/- 85.8 /75.3 80.4/- 85.0/62.8 54.6/74.3 62.1/ 83.6 
+
+Car 51.8/83.6 68.2/62.0 74.4/62.0 69.7/71.8 72.8/74.5 71.1/- 73.1/83.6 65.4/- 74.9/81.9 84.2/88.2 96.3 /95.7 
+
+Candybar 71.8/73.4 66.4/61.2 72.0/61.2 82.7/72.4 84.7/73.8 75.5/- 85.2 /90.7 78.5/- 83.0/ 91.0 71.5/79.7 79.8/87.6 Chicken 64.0/55.9 69.7/53.9 69.7/53.9 85.2 /67.6 78.6/75.9 78.0/- 71.4/ 79.8 68.6/- 71.5/64.0 68.8/62.4 74.2/78.5 Diamond 64.0/75.3 61.3/50.3 79.2/51.7 90.0/83.5 93.2/86.2 90.5/- 94.8/92.6 80.1/- 95.5 /94.2 71.2/76.8 76.3/ 95.3 
+
+Duck 55.4/71.9 80.5/50.3 80.5/56.1 58.4/50.3 67.9/63.1 51.7/- 71.2/87.6 82.0/- 83.1/82.2 94.5 /66.3 84.8/ 90.5 
+
+Fish 84.0/ 98.8 67.4/51.6 73.4/60.2 91.5/82.6 97.6/83.6 88.0/- 94.5/88.6 85.9/- 86.5/93.2 69.5/94.2 100 /97.0 Gemstone 34.9/44.9 46.7/49.1 63.2/57.9 41.7/54.5 53.9/56.4 67.4/- 46.8/ 85.7 69.3/- 56.0/45.8 68.8/75.0 72.5 /85.4 Seahorse 84.3/ 96.2 63.8/44.5 71.5/50.8 76.2/81.7 84.1/82.7 60.4/- 72.9/81.3 75.6/- 71.6/65.9 92.4 /81.5 90.9/83.1 Shell 39.3/72.5 64.7/50.2 81.6 /56.2 58.3/81.1 58.5/79.8 66.5/- 62.3/ 83.9 80.0/- 80.3/77.8 73.3/60.2 69.6/63.3 Starfish 52.6/ 80.0 68.6/45.1 79.4 /54.5 50.6/61.7 56.2/62.5 67.4/- 66.0/64.1 75.8/- 76.6/69.0 74.8/67.5 68.8/60.4 Toffees 84.5/95.9 65.6/44.2 75.8/51.6 68.5/75.9 79.6/80.3 77.4/- 84.2/89.5 77.1/- 73.8/93.4 76.3/93.5 95.0 /97.0 
+
+Mean 62.5/75.9 66.6/52.0 75.2/56.5 70.4/70.5 75.1/73.5 72.5/- 76.7/83.6 76.5/- 78.2/76.8 75.0/76.7 80.9 /84.8 
+
+TABLE III 
+
+QUANTITATIVE RESULTS ON MUL SEN -AD. THE RESULTS ARE PRESENTED IN O-ROC%/P-ROC%. T HE BEST PERFORMANCE IS IN 
+
+> BOLD
+
+, AND THE SECOND BEST IS UNDERLINED .
+
+Method → PatchCore-FP PatchCore-FP-R PatchCore-PM Reg3D-AD R3D-AD R3D-AD IMRNet GLFM Synthesis4AD 
+
+Category ↓ CVPR’22 CVPR’22 CVPR’22 NeurIPS’23 ECCV’24 +MPAS CVPR’24 TASE’25 Ours 
+
+Capsule 89.8/91.7 90.5/91.9 90.3/92.1 91.2/87.7 78.1/59.8 78.1/59.8 60.1/42.3 96.7 /93.0 91.2/86.0 Cotton 25.3/55.4 26.3/54.6 19.7/52.8 43.0/52.1 79.0/38.3 87.5/45.9 58.5/50.7 81.2/67.9 99.8 /75.8 
+
+Cube 72.3/57.5 66.8/43.7 72.2/41.7 56.9/62.6 73.4/60.5 73.4/60.5 43.2/56.6 75.6/68.0 90.2 /80.5 
+
+Spring pad 98.6/62.9 100 /60.1 96.5/62.1 95.1/ 80.2 44.4/49.5 82.6/59.7 65.1/40.1 100 /70.5 100 /77.7 Screw 97.9/57.8 93.1/61.0 99.7 /59.7 97.2/54.0 56.2/49.7 80.2/61.3 74.2/45.6 63.6/60.9 99.3/ 66.3 
+
+Screen 91.6/ 60.9 95.0/58.7 89.7/53.2 64.1/46.6 91.3/56.7 95.3/56.7 37.8/35.2 86.6/50.8 99.4 /60.0 Piggy 100 /84.8 99.7/62.4 98.2/60.3 86.6/63.5 97.2/54.8 100 /54.8 72.9/51.2 73.2/77.8 98.0/ 85.8 
+
+Nut 97.1/90.3 98.9 /89.6 98.9 /89.7 79.7/80.7 44.0/49.6 86.9/67.4 81.2/36.9 94.0/ 95.7 96.6/88.7 Flat pad 100 /70.7 89.3/67.8 94.4/63.0 90.8/69.2 87.0/60.5 91.3/64.5 71.4/54.2 94.6/ 77.2 94.6/74.3 Plastic cylinder 94.1 /83.0 90.8/76.6 93.6/76.9 76.5/67.0 56.9/57.6 74.5/63.9 62.1/41.2 81.5/67.8 81.5/71.2 Zipper 79.7/55.2 81.3/54.5 73.9/50.2 47.0/53.6 85.7/54.1 87.1/54.1 63.0/49.6 81.3/57.4 94.8 /61.5 
+
+Button cell 91.5 /38.2 68.7/51.2 79.7/47.8 78.2/70.6 62.8/49.8 68.7/54.5 70.2/48.5 56.7/43.3 73.1/ 75.4 
+
+Toothbrush 90.5 /60.5 88.8/60.4 89.1/ 60.6 81.2/47.2 78.0/57.0 81.3/58.5 61.5/51.9 84.9/57.8 85.9/40.9 Solar panel 62.4/20.2 60.5/26.5 61.2/27.4 66.0 /60.9 50.2/55.1 63.9/61.4 34.4/53.3 40.9/57.5 49.3/ 67.8 
+
+Light 97.5/ 70.7 100 /70.6 99.2/69.6 89.7/65.1 38.5/49.6 64.8/57.4 45.7/41.5 66.1/52.6 90.9/67.4 Mean 86.0/64.0 83.3/62.0 84.0/60.5 74.9/64.1 68.2/53.5 81.0/58.7 60.1/46.7 78.5/66.5 89.6 /72.0 
+
+fects are subtle or spatially extended (e.g., Diamond: 95.3%, Duck: 90.5%). The effectiveness of our synthesis component is further evidenced by the comparison between R3D-AD with and without MPAS. When simply replacing the original syn-thesis with MPAS, the mean performance improves markedly from 66.6%/52.0% to 75.2%/56.5%, demonstrating that MPAS provides higher-fidelity and more diverse abnormal patterns that better match real defect statistics, even without altering the downstream learning paradigm. Moreover, by incorporating richer data augmentation to increase data diversity and to re-duce sensitivity to absolute coordinates, Synthesis4AD learns more robust feature representations compared with GLFM, leading to a significant performance improvement. A similar trend is observed on MulSen-AD, as shown in Table III, where Synthesis4AD delivers the best mean performance of 89.6% O-ROC and 72.0% P-ROC, clearly ex-ceeding suboptimal PatchCore-FP and GLFM. Synthesis4AD substantially boosts performance on Cotton (99.8%/75.8%) and Cube (90.2%/80.5%), while remaining competitive on cat-egories that already exhibit high separability (e.g., Spring pad: 100%/77.7%, Piggy: 98.0%/85.8%). In addition, the ablated R3D-AD also benefits noticeably when its original synthesis is replaced by MPAS (From 68.2%/53.5% to 81.0%/58.7%), indicating that higher-fidelity and more diverse synthetic de-fects improve the alignment with real anomaly statistics even under the same downstream pipeline. Overall, these results suggest that the combination of realistic, geometry-consistent synthesis and mask-supervised representation learning enables Synthesis4AD to produce more reliable point-wise anomaly responses. The qualitative results further corroborate the quantitative gains. As shown in Fig.6, R3D-AD and GLFM often pro-duce dispersed responses and spurious activations over non-defective regions, especially on thin structures and smoothly 11 GT 
+
+> P
+> GLFM
+> R3D-AD
+> Synthesis4AD
+> Fig. 6: Qualitative comparison of on representative categories. From top to bottom: input point clouds ( P), ground-truth masks (GT), and predicted anomaly maps produced by R3D-AD, GLFM, and our Synthesis4AD. Warmer colors indicate higher anomaly scores.
+
+curved surfaces, which can inflate false positives and blur defect boundaries. In contrast, the anomaly maps produced by Synthesis4AD are more compact and mask-aligned, high-lighting the true defective regions with higher contrast while suppressing irrelevant background responses. Furthermore, as visualized in Fig. 7, Synthesis4AD achieves significantly clearer feature separation than MC3D-AD [19] and GLFM [15] under the identical PointMAE [22] backbone. Unlike MC3D-AD’s frozen encoder and GLFM’s fine-tuning limited by simple heuristic defects, Synthesis4AD fine-tunes the network using diverse, physics-isomorphic anomalies. This strategy explicitly injects richer structural defect knowledge, yielding a highly decoupled feature space that directly drives our precise anomaly localization. MC3D-AD GLFM Synthesis4AD 
+
+> Car Cube
+> Fig. 7: Feature distribution visualization of MC3D-AD, GLFM, and Synthesis4AD. All methods utilize the identical PointMAE backbone.
+
+C. Ablation Study 
+
+We conduct ablation studies to quantify the impact of (i) the anomaly types used for training, (ii) the amount of syn-                            
+
+> TABLE IV
+> ABLATION RESULTS ON THE IMPACT OF DIFFERENT ANOMALY TYPES USED DURING TRAINING .
+> MPAS-1D MPAS-2D MPAS-3D Real3D-AD MulSen-AD
+> ✓✗✗75.6/79.4 81.3/68.3
+> ✗✓✗73.3/76.2 80.8/65.1
+> ✗✗✓77.6/81.8 84.6/69.9
+> ✓✓✗77.2/80.5 83.7/69.4
+> ✓✗✓78.4/83.2 86.2/70.8
+> ✓✓✓80.9/84.8 89.6/72.0
+
+thesized anomalies, and (iii) the proposed spatial-distribution normalization (SDN) and geometry-faithful augmentations. All results are validated on Real3D-AD and MulSen-AD. 
+
+1) Impact of anomaly types: Table IV investigates how different anomaly supports affect performance, where MPAS-1D/2D/3D correspond to anomalies generated from MPAS utilizing 1D/2D/3D primitives, respectively. Only employing MPAS-1D yields limited gains, as the synthesized defects are largely localized and regular. Training with anomalies generated by MPAS-3D alone consistently outperforms other settings (MPAS-1D and MPAS-2D), indicating that volumetric supports better capture structurally coherent deformations. Moreover, combining anomaly types leads to further improve-ments, suggesting strong complementarity across geometric extents. In particular, enabling all three types achieves the best results (80.9%/84.8% on Real3D-AD and 89.6%/72.0% on MulSen-AD), improving over the best single-type setting by +3.3%/+3.0% and +5.0%/+2.1% in O-ROC/P-ROC, re-spectively. These observations validate our core motivation that higher-dimensional supports substantially expand the ex-pressive space of plausible 3D defects and provide more informative supervision for representation learning. 
+
+2) Impact of sample number: Further study results on the effect of the synthetic anomaly scale are reported in Fig. 8. Overall, increasing the number of synthesized anomalies yields a clear performance improvement on both Real3D-AD and 12 
+
+MulSen-AD, exhibiting an approximately monotonic upward trend. On Real3D-AD, O-ROC and P-ROC consistently in-crease as the training set grows from 1k to 5k, with the largest gain observed in the low-data regime from 1k to 2k. This sug-gests that even a modest increase in synthetic anomalies can substantially enhance defect diversity, quickly strengthening the supervision signal and encouraging the model to learn local geometric features more strongly correlated with anomalous patterns. On MulSen-AD, performance similarly improves as the anomaly count increases from 4k to 20k. While slight fluctuations appear at intermediate budgets—likely due to stochastic variations in the synthesized defect distribution—the overall trajectory remains upward and steadily exceeds the previous SOTA baselines (dashed lines). Collectively, these results corroborate our key claim that large-scale, high-fidelity anomaly synthesis offers scalable and effective supervision, improving both detection accuracy and generalization. 
+
+Fig. 8: Effect of synthetic anomaly scale on detection performance. O-ROC and P-ROC on Real3D-AD and MulSen-AD are reported as the number of synthesized anomalous training samples increases. The dashed lines indicate the previous SOTA results. 
+
+3) Impact of SDN and Data Augmentation: Table V re-ports the ablation results of Spatial-Distribution Normal-ization (SDN) and three augmentations (random rotations, noise perturbations, and point dropout) on Real3D-AD and MulSen-AD. Compared with the baseline without SDN and augmentations, introducing SDN alone yields a substan-tial improvement on both benchmarks, boosting Real3D-AD from 74.7%/77.5% to 78.3%/82.0% and MulSen-AD from 82.4%/65.2% to 86.5%/68.8%. This confirms that scale-aligned normalization effectively regularizes point cloud statis-tics and stabilizes training across category-dependent scales and densities. Building upon SDN, adding random rotations consistently improves performance, with 79.0%/83.1% on Real3D-AD and 87.4%/70.7% on MulSen-AD, indicating en-hanced robustness to pose variations and reduced sensitivity to absolute coordinates. Further incorporating noise perturbations brings additional gains, suggesting that modeling acquisition noise helps the encoder learn more transferable local geo-metric information. Point dropout also contributes comple-mentary benefits by simulating partial observations, which is especially relevant for real scanning artifacts. Combining SDN with all three augmentations, Synthesis4AD achieves the best performance, reaching 80.9%/84.8% on Real3D-AD and 89.6%/72.0% on MulSen-AD, demonstrating that SDN and the proposed augmentations are mutually reinforcing for improving both effectiveness and generalization. 
+
+TABLE V 
+
+ABLATION RESULTS ON THE IMPACT OF SDN AND DIFFERENT DATA AUGMENTATION .                                   
+
+> SDN Rotations Perturbations Dropout Real3D-AD MulSen-AD
+> ✗✗✗✗74.7/77.5 82.4/65.2
+> ✓✗✗✗78.3/82.0 86.5/68.8
+> ✓✓✗✗79.0/83.1 87.4/70.7
+> ✓✓✓✗80.1/84.2 88.9/71.4
+> ✓✓✗✓79.6/83.3 87.7/71.2
+> ✓✓✓✓80.9/84.8 89.6/72.0 3D Scanner
+> Parts
+
+b) a) 
+
+Fig. 9: Real-world industrial data collection and representative defect examples. (a) The 3D scanning setup is utilized to capture point clouds of industrial parts. (b) Abnormal samples from six object categories; red boxes highlight defective position. GT P R3D-AD MC3D-AD GLFM Synthesis4AD 
+
+Fig. 10: Visualization of prediction results in the actual industry parts dataset using the proposed method and other methods. The first column is the original point clouds, while the second column is the ground truth. Subsequent columns depict various methods. 
+
+D. Evaluation in Practical Industrial Parts 
+
+To evaluate the practicality of our system in real inspection scenarios, we build a real-world dataset by scanning physical industrial parts with a 3D scanner, as illustrated in Fig. 9 (a). The dataset covers six representative object categories— Bevel Gear, Brake Caliper, Connecting Rod, Crankshaft, Pis-ton, and Turbine Blade—with typical manufacturing defects highlighted in Fig. 9 (b). Following the standard unsupervised protocol, the training split contains only normal samples, consisting of 20 normal point clouds per category. The test split includes both normal and defective samples, with 10 normal and 30 abnormal point clouds, respectively. Table VI reports the quantitative results on the collected dataset. Overall, Synthesis4AD achieves a clear margin over all competing methods, reaching 95.9%/73.8% on average. 13 
+
+TABLE VI 
+
+QUANTITATIVE RESULTS ON ACTUAL INDUSTRY PARTS 
+
+DATASET . THE RESULTS ARE PRESENTED IN O-ROC%/P-ROC%. THE BEST PERFORMANCE IS IN BOLD .                                      
+
+> Method →R3D-AD MC3D-AD GLFM Synthesis4AD
+> Category ↓ECCV’24 IJCAI’25 TASE’25 Ours
+> Bevel Gear 63.7/42.5 80.7/62.1 83.7/64.1 100 /72.1
+> Brake Caliper 64.0/47.7 83.0/65.6 83.0/66.6 93.7 /70.1
+> Connecting Rod 56.8/54.2 80.0/63.7 68.0/66.3 97.3 /72.9
+> Crankshaft 44.3/53.1 91.3/69.5 81.3/65.8 87.7 /69.1
+> Piston 65.3/60.0 79.7/61.2 82.3/66.7 96.7 /75.9
+> Turbine Blade 71.0/51.6 73.3/60.6 98.7/65.2 100 /82.9
+> Mean 60.9/51.5 81.3/63.8 82.8/65.8 95.9 /73.8
+
+In particular, compared with the previous SOTA GLFM, our method Synthesis4AD improves the mean performance by +13.1% O-ROC and +8.0% P-ROC, indicating substantially stronger capability in both object-wise and point-wise detec-tion under real scanning conditions. Notably, Synthesis4AD attains near-saturated object-wise detection on several cate-gories, such as Bevel Gear and Turbine Blade with 100% O-ROC, while consistently maintaining higher P-ROC across all categories. These gains suggest that training with large-scale, high-fidelity synthetic anomalies leads to more discriminative features. Qualitative comparisons are further provided in Fig. 10, where columns show the input point clouds (P), ground-truth masks (GT), and predicted anomaly maps from different meth-ods. These baseline approaches tend to produce either diffuse responses or spurious activations on normal regions, resulting in false positives and fragmented localization. In contrast, Synthesis4AD yields more concentrated and geometry-aligned anomaly responses that better coincide with the annotated defect regions, while suppressing background noise on normal surfaces. This qualitative evidence is consistent with the quan-titative improvements in P-ROC, demonstrating that our model not only detects defective objects reliably but also localizes subtle defects more precisely in real industrial scans. VI. C ONCLUSION 
+
+In this work, we address the data scarcity and long-tail challenge in industrial 3D anomaly detection by constructing a unified system that couples high-fidelity anomaly synthe-sis with downstream detector learning and deployment. We first introduce Multi-dimensional Primitive-guided Anomaly Synthesis (MPAS), a high-fidelity 3D anomaly synthesis framework that generates diverse and geometrically realistic defects together with accurate point-wise anomaly masks. Built upon MPAS, we further develop 3D-DefectStudio, which provides both an interactive interface and a programmable Python API, making controllable and large-scale synthetic data generation practical for industrial use. On this basis, we propose Synthesis4AD , an end-to-end workflow that inte-grates knowledge-driven anomaly generation, supervised de-tector training, and prototype-based online inference within a single framework. Specifically, Synthesis4AD leverages a multimodal large language model (MLLM) to parse product design information, expert priors, and multimodal specifica-tions into executable synthesis instructions, which drive 3D-DefectStudio to generate anomalies that are better aligned with defects encountered in manufacturing and real usage. The resulting synthetic anomaly–mask pairs are then used to train the downstream detector, where spatial-distribution normalization and training-time data augmentations improve feature robustness and cross-category generalization. During deployment, the trained encoder is further combined with prototype-based feature matching to produce both object-level anomaly scores and point-wise localization results. Extensive experiments on public benchmarks, comprehensive ablation studies, and real-world inspections on industrial parts con-sistently demonstrate the effectiveness, robustness, and gen-eralization ability of the proposed system. The results show that Synthesis4AD provides a scalable and practical route toward reliable 3D anomaly detection, achieving state-of-the-art performance in both object-level detection and fine-grained point-wise localization. A current limitation of Synthesis4AD is that its workflow remains open-loop: the quality of synthesized anomalies is determined before detector training and is not further refined based on downstream performance. In future work, we plan to close this loop by feeding quantitative and qualitative feedback from training and inference back into the MLLM-driven synthesis module, enabling adaptive refinement of the generated anomalies. Such a closed-loop optimization process may further improve the quality of synthetic supervision, strengthen learned representations, and ultimately yield more robust deployment performance. REFERENCES [1] Hui Zhang, Zheng Wang, Dan Zeng, Zuxuan Wu, and Yu-Gang Jiang. Diffusionad: Norm-guided one-step denoising diffusion for anomaly detection. IEEE Transactions on Pattern Analysis and Machine Intelli-gence , 2025. [2] Haiming Yao, Wei Luo, Yunkang Cao, Yiheng Zhang, Wenyong Yu, and Weiming Shen. Global-regularized neighborhood regression for efficient zero-shot texture anomaly detection. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 2025. [3] Yunkang Cao, Xiaohao Xu, Yuqi Cheng, Chen Sun, Zongwei Du, Liang Gao, and Weiming Shen. Personalizing vision-language models with hybrid prompts for zero-shot anomaly detection. IEEE Transactions on Cybernetics , 55(4):1917–1929, 2025. [4] Qiyu Chen, Huiyuan Luo, Han Gao, Chengkan Lv, and Zhengtao Zhang. Progressive boundary guided anomaly synthesis for industrial anomaly detection. IEEE Transactions on Circuits and Systems for Video Technology , 2024. [5] Ye Liu, Yuanrong Tian, Yunlong Mi, Hui Liu, Jianqiang Wang, and Witold Pedrycz. Landmark block-embedded aggregation autoencoder for anomaly detection. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 2024. [6] Chengjie Wang, Haokun Zhu, Jinlong Peng, Yue Wang, Ran Yi, Yun-sheng Wu, Lizhuang Ma, and Jiangning Zhang. M3dm-nr: Rgb-3d noisy-resistant industrial anomaly detection via multimodal denoising. IEEE Transactions on Pattern Analysis and Machine Intelligence , 2025. [7] Yunkang Cao, Xiaohao Xu, Chen Sun, Liang Gao, and Weiming Shen. Bias: Incorporating biased knowledge to boost unsupervised image anomaly localization. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 54(4):2342–2353, 2024. [8] Yutong Wang, Jiangong Wang, Yansong Cao, Shixing Li, and Oliver Kwan. Integrated inspection on pcb manufacturing in cyber–physical–social systems. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 53(4):2098–2106, 2023. doi: 10.1109/TSMC.2022.3229096. 14 
+
+[9] Jiaqi Liu, Guoyang Xie, Jinbao Wang, Shangnian Li, Chengjie Wang, Feng Zheng, and Yaochu Jin. Deep industrial image anomaly detection: A survey. Machine Intelligence Research , 21(1):104–135, 2024. [10] Chao Huang, Zehua Yang, Jie Wen, Yong Xu, Qiuping Jiang, Jian Yang, and Yaowei Wang. Self-supervision-augmented deep autoencoder for un-supervised visual anomaly detection. IEEE Transactions on Cybernetics ,52(12):13834–13847, 2022. doi: 10.1109/TCYB.2021.3127716. [11] Jielin Jiang, Jiale Zhu, Muhammad Bilal, Yan Cui, Neeraj Kumar, Ruihan Dou, Feng Su, and Xiaolong Xu. Masked swin transformer unet for industrial anomaly detection. IEEE Transactions on Industrial Informatics , 19(2):2200–2209, 2022. doi: 10.1109/TII.2022.3199228. [12] Yunkang Cao, Xiaohao Xu, Zhaoge Liu, and Weiming Shen. Collabo-rative discrepancy optimization for reliable image anomaly localization. 
+
+IEEE Transactions on Industrial Informatics , pages 1–10, 2023. doi: 10.1109/TII.2023.3241579. [13] Hongze Zhu, Guoyang Xie, Chengbin Hou, Tao Dai, Can Gao, Jinbao Wang, and Linlin Shen. Towards high-resolution 3d anomaly detection via group-level feature contrastive learning. ACM Multimedia (ACM MM) , 2024. [14] Zheyuan Zhou, Le Wang, Naiyu Fang, Zili Wang, Lemiao Qiu, and Shuyou Zhang. R3d-ad: Reconstruction via diffusion for 3d anomaly detection. In European Conference on Computer Vision (ECCV) , 2024. [15] Yuqi Cheng, Yunkang Cao, Dongfang Wang, Weiming Shen, and Wen-long Li. Boosting global-local feature matching via anomaly synthesis for multi-class point cloud anomaly detection. IEEE Transactions on Automation Science and Engineering , 22:12560–12571, 2025. [16] Hanzhe Liang, Aoran Wang, Jie Zhou, Xin Jin, Can Gao, and Jinbao Wang. Examining the source of defects from a mechanical perspective for 3d anomaly detection. arXiv preprint arXiv:2505.05901 , 2025. [17] Jiaxiang Wang, Haote Xu, Xiaolu Chen, Haodi Xu, Yue Huang, Xinghao Ding, and Xiaotong Tu. Exploiting point-language models with dual-prompts for 3d anomaly detection. Expert Syst. Appl. , 298:129758, 2025. [18] Yuqi Cheng, Yihan Sun, Hui Zhang, Weiming Shen, and Yunkang Cao. Towards high-resolution 3d anomaly detection: A scalable dataset and real-time framework for subtle industrial defects. AAAI , 2026. [19] Jiayi Cheng, Can Gao, Jie Zhou, Jiajun Wen, Tao Dai, and Jinbao Wang. Mc3d-ad: A unified geometry-aware reconstruction model for multi-category 3d anomaly detection. arXiv preprint arXiv:2505.01969 ,2025. [20] Eliahu Horwitz and Yedid Hoshen. Back to the feature: classical 3d features are (almost) all you need for 3d anomaly detection. In 
+
+Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 2967–2976, 2023. [21] Yue Wang, Jinlong Peng, Jiangning Zhang, Ran Yi, Yabiao Wang, and Chengjie Wang. Multimodal industrial anomaly detection via hybrid fusion. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 8032–8041, 2023. [22] Yatian Pang, Eng Hock Francis Tay, Li Yuan, and Zhenghua Chen. Masked autoencoders for 3d point cloud self-supervised learning. World Scientific Annual Review of Artificial Intelligence , 1:2440001, 2023. [23] Yunkang Cao, Xiaohao Xu, and Weiming Shen. Complementary pseudo multimodal feature for point cloud anomaly detection. Pattern Recognition , 156:110761, 2024. [24] Yuqi Cheng, Yunkang Cao, Guoyang Xie, Zhichao Lu, and Weiming Shen. Towards zero-shot point cloud anomaly detection: A multi-view projection framework. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 2024. [25] Hanzhe Liang, Guoyang Xie, Chengbin Hou, Bingshu Wang, Can Gao, and Jinbao Wang. Look inside for more: Internal spatial modality perception for 3d anomaly detection. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 39, pages 5146–5154, 2025. [26] Qihang Zhou, Jiangtao Yan, Shibo He, Wenchao Meng, and Jiming Chen. Pointad: Comprehending 3d anomalies from points and pixels for zero-shot 3d anomaly detection. NeurIPS , 2024. [27] Jiaqi Liu, Guoyang Xie, Xinpeng Li, Jinbao Wang, Yong Liu, Chengjie Wang, Feng Zheng, et al. Real3d-ad: A dataset of point cloud anomaly detection. In Thirty-seventh Conference on Neural Information Processing Systems Datasets and Benchmarks Track , volume 36, 2024. [28] Chaoqin Huang, Haoyan Guan, Aofan Jiang, Ya Zhang, Michael Spratling, and Yan-Feng Wang. Registration based few-shot anomaly detection. In European Conference on Computer Vision , pages 303– 319. Springer, 2022. [29] Karsten Roth, Latha Pemula, Joaquin Zepeda, Bernhard Sch¨ olkopf, Thomas Brox, and Peter Gehler. Towards total recall in industrial anomaly detection. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 14318–14328, 2022. doi: 10.1109/CVPR52688.2022.01392. [30] Huijun Gao, Chao Ye, Weiyang Lin, and Jianbin Qiu. Complex workpiece positioning system with nonrigid registration method for 6-dofs automatic spray painting robot. IEEE Transactions on Systems, Man, and Cybernetics: Systems , 51(12):7305–7313, 2020. [31] Yuqi Cheng, Wenlong Li, Cheng Jiang, Dongfang Wang, Hongwen Xing, and Wei Xu. MVGR: Mean-variance minimization global registration method for multi-view point cloud in robot inspection. IEEE Transac-tions on Instrumentation and Measurement , pages 1–1, 2024. [32] Paul Bergmann and David Sattlegger. Anomaly detection in 3d point clouds using deep geometric descriptors. In 2023 IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , pages 2612– 2622, 2023. [33] Yu-Min Chu, Chieh Liu, Ting-I Hsieh, Hwann-Tzong Chen, and Tyng-Luh Liu. Shape-guided dual-memory learning for 3d anomaly detection. In Proceedings of the 40th International Conference on Machine Learn-ing , pages 6185–6194, 2023. [34] Yuxin Jiang, Wei Luo, Hui Zhang, Qiyu Chen, Haiming Yao, Weiming Shen, and Yunkang Cao. Anomagic: Crossmodal prompt-driven zero-shot anomaly generation. AAAI , 2026. [35] Ying Jin, Jinlong Peng, Qingdong He, Teng Hu, Jiafu Wu, Hao Chen, Haoxuan Wang, Wenbing Zhu, Mingmin Chi, Jun Liu, et al. Dual-interrelated diffusion model for few-shot anomaly image generation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 30420–30429, 2025. [36] Guan Gui, Bin-Bin Gao, Jun Liu, Chengjie Wang, and Yunsheng Wu. Few-shot anomaly-driven generation for anomaly classification and segmentation. In European conference on computer vision , pages 210– 226. Springer, 2024. [37] Jaewoo Song, Daemin Park, Kanghyun Baek, Sangyub Lee, Jooyoung Choi, Eunji Kim, and Sungroh Yoon. Defectfill: Realistic defect generation with inpainting diffusion model for visual inspection. In Pro-ceedings of the Computer Vision and Pattern Recognition Conference ,pages 18718–18727, 2025. [38] Jianan Ye, Weiguang Zhao, Xi Yang, Guangliang Cheng, and Kaizhu Huang. Po3ad: Predicting point offsets toward better 3d point cloud anomaly detection. In Proceedings of the Computer Vision and Pattern Recognition Conference , pages 1353–1362, 2025. [39] Philip L Frana and Thomas J Misa. An interview with edsger w. dijkstra. 
+
+Communications of the ACM , 53(8):41–47, 2010. [40] C Bradford Barber, David P Dobkin, and Hannu Huhdanpaa. The quick-hull algorithm for convex hulls. ACM Transactions on Mathematical Software (TOMS) , 22(4):469–483, 1996. [41] Andrzej Ma´ ckiewicz and Waldemar Ratajczak. Principal components analysis (pca). Computers & Geosciences , 19(3):303–342, 1993. [42] Wenqiao Li, Bozhong Zheng, Xiaohao Xu, Jinye Gan, Fading Lu, Xiang Li, Na Ni, Zheng Tian, Xiaonan Huang, Shenghua Gao, et al. Multi-sensor object anomaly detection: Unifying appearance, geometry, and internal properties. arXiv preprint arXiv:2412.14592 , 2024. [43] Gemini Team, Rohan Anil, Sebastian Borgeaud, Jean-Baptiste Alayrac, Jiahui Yu, Radu Soricut, Johan Schalkwyk, Andrew M Dai, Anja Hauth, Katie Millican, et al. Gemini: a family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 , 2023. [44] Radu Bogdan Rusu, Nico Blodow, and Michael Beetz. Fast point feature histograms (fpfh) for 3d registration. In 2009 IEEE international conference on robotics and automation , pages 3212–3217. IEEE, 2009. [45] Wenqiao Li and Xiaohao Xu. Towards scalable 3d anomaly detection and localization: A benchmark via 3d anomaly synthesis and a self-supervised learning network. 2024 IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR) , 2024.
