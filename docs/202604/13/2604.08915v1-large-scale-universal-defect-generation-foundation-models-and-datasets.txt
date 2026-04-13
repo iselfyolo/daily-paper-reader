@@ -1,0 +1,1819 @@
+Title: Large-Scale Universal Defect Generation: Foundation Models and Datasets
+
+URL Source: https://arxiv.org/pdf/2604.08915v1
+
+Published Time: Mon, 13 Apr 2026 00:34:43 GMT
+
+Number of Pages: 25
+
+Markdown Content:
+## Large-Scale Universal Defect Generation: Foundation Models and Datasets 
+
+Yuanting Fan * 1 Jun Liu * 1 Bin-Bin Gao 1 Xiaochen Chen 1 Yuhuan Lin 1 Zhewei Dai 1 Jiawei Zhan 1
+
+Chengjie Wang # 1
+
+Abstract 
+
+Existing defect/anomaly generation methods of-ten rely on few-shot learning, which overfits to specific defect categories due to the lack of large-scale paired defect editing data. This is-sue is aggravated by substantial variations in de-fect scale and morphology, resulting in limited generalization, degraded realism, and category consistency. We address these challenges by in-troducing UDG , a large-scale dataset of 300K normal-abnormal-mask-caption quadruplets span-ning diverse domains, and by presenting UniDG ,a universal defect generation foundation model that supports both reference-based defect genera-tion and text instruction-based defect editing with-out per-category fine-tuning. UniDG performs Defect-Context Editing via adaptive defect crop-ping and structured diptych input format, and fuses reference and target conditions through MM-DiT multimodal attention. A two-stage training strategy, Diversity-SFT followed by Consistency-RFT , further improves diversity while enhanc-ing realism and reference consistency. Exten-sive experiments on MVTec-AD and VisA show that UniDG outperforms prior few-shot anomaly generation and image insertion/editing baselines in synthesis quality and downstream single- and multi-class anomaly detection/localization. Code will be available at https://github.com/ RetoFan233/UniDG .
+
+1. Introduction 
+
+Anomaly detection is crucial in industrial inspection, medi-cal diagnosis, and many safety-critical applications. How-ever, abnormal samples are inherently scarce in real-world deployments, making it difficult to train reliable supervised detectors and localizers. Consequently, anomaly/defect gen-eration has emerged as a practical way to synthesize ab-normal samples and alleviate the data bottleneck for down-stream detection and localization. 
+
+> *
+
+Equal contribution 1Tencent Youtu Lab, Shenzhen, China. Cor-respondence to: Chengjie Wang <jasoncjwang@tencent.com >.
+
+Preprint. February 10, 2026. Diffusion                  
+
+> Models
+> Few -shot Anomaly
+> Generation (SeaS )
+> Zero -shot Anomaly
+> Generation (Anomagic )
+> Advanced proprietary
+> Editing Models
+> Open -source UniDG
+> Foundation Models
+> Few -shot Defect -1samples
+> Few -shot Defect -nsamples
+> Diffusion
+> Models
+> Text
+> Encoder
+> Vocab
+> Defect -1
+> Defect -n
+> …
+> Generated Anomaly Samples
+> …
+> Offline Defect -1samples
+> Offline Defect -nsamples
+> User Query
+> What defects
+> commonly
+> appear in wood?
+> Extra
+> MLLMs
+> Generated Anomaly Samples
+> Crossmodal Prompt
+> Encoding
+> Large -scale proprietary editing
+> data on natural scenarios
+> Diffusion Models
+> &Auto Regressive Models
+> User Query
+> Please transfer
+> the XXX defect
+> within <image1>
+> to <image2>
+> 🍌
+> <image1> <image2>
+> 🍌
+> Large -scale open -source editing
+> data on Defect -related scenarios
+> Diffusion Models
+> Large -scale
+> Supervised Fine -
+> tuning
+> Reward
+> Models
+> Reinforcement
+> Learning
+
+Figure 1. The framework of existing anomaly generation methods. The proposed UniDG maintains straightforward inference and fully open-sourced framework. 
+
+Existing anomaly generation methods can be broadly grouped into two paradigms: (1) zero-shot approaches that edit normal images using textual descriptions with pre-trained generative models, and (2) few-shot approaches that condition on a small set of real abnormal samples to synthe-size additional anomalies with similar appearance statistics. Despite encouraging progress, both paradigms still struggle to produce defects that are realistic and visually consistent with the target scene. As illustrated in Fig. 1, prior methods may generate highly anomalous regions, yet often fail to yield sufficiently realistic and category consistent defects .We attribute these limitations to two key factors. First, the field lacks large-scale paired defect editing data, so many methods resort to few-shot learning that overfits to a specific defect category and generalizes poorly across scenarios or objects. Second, defect appearance is inherently ambiguous, with large variations in scale and morphology; learning from only few-shot samples often fails to capture the underlying distribution, leading to degraded realism and reference con-sistency. In addition, pre-trained universal text-to-image or image editing models provide limited defect-specific prior knowledge, and thus struggle to precisely synthesize rare defects even with detailed text prompts (see Fig. 1, even the most advanced Gemini-3-Pro-Image (Comanici et al., 2025) remains limited performance in rare defects). These limitations also restrict cross-category defect synthe-sis ( e.g. , transferring similar defects across different objects). Recent work such as Anomagic (Jiang et al., 2025b) partially expands category coverage by retrieving relevant abnormal exemplars with an external MLLM, but still depends on ad-ditional models and a large offline repository, which makes the pipeline costly and hard to scale. 1
+
+> arXiv:2604.08915v1 [cs.CV] 10 Apr 2026 Universal Defect Generation
+
+To overcome the above issues, we propose UniDG , a univer-sal defect generation foundation model that transfers defects from a reference image to a specified target region in a flex-ible and interactive manner. Crucially, UniDG is trained once on our newly constructed large-scale UDG dataset (300K normal-abnormal-mask-caption quadruplets span-ning diverse domains), enabling strong generalization with-out per-category fine-tuning. Technically, UniDG adopts a Defect-Context Editing strategy that combines adaptive defect cropping with a structured diptych input, and fuses reference and target conditions via MM-DiT multimodal at-tention. Furthermore, we design a two-stage training recipe, 
+
+Diversity-SFT and Consistency-RFT , to improve both syn-thesis diversity and defect realism/consistency, leading to consistent gains in generation quality as well as downstream single- and multi-class anomaly detection and localization. The key contributions are as follows: • We introduce UDG , a large-scale dataset of 300K normal-abnormal-mask-caption quadruplets spanning diverse domains, which supports research on multi-modal anomaly detection and defect generation. • We present UniDG , a universal defect generation foun-dation model based on MM-DiT and Defect-Context Editing, enabling realistic and consistent defect synthe-sis that generalizes to unseen scenarios. • We propose a two-stage training strategy ( Diversity-SFT and Consistency-RFT ) together with diverse re-ward models to further improve defect realism and reference consistency. • Extensive experiments on MVTec-AD and VisA out-perform prior few-shot anomaly generation and im-age insertion/editing baselines in synthesis quality and downstream anomaly detection/localization per-formance without per-category fine-tuning. 
+
+2. Related Work 
+
+Few-shot Anomaly Generation Few-shot anomaly genera-tion methods leverage a small number of abnormal samples during training to synthesize additional anomalies with sim-ilar visual characteristics, thereby alleviating data scarcity for downstream anomaly detection. Early works such as DFMGAN (Duan et al., 2023) employ GANs to produce high-fidelity defects, while more recent approaches predom-inantly adopt diffusion-based frameworks. AnomalyDiffu-sion (Hu et al., 2024) uses text inversion strategy to model anomaly semantics and mask distributions; AnoGen (Gui et al., 2024) and DefectFill (Song et al., 2025a) formulate anomaly synthesis as image inpainting to improve mask accuracy; and DualAnoDiff (Jin et al., 2025) improves syn-thesis quality by decoupling defect foreground from back-ground modeling. SeaS (Dai et al., 2025) further binds anomaly attributes to learnable tokens, enabling a single model to cover multiple anomaly types. However, many of these methods still require training separate models for individual defect categories, which limits generalization to novel categories and increases training and storage costs. Anomagic (Jiang et al., 2025b) constructs multi-category anomaly datasets and retrieves relevant abnormal exemplars via an advanced MLLM during inference, partially expand-ing category coverage, but it relies on an additional online MLLM and a large anomaly repository, making the pipeline difficult to scale. 
+
+Reference-Based Image Generation Reference-based im-age generation, also referred to as subject-driven genera-tion, takes a reference image containing the subject as input and aims to generate a target image that preserves subject-specific details such as identity and appearance. These methods can be broadly categorized into two paradigms: test-time fine-tuning approaches ( e.g. , DreamBooth (Ruiz et al., 2023) and Textual Inversion (Gal et al., 2022), which are commonly used in FSAG), and training-based approaches ( e.g. , ControlNet (Zhang et al., 2023) and IP-Adapter (Ye et al., 2023)). The former are less data-hungry and can adapt with only a few images, but their cross-category generalization is limited, making them less suitable for building universal defect generation foundation models. The latter typically require large-scale pre-training datasets to achieve high-fidelity synthesis in general domains; for example, AnyDoor (Chen et al., 2024), FreeEdit (He et al., 2024), and InsertAnything (Song et al., 2025b) construct paired data for subject-driven generation and improve both synthesis quality and semantic consistency. However, such models and datasets are primarily developed for natural images and can suffer from domain gaps when transferred to defect generation, due to distributional differences in defect scale, identity, and other factors. Following prior successes in natural-image generation, we construct the first large-scale defect-scenario dataset and build the first founda-tion model for universal defect generation, enabling robust cross-category synthesis and promoting high-quality defect generation in downstream applications. 
+
+3. UDG Dataset 
+
+3.1. Construction Pipeline 
+
+We construct a novel multi-agent pipeline (Fig. 2a) to cu-rate a large-scale, high-quality dataset of normal-abnormal-mask-caption quadruplets for anomaly detection and genera-tion. While existing anomaly detection datasets (Bergmann et al., 2019; Zou et al., 2022; Wang et al., 2024) provide abundant anomaly-mask pairs, obtaining corresponding high-quality normal counterparts and reliable, comprehen-sive captions remains challenging, which facilitates MLLM-based AD and AG tasks. To address this, our pipeline com-2Universal Defect Generation 
+
+prises three agents: an Inpainting Agent, a Captioner Agent, and a Verifier Agent. Specifically, we first train an inpainting model based on Flux.1-Fill-dev using approximately 600K defect-related scenario images to recover normal counter-parts given an abnormal image and its mask. Next, we de-sign a structured caption template for the Captioner Agent built upon advanced MLLMs, producing comprehensive descriptions from global to local conditioned on normal-abnormal-mask triplets. Finally, the Verifier Agent filters the resulting quadruplets by checking (i) the normality of the recovered normal image, (ii) the consistency of the cap-tion, and (iii) the existence of the defect. Details of agent training and system prompts are provided in the Sec. A. 
+
+3.2. Statistics 
+
+The UDG dataset aggregates samples from 50 publicly ac-cessible datasets, including Real-IAD (Wang et al., 2024), MANTA (Fan et al., 2025), 3CAD (Yang et al., 2025), etc ., spanning three domains: industrial, natural, and medical. In total, UDG contains 300K samples covering 269 origi-nal defect types, which we map into 28 standardized cat-egories. Each sample is provided as a normal-abnormal-mask-caption quadruplet, enabling both high-quality defect editing supervision and multimodal conditioning. Com-pared with the largest anomaly generation dataset Anom-Verse (Jiang et al., 2025b), UDG contains approximately 23 × samples and exhibits substantially broader coverage; moreover, it includes the corresponding normal images to facilitate downstream anomaly detection and generation. More details of UDG are provided in the Sec. A. 
+
+4. Preliminaries 
+
+MM-DiT Architecture. Recent diffusion models, such as SD3 (Esser et al., 2024) and the FLUX series (Batifol et al., 2025), adopt the MM-DiT architecture (Peebles & Xie, 2023), which builds on a multimodal attention (MMA) backbone with Rotary Position Embedding (RoPE) and RMS-Norm mechanism. This design jointly processes noisy image tokens Xt ∈ Rn×d and text tokens CT ∈ Rl×d, as summarized in Eq. 1. MMA ([ Xt; CT]) = softmax 
+
+ R(Q) · R (K)⊤
+
+√d
+
+
+
+R(V ).
+
+(1) Here, Q, K, and V denote the projections of the concate-nated input [Xt; CT] ∈ R(n+l)×d, and R(·) applies RoPE to inject positional information into Q and K.
+
+Flow Matching. We train the model with Rectified Flow (RF) (Liu et al., 2022). In the continuous normalizing Abnormal -Mask Pair                                
+
+> Abnormal -Normal -Mask -Caption Pair
+> Normal Image
+> Inpainting
+> Agent
+> Multi -Level Caption Template
+> {
+> “image -level”: [{“Attr_1”: “”,}],
+> “foreground -object -level”: [{“…”: …}],
+> “defect -level”: [{“…”: …}]
+> }
+> …, “defect -level”: [{
+> “type”: “hole”, “shape”: “circular”, "direction":
+> "unclear",
+> “contrast”: “high”, “color”: “transparent”, “material”:
+> “soap”, “size”: “small”, “width”: “thin”, "depth":
+> "obviously -concave",
+> “edge”: “clear”, “severity”: “minor”, "location":
+> "center", …}], …
+> Filter
+> Low -
+> Quality
+> Pairs
+> Caption
+> Consistency
+> Defect
+> Existence
+> Normality
+> Generate
+> Caption
+> a)
+> b)
+> 60%
+> 30%
+> 10%
+> Scenario
+> Distribution
+> Industrial
+> Natural
+> Medicine
+> 11.92%
+> 11.34%
+> 11.10%
+> 10.93%
+> 10.31%
+> 10.18%
+> 9.33%
+> 5.75%
+> 4.67%
+> 4.58%
+> Defect
+> Distribution
+> missing combined deformation discoloration
+> breakage dirt scratch dehiscence
+> bruise raised foreign matter abrasion
+> indentation unknown hole black spot
+> fold misprint wrinkle graze
+> watermark scraped glue knife grain
+> rust bubble unclear bright line
+> Captioner
+> Agent
+> Verifier Agent
+
+Figure 2. Overview of UDG Dataset. (a) The construction pipeline for generating normal-abnormal-mask-caption quadruplets. (b) The distribution across scenarios and the frequency of mapped defect categories. 
+
+flow (CNF) formulation, the dynamics follow the ODE: 
+
+ddt Xt = v (Xt, t ) dt = X1 − X0, ∀t ∈ [0 , 1] . (2) Given a clean latent variable X0 ∼ pdata and a Gaussian noise X1 ∼ N (0 , 1) , we obtain Xt by linear interpolation: 
+
+Xt = tX 1 + (1 − t)X0, ∀t ∈ [0 , 1] . (3) We then optimize the Conditional Flow Matching (CFM) loss (Lipman et al., 2023) to learn a velocity field predictor 
+
+vΘ:
+
+LCFM = Et∼p(t),X 1∼N (0 ,1) ,(X0,C T)∼pdata 
+
+h
+
+∥vΘ (Xt, C T, t ) − (X1 − X0)∥22
+
+i
+
+. (4) We sample t from a Logit-Normal distribution (Esser et al., 2024) with density p(t) = exp (−0.5·(logit( t)−μ)2/σ 2)
+
+σ√2π·(1 −t)·t , where 
+
+logit( t) = log t
+
+1−t . Under RF, we use μ = 0 and σ = 1 .
+
+5. UniDG Models 
+
+5.1. Motivation and Overview 
+
+Existing anomaly generation methods typically overfit to particular defect types under few-shot training, and thus generalize poorly to novel categories and scenes. Anomagic (Jiang et al., 2025b) partially mitigates this issue by retrieving relevant abnormal exemplars with an external MLLM at inference time, but it relies on a large offline repository and incurs non-trivial inference cost. In con-trast, we train UniDG on a large-scale dataset covering diverse objects and defect patterns, enabling the model to learn a unified defect distribution for consistent yet diverse defect synthesis, without relying on external MLLMs or offline template libraries. Meanwhile, many FSAG meth-ods ( e.g. , SeaS, DualAnoDiff, etc .) attempt to separately 3Universal Defect Generation Group Relative Policy Optimization 
+
+> Sampled Defect Image -Mask Pairs
+> Source Image
+> Source Mask
+> Crop Defect
+> Predict Image
+> Black Mask
+
+VAE 
+
+Encoder 
+
+Redux 
+
+Encoder 
+
+MM -DiT 
+
+N × Transformer Blocks    
+
+> Defect Target Mask Noise
+
+VAE 
+
+Decoder 
+
+a) 
+
+b) 
+
+> Adaptive Defect Crop
+
+Diversity -SFT Consistency -RFT 
+
+> Single Object
+> Defect -Fill Sampling
+> Single Object
+> Intra -Defect Cross -Sampling
+> Multi Object
+> Intra -Defect Cross -Sampling
+> Defect -Und -Reward
+
+MM -DiT Policy Optimization                           
+
+> Few -step,
+> negative
+> condition, CFG
+> scale, Init Noise
+> MDP via SDE Sampling
+> 𝑅 !𝑅 "𝑅 #𝑅 $……
+> Rewards
+> Group Advantages Computation
+> 𝐴 !𝐴 "𝐴 #𝐴 $…… 𝓙 𝑹𝑭𝑻 =
+> 𝓙 𝑪𝑳𝑰𝑷 −𝜷 𝑫 𝑲𝑳 𝝅 𝜽 𝝅 𝜽 𝒐𝒍𝒅 )
+> d𝑥 %=𝑓 &d𝑡 +𝜎 %d𝑤
+> …… 𝑠 *~
+> 𝒩 (0,𝐼 )
+> 𝑠 '……
+> 𝑠 +=
+> 𝜋 ,(𝑎 +|𝑠 +)……
+> MM -DiT
+> Crop Defect Defect Image
+> Crop Defect Source Image
+> Adaptive
+> Crop
+> MM -DiT
+> Crop Defect Defect Image
+> Crop Defect Source Image
+> Adaptive
+> Crop
+> Adaptive
+> Crop
+> MM -DiT
+> Crop Defect Defect Image
+> Crop Defect Source Image
+> Adaptive
+> Crop
+> Adaptive
+> Crop
+> Defect -Recog -Reward
+
+Figure 3. Overall framework of UniDG. UniDG leverages MM-DiT with a Defect-Context Editing strategy to integrate reference defects into target regions. Diversity-SFT and Consistency-RFT further improve synthesis quality. 
+
+model defect foreground and background; however, real-world backgrounds exhibit substantial diversity, making faithful background reconstruction from a few samples in-trinsically difficult and often leading to artifacts (see Fig. 4). Motivated by this, we adopt a local editing paradigm ( i.e. ,image inpainting) that focuses generative capacity on inte-grating defects into a given target scene while preserving the original background. As illustrated in Fig. 3, UniDG consists of three key components §5.2: (1) a diptych input that encodes defect context, (2) an MM-DiT architecture that fuses multi-source conditions via multimodal attention, and (3) defect enhancement mechanisms that improve the fidelity and discriminability of synthesized defects. 
+
+5.2. Defect-Context Editing 
+
+Defect-Context Editing aims to transfer a reference defect into a specified target region while preserving contextual consistency with the target scene. To this end, we first apply an Adaptive Defect Crop strategy to isolate the defect subject from the reference image (see Sec. B.1 for details). Given the cropped defect subject, we form a diptych input by concatenating it with a partially masked source image: 
+
+Idiptych = [ Icropped ref ; Imasked src ] , (5) where Icropped ref denotes the cropped defect subject and 
+
+Imasked src denotes the source image with its target region masked. We further construct a binary inpainting mask as 
+
+Mdiptych = [ 0h×w; M ], where the left half (reference) is all zeros and the right half uses the target mask M :
+
+Mdiptych = [ 0h×w; M ] . (6) This formulation provides explicit inpainting guidance while maintaining contextual alignment between the reference defect and the target scene. 
+
+Multimodal fusion in MM-DiT. UniDG fuses two sources of conditioning in MM-DiT: (i) the VAE-latent of the dip-tych (together with the inpainting mask), and (ii) a condition branch that combines text features and reference-defect se-mantics. Concretely, Idiptych and Mdiptych are encoded by a VAE encoder and concatenated along the channel dimen-sion to form the latent input, to which noise is added for flow matching. In parallel, we extract semantic features from the reference defect using the SigLIP image encoder and concatenate them with the text-branch features to form the condition tokens. In the reference image-based defect synthesis, we zero-pad the text-branch features; thus, the condition branch effectively contains defect semantics (and optionally text features when instruction editing is enabled). 
+
+Q = [ Qi; Qc], K = [ Ki; Kc], V = [ Vi; Vc],
+
+MMA( Q, K, V ) = softmax 
+
+ QK ⊤
+
+√d
+
+
+
+V. (7) where [ ; ] denote token sequences concatenation. Here, 
+
+Qi, K i, V i come from the noisy diptych latent (image/mask branch), while Qc, K c, V c come from the condition tokens 4Universal Defect Generation 
+
+(text + reference-defect semantics). Finally, MM-DiT out-puts are decoded by the VAE decoder, and the right half of the diptych is taken as the synthesized defect image. During training, we introduce defect enhancement mechanisms to improve fidelity and discriminability. Specifically, normal regularization encourages the synthesized target region to deviate from its normal counterpart, while defect attention 
+
+increases attention weights on the defect subject and the target region in MMA . Ablations and details are provided in experiments and Sec. C.2. Note that UniDG also supports instruction-based defect editing capabilities; additional de-tails and visualizations are included in the Sec. B.3. 
+
+5.3. Training Strategy 
+
+In universal image editing, supervised fine-tuning (SFT) typically improves generation quality and coverage, while reinforcement fine-tuning (RFT) further aligns the model with preference signals. Following this recipe, we adopt a two-stage training strategy for universal defect generation: 
+
+Diversity-SFT followed by Consistency-RFT .
+
+Diversity Supervised Fine-Tuning. To enable UniDG to synthesize diverse yet high-quality defects, we construct three complementary training distributions for Diversity-SFT , as shown in Fig. 3(b). (1). Single Object Defect-Fill Sampling : we use the same defect image from UDG as both reference and target, encouraging strong reference ad-herence while mitigating the pre-trained inpainting prior, with consistent identity and location. (2). Single Object Intra-Defect Cross-Sampling : we sample different images from the same object and defect type as reference and tar-get, promoting diversity with consistent defect category but different identity details and locations. (3). Multi-Object Intra-Defect Cross-Sampling : we sample images from dif-ferent objects but the same defect type, enabling cross-object defect transfer with both diverse identity and locations. To-gether, these distributions yield a universal defect generation model with improved diversity and reference-following ca-pability. The above sampling strategies are based on UDG 
+
+and rule-based policies; details are provided in the Sec. C.1. 
+
+Consistency Reinforcement Fine-Tuning. Although the 
+
+Diversity-SFT model achieves high-quality and diverse de-fect synthesis with promising downstream anomaly detec-tion (AD) performance, we observe that its reference con-sistency can still be unstable in some cases (e.g., color, texture, or illumination shifts); we provide representa-tive failure cases in the Sec. C.3. To improve reference-consistent synthesis while preserving diversity, we further apply Consistency-RFT to slightly adjust the model distri-bution with reinforcement learning. Specifically, we con-struct two reward models to provide complementary super-vision signals ( i.e. , Defect-Und-Reward and Defect-Recog-Reward), and build an online RFT pipeline for UniDG based on Flow-GRPO (Liu et al., 2025). For Defect-Und-Reward, we build a training corpus from high-quality editing pairs (reference image/mask, target image/mask) from UDG and offline samples from the SFT model, and use an advanced MLLM (e.g., Gemini-3 Pro (Comanici et al., 2025)) with a structured system prompt to produce detailed analyses and scores on reference adherence, region-background con-sistency, defect reasonability, and overall visual quality; these analyses and scores serve as supervision for reward model training. For Defect-Recog-Reward, we train univer-sal defect classification and segmentation models on UDG 
+
+with 28 mapped categories, and use their classification and segmentation metrics as task-aware rewards to assess iden-tity/category and region following. During online optimiza-tion, we generate samples with diverse settings (e.g., infer-ence steps, negative reference conditions, CFG scale, and random initial noise) to obtain varied-quality candidates within a mini-batch, compute rewards and relative advan-tages, and update the policy model (initialized from SFT). The overall pipeline is illustrated in Fig. 3(b), and additional details are provided in the Sec. D.2. 
+
+6. Experiments 
+
+6.1. Experimental Setup Implementation details. UniDG is built upon the pre-trained image inpainting models FLUX.1-Fill-dev and FLUX.1-Redux-dev: the former initializes our MM-DiT backbone, while the latter initializes the SigLIP image en-coder for extracting reference defect subject features. We fine-tune MM-DiT using LoRA (rank 256) on both single-and double-stream blocks, with batch size 64 for Diversity-SFT and 8 for Consistency-RFT , and an input resolution of 
+
+768 × 768 . We adopt the Prodigy optimizer (Mishchenko & Defazio, 2023) with bias correction and weight decay of 0.01 . The training iterations for Diversity-SFT and 
+
+Consistency-RFT are approximately 14 K and 37 K, respec-tively. For sampling, we run 28 denoising iterations. During 
+
+Diversity-SFT , we optimize the flow-matching velocity pre-diction objective together with the proposed normal regular-ization on the target mask region, while Consistency-RFT 
+
+follows the Flow-GRPO optimization objective. 
+
+Dataset. For evaluation, we primarily use MVTec-AD and VisA, while the remaining datasets in UDG are used for training; MVTec-AD serves as our main benchmark and VisA results are reported in the Sec. F. 
+
+Metrics. For anomaly generation, we report Intra-Cluster LPIPS distance (IL), IL-a (computed within the defect re-gion), and MLLM-based comprehensive scores including Reference Adherence, Region–Background Consistency, Reasonability, and Quality (evaluated by advanced MLLMs such as Gemini-3 Pro and GPT-5.1 utilize system prompt 5Universal Defect Generation  
+
+> Table 1. Quantitative results for single-class anomaly classification, detection, localization, and synthesis quality on MVTec-AD dataset. Bold and underline represent optimal and sub-optimal average results, respectively. Training-Free Few-Shot means that no data from MVTec-AD datasets was used during training, and only single retrieved reference image used during inference for fair comparisons.
+
+Metric Few-shot Learning Anomaly Generation Training-Free Few-shot Image Insertion 
+
+AnoDiff AnoGen DualAnoDiff SeaS AnyDoor InsertAny UniDG-SFT UniDG-RFT 
+
+> Cls.
+
+Acc-C 68.4 61.4 64.0 59.1 61.8 63.6 74.9 77.4 
+
+> Det.&Loc.
+
+AUROC-I 97.9 97.0 94.9 96.2 80.3 95.3 98.0 98.4 
+
+AP-I 98.9 95.0 96.6 95.5 80.7 95.5 98.6 99.0 
+
+AUROC-P 96.6 98.3 97.5 98.0 88.1 97.9 98.8 98.8 
+
+AP-P 75.4 63.3 66.0 68.2 18.1 64.1 77.0 77.3 
+
+> Syn.
+
+IL 0.28 0.27 0.37 0.34 0.33 0.26 0.29 0.28 IL-a 0.14 0.11 0.18 0.19 0.14 0.13 0.18 0.16 RefAd 3.84 3.50 3.32 3.26 3.48 3.81 3.90 4.04 
+
+Cons 3.97 3.87 3.57 3.76 3.76 3.98 4.15 4.21 
+
+Reas 4.18 3.91 3.67 3.74 3.83 4.12 4.18 4.20 
+
+Qual 4.01 3.77 3.55 3.58 3.70 3.99 4.09 4.24 
+
+in Fig. 12). For anomaly detection and localization, we use image-/pixel-level AUROC (AUROC-I/P), image-/pixel-level average precision (AP-I/P), PRO (PRO-P), Accuracy, and mean intersection over union (mIoU). Since many prior methods train separate binary segmentation models for each object or defect category, which is not scalable in real-world settings, we additionally train a multi-class semantic seg-mentation model on all generated data to evaluate category recognition and localization in a unified manner. mIoU is primarily used to measure performance under multi-class semantic segmentation setting. Note that UniDG was not trained using MVTec-AD and VisA, whereas the FSAG methods used the above datasets. 
+
+6.2. Quantitative Results Baseline. We compare against representative few-shot anomaly generation (FSAG) methods, including Anoma-lyDiffusion (Hu et al., 2024), AnoGen (Gui et al., 2024), DualAnoDiff (Jin et al., 2025), and SeaS (Dai et al., 2025), as well as reference-based image insertion/editing meth-ods, including AnyDoor (Chen et al., 2024) and InsertAny-thing (Song et al., 2025b). We evaluate generation quality, anomaly classification, and anomaly detection/localization performance. For fair comparison, we fine-tune the image insertion baselines on the proposed UDG dataset using the 
+
+Diversity-SFT strategy. For FSAG methods, we use the author released synthesis results and uniformly select 500 generated images per defect class. For image insertion meth-ods, we adopt a 4-shot reference samples for each defect class and random select one reference defect image during inference (details in Sec. B.4); we also reuse the top 500 source images and target-region masks from AnomalyDiffu-sion for consistency. Unless otherwise specified, we use the same 500 generated images to train downstream classifica-tion and localization models; therefore, the reported metrics may differ from those in the original papers. 
+
+Downstream Performance. Following prior work, we con-duct three downstream evaluations on MVTec-AD. First, we train object-specific binary U-Net segmentation models to evaluate anomaly detection and localization. For each object category, we train on 500 generated anomaly images and masks. As shown in Tab. 1, UniDG achieves the best over-all image- and pixel-level performance, with particularly strong gains on AP-P. Moreover, Consistency-RFT further improves performance compared with Diversity-SFT .Second, we train object-specific ResNet-34 classifiers to evaluate anomaly classification within each object category using 500 generated anomaly images. As shown in Tab. 1, UniDG improves accuracy by 10% over prior methods. We also observe that Consistency-RFT further enhances defect-category consistency while maintaining strong detection and localization performance. Third, to better reflect real-world deployment where a uni-fied model is preferred, we train a multi-class semantic seg-mentation U-Net with 74 output channels (73 defect classes plus background) once on all generated data. For evalu-ation, we report multi-class segmentation metrics on the 73 foreground defect classes, and we additionally compute anomaly detection metrics by merging all predicted defect classes into a single foreground class. As shown in Tab. 2, UniDG outperforms prior methods by a large margin across all metrics. Specifically, UniDG-SFT improves PRO-P by 
+
+11.2% over AnomalyDiffusion, and UniDG-RFT improves FG-mIoU by 20.5% over AnoGen. FG-mIoU reflects the 6Universal Defect Generation 
+
+Table 2. Quantitative results for multi-class anomaly semantic segmentation on the MVTec-AD dataset. Methods Binary Anomaly Detection Metrics Semantic Segmentation Metrics AUROC-I AP-I AUROC-P AP-P PRO-P mIoU BG-mIoU FG-mIoU 
+
+> Few-shot Anomaly Generation
+
+AnoDiff 92.79 96.24 95.90 61.41 81.82 +0 .0% 37.87 −4.7% 98.47 23.83 −9.9% 
+
+AnoGen 93.10 96.20 94.85 63.32 79.54 −2.8% 39.72 +0 .0% 98.54 26.45 +0 .0% 
+
+DualAnoDiff 91.00 95.40 95.31 63.19 79.96 −2.3% 39.43 −0.7% 98.57 26.27 −0.7% 
+
+SeaS 89.29 93.76 95.89 60.98 81.01 −1.0% 35.41 −10 .9% 98.33 20.48 −22 .6% 
+
+> Training-Free Few-shot Image Insertion
+
+AnyDoor 90.59 95.58 91.32 50.56 79.10 −3.3% 27.10 −31 .8% 97.40 11.11 −58 .0% 
+
+InsertAnything 84.97 91.76 93.96 54.63 77.45 −5.3% 31.14 −21 .6% 97.77 15.63 −40 .9% 
+
+UniDG-SFT 95.13 97.81 97.99 71.32 90.98 +11 .2% 41.81 +5 .3% 98.65 28.52 +7 .8% 
+
+UniDG-RFT 96.49 98.24 97.83 72.53 91.12 +11 .4% 44.21 +11 .3% 98.66 31.87 +20 .5% AnoDiff AnoGen DualAnoDiff SeaS AnyDoor InsertAny UniDG 
+
+> Training -Free Zero -shot Image Insertion Few -shot Learning Anomaly Generation
+> Ref Defect
+
+Figure 4. Qualitative comparisons of anomaly generation perfor-mance on MVTec-AD dataset. 
+
+ability to distinguish and localize multiple defect categories; the strong gains indicate improved defect-category adher-ence, which is further strengthened by Consistency-RFT .
+
+Generation Quality. We further evaluate generation quality using IL/IL-a and MLLM-based scores. As shown in Tab. 1, UniDG-SFT and UniDG-RFT outperform prior methods by a large margin on the MLLM-based metrics. After ap-plying Consistency-RFT , IL and IL-a decrease. This is expected because IL/IL-a primarily reflect synthesis diver-sity, whereas Consistency-RFT explicitly emphasizes ref-erence adherence and within-category consistency, which can reduce overall diversity. Notably, a larger IL/IL-a does not necessarily imply more realistic defects; in our setting, MLLM-based evaluation and downstream AD performance are more aligned with perceptual realism and practical utility. Overall, Consistency-RFT improves reference adherence and the perceived quality of synthesized defects. 
+
+6.3. Qualitative Results 
+
+We visualize representative results in Fig. 4. UniDG synthe-sizes defects with higher fidelity and realism, while better Local Editing Paradigms Proprietary Global Editing Paradigms       
+
+> Reference Target GPT -
+> Image -1
+> Seedream4.5 Flux2 -Pro Gemini -
+> 3-Pro -
+> Image
+> Anomagic UniDG Crop Crop
+> Input
+
+Figure 5. Qualitative comparisons of cross-object defect generation capabilities on MVTec-AD dataset. 
+
+Table 3. Ablation studies on the components within UniDG. Arch. Single-class Metrics Multi-class Metrics Acc AP-I AP-P PRO-P mIoU FG-mIoU Baseline 57.8 92.5 43.1 75.3 29.4 13.3 + Diptych input 62.3 94.0 51.6 78.5 32.3 16.4 + Normal Reg 64.9 94.9 56.7 82.1 34.9 22.1 + Defect Attn 65.5 95.8 60.1 84.0 36.1 22.8 + Diversity-SFT 74.9 98.6 77.0 91.0 41.8 28.5 + Consistency-RFT 77.4 99.0 77.3 91.1 44.2 31.9 
+
+preserving category consistency with the reference defect. In the second row, UniDG matches the reference defect more faithfully in color, texture, and illumination, whereas other methods exhibit noticeable shifts in appearance or mor-phology. In the third row, SeaS fails to place the hole defect at the mask-specified region, while UniDG better preserves spatial accuracy under more diverse reference conditions. Furthermore, we compare cross-object defect synthesis among UniDG, Anomagic, and advanced proprietary meth-ods in Fig. 5. Since Anomagic is not trained for cross-object defect generation, it underperforms in this setting. We ob-serve that UniDG produces stronger fidelity and reference adherence than nano-banana-pro on rare defect cases, which we attribute to the cross-object transfer priors learned from the proposed UDG dataset and Diversity-SFT .7Universal Defect Generation 0 20 40 60 80 100          
+
+> Percentage
+> Reference Adherence
+> Consistency
+> Reasonability
+> Quality
+> 69.2% 26.7% 4.1%
+> 63.2% 32.0% 4.8%
+> 51.2% 40.5% 8.3%
+> 57.4% 35.5% 7.1%
+> UniDG-RFT UniDG-SFT
+> Good
+> Same
+> Bad
+
+Figure 6. Comparison of performance between UniDG-SFT and UniDG-RFT using Good-Same-Bad (GSB) evaluation. 
+
+6.4. Ablation Study 
+
+In this section, we ablate key components of UniDG, an-alyze the impact of Consistency-RFT , and study how data allocation in Diversity-SFT affects performance. More abla-tion experiments are provided in Sec. E. 
+
+Overall ablation. To evaluate the contribution of each component, we incrementally add modules to the baseline model ( i.e. , FLUX.1-Fill-dev&FLUX.1-Redux-dev) and re-port results in Table 3. When Diversity-SFT is not used (the first four rows), training only includes Single Object Defect-Fill sampling. In this regime, the diptych input, normal regularization, and defect attention each yields consistent improvements. The largest gain comes from Diversity-SFT ,especially on multi-class metrics such as FG-mIoU (+20.1 vs. baseline), indicating that diverse training distributions substantially improve the model’s ability to follow and dis-tinguish reference defects. Finally, Consistency-RFT further boosts performance via GRPO with Defect-Und-Reward and Defect-Recog-Reward. 
+
+Human Evaluation. To comprehensively assess 
+
+Consistency-RFT , we conduct a user study with 30 par-ticipants. Participants rate generated images on reference adherence, consistency, reasonability, and overall quality using a 1–5 scale, and we report the Mean Opinion Score (MOS). As shown in Fig. 6, Consistency-RFT notably im-proves reference adherence and consistency, and also yields higher overall quality than the SFT model, while the gain in reasonability is comparatively smaller. These results sup-port the effectiveness of the proposed Defect-Und-Reward and Defect-Recog-Reward signals for improving perceived generation quality. 
+
+Data allocation during Diversity-SFT. To study the im-pact of data allocation in Diversity-SFT , we vary the propor-tions of the three training distributions and report results in Tab. 4. (a), (b), and (c) correspond to the three distributions used in Diversity-SFT , respectively. When any distribution is removed, downstream performance drops sharply, espe-cially without Single Object Defect-Fill samples. When Multi-Object Intra-Defect Cross-Sampling is removed, de-tection and localization degrade slightly, but visual quality decreases noticeably. When all distributions are present, 
+
+Table 4. Ablation studies on the training data allocation. Data Proportion Multi-class Metrics Synthesis Metrics (a) (b) (c) PRO-P mIoU FG-mIoU Cons Qual 0 1 1 76.2 30.3 14.5 3.82 3.73 1 0 1 78.3 31.4 15.7 3.91 3.87 1 1 0 90.5 39.1 26.0 3.89 3.92 1 1 1 91.0 41.8 28.5 4.15 4.09 2 1 1 90.9 41.9 28.5 4.14 4.12 1 2 1 89.3 41.8 28.5 4.08 4.15 1 1 2 90.1 41.3 28.1 4.19 4.11 
+
+increasing the proportion of any single distribution yields limited gains; therefore, we adopt a balanced allocation to facilitate subsequent scaling experiments. 
+
+7. Limitations and Future Work 
+
+Although UniDG achieves strong generation quality and downstream task performance for anomaly generation in the training-free zero/few-shot setting, it still has limitations. First, our baseline model have total 12B parameters. While inference can be accelerated by reducing NFE (Number of Function Evaluations), the memory consumption remains substantial. We will explore smaller DiT backbones ( e.g. ,Z-Image-Turbo (Cai et al., 2025)) to enable efficient yet high-quality defect synthesis. Second, our evaluation proto-col can be further improved. Common metrics such as IS and IL often do not reliably reflect downstream detection performance and correlate weakly with human judgement. Therefore, we introduce MLLMs to assess defect generation quality from four diverse dimensions. However, dedicated IQA metrics tailored to defect-related scenarios are still urgently needed. 
+
+8. Conclusion 
+
+Existing anomaly generation methods often rely on few-shot learning, which tends to overfit to specific defect cat-egories due to the lack of large-scale paired data, and fur-ther suffers from limited realism and consistency under large variations in defect scale and morphology. To address these challenges, we introduce UDG , a large-scale dataset of 300K normal-abnormal-mask-caption quadruplets curated by a multi-agent pipeline, and present UniDG , a universal foundation model for training-free zero/few-shot anomaly generation. UniDG supports both reference-based defect generation and instruction-based defect editing, enabled by Defect-Context Editing and MM-DiT multimodal atten-tion for effective fusion of reference and target conditions. Moreover, a two-stage training strategy ( Diversity-SFT and 
+
+Consistency-RFT ) with reward modeling further improves diversity while strengthening realism and reference con-sistency. Extensive experiments on MVTec-AD and VisA show that UniDG outperforms state-of-the-art baselines in generation quality and downstream single- and multi-class 8Universal Defect Generation 
+
+anomaly detection/localization performance. 
+
+Impact Statement 
+
+This paper presents work whose goal is to advance the field of Machine Learning. There are many potential societal consequences of our work, none which we feel must be specifically highlighted here. 
+
+References 
+
+Bai, S., Cai, Y., Chen, R., and etal. Qwen3-vl technical report. arXiv preprint arXiv:2511.21631 , 2025. Batifol, S., Blattmann, A., Boesel, F., Consul, S., Diagne, C., Dockhorn, T., English, J., English, Z., Esser, P., Kulal, S., et al. Flux. 1 kontext: Flow matching for in-context image generation and editing in latent space. arXiv , 2025. Bergmann, P., Fauser, M., Sattlegger, D., and Steger, C. Mvtec ad–a comprehensive real-world dataset for unsu-pervised anomaly detection. In CVPR , 2019. Cai, H., Cao, S., Du, R., Gao, P., Hoi, S., Huang, S., Hou, Z., Jiang, D., Jin, X., Li, L., et al. Z-image: An efficient image generation foundation model with single-stream diffusion transformer. arXiv preprint arXiv:2511.22699 ,2025. Chen, X., Huang, L., Liu, Y., Shen, Y., Zhao, D., and Zhao, H. Anydoor: Zero-shot object-level image customization. In CVPR , 2024. Comanici, G., Bieber, E., Schaekermann, M., Pasupat, I., Sachdeva, N., Dhillon, I., Blistein, M., Ram, O., Zhang, D., Rosen, E., et al. Gemini 2.5: Pushing the frontier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 , 2025. Dai, Z., Zeng, S., Liu, H., Li, X., Xue, F., and Zhou, Y. Seas: few-shot industrial anomaly image generation with separation and sharing fine-tuning. In ICCV , 2025. Duan, Y., Hong, Y., Niu, L., and Zhang, L. Few-shot defect image generation via defect-aware feature manipulation. In AAAI , 2023. Esser, P., Kulal, S., Blattmann, A., Entezari, R., M ¨uller, J., Saini, H., Levi, Y., Lorenz, D., Sauer, A., Boesel, F., et al. Scaling rectified flow transformers for high-resolution image synthesis. In ICML , 2024. Fan, L., Fan, D., Hu, Z., Ding, Y., Di, D., Yi, K., Pagnucco, M., and Song, Y. Manta: A large-scale multi-view and visual-text anomaly detection dataset for tiny objects. In 
+
+CVPR , 2025. Fan, Y., Liu, J., Chen, X., Gao, B.-B., Li, J., Liu, Y., Peng, J., and Wang, C. Towards fine-grained vision-language alignment for few-shot anomaly detection. Pattern Recog-nition , 178:113316, 2026. Gal, R., Alaluf, Y., Atzmon, Y., Patashnik, O., Bermano, A. H., Chechik, G., and Cohen-Or, D. An image is worth one word: Personalizing text-to-image generation using textual inversion. arXiv preprint arXiv:2208.01618 , 2022. Gao, B.-B., Zhou, Y., Yan, J., Cai, Y., Zhang, W., Wang, M., Liu, J., Liu, Y., Wang, L., and Wang, C. Adaptclip: Adapting clip for universal visual anomaly detection. In 
+
+AAAI , 2026. Gui, G., Gao, B.-B., Liu, J., Wang, C., and Wu, Y. Few-shot anomaly-driven generation for anomaly classification and segmentation. In ECCV . Springer, 2024. He, R., Ma, K., Huang, L., Huang, S., Gao, J., Wei, X., Dai, J., Han, J., and Liu, S. Freeedit: Mask-free reference-based image editing with multi-modal instruction. arXiv preprint arXiv:2409.18071 , 2024. Hu, T., Zhang, J., Yi, R., Du, Y., Chen, X., Liu, L., Wang, Y., and Wang, C. Anomalydiffusion: Few-shot anomaly image generation with diffusion model. In AAAI , 2024. Jiang, X., Li, J., Deng, H., Liu, Y., Gao, B.-B., Zhou, Y., Li, J., Wang, C., and Zheng, F. Mmad: The comprehen-sive benchmark for multimodal large language models in industrial anomaly detection. In ICLR , 2025a. Jiang, Y., Luo, W., Zhang, H., Chen, Q., Yao, H., Shen, W., and Cao, Y. Anomagic: Crossmodal prompt-driven zero-shot anomaly generation. In AAAI , 2025b. Jin, Y., Peng, J., He, Q., Hu, T., Wu, J., Chen, H., Wang, H., Zhu, W., Chi, M., Liu, J., et al. Dual-interrelated diffusion model for few-shot anomaly image generation. In CVPR , 2025. Li, W., Zhan, J., Wang, J., Xia, B., Gao, B.-B., Liu, J., Wang, C., and Zheng, F. Towards continual adaptation in industrial anomaly detection. In ACM MM , 2022. Lipman, Y., Chen, R. T., Ben-Hamu, H., Nickel, M., and Le, M. Flow matching for generative modeling. In ICLR ,2023. Liu, J., Liu, G., Liang, J., Li, Y., Liu, J., Wang, X., Wan, P., Zhang, D., and Ouyang, W. Flow-grpo: Training flow matching models via online rl. In NeurIPS , 2025. Liu, X., Gong, C., and Liu, Q. Flow straight and fast: Learning to generate and transfer data with rectified flow. 
+
+arXiv preprint arXiv:2209.03003 , 2022. 9Universal Defect Generation 
+
+Mishchenko, K. and Defazio, A. Prodigy: An expedi-tiously adaptive parameter-free learner. arXiv preprint arXiv:2306.06101 , 2023. Peebles, W. and Xie, S. Scalable diffusion models with transformers. In ICCV , 2023. Ravi, N., Gabeur, V., Hu, Y.-T., Hu, R., Ryali, C., Ma, T., Khedr, H., R ¨adle, R., Rolland, C., Gustafson, L., et al. Sam 2: Segment anything in images and videos. arXiv preprint arXiv:2408.00714 , 2024. Rombach, R., Blattmann, A., Lorenz, D., Esser, P., and Ommer, B. High-resolution image synthesis with latent diffusion models. In CVPR , 2022. Ruiz, N., Li, Y., Jampani, V., Pritch, Y., Rubinstein, M., and Aberman, K. Dreambooth: Fine tuning text-to-image diffusion models for subject-driven generation. In CVPR ,2023. Song, J., Park, D., Baek, K., Lee, S., Choi, J., Kim, E., and Yoon, S. Defectfill: Realistic defect generation with inpainting diffusion model for visual inspection. In CVPR ,2025a. Song, W., Jiang, H., Yang, Z., Quan, R., and Yang, Y. Insert anything: Image insertion via in-context editing in dit. In 
+
+AAAI , 2025b. Tan, X., Liu, J., Fan, Y., Gao, B.-B., Jiang, X., Chen, X., Peng, J., Wang, C., Wang, H., and Zheng, F. Consisten-trft: Reducing visual hallucinations in flow-based rein-forcement fine-tuning. arXiv preprint arXiv:2602.03425 ,2026. Wang, C., Zhu, W., Gao, B.-B., Gan, Z., Zhang, J., Gu, Z., Qian, S., Chen, M., and Ma, L. Real-iad: A real-world multi-view dataset for benchmarking versatile industrial anomaly detection. In CVPR , 2024. Yang, E., Xing, P., Sun, H., Guo, W., Ma, Y., Li, Z., and Zeng, D. 3cad: A large-scale real-world 3c product dataset for unsupervised anomaly detection. In AAAI ,2025. Ye, H., Zhang, J., Liu, S., Han, X., and Yang, W. Ip-adapter: Text compatible image prompt adapter for text-to-image diffusion models. arXiv preprint arXiv:2308.06721 ,2023. Zhang, L., Rao, A., and Agrawala, M. Adding conditional control to text-to-image diffusion models. In ICCV , 2023. Zheng, Y., Zhang, R., Zhang, J., Ye, Y., Luo, Z., Feng, Z., and Ma, Y. Llamafactory: Unified efficient fine-tuning of 100+ language models. In ACL , 2024. Zou, Y., Jeong, J., Pemula, L., Zhang, D., and Dabeer, O. Spot-the-difference self-supervised pre-training for anomaly detection and segmentation. In ECCV , 2022. 10 Universal Defect Generation 
+
+A. The details of the UDG Dataset 
+
+A.1. The Multi-Agent System for Dataset Curation 
+
+In Sec. 3.1 of the main paper, we introduce a multi-agent system for curating the UDG dataset, which enables automated high-quality synthesis and filtering. Specifically, the system consists of three agents: an Inpainting Agent, a Captioner Agent, and a Verifier Agent. 
+
+Inpainting Agent. The Inpainting Agent generates normal counterparts given abnormal images and their corresponding masks. We adopt the pre-trained inpainting model FLUX.1-Fill-dev as the base model. We collect normal images and abnormal images (with masks) from 50 existing anomaly detection datasets, totaling approximately 600K defect-related scenario images. Note that 600K defect-related scenario images do not include images from MVTec-AD and VisA datasets to avoid potential data leakage. We then randomly mask parts of these images and train the model to reconstruct the normal content within the masked regions ( i.e. , remove defects ). For normal images, we use SAM (Ravi et al., 2024) to extract foreground regions and apply a pre-constructed mask template library to sample diverse masks (1–3 masks) for training. For abnormal images, we ensure that the randomly sampled masks do not overlap with the annotated abnormal regions, and otherwise apply the same data construction procedure. We follow the same training setup as UniDG (optimizer, resolution, and learning-rate schedule), and the total training iterations are 2.4M. Why not directly retrieve the original normal images as the normal counterparts of abnormal images? Because the original anomaly detection datasets may not provide perfectly matched normal images; differences in regions outside the mask can significantly degrade the quality of paired training data. 
+
+Captioner Agent. The Captioner Agent produces structured, fine-grained descriptions conditioned on the abnormal image, the abnormal mask, and the synthesized normal counterpart. Inspired by FineGrainedAD (Fan et al., 2026), we design a system prompt that guides the agent to describe defects from global to local perception, including image-level, foreground object-level, and defect-level information. Since defects are typically located on foreground objects, this structured format helps capture defect distributions more reliably. Moreover, providing the additional normal counterpart helps the agent better localize and describe the abnormal region. The Captioner Agent integrates multiple advanced proprietary and open-source MLLMs, including proprietary models GPT-5.1 ( i.e. , gpt-5.1-2025-11-13) and Gemini-3-Pro ( i.e. , gemini-3-pro-preview), as well as open-source models Qwen3-VL-235B-A22B-instruct and GLM-4.6V. As shown in Fig. 7, the prompt requires the agent to output both the structured description and a confidence score. 
+
+Verifier Agent. The Verifier Agent filters low-quality data based on the abnormal image, abnormal mask, normal counterpart, and the candidate structured descriptions. For each normal-abnormal-mask triplet, the Captioner Agent generates multiple candidate descriptions from different models, each associated with a confidence score in [0 , 1] . Candidates with confidence below 0.8 are discarded upfront to reduce subsequent token consumption. The remaining candidates are then fed into the Verifier Agent, which selects the most accurate description according to a predefined system prompt (Fig. 8). Specifically, if the average score of Verifier Agent’s response to the candidate description is below 4.2, it is considered inaccurate. If all remaining candidates are deemed inaccurate, the triplet is discarded; otherwise, we retain at most one final description ( i.e. ,the highest confidence candidate) for each triplet. After this process, we obtain the real part of the UDG dataset, containing 150K normal-abnormal-mask-caption quadruplets. Subsequently, we construct the synthesized part as follows. For each dataset, we take the real normal images, extract the foreground object regions using SAM, and retrieve mask from mask templates that are most relevant to the defect category and most compatible with the foreground region as target masks for synthesis. The mask template repository is constructed by clustering the masks of the real part of the UDG dataset into 100 clusters for each mapped defect category, resulting in 2800 templates across 28 categories. During retrieval, we randomly select one mask from the cluster that is located within the foreground object region. We then use UniDG-SFT-Real (which only trained once on the real part of the UDG 
+
+dataset, following the same training setup as UniDG-SFT ) to synthesize defects conditioned on the retrieved masks and normal images. After running the Captioner Agent and Verifier Agent again to generate descriptions and filter low-quality quadruplets, we obtain an additional 150K synthesized normal-abnormal-mask-caption quadruplets. Finally, we combine the real and synthesized parts to form the full UDG dataset with 300K samples. 
+
+A.2. The Data Distribution and Visual Cases of the UDG Dataset 
+
+In Sec. 3.2 of the main paper, we summarize the data distribution of the UDG dataset, which spans industrial, natural, and medical scenarios. UDG contains 300K samples covering 269 original defect categories; we manually map these 11 Universal Defect Generation # ROLE 
+
+You are an expert industrial visual defect detection and analysis assistant. Your task is to analyze product images for quality c ont rol purposes, identifying and describing defects with 
+
+fine -grained perception and give the overall confidence (between 0 and 1) for this analysis. 
+
+# INPUTS 
+
+You will receive three images for each analysis: 
+
+1. ** Defect Image**: The primary inspection image containing potential defects 
+
+2. **Defect Mask**: A binary or highlighted mask indicating regions of anomaly 
+
+3. **Normal Image**: A reference image of the same product type without defects 
+
+Use all three inputs together: 
+
+- The defect image provides the actual visual information 
+
+- The defect mask guides your attention to anomalous regions 
+
+- The normal image serves as a baseline for comparison 
+
+# TASK 
+
+Analyze the provided images and generate a comprehensive, structured JSON output describing: 
+
+1. The overall image composition 
+
+2. The foreground object's properties 
+
+3. Detailed characteristics of each detected defect 
+
+4. A comprehensive summary 
+
+# OUTPUT FORMAT 
+
+You MUST output valid JSON following this exact structure: {
+
+"image -level": [
+
+{ "foreground -object": "< object_type >", 
+
+"background": "< background_description >" } 
+
+], 
+
+"foreground -object -level": [ 
+
+{ "viewpoint": "<viewpoint>", 
+
+"material": "<material>", 
+
+"texture": "<texture>", 
+
+"structure": "<structure>", 
+
+"color": "<color>", 
+
+"shape": "<shape>", 
+
+"summary": "< foreground_object_summary >" } 
+
+], 
+
+"defect -level": [ 
+
+{ "type": "< defect_type >", 
+
+"shape": "< defect_shape >", 
+
+"direction": "<direction>", 
+
+"contrast": "< contrast_level >", 
+
+"color ": "< defect_color >", 
+
+"material": "< affected_material >", 
+
+"size": "<size>", 
+
+"width": "<width>", 
+
+"depth": "<depth>", 
+
+"edge": "< edge_quality >", 
+
+"severity": "< severity_level >", 
+
+"location": "<location>", 
+
+"summary": "< defect_summary >" } 
+
+], 
+
+“summary”: “< comprehensive_summary >”, “Confidenc e”:<0.0 -1.0>} 
+
+System Prompt For Captioner Agent 
+
+Figure 7. The system prompt for the Captioner Agent. You are an expert quality assessor for industrial defect detection and recognition systems. Your role is to evaluate the over all quality and accuracy of industrial image datasets, including normal images, defect images, defect masks, and their associated descriptions. 
+
+## TASK CONTEXT 
+
+You will be provided with: 
+
+- Normal Image: An image showing the object/surface without defects 
+
+- Defect Image: An image showing the object/surface with defects 
+
+- Defect Mask: A mask highlighting the defect region(s) in the defect image 
+
+- Detailed Descriptions: Textual descriptions of both the normal and defect images, including defect characteristics 
+
+Your objective is to evaluate the quality and accuracy of these components to ensure they are suitable for industrial defect det ection training and validation, and output a confidence for your analysis and score. 
+
+## EVALUATION CRITERIA 
+
+### 1. Consistency (Score: 0.0 - 5.0) 
+
+Evaluate how accurately the detailed descriptions match both the normal and defect images. Consider: 
+
+**For Normal Image Description:** 
+
+- **Object Identity**: Does the description correctly identify the object/component/surface? 
+
+- **Surface Characteristics**: Are material properties, texture, and appearance accurately described? 
+
+- **Contextual Details**: Are relevant features (shape, color, structure) properly captured? 
+
+- **Absence of Defects**: Does the description correctly state that no defects are present? **For Defect Image Description:** 
+
+- **Defect Type Accuracy**: Is the defect type correctly identified (e.g., scratch, crack, dent, contamination, missing part)? 
+
+- **Defect Location**: Is the spatial location of the defect accurately described? 
+
+- **Defect Characteristics**: Are visual properties (size, shape, color, texture, severity) correctly described? 
+
+- **Defect Impact**: Is the nature and extent of the defect appropriately characterized? 
+
+Scoring Guide: 
+
+- 4.0 -5.0: Excellent match - descriptions are highly accurate and comprehensive for both images 
+
+- 3.0 -3.9: Good match - descriptions are mostly accurate with minor omissions or inaccuracies 
+
+- 2.0 -2.9: Moderate match - descriptions have noticeable gaps or incorrect information 
+
+- 1.0 -1.9: Poor match - descriptions significantly misrepresent the images 
+
+- 0.0 -0.9: Minimal or no match - descriptions are largely incorrect or irrelevant 
+
+### 2. Defect Existence (Score: 0.0 - 5.0) 
+
+Evaluate whether the defect areas indicated in the defect mask actually exhibit genuine visual defects in the defect image. C ons ider: 
+
+**Visual Defect Verification:** 
+
+- **Defect Visibility**: Are the defects clearly visible and distinguishable in the masked region? 
+
+- **Defect Genuineness**: Do the defects appear authentic and not artifacts or normal variations? 
+
+- **Mask Accuracy**: Does the mask correctly encompass the actual defect boundaries? 
+
+- **Defect Severity**: Is the defect significant enough to be considered a quality issue? 
+
+**False Positive Assessment:** 
+
+- Are there any masked regions that do NOT contain actual defects? 
+
+- Are normal surface variations incorrectly marked as defects? 
+
+- Is the masked area appropriate for the visible defect? 
+
+Scoring Guide: 
+
+- 4.0 -5.0: Clear, genuine defects are present in all masked regions; mask boundaries are accurate 
+
+- 3.0 -3.9: Defects are present but may be subtle, or mask boundaries are slightly imprecise 
+
+- 2.0 -2.9: Questionable defects or significant mask inaccuracies; some false positives 
+
+- 1.0 -1.9: Minimal defects visible, or masked regions largely show normal areas 
+
+- 0.0 -0.9: No genuine defects in masked regions; severe false positive issues 
+
+### 3. Normality (Score: 0.0 - 5.0) 
+
+Evaluate whether defects are genuinely absent within the defect mask region of normal images. This verifies that normal image s a re truly defect -free. Consider: 
+
+**Normal Image Verification:** 
+
+- **Defect Absence**: When the defect mask is applied to the normal image, is that region truly defect -free? 
+
+- **Surface Integrity**: Does the masked region show intact, undamaged surface characteristics? 
+
+- **No Anomalies**: Are there no scratches, cracks, discolorations, or other abnormalities in the masked area? 
+
+- **Baseline Quality**: Does the region represent the expected normal/acceptable condition? 
+
+**False Negative Assessment:** 
+
+- Are there any hidden or subtle defects in the masked region of the normal image? 
+
+- Does the "normal" image actually contain defects that were overlooked? 
+
+- Is the surface quality genuinely acceptable for industrial standards? Scoring Guide: 
+
+- 4.0 -5.0: Masked region is completely defect -free; surface shows ideal normal condition 
+
+- 3.0 -3.9: Mostly defect -free with only very minor surface variations within acceptable limits 
+
+- 2.0 -2.9: Some questionable areas that might indicate subtle defects or quality issues 
+
+- 1.0 -1.9: Visible abnormalities or defects present in the masked region 
+
+- 0.0 -0.9: Clear defects present; normal image is mislabeled 
+
+## OUTPUT FORMAT 
+
+You must provide your evaluation in the following JSON format exactly: {“Analysis”: “Provide a comprehensive explanation for eac h score. Structure your analysis by addressing each criterion systematically: (1) Consistency - explain how well the description s match both the normal and defect 
+
+images, highlighting any accurate details or discrepancies in object identification, defect characterization, and contextual inf ormation; (2) Defect Existence - discuss whether genuine visual defects are present in the masked regions of the defect image, a ddressing defect visibility, 
+
+authenticity, mask accuracy, and any false positive concerns; (3) Normality - evaluate whether the masked regions in the normal image are truly defect -free, discussing surface integrity, absence of anomalies, and any potential false negative issues. Be spe cific and reference observable 
+
+details from the images and descriptions.”, “Consistency”: [score], “Defect Existence”: [score], “Normality”: [score ]} 
+
+## IMPORTANT NOTES 
+
+- Scores must be floating -point numbers between 0.0 and 5.0 
+
+- Be objective and rigorous in your evaluation 
+
+- Compare the same spatial regions across normal and defect images when evaluating 
+
+- Consider industrial quality standards and practical application requirements 
+
+- Focus on observable visual evidence rather than assumptions 
+
+- If descriptions mention specific defect characteristics, verify their presence in the image 
+
+- For Normality assessment, mentally overlay the defect mask onto the normal image to verify that region is defect -free 
+
+- Provide specific, detailed reasoning with concrete examples in your analysis 
+
+- If any criterion shows particularly strong or weak performance, emphasize this in your analysis Now, please carefully examine the provided normal image, defect image, defect mask, and detailed descriptions, and deliver your evaluation in the specified JSON format. 
+
+System Prompt For Verifier Agent Figure 8. The system prompt for the Verifier Agent. {
+
+"image -level": [ 
+
+{
+
+"foreground -object": "bagel", 
+
+"background": "pure black" 
+
+}
+
+], 
+
+"foreground -object -level": [ 
+
+{
+
+"viewpoint": "top -view", 
+
+"material": "bread", 
+
+"texture": "crusty", 
+
+"structure": "ring -shaped", 
+
+"color": "golden -brown", 
+
+"shape": "orbicular", 
+
+"summary": "A top -down view of a golden -brown bagel with a crusty texture and ring -shaped structure, 
+
+showing a smooth, slightly glossy surface with natural baking imperfections." 
+
+}
+
+], 
+
+"defect -level": [ 
+
+{
+
+"type": "crack", 
+
+"shape": "irregular -linear", 
+
+"direction": "diagonal", 
+
+"contrast": "high", 
+
+"color": "dark -gray", 
+
+"material": "bread", 
+
+"size": "medium", 
+
+"width": "medium", 
+
+"depth": "slightly -concave", 
+
+"edge": "clear", 
+
+"severity": "minor", 
+
+"location": "bottom -left", 
+
+"summary": "A diagonal crack with irregular linear shape and medium width, appearing as a dark -gray line 
+
+on the bagel surface, indicating a slight structural break with clear edges and minor severity." 
+
+}, 
+
+{
+
+"type": ”hole", 
+
+"shape": "circular", 
+
+"direction": "horizontal", 
+
+"contrast": "medium", 
+
+"color": "dark -gray", 
+
+"material": "bread", 
+
+"size": "small", 
+
+"width": "thin", 
+
+"depth": "flat", 
+
+"edge": "blurry", 
+
+"severity": "tiny", 
+
+"location": "center -right", 
+
+"summary": "A small, circular dark -gray hole with blurry edges and flat depth, located on the surface of 
+
+the bagel, representing a minor surface imperfection with low impact." 
+
+}
+
+], 
+
+"summary": "The image shows a top -view of a golden -brown bagel with a crusty texture and ring -shaped structure 
+
+against a pure black background. Two defects are marked: a medium -sized diagonal crack with irregular linear shape 
+
+and clear edges located at the bottom -left, and a small circular hole with blurry edges and flat depth located at the 
+
+center -right. Both defects are minor in severity, with the crack showing slightly concave depth and high contrast, 
+
+while the dot exhibits medium contrast and minimal surface disruption. The overall condition of the bagel remains 
+
+largely intact with only localized surface imperfections." 
+
+}
+
+> Defect Image Normal Image Defect Mask
+
+{
+
+"image -level": [ 
+
+{
+
+"foreground -object": " metal_plate ", 
+
+"background": "pure white" 
+
+}
+
+], 
+
+"foreground -object -level": [ 
+
+{
+
+"viewpoint": "main -view", 
+
+"material": "metal", 
+
+"texture": "smooth", 
+
+"structure": "flat", 
+
+"color": "blue", 
+
+"shape": "rectangular", 
+
+"summary": "A rectangular metal plate with a circular hole near the 
+
+center, painted blue on one side and showing rust on the other, suspended by a 
+
+metal wire." 
+
+}], 
+
+"defect -level": [ 
+
+{
+
+"type": " discolorization ", 
+
+"shape": "triangular ", 
+
+"direction": "diagonal", 
+
+"contrast": "high", 
+
+"color": "brown", 
+
+"material": "metal", 
+
+"size": "large", 
+
+"width": "thick", 
+
+"depth": "obviously -convex", 
+
+"edge": "clear", 
+
+"severity": "major", 
+
+"location": "top -right", 
+
+"summary": "A large triangular area of discolorization covering the 
+
+top -right portion of the metal plate, with a rough, brown, convex surface and clear 
+
+boundaries." 
+
+}], 
+
+"summary": "The image shows a rectangular metal plate with a blue painted 
+
+surface and a circular hole, suspended by a wire. The top -right portion of the 
+
+plate exhibits a large, triangular area of discolorization , characterized by a 
+
+brown, rough, convex texture with clear edges and high contrast against the blue 
+
+paint. The defect is severe and occupies a significant portion of the plate, 
+
+indicating extensive corrosion ."} 
+
+Figure 9. The part visualizations of the abnormal-normal-mask-caption quadruplets of the UDG Dataset. 
+
+categories into 28 standardized categories, listed below in descending order by frequency: missing, combined, deformation, discoloration, breakage, dirt, scratch, dehiscence, bruise, raised, foreign matter, abrasion, indentation, unknown, hole, black spot, fold, misprint, wrinkle, graze, watermark, scraped, glue, knife grain, rust, bubble, unclear, bright line. Partial visualizations of UDG are shown in Fig. 9. The synthesized normal counterparts appear realistic, and the structured fine-grained descriptions precisely characterize the defects. Such descriptions can serve as contextual signals and facilitate the performance of other MLLM-based anomaly detection models. We further conduct additional ablation studies on the performance improvement with the descriptions for anomaly classification and detection in Tab. 9. 
+
+B. The details of the UniDG models 
+
+B.1. Adaptive Defect Crop Strategy 
+
+In Sec. 5.2, we introduce that Defect-Context Editing comprises an Adaptive Defect Crop strategy, a diptych input format, and the multimodal attention mechanism in MM-DiT. Due to space constraints, the main paper only describes the diptych input and multimodal attention; here we provide additional details of the Adaptive Defect Crop strategy. As shown in Alg. 1, during training and inference, if the reference defect occupies only a small region of the reference image, high-frequency defect details can be easily lost. The Adaptive Defect Crop strategy first localizes the defect region using the mask, and then crops the defect region with an appropriate amount of surrounding context. This increases the proportion of defect information while reducing irrelevant background noise. The crop ratio r also affects synthesis quality. In our implementation, r controls the inverse expansion in Alg. 1: Expand (·, r )
+
+12 Universal Defect Generation 
+
+Algorithm 1 Adaptive Defect Crop Strategy And Dipytch Input Format Construction 
+
+Require: Reference image Iref , reference mask Mref , source image Isrc , target mask Msrc , size S
+
+Ensure: Diptych triplet (Dsrc , D res , D mask )
+
+1: // Reference Processing 
+
+2: (y1, y 2, x 1, x 2) ← GetBBox (Mref )
+
+3: Imasked ref ← Iref ⊙ Mref + 255 · (1 − Mref )
+
+4: Icrop ref ← Imasked ref [y1 : y2, x 1 : x2]
+
+5: // Adaptive Expansion 
+
+6: s ← Area (Mref )/Area (Iref ) {Defect area ratio }
+
+7: if s < T then 
+
+8: r ← β + 1−βT · s
+
+9: else 
+
+10: r ← 1
+
+11: end if 
+
+12: Ifinal ref ← Resize (PadToSquare (Expand (Icrop ref , r )) , S )
+
+13: // Target Mask Dilation 
+
+14: Msrc ← Dilate (Msrc × 255 , 17×7, 2) 
+
+15: // Source Image Processing 
+
+16: Imasked src ← Resize (PadToSquare (Isrc ⊙ ¬ Msrc ), S )
+
+17: Ifinal src ← Resize (PadToSquare (Isrc ), S )
+
+18: M final src ← Resize (PadToSquare (Msrc ), S )
+
+19: // Diptych Construction 
+
+20: Dmask ← [0S , M final src ]
+
+21: Dsrc ← [Ifinal ref , I masked src ]
+
+22: Dres ← [Ifinal ref , I final src ]
+
+23: return (Dsrc , D res , D mask )
+
+expands the cropped patch such that the expanded area is scaled by 1/r (equivalently, the side length is scaled by p1/r ). Therefore, smaller r leads to larger expansion and includes more surrounding context, while larger r results in less expansion. We adjust r based on the defect size. Specifically, let s denote the area ratio of the reference defect region to the reference image, and let T be a predefined threshold. When s ≥ T , we use the defect region without expansion ( i.e. , r = 1 ). When 
+
+s < T , we use a smaller r (thus a larger expansion factor 1/r ) to include more context for small defects. The specific formula is: 
+
+r =
+
+(
+
+β + 1−βT s, if s < T, 
+
+1, if s ≥ T, (8) where s is the defect area ratio, T is a predefined threshold, and β is the minimum value of r when s = 0 . In the default settings of UniDG, we set β = 0 .6 and T = 0 .1, so r ∈ [0 .6, 1] and the corresponding expansion factor 1/r ∈ [1 , 1/0.6] .
+
+B.2. Model Structure and Parameters Analysis 
+
+In Sec. 5.2 of the main paper, we describe UniDG’s backbone as an MM-DiT model, where the diptych input is encoded by a VAE encoder into intermediate latent features. In addition, we employ the SigLIP image encoder to extract extra features from the reference defect, which facilitates defect fusion with the target region. Here, we provide a concise analysis of the model structure and parameters. As shown in Tab. 5, the adopted FLUX.1-Fill-dev consists of four components: 1) VAE Encoder&Decoder, 2) CLIP Text Encoder, 3) T5-XXL Text Encoder, and 4) MM-DiT. The VAE encoder compresses the dimensionality of MM-DiT latent features to reduce computational cost, following the design of LDM (Rombach et al., 2022). The CLIP and T5-XXL text encoders are used to encode text instructions; they are not activated for reference-based defect synthesis, and are only required for the instruction-based defect synthesis strategy described below. MM-DiT is a 12B-parameter rectified-flow transformer with a velocity-prediction objective; it processes diverse conditioning signals through multimodal attention and iteratively generates high-quality target images. 13 Universal Defect Generation  
+
+> Table 5. Model Structure and Parameters. Enabled means that this component is enabled in the reference defect-based synthesis or text instruction-based synthesis.
+
+Component Parameters Enabled Status 
+
+FLUX.1-Fill-dev 
+
+CLIP Text Encoder ∼125M p/✓
+
+T5 XXL Text Encoder ∼4.7B p/✓
+
+FLUX-VAE ∼84M ✓/✓
+
+MM-DiT ∼12B ✓/✓ \& LoRA 
+
+FLUX.1-Redux-dev 
+
+SigLIP Image Encoder ∼400M ✓/✓
+
+Image Embedder ∼4.7M ✓/✓
+
+For reference-feature extraction, the adopted FLUX.1-Redux-dev includes two components: 1) SigLIP Image Encoder and 2) SigLIP Image Embedder. The SigLIP image encoder extracts high-level semantic information from the reference defect image, and the image embedder (an MLP projection) maps the extracted features into the feature space perceived by MM-DiT. 
+
+B.3. The Instruction Editing Capabilities of the UniDG 
+
+Due to space constraints, the main paper focuses on reference-based defect synthesis. In this section, we introduce UniDG’s instruction-based defect editing capability. In the reference-based defect synthesis framework, we use (i) VAE-encoded features to preserve reference defect textures and (ii) SigLIP-encoded features to capture high-level semantics, enabling high-fidelity defect synthesis. To reduce the computational overhead during training and inference, we zero-pad the text-branch features of MM-DiT; therefore, the two text encoders do not need to be loaded for reference-based synthesis. In the text instruction-based defect synthesis framework, we load two text encoders and encode the instruction (e.g., “transfer the scratch from scene 1 to the specified area of scene 2”) as the text-branch features for MM-DiT. Meanwhile, the instruction-editing branch optionally takes a reference defect image. Accordingly, we consider two instruction forms. When a reference defect image is provided, a typical instruction is “Migrate the defect from the reference image to the target scene.” When no reference image is given, the instruction becomes “Add the {multiple defect attributes from caption }
+
+defect category defect to the image,” expecting the model to directly understand the specified defect category. When no reference defect image is provided, we replace the left side of the diptych input with a pure-black image to maintain compatibility with existing models, and we zero-pad the reference-defect features from the SigLIP image encoder. We do not directly fine-tune instruction-based defect synthesis from pre-trained models designed for natural-image editing. Instead, we fine-tune on the two aforementioned data distributions (with and without a reference defect image) starting from the UniDG-SFT checkpoint. All training data are constructed from the UDG dataset, and the editing instructions are derived from the captions in the quadruplets. As shown in Fig. 10, UniDG-Text outperforms existing advanced proprietary methods in visual realism and fidelity for defect-related scenarios. Note that for these proprietary instruction-based editing methods, we use the following prompt: “Please add the defect category defect from the reference mask (the second image) within the reference image (the first image) to the target mask (the fourth image) within the target image (the third image).” Since no existing defect-synthesis method supports instruction-based editing, and there are no established quantitative metrics to evaluate generation quality in this setting, we will explore better evaluation protocols in future work. 
+
+B.4. The Training-Free Zero-Shot Pipeline 
+
+In the experiments and visualizations in the main paper, UniDG adopts a training-free few-shot ( i.e. , one-shot) setting for fair comparisons with other FSAG methods. Specifically, the training-free one-shot strategy selects four defect samples per category and randomly chooses one as the reference defect during inference. UniDG can also support zero-shot inference by following Anomagic (Jiang et al., 2025b), i.e. , pre-building an offline repository for each defect category and dynamically 14 Universal Defect Generation Prompt1 : Please Add Oil defect to target mask(the second image) with target image(the first image). The Oil display with the following descriptions: {A small,   
+
+> irregularly shaped oil stain with a blurry edge, appearing as a grayish patch on the glass surface, situated slightly to the rig ht of the center.}
+
+Instruction -based Defect Generation       
+
+> Target Image&Mask
+> GPT -Image -1Seedream4.5 Flux2 -Pro
+> Gemini -3-Pro -Image UniDG (Ours) Crop Crop
+
+Input      
+
+> With Reference Without Reference
+> GPT -Image -1Seedream4.5 Flux2 -Pro Gemini -3-
+> Pro -Image
+> UniDG
+> (Ours)
+> Crop Crop Reference Target
+
+Figure 10. The quantitative comparison between the proposed UniDG-Text and existing proprietary advanced methods. 
+
+retrieving a same-category reference image during inference. This zero-shot variant further improves the flexibility of UniDG’s image-insertion framework and enhances its generality for downstream applications. 
+
+C. The details of the Diversity-SFT 
+
+C.1. The details about the SFT Training Data Sampling 
+
+In Sec. 5.3 of the main paper, we introduce three training data distributions used in Diversity-SFT : (a) Single Object Defect-Fill Sampling , (b) Single Object Intra-Defect Cross-Sampling , and (c) Multi-Object Intra-Defect Cross-Sampling . In the following, we detail how these distributions are sampled from the UDG dataset. 
+
+(a) Single Object Defect-Fill Sampling. This distribution encourages the model to synthesize defects that are consistent with the reference defect category and identity features within the same object. For each quadruplet in UDG , we use the abnormal image as both the reference defect and the target defect, while using its normal counterpart as the source image (i.e. , the right half of the diptych input). Because we apply the Adaptive Defect Crop strategy, the left half of the diptych (reference side) is not identical to the right half, which mitigates trivial copying and discourages lazy learning. 
+
+(b) Single Object Intra-Defect Cross-Sampling. This distribution improves diversity by learning to synthesize defects that match the reference defect category while exhibiting different identity features. We first select one quadruplet and take its abnormal/normal images as the target defect and the source image. We then retrieve another quadruplet with the same object type and defect type but different defect identity features as the reference defect. The reference selection is based on mask quality and feature similarity between the target defect and the candidate reference defects; the detailed retrieval algorithm is provided in Alg. 2. Specifically, the Connectivity Score filters masks that are overly disconnected, and the Area Score filters masks that are excessively large or small, both of which are not conducive to stable learning. The Color Score measures color similarity between the target and reference defect regions, where higher scores indicate higher similarity. We set σ = 0 .1 for the calculation of the scolor . We set the coefficients for the area, connectivity, and color scores to 0.3, 0.4, and 0.3, respectively. Finally, we randomly choose the reference defect from the top-3 candidates ranked by the overall quality score. 
+
+(c) Multi-Object Intra-Defect Cross-Sampling. This distribution enables cross-object defect synthesis by learning to 15 Universal Defect Generation 
+
+Algorithm 2 Candidate Samples Quality Assessment 
+
+Require: Candidate reference image Iref , reference mask Mref 
+
+Require: Target image Itar , target mask Mtar 
+
+Ensure: Quality score Qscore 
+
+1: // Area Ratio of Reference Mask 
+
+2: rarea ← |{ p : Mref (p) > 0}| / (H × W )
+
+3: // Connectivity Score 
+
+4: Ncc ← ConnectedComponents (Mref ) − 1
+
+5: sconn ←
+
+
+
+1.0 Ncc = 1 0.5 Ncc ∈ [2 , 3] 0.0 otherwise 
+
+6: // Color Statistics in Masked Regions 
+
+7: μref ← Mean (Iref [Mref > 0]) 
+
+8: μtar ← Mean (Itar [Mtar > 0]) 
+
+9: // Color Similarity Score 
+
+10: dcolor ← ∥ μref − μtar ∥2
+
+11: scolor ← exp  −d2
+
+> color
+
+/2σ2
+
+12: // Area Score Mapping 
+
+13: sarea ←
+
+
+
+1.0 rarea ∈ [0 .5% , 1%] 0.7 rarea ∈ (1% , 5%] 0.5 rarea ∈ [0 .1% , 0.5%) 0.1 otherwise 
+
+14: // Final Quality Score 
+
+15: Qscore ← α · sarea + β · sconn + γ · scolor 
+
+16: return Qscore 
+
+transfer defects of the same category across different object types. Since we map the original 269 defect categories into 28 standardized categories in UDG , we select one quadruplet as the target (abnormal/normal images) and retrieve a reference quadruplet from a different object type but with the same mapped defect category. We traverse UDG only once to construct the training samples. Within each data distribution, each quadruplet is used at most once as a reference defect and once as a target defect. Overall, these three distributions substantially improve generation diversity, defect category consistency, and cross-product defect synthesis capability for our SFT model. 
+
+C.2. The Defect Enhancement Mechanism 
+
+We introduce a defect enhancement mechanism to improve the visual fidelity and discriminability of synthesized defects, and validate its effectiveness in the ablation study. This mechanism contains two components: (1) normal regularization loss and (2) defect attention. 
+
+Normal regularization loss. The normal regularization loss encourages the synthesized target region to deviate from the normal counterpart in feature space, which helps counteract the inpainting prior of the pre-trained Fill model while maintaining reliable defect synthesis. The loss is defined as: 
+
+Lreg-cos = 1
+
+|B|
+
+> |B|
+
+X
+
+> b=1
+
+ReLU (¯ sb − τ ) , (9) where ¯sb = 1
+
+> |M b|
+
+P 
+
+> i∈M b
+
+cos( z(i)
+
+> target
+
+, z(i)
+
+> orig
+
+), τ denotes the similarity margin (set to 0.5), and B is the batch size. z(i)
+
+> target
+
+denotes the latent representation of the synthesized target region, and z(i) 
+
+> orig
+
+denotes the latent representation of the normal counterpart. 
+
+Defect attention. The defect attention mechanism enhances fidelity by explicitly prioritizing information from the reference defect and the target region during generation. Concretely, we bias the multimodal attention map toward the reference defect 16 Universal Defect Generation UniDG -SFT Failure Cases Input 
+
+UniDG -SFT Crop Reference Target UniDG -RFT Crop  
+
+> Figure 11. The failure cases of UniDG-SFT.
+
+features (left side) and target-region features (right side). Given the standard scaled dot-product attention: Attention (Q, K, V) = softmax 
+
+ QK ⊤
+
+√dk
+
+
+
+V (10) We construct a mask indicator set M containing the spatial indices of both the reference defect subjects (left side) and the target region (right side) in the latent space. An attention bias matrix B ∈ RN ×N is then defined as: 
+
+Bij =
+
+(
+
+log α, if j ∈ M 
+
+0, otherwise (11) where α > 1 is the attention amplification factor (default α = 2 .0). The modified attention mechanism becomes: Attention weighted (Q, K, V) = softmax 
+
+ QK ⊤
+
+√dk
+
++ B
+
+
+
+V (12) This formulation amplifies attention weights for keys in the masked regions, guiding the model to emphasize these critical areas during generation. Overall, these two strategies slightly improve both synthesis quality and downstream performance. 
+
+C.3. The Failure Cases Visualizations 
+
+In Sec. 5.3 of the main paper, we note that UniDG-SFT achieves strong diversity, synthesizing high-quality and category-adherent defects across scenarios. However, due to the diverse training distributions, the synthesized defects may occasionally deviate from the reference in certain attributes, such as color inconsistencies or changes in texture and lighting. Although these discrepancies do not affect downstream performance, they indicate room for improvement in reference-consistent synthesis. Representative failure cases of UniDG-SFT are shown in Fig. 11. 
+
+D. The details of the Consistency-RFT 
+
+In the manuscript, we present the overall pipeline of Consistency-RFT, but do not elaborate on the two reward models or the online RFT procedure. This section provides additional details on the reward models and the RFT framework. 
+
+D.1. The details of the Reward Models 
+
+We employ two reward models: Defect-Und-Reward and Defect-Recog-Reward. Defect-Und-Reward leverages the multi-modal perception capabilities of MLLMs to evaluate reference adherence, target-background consistency, the reasonability 17 Universal Defect Generation You are an expert quality assessor for industrial defect transfer and image editing tasks. Your role is to evaluate how well def ects from reference images have been transferred onto target images .
+
+## TASK CONTEXT 
+
+You will be provided with: 
+
+- Reference Image: Contains the original defect - Reference Mask: Highlights the defect region in the reference image - Target Image: The edited result where the defect has been transferred - Target Mask: Highlights where the defect should appear in the target image 
+
+- Scenario: A description of the industrial context in which the defect transfer is being evaluated 
+
+Your objective is to evaluate the quality of the defect transfer by analyzing the target image against the reference image .
+
+## EVALUATION CRITERIA 
+
+### 1. Reference Adherence (Score: 0.0 - 5.0) 
+
+Evaluate how accurately the generated defect in the target mask region matches the reference defect in the reference mask reg ion . Consider: 
+
+- **Defect Identity**: Does the defect type match (e.g., scratch, dent, crack, discoloration)? 
+
+- **Color Fidelity**: Are the colors of the defect accurately replicated? 
+
+- **Shape Accuracy**: Does the shape and geometric structure of the defect align with the reference? 
+
+- **Texture Preservation**: Are surface textures and patterns of the defect maintained ?
+
+Scoring Guide: 
+
+- 4.0 -5.0: Excellent match across all aspects (identity, color, shape, texture) 
+
+- 3.0 -3.9: Good match with minor deviations in one aspect 
+
+- 2.0 -2.9: Moderate match with noticeable differences in 2+ aspects 
+
+- 1.0 -1.9: Poor match with significant deviations 
+
+- 0.0 -0.9: Minimal or no resemblance to reference defect 
+
+### 2. Consistency (Score: 0.0 - 5.0) 
+
+Evaluate how seamlessly the edited region integrates with the surrounding areas of the target image. Consider: 
+
+- **Texture Blending**: Does the defect region's texture blend naturally with adjacent areas? 
+
+- **Illumination Matching**: Do lighting, shadows, and highlights match the target image's illumination? 
+
+- **Edge Transitions**: Are the boundaries of the target mask region smooth and artifact -free? 
+
+- **Material Continuity**: Does the surface material appearance remain consistent ?
+
+Scoring Guide: 
+
+- 4.0 -5.0: Seamless integration, no visible boundaries or inconsistencies 
+
+- 3.0 -3.9: Well -integrated with minimal noticeable transitions 
+
+- 2.0 -2.9: Moderate integration with some visible seams or lighting mismatches 
+
+- 1.0 -1.9: Poor integration with obvious artifacts or discontinuities 
+
+- 0.0 -0.9: Severe inconsistencies, clearly distinguishable edited region 
+
+### 3. Reasonability (Score: 0.0 - 5.0) 
+
+Assess whether the transferred defect appears plausible and natural in the context of the target image. Consider: 
+
+- **Contextual Plausibility**: Does the defect make sense on this surface/material? 
+
+- **Physical Realism**: Does the defect follow realistic physical properties (depth, perspective, orientation)? 
+
+- **Scale Appropriateness**: Is the defect size and proportion appropriate for the target location? 
+
+- **Logical Placement**: Does the defect position make sense given the industrial context ?
+
+Scoring Guide: 
+
+- 4.0 -5.0: Highly realistic and contextually appropriate 
+
+- 3.0 -3.9: Generally reasonable with minor implausibilities 
+
+- 2.0 -2.9: Somewhat plausible but with noticeable unrealistic elements 
+
+- 1.0 -1.9: Questionable realism or contextual fit 
+
+- 0.0 -0.9: Highly unrealistic or contextually inappropriate 
+
+### 4. Overall Quality (Score: 0.0 - 5.0) 
+
+Evaluate the holistic visual quality of the final target image. Consider: 
+
+- **Realism**: Does the final image look like a genuine photograph? 
+
+- **Visual Fidelity**: Is the image sharp, clear, and free from artifacts? 
+
+- **Professional Appearance**: Would this result be suitable for industrial quality assessment? 
+
+- **Composite Score**: Balance of all above factors contributing to overall impression 
+
+Scoring Guide: 
+
+- 4.0 -5.0: Exceptional quality, indistinguishable from real defect photographs 
+
+- 3.0 -3.9: High quality with minor imperfections 
+
+- 2.0 -2.9: Acceptable quality but with visible flaws 
+
+- 1.0 -1.9: Below acceptable quality with multiple issues 
+
+- 0.0 -0.9: Poor quality, unsuitable for practical use 
+
+## OUTPUT FORMAT 
+
+You must provide your evaluation in the following JSON format exactly :{ 
+
+"Analysis": "Provide a comprehensive explanation for each score. Structure your analysis by addressing each criterion systema tic ally: (1) Reference Adherence - explain how well the defect matches the reference in terms of identity, color, shape, and textur e; (2) Consistency - describe the 
+
+integration quality, texture blending, and illumination matching; (3) Reasonability - discuss the plausibility and contextual ap propriateness of the defect; (4) Overall Quality - summarize the holistic visual quality and any notable strengths or weaknesses . Be specific and reference 
+
+observable details from the images.", 
+
+"Reference Adherence": [score], 
+
+"Consistency": [score], 
+
+"Reasonability": [score], 
+
+"Overall Quality": [score] 
+
+}
+
+## IMPORTANT NOTES 
+
+- Scores must be floating -point numbers between 0.0 and 5.0 
+
+- Be objective and consistent in your evaluation 
+
+- Focus on observable visual qualities rather than assumptions 
+
+- Consider the industrial context and practical application requirements 
+
+- Provide specific, detailed reasoning in your analysis 
+
+- If any aspect is particularly strong or weak, emphasize this in your analysis 
+
+- Please limit the word count for the Analysis to 80 words 
+
+Now, please carefully examine the provided images and masks, and deliver your evaluation in the specified JSON format. 
+
+System Prompt For Defect -Und -Reward 
+
+Figure 12. The system prompt for Defect-Und-Reward and MLLM-based comprehensive scores. 
+
+of defect occurrence, and overall generation quality. Defect-Recog-Reward trains a universal defect classification and localization model using the large-scale UDG dataset; it identifies the mapped defect category in generated images and localizes the corresponding regions ( i.e. , defect pseudo masks). 
+
+Defect-Und-Reward. Defect-Und-Reward is built on the lightweight open-source model Qwen3VL-4B-Instruct (Bai et al., 2025). Its training corpus comprises approximately 15K edited pairs (reference defect image, reference mask, target defect image, target mask) sampled from UDG . With a designed system prompt, proprietary models (including Gemini-3-Pro ( i.e. ,gemini-3-pro-preview) and GPT-5.1 ( i.e. , gpt-5.1-2025-11-13)) analyze and score each edited pair from four perspectives (i.e. , reference adherence, consistency, reasonability, and overall quality). The edited pairs, analysis, and scores are then used as supervision to train this reward model. The detailed system prompt for Defect-Und-Reward is shown in Fig. 12. The training pipeline is implemented with LLaMA-Factory (Zheng et al., 2024) using LoRA (rank 64), a learning rate of 
+
+1 × 10 −4, 20 epochs, and a cosine learning-rate scheduler. To evaluate its effectiveness, we manually construct UDG-Reward-Bench, which contains 500 edited pairs annotated by dozens of annotators. Each pair is provided with detailed analyses and scores across the same four dimensions in Fig. 12. An advanced MLLM ( i.e. , Gemini-3-Pro (Comanici et al., 2025)) then summarizes the annotations for each pair by discarding the highest and lowest scores. Defect-Und-Reward achieves performance comparable to proprietary models on UDG-Reward-Bench, demonstrating its effectiveness and robustness. 
+
+Defect-Recog-Reward. Defect-Recog-Reward trains a universal defect classification model and a defect instance segmenta-tion model using the full training images and mapped defect categories from UDG . The classification model is built on a ResNet-34 backbone and predicts the defect category (28 defect types plus a normal category). If the predicted category matches the ground truth, the score is 1.0; otherwise, it is 0. The instance segmentation model is built on ViT-B/16 and predicts defect instance masks for input images. Higher scores are assigned when the predicted masks better match the ground-truth masks. The scoring is based on three metrics: pixel AUROC, pixel AP, and pixel PRO. We normalize these metrics, average them with the category score, and use the resulting composite score as the overall evaluation for the current image; this robust preference signal guides the Online-RL process. We train Defect-Recog-Reward for 5 epochs with a batch size of 128, a learning rate of 1 × 10 −4, and a cosine learning-rate scheduler. The proposed defect instance segmentation model achieves an average score exceeding 0.92 on datasets such as 18 Universal Defect Generation 
+
+Algorithm 3 Flow-GRPO for UniDG 
+
+Require: UniDG-SFT model Φθ , Redux encoder Eredux , reward models Rgen , Rdet , dataset D, group size G
+
+1: for epoch = 1 to N do 
+
+2: for each batch of prompts {(Ij
+
+> ref
+
+, M j
+
+> ref
+
+, M j
+
+> tar
+
+)}Bj=1 do 
+
+3: // Sampling Phase 
+
+4: for i = 1 to G do 
+
+5: Extract features: (eimg , epool ) ← E redux ( ˜Iref )
+
+6: Construct diptych: Idiptych , M diptych 
+
+7: Generate: I(i) 
+
+> tar
+
+, {z(i) 
+
+> t
+
+}, {log π(i) 
+
+> θ
+
+} ← Φθ
+
+8: end for 
+
+9: // Reward Computation Phase 
+
+10: for i = 1 to G do 
+
+11: r(i) 
+
+> gen
+
+← R gen (Iref , M ref , I (i) 
+
+> tar
+
+, M tar )
+
+12: r(i) 
+
+> det
+
+← R det (I(i) 
+
+> tar
+
+, M tar )
+
+13: r(i) ← wgen · r(i) 
+
+> gen
+
++ wdet · r(i)
+
+> det
+
+14: end for 
+
+15: // Advantage Estimation 
+
+16: μG ← mean ({r(i)}), σG ← std ({r(i)})
+
+17: A(i) ← (r(i) − μG)/(σG + ϵ)
+
+18: // Policy Update Phase 
+
+19: for inner epoch = 1 to K do 
+
+20: Compute LGRPO using Eq. (15) and (17) 
+
+21: Update θ ← θ − η∇θ L
+
+22: end for 
+
+23: Update EMA parameters 
+
+24: end for 
+
+25: end for 
+
+MVTec-AD and VisA that are not included in the training samples, demonstrating the validity of its preference measurement. 
+
+D.2. The details of the Consistency-RFT Framework 
+
+The overall framework of Consistency-RFT is built upon FLOW-GRPO (Liu et al., 2025), and the details are shown in Alg. 3. Partially inspired by Consistent-RFT (Tan et al., 2026). We adopt Group Relative Policy Optimization (GRPO) to optimize the generation model using reward signals. For each defect generation task, we sample a group of G generated images {I(i) 
+
+> tar
+
+}Gi=1 and compute their rewards {r(i)}Gi=1 . Note that ˜Iref means the reference defect subject features from Iref 
+
+through adaptive defect crop strategy. 
+
+Advantage Estimation. The advantage for each sample is computed relative to the group mean: 
+
+A(i) = r(i) − μG
+
+σG + ϵ (13) where μG = 1
+
+> G
+
+PGj=1 r(j) and σG =
+
+q 1
+
+> G
+
+PGj=1 (r(j) − μG)2 are the group mean and standard deviation respectively. 
+
+Log Probability Computation. For each denoising step t, we compute the log probability using the SDE formulation: 
+
+log πθ (zt−1|zt) = − ∥zt−1 − μθ (zt, t )∥2
+
+2σ2
+
+> t
+
++ C (14) where μθ (zt, t ) is the predicted mean from the denoising step and σt is the noise level at timestep t.
+
+Policy Gradient Loss. The GRPO loss with clipping is computed as: 
+
+LGRPO = −E
+
+" TX
+
+> t=1
+
+min ( ρtA, clip (ρt, 1 − ϵ, 1 + ϵ)A)
+
+#
+
+(15) 19 Universal Defect Generation 
+
+where ρt = exp(log πθ (zt−1|zt) − log πθold (zt−1|zt)) is the importance sampling ratio. 
+
+KL Regularization. To prevent the policy from deviating too far from the reference model, we optionally add a KL divergence penalty: 
+
+LKL = Et
+
+ ∥μθ (zt, t ) − μθref (zt, t )∥2
+
+2σ2
+
+> t
+
+
+
+(16) The final training objective combines the policy loss and KL regularization: 
+
+L = LGRPO + βLKL (17) where β controls the strength of the KL penalty. We use FLUX.1-Fill-dev as the base inpainting model and FLUX.1-Redux-dev for reference defect image feature extraction. The MM-DiT is fine-tuned using LoRA with rank r = 64 and α = 128 ,targeting attention and feed-forward layers. We train with G = 8 samples per prompt, T = 8 denoising steps during training, and guidance scale of 3.5. The learning rate is set to 1 × 10 −4 with AdamW optimizer. We set wgen = 0 .5, wdet = 0 .5,
+
+β = 0 .001 , and ϵ = 1 × 10 −5. We use mixed precision training with DeepSpeed ZeRO-2 for distributed training across 8 GPUs. 
+
+E. The Additional Ablation Studies 
+
+In this section, we present additional ablation studies on (i) the performance evaluation of the Defect-Und-Reward model, (ii) the iteration scaling behavior during Diversity-SFT , and (iii) the comparison between applying only Consistency-RFT 
+
+and the full two-stage training recipe. 
+
+The performance evaluation of Defect-Und-Reward Model. We evaluate defect-understanding capability on UDG-Reward-Bench, which contains 500 manually annotated editing pairs with detailed analyses and scores. Each pair consists of a reference defect image/mask and a target defect image/mask. We compare Defect-Und-Reward with proprietary models (e.g. , Gemini-3-Pro) and open-source models ( e.g. , the Qwen3-VL series), where Qwen3-VL is the pre-trained backbone of Defect-Und-Reward. The results are reported in Tab. 6. The metric is computed as follows. Under the same system prompt, each model outputs a score in [0 , 5] for each dimension. A prediction is considered correct if the absolute difference between the predicted score and the ground-truth score is within 0.3. We then compute the proportion of correct predictions over 500 samples and normalize it to obtain the final accuracy score ( i.e. , Acc ∈ [0 , 100] ). Overall, proprietary models exhibit relatively small performance gaps on this benchmark, and our 4B model surpasses Qwen3-VL-32B while approaching proprietary models. We also visualize corpus of UDG-Reward-Bench, as shown in Fig. 13.                                          
+
+> Table 6. Benchmark results on UDG-Reward-Bench, reporting the accuracy of prediction with advanced MLLMs on reference adherence, consistency, reasonability, overall quality.
+> Accuracy GPT-4.1 GPT-5 Gemini-3-Pro Qwen3-VL Defect-Und-Reward-4B Defect-Und-Reward-8B 4B 8B 32B
+> RefAd 84.2 82.6 86.4 74.6 72.4 80.0 82.4 84.8 Cons 81.6 83.8 88.8 75.2 78.4 79.8 82.0 86.0 Reas 86.4 88.4 87.6 62.8 68.0 73.2 84.8 85.4 Qual 92.0 92.4 94.8 84.2 86.8 87.4 91.6 93.4
+
+The data scaling experiment during Diversity-SFT. We further study how increasing the training iterations in Diversity-SFT affects overall performance (Tab. 7). Generation quality improves consistently as training proceeds, whereas downstream performance largely saturates after 14K iterations. This suggests that generation quality exhibits a clearer scaling behavior, while downstream task performance converges and remains stable with additional training. 
+
+Performance comparison only with Consistency-RFT. To assess whether Consistency-RFT alone is effective when applied to a pre-trained Fill model, we perform an ablation that applies Consistency-RFT directly to the pre-trained MM-DiT weights, as reported in Tab. 8. Directly applying Consistency-RFT leads to inferior downstream performance and slightly worse generation quality compared with the full recipe. In contrast, applying Consistency-RFT on top of Diversity-SFT 
+
+yields better downstream performance and higher generation quality. These results indicate that reinforcement learning 20 Universal Defect Generation {
+
+"Analysis": "The transferred defect matches the reference in identity (thin 
+
+linear scratch), color (high -contrast gray), shape (diagonal line), and 
+
+texture (slightly concave). The defect blends seamlessly with the 
+
+sandblasted surface, matching illumination and texture without visible 
+
+seams. The defect is contextually plausible on aluminum, with appropriate 
+
+scale and orientation. Overall Quality: The result is highly realistic, 
+
+visually indistinguishable from a genuine defect photograph.", 
+
+"Reference Adherence": [4.8], 
+
+"Consistency": [4.9], 
+
+"Reasonability": [4.9], 
+
+"Overall Quality": [4.9] 
+
+}
+
+Reference 
+
+Target 
+
+> High Scores Pairs
+
+{
+
+"Analysis": "The transferred dehiscence in the target image differs 
+
+significantly from the reference: it is jagged and irregular, lacking the 
+
+smooth, curved shape and consistent light -gray tone of the original. 
+
+Integration is poor, with harsh edges and unnatural lighting, disrupting 
+
+texture continuity. The defect's placement near the hole is contextually 
+
+plausible but its appearance is unrealistic. Overall, the result appears 
+
+artificial and fails to replicate the reference's subtle, natural flaw.", 
+
+"Reference Adherence": [2.0], 
+
+"Consistency": [2.0], 
+
+"Reasonability": [3.0], 
+
+"Overall Quality": [2.5] 
+
+}
+
+Reference 
+
+Target 
+
+> Low Scores Pairs
+
+Figure 13. The part visualizations of UDG-Reward-Bench. 
+
+Table 7. Scaling the training iterations improves generation quality during Diversity-SFT. 
+
+Training Iterations Multi-class Metrics Synthesis Metrics PRO-P mIoU FG-mIoU Cons Qual 20K 77.2 27.0 11.0 3.03 3.10 60K 80.1 29.1 13.3 3.44 3.57 100K 88.9 38.4 25.4 3.72 3.83 140K 91.0 41.8 28.5 4.15 4.09 200K 90.5 40.1 27.4 4.22 4.27 240K 90.1 39.7 26.5 4.24 4.33 
+
+Table 8. Ablation studies on the Consistency-RFT within UniDG. -Diversity-SFT denotes only with Consistency-RFT, while -Consistency-RFT means only with Diversity-SFT.                                   
+
+> Arch. Single-class Metrics Multi-class Metrics Synthesis Metrics Acc AP-I AP-P PRO-P mIoU FG-mIoU Cons Qual UniDG-RFT 77.4 99.0 77.3 91.1 44.2 31.9 4.21 4.24 -Diversity-SFT 53.1 92.9 57.2 71.4 20.4 4.7 3.11 3.07 -Consistency-RFT 74.9 98.6 77.0 91.0 41.8 28.5 4.15 4.09
+
+benefits from a strong initialization that already produces sufficiently faithful reference-based defect synthesis, which in turn supports higher-quality online batch generation and enables GRPO to better adjust the model distribution. 
+
+Performance improvement with UDG quadruplet context. As mentioned in the main paper, the normal-abnormal-mask-caption quadruplets in UDG can improve MLLM-based anomaly detection by providing robust contextual information. Following MMAD (Jiang et al., 2025a), which leverages defect-related RAG and expert agents to enhance MLLM performance on anomaly classification and localization, we augment the MMAD context with UDG quadruplets from the same defect category. The results are reported in Tab. 9. These quadruplets explicitly provide defect-region cues and aligned textual descriptions, leading to improved performance for Qwen2.5-VL-7B-Instruct, which becomes comparable to Qwen2.5-VL-72B-Instruct without quadruplet context. Beyond MLLM-based approaches, these contextual signals may also benefit vision-language alignment-based anomaly detection methods (Gao et al., 2026). 
+
+E.1. The Inference Efficiency Comparisons between different methods. 
+
+To verify the inference efficiency differences between different methods, we conduct inference on the same GPU device with the default resolution and iterations settings. The results are shown in Tab. 10. It can be noticed that UniDG (reference image-based) is not significantly slower than other FSAG or Image Insertion methods, as it adopts the Rectified Flow 21 Universal Defect Generation 
+
+Table 9. The quadruplets of UDG improves MLLM-based anomaly classification and detection methods. Model Scale Anomaly Defect Object Average Discrimination Classification Localization Description Analysis Classification Analysis Random Chance – 50.00 25.00 25.00 25.00 25.00 25.00 25.00 28.57 Human (expert) – 95.24 75.00 92.31 83.33 94.20 86.11 80.37 86.65 Human (ordinary) – 86.90 66.25 85.58 71.25 81.52 89.58 69.72 78.69 Claude-3.5-sonnet – 60.14 60.14 48.81 67.13 79.11 85.19 79.83 68.36 Gemini-1.5-pro – 68.63 60.12 58.56 70.38 82.46 89.20 82.25 73.09 GPT-4o – 68.63 65.80 55.62 73.21 83.41 94.98s 82.80 74.92 Qwen2.5-VL-Instruct 7B 71.10 56.02 60.69 64.13 78.26 91.49 83.67 72.19 Qwen2.5-VL-Instruct + Quadruplet 7B 72.48 60.83 64.43 68.37 79.82 92.11 85.29 74.76 Qwen2.5-VL-Instruct 72B 72.66 62.31 67.16 73.56 81.95 94.30 86.78 76.96 
+
+strategy, which allows for better results with fewer iterations (28 iterations/NFE). 
+
+Table 10. The Inference Time of different methods. 
+
+Method AnoDiff AnoGen DualAnoDiff SeaS AnyDoor InsertAny UniDG 
+
+Paradigm DDIM Rectified Flow Resolution 256 × 256 256 × 256 512 × 512 512 × 512 512 × 512 768 × 768 768 × 768 
+
+Iterations 50 50 100 25 50 50 28 
+
+Inference Time (s) 3.47 3.21 19.68 6.73 7.59 28.04 11.59 
+
+E.2. The performance impact of different reward models during Consistency-RFT. 
+
+During Consistency-RFT process, we propose two distinct reward models for aligning the SFT model with preferences: Defect-Und-Reward and Defect-Recog-Reward. The specific design details of both models can be found in Sec. D. Since different reward models exert varying degrees of influence on final performance, we conducted the following experiments to evaluate their impact by adjusting the weight assigned to the reward values generated by each model. Note that when the weight w is set to 0, it indicates that the model does not participate in the Consistency-RFT. 
+
+Table 11. Ablation studies on the different reward models during Consistency-RFT. wgen and wdet denotes the coefficient of the Defect-Und-Reward and Defect-Recog-Reward models, respectively. Coefficient Single-class Metrics Multi-class Metrics Synthesis Metrics 
+
+wgen wdet Acc AP-I AP-P PRO-P mIoU FG-mIoU Cons Qual 0.0 1.0 78.3 99.1 78.1 91.3 45.3 32.5 4.01 3.97 0.2 0.8 77.6 99.0 77.6 91.2 44.7 32.2 4.15 4.17 0.5 0.5 77.4 99.0 77.3 91.1 44.2 31.9 4.21 4.24 0.8 0.2 76.7 98.8 76.7 91.0 43.7 30.7 4.34 4.39 1.0 0.0 71.6 97.3 75.8 88.3 39.8 27.1 4.59 4.67 
+
+F. The Additional Quantitative Experiments 
+
+Due to space constraints in the main paper, we only report averaged metrics for single-class anomaly detection and classification. Here, we additionally provide per-category results. The detailed single-class anomaly detection metrics, anomaly classification metrics, and generation quality metrics on MVTec-AD are shown in Tab. 12, 13, and 14, respectively. In addition, we compare UniDG with other state-of-the-art methods on VisA for single-class anomaly detection, anomaly classification, and multi-class anomaly segmentation, as shown in Tab. 15, 16, and 17, respectively. UniDG also outperforms the previous state-of-the-art method SeaS on VisA across all tasks. These results also highlight the potential of universal defect generation for addressing continual adaptation challenges in industrial anomaly detection (Li et al., 2022), where new product categories are incrementally introduced. 22 Universal Defect Generation 
+
+Table 12. Quantitative results for anomaly detection and localization on MVTec-AD dataset. Bold and underline represent optimal and sub-optimal average results, respectively. 
+
+Method Metric Category Average 
+
+bottle cable capsule carpet grid hazelnut leather metal nut pill screw tile toothbrush transistor wood zipper 
+
+Few-shot Learning Anomaly Generation 
+
+AnoDiff AUROC-I 100.0 99.8 91.3 93.2 97.5 99.6 99.9 100.0 99.1 88.0 100.0 100.0 99.8 100.0 100.0 97.9 AP-I 100.0 99.4 97.4 95.4 99.0 99.6 100.0 100.0 98.9 93.6 100.0 100.0 99.6 100.0 100.0 98.9 AUROC-P 99.1 82.2 97.7 97.2 91.8 99.7 99.8 99.6 99.8 93.6 99.1 98.1 94.1 98.3 99.4 96.6 AP-P 87.5 82.2 34.5 78.6 30.3 95.5 77.5 98.2 96.7 37.2 92.9 60.3 94.1 78.4 87.3 75.4 AnoGen AUROC-I 98.4 98.2 95.6 93.8 99.3 99.4 99.0 98.7 98.1 78.7 100.0 100.0 97.2 98.6 100.0 97.0 AP-I 96.7 96.1 91.9 96.5 96.0 98.5 98.8 90.6 99.1 84.8 99.1 90.3 89.8 97.8 98.5 95.0 AUROC-P 99.3 98.9 98.6 97.7 99.6 99.5 99.5 99.6 99.5 87.2 100.0 100.0 96.0 99.3 100.0 98.3 AP-P 79.0 70.2 36.2 72.5 39.6 83.2 60.7 70.1 87.5 19.4 90.3 26.8 56.8 80.1 77.1 63.3 DualAnoDiff AUROC-I 96.3 95.9 81.4 87.0 89.3 98.1 99.4 99.9 93.3 90.2 99.8 100.0 93.1 100 99.9 94.9 AP-I 97.5 96.6 93.7 97.3 79.4 97.8 99.3 99.0 99.6 96.5 99.1 98.5 97.9 96.8 99.4 96.6 AUROC-P 98.7 97.2 93.9 94.4 95.0 98.7 99.7 100.0 98.2 95.5 99.9 100.0 91.4 100.0 100.0 97.5 AP-P 79.3 60.4 34.5 71.8 9.9 68.3 68.1 91.8 94.5 12.0 93.0 62.7 83.1 75.4 84.9 66.0 SeaS AUROC-I 99.4 92.0 89.7 95.9 97.1 99.3 97.8 100.0 95.2 97.7 99.6 85.4 95.1 100.0 98.9 96.2 AP-I 98.1 91.8 93.1 97.8 97.3 99.7 98.8 99.0 99.3 98.3 99.2 76.2 90.1 97.7 96.4 95.5 AUROC-P 99.8 94.9 97.0 98.5 98.8 99.4 99.0 100 98.8 98.9 99.8 92.2 93.7 100 99.6 98.0 AP-P 87.3 71.5 33.0 78.0 48.7 92.8 60.7 95.4 86.3 39.0 91.7 26.5 57.8 79.1 75.6 68.2 
+
+Training-Free Few-shot Image Insertion 
+
+AnyDoor AUROC-I 88.0 68.7 52.8 73.3 85.2 96.2 83.0 82.0 87.5 83.0 96.4 80.4 72.4 93.7 61.9 80.3 AP-I 72.7 73.8 91.9 85.6 65.2 86.9 92.0 88.0 89.3 79.9 77.1 85.9 69.8 74.1 78.4 80.7 AUROC-P 94.7 70.2 78.6 87.7 92.1 97.2 92.1 93.8 96.4 91.7 97.8 87.5 63.5 97.3 81.4 88.1 AP-P 16.2 10.9 9.6 10.3 1.3 8.2 28.9 60.8 50.7 0.6 18.6 4.8 22.9 19.4 8.7 18.1 InsertAny AUROC-I 97.6 96.1 83.3 97.1 99.5 98.2 99.9 99.6 91.8 90.3 100 97.5 96.7 100.0 82.5 95.3 AP-I 94.2 97.3 87.8 96.3 95.3 99.5 98.7 98.0 92.7 95.4 97.1 97.1 95.8 96.7 90.3 95.5 AUROC-P 99.0 96.8 94.6 98.8 99.8 98.9 100.0 99.9 97.7 95.0 100.0 98.8 95.3 100.0 93.3 97.9 AP-P 73.5 73.8 38.2 68.6 34.4 92.8 61.5 88.3 77.5 38.3 85.5 58.9 73.9 73.4 23.0 64.1 
+
+UniDG-SFT 
+
+AUROC-I 99.8 98.3 94.4 90.8 100.0 99.7 100.0 99.6 98.3 92.3 100.0 100.0 96.5 100.0 99.9 98.0 AP-I 98.5 97.3 97.2 97.9 99.8 99.0 99.8 99.1 99.6 93.9 99.7 99.1 98.9 99.3 99.2 98.6 AUROC-P 99.9 98.3 98.2 96.2 99.8 99.8 100 99.9 99.5 96.2 100.0 100.0 94.5 100.0 100.0 98.8 AP-P 88.3 63.6 54.7 76.2 57.5 77.7 79.2 96.9 95.3 40.0 96.9 68.7 87.2 86.8 85.3 77.0 
+
+UniDG-RFT 
+
+AUROC-I 100.0 98.3 96.5 92.1 100.0 99.7 100.0 99.6 98.3 94.7 100.0 100.0 96.5 100.0 99.9 98.4 AP-I 99.9 98.7 98.1 97.4 99.8 99.8 100.0 99.9 99.5 96.3 100.0 100.0 95.7 100.0 100.0 99.0 AUROC-P 98.7 97.5 97.8 97.9 99.8 99.0 99.8 99.1 99.6 96.8 99.7 99.1 98.9 99.3 99.2 98.8 AP-P 88.3 63.6 56.8 76.2 58.9 77.7 79.2 96.9 95.3 42.0 96.9 68.7 87.2 86.8 85.3 77.3 
+
+Table 13. Quantitative results for anomaly classification on MVTec-AD dataset. The higher accuracy denotes the generated data is more consistent with the real data. 
+
+Category AnoDiff AnoGen DualAnoDiff SeaS AnyDoor InsertAny UniDG-SFT UniDG-RFT 
+
+bottle 90.70 53.49 55.81 83.72 65.12 79.07 88.37 83.72 cable 67.19 60.94 48.44 50.00 62.50 76.56 79.69 87.88 capsule 66.67 24.00 49.33 30.67 65.33 41.33 68.00 73.33 carpet 58.06 40.32 69.35 41.94 53.23 77.42 64.52 72.58 grid 42.50 57.50 62.50 32.50 60.00 32.50 50.00 40.00 hazel nut 85.42 85.42 79.17 85.42 81.25 95.83 95.83 95.83 leather 61.90 57.14 90.48 52.38 53.97 65.08 79.37 69.84 metal nut 59.38 62.50 57.81 85.25 39.06 57.81 90.62 85.42 pill 59.38 47.92 37.50 26.04 48.96 36.46 64.58 76.06 screw 48.15 39.51 32.10 59.26 49.38 30.86 34.57 29.63 tile 84.21 96.49 100.00 91.23 61.40 80.70 96.49 89.47 toothbrush 100.00 100.00 100.00 100.00 100.00 100.00 100.00 100.00 transistor 60.71 67.86 75.00 50.00 78.57 67.86 82.14 80.95 wood 71.43 73.81 85.71 57.14 52.38 76.19 73.81 91.18 zipper 69.51 53.66 17.07 41.46 56.10 36.59 54.88 84.51 
+
+Average 68.35 61.37 64.02 59.13 61.82 63.62 74.86 77.36 
+
+23 Universal Defect Generation 
+
+Table 14. Comparison of synthesis data on IL, IL-a, Reference Adherence, Consistency, Reasonability, Quality on MVTec-AD dataset. 
+
+Method Metric Category Average 
+
+bottle cable capsule carpet grid hazelnut leather metal nut pill screw tile toothbrush transistor wood zipper AnoDiff IL 0.16 0.37 0.16 0.20 0.39 0.29 0.39 0.24 0.23 0.23 0.50 0.15 0.27 0.34 0.23 0.28 IL-a 0.17 0.13 0.08 0.14 0.11 0.17 0.10 0.22 0.14 0.07 0.21 0.14 0.16 0.18 0.12 0.14 RefAd 3.76 4.00 3.69 3.96 4.11 3.43 3.82 3.86 3.97 3.62 3.87 2.63 3.74 3.49 4.25 3.84 Cons 3.80 3.93 4.13 4.29 3.62 3.54 4.21 3.92 4.16 3.75 4.13 2.99 4.01 3.82 4.00 3.97 Reas 4.29 4.39 4.48 4.69 4.41 3.58 4.07 4.19 3.85 4.00 3.89 3.06 4.38 3.85 4.26 4.18 Qual 4.01 3.97 4.03 4.23 4.25 3.57 4.03 3.98 4.11 3.80 4.10 3.01 4.03 3.80 3.98 4.01 AnoGen IL 0.15 0.37 0.18 0.18 0.38 0.26 0.37 0.21 0.20 0.22 0.48 0.12 0.36 0.32 0.22 0.27 IL-a 0.13 0.11 0.08 0.08 0.10 0.10 0.08 0.11 0.11 0.07 0.14 0.07 0.27 0.12 0.07 0.11 RefAd 3.73 3.90 3.23 3.82 3.27 3.93 3.48 3.83 3.47 2.86 3.42 2.66 3.60 2.73 3.88 3.50 Cons 3.66 4.06 4.15 4.36 3.49 4.12 4.11 3.97 3.63 3.39 3.53 2.94 4.05 3.58 4.17 3.87 Reas 3.99 4.19 3.67 4.38 3.68 4.27 4.16 4.12 3.76 3.31 3.66 3.03 4.07 3.44 4.20 3.91 Qual 3.79 4.05 3.63 4.23 3.49 4.10 3.97 3.98 3.67 3.16 3.57 2.94 3.83 3.27 4.09 3.77 DualAnoDiff IL 0.30 0.44 0.31 0.26 0.44 0.35 0.35 0.32 0.40 0.36 0.48 0.43 0.30 0.38 0.40 0.37 IL-a 0.18 0.27 0.11 0.11 0.13 0.19 0.11 0.22 0.18 0.11 0.21 0.27 0.23 0.20 0.14 0.18 RefAd 3.34 3.01 3.13 4.04 3.24 3.52 3.36 3.57 3.16 3.53 3.73 2.35 3.41 3.01 3.07 3.32 Cons 3.41 3.09 3.30 4.44 3.53 3.80 3.90 3.54 3.46 3.78 4.09 2.45 3.45 3.60 3.23 3.57 Reas 3.73 3.29 3.42 4.41 3.61 3.86 3.85 3.72 3.46 3.98 4.14 2.45 3.57 3.53 3.51 3.67 Qual 3.55 3.14 3.30 4.33 3.46 3.78 3.73 3.66 3.42 3.76 4.01 2.35 3.51 3.43 3.29 3.55 SeaS IL 0.20 0.42 0.25 0.25 0.44 0.30 0.39 0.31 0.32 0.30 0.50 0.25 0.34 0.47 0.30 0.34 IL-a 0.23 0.16 0.13 0.19 0.26 0.13 0.17 0.26 0.17 0.10 0.28 0.18 0.17 0.29 0.19 0.19 RefAd 3.06 3.84 2.84 3.48 3.30 3.56 2.84 2.83 3.18 2.91 3.34 3.13 3.14 3.10 3.61 3.26 Cons 3.26 4.05 3.78 4.15 3.93 3.84 3.75 2.92 3.70 3.57 3.64 3.29 3.70 3.71 4.08 3.76 Reas 3.50 4.15 3.37 4.16 3.83 4.10 3.59 3.20 3.62 3.50 3.76 3.46 3.64 3.65 3.95 3.74 Qual 3.28 4.03 3.28 3.97 3.74 3.87 3.32 2.99 3.48 3.28 3.56 3.38 3.51 3.52 3.86 3.58 AnyDoor IL 0.27 0.41 0.20 0.26 0.37 0.35 0.37 0.34 0.32 0.21 0.47 0.30 0.32 0.42 0.33 0.33 IL-a 0.16 0.13 0.07 0.14 0.14 0.14 0.10 0.21 0.14 0.05 0.21 0.12 0.15 0.18 0.14 0.14 RefAd 3.16 4.14 3.37 3.97 3.29 3.84 3.65 3.04 3.22 3.94 3.43 2.65 3.69 2.91 2.99 3.48 Cons 3.09 4.22 3.56 4.48 3.73 4.01 4.09 3.13 3.55 4.21 3.60 2.75 3.79 3.30 3.65 3.76 Reas 3.54 4.38 3.69 4.52 3.75 4.23 4.11 3.12 3.53 4.41 3.83 3.01 3.82 3.23 3.38 3.83 Qual 3.27 4.25 3.55 4.36 3.61 4.03 3.98 3.06 3.48 4.18 3.66 2.96 3.76 3.19 3.27 3.70 InsertAny IL 0.15 0.35 0.18 0.24 0.32 0.32 0.27 0.26 0.25 0.22 0.42 0.22 0.25 0.33 0.19 0.26 IL-a 0.14 0.11 0.07 0.13 0.14 0.15 0.10 0.20 0.12 0.05 0.21 0.12 0.15 0.17 0.14 0.13 RefAd 3.4 4.03 3.47 4.21 3.76 3.63 3.69 3.6 3.72 3.85 3.65 3.62 3.97 3.73 4.24 3.81 Cons 3.29 4.08 3.71 4.47 4.01 3.64 4.19 3.67 3.87 4.01 3.78 3.69 4.01 3.94 4.49 3.98 Reas 3.67 4.29 3.89 4.57 4.07 3.8 4.24 3.9 3.89 4.17 3.93 4.1 4.15 4.08 4.55 4.12 Qual 3.46 4.14 3.72 4.43 4.01 3.74 4.02 3.7 3.84 4.04 3.81 3.84 4.06 3.96 4.44 3.99 
+
+UniDG-SFT 
+
+IL 0.15 0.40 0.19 0.27 0.35 0.33 0.32 0.27 0.26 0.26 0.46 0.18 0.30 0.38 0.23 0.29 IL-a 0.18 0.21 0.11 0.18 0.18 0.20 0.16 0.23 0.16 0.13 0.23 0.16 0.18 0.20 0.16 0.18 RefAd 4.07 4.16 3.35 4.27 3.44 3.72 3.80 3.75 3.95 4.08 3.61 3.09 3.97 4.07 4.24 3.90 Cons 4.14 4.17 3.64 4.60 3.69 3.92 4.30 4.02 4.24 4.33 3.82 3.45 4.32 4.29 4.51 4.15 Reas 4.30 4.40 3.67 4.62 3.74 3.98 4.18 4.11 4.18 4.39 3.89 3.38 4.14 4.36 4.49 4.18 Qual 4.19 4.27 3.60 4.47 3.66 3.92 4.11 3.98 4.13 4.26 3.79 3.40 4.11 4.26 4.40 4.09 
+
+UniDG-RFT 
+
+IL 0.15 0.38 0.19 0.24 0.34 0.32 0.30 0.27 0.26 0.25 0.46 0.21 0.28 0.38 0.21 0.28 IL-a 0.18 0.14 0.10 0.16 0.17 0.17 0.13 0.22 0.16 0.09 0.23 0.17 0.16 0.19 0.15 0.16 RefAd 4.19 4.45 3.77 4.48 3.48 3.92 3.81 3.83 4.11 4.41 3.81 3.43 4.33 4.21 4.38 4.04 Cons 4.27 4.42 3.91 4.54 4.02 4.08 4.12 3.99 4.38 4.52 3.92 3.51 4.27 4.55 4.60 4.21 Reas 4.26 4.55 3.82 4.51 3.79 4.10 4.03 4.01 4.21 4.55 3.97 3.68 4.41 4.42 4.65 4.20 Qual 4.39 4.67 3.88 4.62 3.81 4.14 4.17 3.92 4.37 4.57 3.98 3.52 4.48 4.47 4.57 4.24 
+
+Table 15. Quantitative results for anomaly detection and localization on VisA dataset. Bold and underline represent optimal and sub-optimal average results, respectively. 
+
+Method Metric Category Average 
+
+candle capsules cashew chewinggum fryum macaroni1 macaroni2 pcb1 pcb2 pcb3 pcb4 pipe fryum 
+
+Few-shot Learning Anomaly Generation 
+
+SeaS AUROC-I 73.70 78.20 85.90 97.00 90.40 81.30 63.80 96.80 88.00 91.50 98.10 71.30 84.67 AP-I 71.60 82.70 90.50 98.10 93.60 70.70 52.10 95.90 89.00 88.40 94.80 75.50 83.58 AUROC-P 84.10 98.10 98.30 98.80 96.90 98.10 91.40 97.60 94.70 90.50 95.60 99.10 95.27 AP-P 1.60 50.70 83.60 77.80 67.10 7.60 0.10 86.70 21.40 38.30 49.50 78.70 46.93 
+
+Training-Free Few-shot Image Insertion UniDG-SFT 
+
+AUROC-I 83.10 79.40 95.30 98.10 91.60 88.50 67.20 93.80 93.10 90.00 96.40 96.20 89.39 AP-I 77.4 84.50 96.10 95.30 91.60 82.80 56.10 91.20 92.80 85.30 93.30 96.90 86.94 AUROC-P 88.60 96.40 99.60 98.40 97.10 96.40 92.70 98.40 97.30 92.60 93.40 99.50 95.87 AP-P 17.50 52.30 85.70 73.20 66.80 13.20 7.80 88.30 38.40 42.70 58.20 83.80 52.33 
+
+UniDG-RFT 
+
+AUROC-I 89.20 83.10 94.90 98.20 90.70 87.70 72.10 95.30 96.60 89.70 96.40 96.20 90.84 AP-I 81.20 85.70 96.80 95.50 92.30 81.60 58.70 93.40 95.20 85.80 92.70 96.80 87.98 AUROC-P 89.30 97.90 99.90 99.20 96.80 97.20 94.50 98.60 97.10 94.90 93.80 99.20 96.53 AP-P 28.40 66.70 87.20 75.40 68.20 24.60 15.90 87.60 42.80 47.60 58.90 82.10 57.12 
+
+24 Universal Defect Generation 
+
+Table 16. Quantitative results for anomaly classification on VisA dataset. The higher accuracy denotes the generated data is more consistent with the real data. Category SeaS UniDG-SFT UniDG-RFT 
+
+candle 73.70 87.50 91.20 capsules 78.20 91.20 90.40 cashew 85.90 84.30 85.20 chewinggum 97.00 96.40 96.70 fryum 90.40 92.30 91.50 macaroni1 81.30 89.60 92.30 macaroni2 63.80 78.70 82.70 pcb1 96.80 96.40 95.40 pcb2 88.00 92.10 94.30 pcb3 91.50 90.70 92.10 pcb4 98.10 98.40 97.90 pipe fryum 71.30 82.50 84.20 
+
+Average 84.67 90.01 91.16 
+
+Table 17. Quantitative results for multi-class anomaly semantic segmentation on the VisA dataset. Methods Binary Anomaly Detection Metrics Semantic Segmentation Metrics AUROC-I AP-I AUROC-P AP-P PRO-P mIoU BG-mIoU FG-mIoU 
+
+> Few-shot Anomaly Generation
+
+SeaS 81.72 82.87 95.83 45.85 78.73 24.99 99.58 11.83 
+
+> Training-Free Few-shot Image Insertion
+
+UniDG-SFT 89.21 91.34 97.88 58.14 88.45 31.79 99.54 18.89 
+
+UniDG-RFT 91.37 92.96 97.59 63.20 90.92 36.23 99.55 23.47 
+
+25

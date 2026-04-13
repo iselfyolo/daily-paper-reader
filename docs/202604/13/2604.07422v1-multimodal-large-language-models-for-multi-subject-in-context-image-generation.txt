@@ -1,0 +1,657 @@
+Title: Multimodal Large Language Models for Multi-Subject In-Context Image Generation
+
+URL Source: https://arxiv.org/pdf/2604.07422v1
+
+Published Time: Fri, 10 Apr 2026 00:05:18 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# Multimodal Large Language Models for MUlti-Subject In-Context Image Generation 
+
+Yucheng Zhou, Dubing Chen, Huan Zheng, Jianbing Shen B
+
+SKL-IOTSC, CIS, University of Macau 
+
+yucheng.zhou@connect.um.edu.mo, jianbingshen@um.edu.mo 
+
+Abstract 
+
+Recent advances in text-to-image (T2I) gen-eration have enabled visually coherent image synthesis from descriptions, but generating images containing multiple given subjects re-mains challenging. As the number of refer-ence identities increases, existing methods of-ten suffer from subject missing and semantic drift. To address this problem, we propose MU-SIC, the first MLLM specifically designed for 
+
+MU lti-Subject In-Context image generation. To overcome the data scarcity, we introduce an automatic and scalable data generation pipeline that eliminates the need for manual annota-tion. Furthermore, we enhance the model’s understanding of multi-subject semantic rela-tionships through a vision chain-of-thought (CoT) mechanism, guiding step-by-step rea-soning from subject images to semantics and generation. To mitigate identity entanglement and manage visual complexity, we develop a novel semantics-driven spatial layout planning method and demonstrate its test-time scalabil-ity. By incorporating complex subject images during training, we improve the model’s ca-pacity for chained reasoning. In addition, we curate MSIC, a new benchmark tailored for multi-subject in-context generation. Experi-mental results demonstrate that MUSIC signif-icantly surpasses other methods in both multi-and single-subject scenarios. 
+
+1 Introduction 
+
+Recent years have witnessed significant advance-ments in image generation technologies, particu-larly in text-to-image (T2I) generation (Zhang et al., 2023a; Labs, 2024a; Esser et al., 2024; Podell et al., 2023; Xiao et al., 2024; Yu et al., 2022; Zhou et al., 2026b), where models have shown enhanced capa-bilities in semantic understanding and image syn-thesis. With the increasing demand for personal-ized applications, a growing body of research has 
+
+> B
+
+Corresponding Author. Reference Images   
+
+> Text Prompt
+> Image
+> Encoder
+> Output Image
+> No Thinking Missing Objects
+> Text
+> Encoder
+> Diffusion
+> Transformer
+> UNO
+> Reference Images
+> Text Prompt
+> MLLM Chain of
+> Thought
+> Output Image
+> Consistent Objects Step -by -step Reasoning
+> Multi -Subject In -Context (MUSIC) Rapid decline of UNO
+
+Figure 1: Top: Comparison of our MUSIC (bottom) v.s. the subject-to-image method UNO (top). Bottom: UNO struggles as the number of subject images grows. Our MLLM-based method uses a thinking mechanism and more effectively gen-erates the scene with multi-subjects. 
+
+focused on personalized image generation (Zhang et al., 2023a; Mou et al., 2024; Gal et al., 2022; Ruiz et al., 2023; Hu et al., 2022). These methods incorporate reference images or subject identities into the generation process to ensure alignment with the input text while preserving the visual iden-tity of the reference subjects. This task holds practi-cal relevance for applications such as multi-person scene synthesis and complex product visualization. Existing approaches face substantial perfor-mance degradation as the number of reference sub-jects increases, as shown in Figure 1 (Right). Chal-lenges such as subject missing and semantic drift frequently emerge, revealing the scalability limita-tions of current methods in complex, multi-subject generation scenarios. In contrast to diffusion mod-els ( e.g. , DiT (Peebles and Xie, 2023)), multimodal large language models (MLLMs) (Ge et al., 2023, 2024; Zhou et al., 2024b) exhibit superior gener-alization and contextual reasoning capabilities in 1
+
+> arXiv:2604.07422v1 [cs.LG] 8 Apr 2026
+
+both vision understanding and language reasoning. It has the potential to handle more complex instruc-tions and intricate semantic relationships across multiple subjects. This raises a critical question: 
+
+“how can we effectively harness the reasoning power of MLLMs to enhance the quality and consistency of multi-subject in-context image generation?” 
+
+To address this challenge, we propose a novel MUSIC model, the first MLLM tailored for MU lti-
+
+Subject In-Context image generation. We design an automatic data generation pipeline that elimi-nates the need for manual annotation. As shown in Figure 1 (Left), we introduce a vision chain-of-thought (CoT) that guides the MLLM to perform step-by-step reasoning from subject images to se-mantic modeling and final image generation. This approach substantially improves the model’s ability to understand multi-subject semantic relationships. To handle the visual complexity and mitigate iden-tity entanglement in multi-subject images, we pro-pose a novel semantics-driven spatial layout plan-ning method that assigns semantic ownership to visual content before generation, thereby reducing semantic conflicts. We also explore the test-time scalability potential of this planning method. Fur-thermore, by incorporating complex subject images in our model training, we enhance the model’s ca-pacity for chained reasoning across subject images, semantics, and generated images. To better evaluate multi-subject image gener-ation, we manually curated a new benchmark dataset, MSIC, from synthetic data, specifically designed for this task. Experimental results on the MSIC dataset and DreamBench (Ruiz et al., 2023) demonstrate that our method significantly outperforms existing approaches in semantic con-sistency and identity fidelity in both multi- and single-subject image generation. Our main contri-butions are summarized as below: • We propose MUSIC , the first MLLM designed for multi-subject in-context image generation, in-tegrating vision reasoning capabilities for multi-subject understanding and generation. • We design an automatic and scalable data gener-ation pipeline that requires no raw data, enabling efficient large-scale training data construction. • We enhance the model’s multi-subject under-standing through a vision chain-of-thought mech-anism, semantics-driven spatial layout planning, and training on complex subject images. We ver-ify the scalability of layout planning at test time. • We introduce the MSIC benchmark for multi-subject in-context image generation, and our method achieves state-of-the-art performance on MSIC and DreamBench. 
+
+2 Related Work 
+
+2.1 Generative Models Diffusion Models. Diffusion models (Sohl-Dickstein et al., 2015; Ho et al., 2020; Dhariwal and Nichol, 2021; Song et al., 2020; Peebles and Xie, 2023) generate high-fidelity images via a forward noising and reverse denoising process. DDPM (Ho et al., 2020) first achieved competitive image qual-ity, and subsequent work surpassed GANs (Good-fellow et al., 2020; Brock et al., 2018; Karras et al., 2020) in sample quality (Dhariwal and Nichol, 2021). LDMs (Rombach et al., 2022) reduce com-putational costs by operating in latent space, while DDIM (Song et al., 2020) and consistency mod-els (Song et al., 2023) accelerate sampling. Scal-able transformer architectures such as DiT (Peebles and Xie, 2023) and U-ViT (Bao et al., 2023) further boost performance. Recent advances include archi-tectural improvements via long-skip-connections with spectral constraints (Chen et al., 2025), hi-erarchical compositional generation (Yang et al., 2025c), and efficient sampling strategies (Wang et al., 2026). For controllable generation, DC-ControlNet (Yang et al., 2025a) decouples inter-and intra-element conditions, while self-rewarding LVLMs (Yang et al., 2025b) optimize T2I prompts via model-driven feedback. 
+
+Autoregressive Generative Models. Autoregres-sive models generate images by modeling pixel or token sequences, inspired by language model-ing (Brown et al., 2020; Achiam et al., 2023; Tou-vron et al., 2023; Yang et al., 2024). Early mod-els like PixelRNN (Van Den Oord et al., 2016) and PixelCNN (Van den Oord et al., 2016) pre-dicted pixels sequentially with low efficiency. Mod-ern approaches use vector-quantized representa-tions such as VQ-VAE (Razavi et al., 2019) and VQ-GAN (Esser et al., 2021) to compress images into discrete tokens (Van Den Oord et al., 2017). Masked methods including MaskGIT (Chang et al., 2022), Muse (Chang et al., 2023), and MaskBit (Weber et al., 2024) enable parallelized generation via masked token prediction (Gao et al., 22023; Fan et al., 2024). Recent models like LLaM-AGen (Sun et al., 2024), Show-o (Xie et al., 2024), Infinity (Han et al., 2024), and Emu3 (Wang et al., 2024b) scale up decoder-only autoregressive frame-works (Achiam et al., 2023; Touvron et al., 2023; Yang et al., 2024). VAR (Tian et al., 2024) rede-fines generation as next-scale prediction, Fluid (Fan et al., 2024) integrates continuous tokenization with diffusion loss, and RandAR (Pang et al., 2024) enables parallel decoding via position prediction with KV-Cache (Pope et al., 2023). More recently, vision representation compression has improved autoregressive video generation efficiency (Zhou et al., 2026b), diffusion loss has been incorporated to refine condition errors (Zhou et al., 2026a), and entropy-guided optimization balances exploration and stability (Song et al., 2026). 
+
+2.2 In-Context Learning. LLM In-Context Learning In-context learning (ICL) enables LLMs to adapt to new tasks via few-shot prompts without parameter updates (Brown et al., 2020). Subsequent studies explored ICL mechanisms, framing it as implicit Bayesian infer-ence (Xie et al., 2021) and identifying attention-driven task vectors (Olsson et al., 2022). Chain-of-Thought prompting (Wei et al., 2022) significantly boosts reasoning, while retrieval-based example se-lection (Liu et al., 2021), context calibration (Zhao et al., 2021), and example ordering (Lu et al., 2021) further optimize ICL performance. Recent work shows that weak models can elicit strong perfor-mance through multi-capability supervision (Zhou et al., 2025). 
+
+Vision In-Context Learning. Vision in-context learning extends ICL to visual tasks using few visual examples (Tsimpoukelli et al., 2021). Flamingo (Alayrac et al., 2022) leverages inter-leaved image-text prompts for few-shot visual QA, while visual prompting via inpainting (Bar et al., 2022) specifies tasks through image patches. Re-cent work demonstrates improved compositional understanding through ICL (Nulli et al., 2024) and effective visual task adaptation in LVLMs via in-context examples (Zhou et al., 2024a). Challenges remain in efficiently representing visual prompts and generalizing with limited context (Zhang et al., 2023b; Zhou et al., 2024b). 
+
+2.3 Subject-Driven Image Generation 
+
+Subject-driven image generation synthesizes spe-cific subjects in novel contexts. Early ap-proaches (Zhang et al., 2023a; Mou et al., 2024; Gal et al., 2022; Ruiz et al., 2023; Hu et al., 2022) require per-subject optimization, limiting general-ization. IP-Adapter (Ye et al., 2023), BLIP Dif-fusion (Li et al., 2023), and ELITE (Wei et al., 2023) achieve zero-shot generation via additional image encoders. Recent methods tackle multi-subject scenarios (Ma et al., 2024; Huang et al., 2025; Wang et al., 2024a; Wu et al., 2025): MS-Diffusion (Wang et al., 2024a) uses layout guid-ance, UNO (Wu et al., 2025) employs vision in-context learning for flexible multi-subject synthesis, and unified multimodal agents (Chen et al., 2026) combine diverse capabilities for world-grounded image synthesis. Despite these advances, most existing ap-proaches struggle to generalize to large-scale multi-subject combinations, and constructing diverse, high-quality training datasets for multi-subject gen-eration remains challenging. This work addresses these gaps through a fully automated data construc-tion pipeline and enhanced identity consistency via vision in-context learning, enabling robust multi-subject generation. 
+
+3 Methodology 
+
+To address the data scarcity for multi-subject in-context generation, we introduce an automated framework for generating diverse multi-subject datasets. We then detail the training of our MUSIC model for multi-subject in-context image gener-ation and discuss strategies for test-time scaling using our semantics-driven spatial layout planning. 
+
+3.1 Automated Multi-Subject Dataset Generation Framework 
+
+The core of our data generation strategy is a novel, fully automated framework for synthesizing multi-subject training data. Critically, this framework operates without relying on any pre-existing image or text metadata, enabling scalable dataset creation from foundational models. Our pipeline integrates multiple foundation models, i.e. , large language model (LLM) (Yang et al., 2024), text-to-image (T2I) model (Labs, 2024b), vision language model (VLM) (Yang et al., 2024), image-to-image (I2I) model (Wu et al., 2025), open-vocabulary detection (OVD) model (Liu et al., 2024), and foundational 3Object 365 Dataset  
+
+> Detection Result Transformed Subject Images
+> Caption Generation Text to Image
+> Open Vocabulary
+> Object Detection
+> Object Filtering
+> Subject Image
+> Transformation
+> Caption
+
+LLM T2I Model 
+
+OVD Model VLM  
+
+> Subject Images
+> Peach
+> Hot -air Balloon
+> Pasta
+
+I2I Model                          
+
+> Target Image
+> Sampling Prompt Output Prompt Output
+> Detection Prompt Output Output
+> Italian countryside, peach trees laden
+> with ripe peaches bloom against a
+> backdrop of rolling hills, with ahot -
+> air balloon gently floating above the
+> landscape …
+> (a)  Scene and
+> Subjects Generation
+
+VLM  
+
+> Instruction
+> Generation Simulated User Instruction Detection Result
+> Segmentation Result
+
+Segmentation 
+
+Model 
+
+Evaluation 
+
+Model                                    
+
+> Semantic Patches
+> To compose adetailed scene based ...
+> Let’s think step by step :
+> ### Step 1:Establish the Background
+> \n\n**Image 1** :Avibrant orchard ...
+> ### Step 2:Integrate the Dining ...
+> ### Final Composition
+> The final composition is a...
+> Semantics -Driven
+> Spatial Layout
+> Subject
+> Segmentation
+> Chain of Thought
+
+VLM Prompt Prompt Output Output                               
+
+> Semantic
+> Correction
+> CoT Generation
+> Output Output
+> The basin from image 0shows a
+> close -up of abowl .Peaches from
+> image 1catches avibrant scene .
+> ......
+> desk from image 10 also appear
+> in the scene .
+> Compose
+> Target Image
+> Here is the segmentation map focusing
+> on peach, dining table ...:
+> <patch>[0] peach [1] peach [2]
+> peach [3] peach [4] peach [5] peach
+> . . . . . .
+> [63] dining table, potted
+> plant</patch>
+> Now, generate an image.
+
+MUSIC     
+
+> Input Output
+> Subject Images
+> 2) Chain of Thought
+> 3) Semantics -Driven
+> Spatial Layout
+> 1) Simulated
+> User Instruction
+> Data Construction Framework
+> and Training Pipeline
+
+(b) Visual Reasoning Instruction Creation (c) Training Pipeline Figure 2: Overview of our data construction pipeline: (a) An LLM and T2I model generate the target image, followed by an OVD model detecting subjects. A VLM filters out unsuitable objects, and an I2I model creates transformed subject images. 
+
+(b) A VLM produces simulated user instructions and CoT instructions. A segmentation model generates segmentation masks, yielding a semantics-driven spatial layout textual description. (c) Application of the constructed data pair in the training pipeline. 
+
+segmentation model (Ravi et al., 2024), to produce subject-consistent image pairs, instructions, and reasoning sequences for training multi-subject in-context generation models. As shown in Figure 2, the pipeline includes several stages: category sam-pling, caption generation, scene generation, sub-ject detection and filtering, perspective transforma-tion, vision chain-of-thought (CoT) reasoning, and semantics-driven spatial layout planning. 
+
+3.1.1 Scene and Subjects Generation Subject Sampling and Scene Generation. As shown in Figure 2 (a), we start by random select between 2nmin and 2nmax categories from the Ob-ject365 dataset (Shao et al., 2019). Here, nmin and 
+
+nmax define the range of subject counts. Randomly sampled categories often lack semantic coherence. For example, “lamp” and “pineapple” are unlikely to appear naturally together. To address this, we use an LLM to reason over the candidate pool and auto-matically select a semantically related subset. The LLM then generates a caption describing a plau-sible scene that combines these categories. This caption is fed into a T2I model to generate a target image Itgt . This image serves as the foundation for the next stages and represents a complex multi-subject environment. 
+
+Subject Detection and Regeneration. To extract subjects in image Itgt , we apply an OVD model to identify subjects in the target image and obtain their bounding boxes. To remove noisy detections, boxes with areas smaller than a threshold δ ·Area (Itgt ) are filtered out. We then select up to nmax subjects per image, prioritizing category diversity and favoring larger bounding boxes. Since the OVD may produce incorrect detec-tions, we further verify bounding boxes using a VLM. Specifically, we overlay the detected boxes, categories, and confidence scores on the original image and prompt the VLM to assess their correct-ness. Incorrect boxes are filtered out. Each valid subject is cropped from the target image to create a subject-specific subimage. To avoid the subject-to-image generation model learning trivial copy-paste strategies, we apply an I2I model to produce view-transformed subject images. These transformed images Isubj 1 , I subj 2 , . . . , I subj S and the target im-age Itgt form the paired training data for our model, where S is the number of detected subjects. 
+
+3.1.2 Visual Reasoning Instruction Creation Instruction and Vision CoT Generation. In real scenarios, users typically provide a simple instruc-tion along with a set of subject images to guide scene composition. However, as the number of subjects increases, maintaining subject identity and correct spatial arrangements becomes very chal-lenging. To solve this, we generate CoT data to improve the model’s reasoning abilities. As shown in Figure 2 (b), we use a VLM to generate a simulated user instruction based on the target image annotated with bounding boxes and 4category labels. Each detected subject is assigned an ID to clarify object references. The instruction, along with the annotated target image, is then used to prompt another VLM to produce a detailed CoT reasoning sequence. The simulated user instruc-tion may include subject IDs or omit them; we generate both types to cover a wide range of scenar-ios. Subjects mentioned in the CoT are expected to be linked to their corresponding IDs. This helps the model understand subject interactions within the scene, especially when multiple instances of the same category appear. We also perform string matching to ensure that IDs in the CoT and instruc-tion align with detected subjects, removing any in-correct IDs introduced by hallucination. The CoT outlines a clear, step-by-step reasoning process for scene construction, including spatial arrangements and contextual relationships between subjects. 
+
+Semantics-Driven Spatial Layout Planning. To further enhance subject placement, we propose a semantics-driven spatial layout planning approach. Following vision CoT reasoning (Shao et al., 2024), this method aligns visual content more precisely within the 2D spatial domain of the image. Specifi-cally, we incorporate category-level semantic infor-mation into designated spatial regions. Inspired by Text4Seg (Lan et al., 2024), we partition the target image into an M × M grid ( M = 8 in our im-plementation) and determine the dominant subject categories for each patch. To assign categories accurately, we use the foun-dational segmentation model SAM2 (Ravi et al., 2024) to generate object masks from detected bounding boxes. However, as SAM2 relies solely on spatial inputs and lacks language understanding, its masks may miss the correct regions. To im-prove robustness, we dynamically choose between using the mask or the bounding box for each sub-ject. Specifically, we employ CLIP (Radford et al., 2021) as the evaluation model to compute cosine similarities between the class text embedding and the average visual features extracted from both the masked and unmasked regions: Sim mask = cos ( fmask , f class ) ,
+
+Sim unmask = cos ( funmask , f class ) . (1) If Sim mask > Sim unmask , the mask is used, oth-erwise, we fall back to the bounding box. This approach balances SAM2’s fine-grained segmenta-tion with improved robustness. We compute the intersection-over-union (IoU) between each patch and the subject’s mask or bounding box. To avoid filtering out small objects, we use a dynamic IoU threshold: 
+
+τ = λ · 1
+
+K
+
+> K
+
+X
+
+> i=1
+
+IoU (bi, p i), (2) where λ is the pre-defined scaling factor, K is the number of non-zero IoUs, and bi and pi repre-sent the subject region and the patch, respectively. Patches with IoU larger than τ are assigned the subject’s category; otherwise, they default to “oth-ers.” The final spatial layout prompt is structured as follows: 
+
+Here is the segmentation map focusing on flower, frame, pineapple, plate, potted plant, lamp, couch: <patch> [0] others [1] others [2] frame [3] others ... [63] others </patch> Now, generate an image. 
+
+This segmentation-aware instruction is inte-grated into the CoT to guide the subject-to-image generation model in accurately composing multi-subject scenes with correct spatial layouts. 
+
+3.1.3 Final Training Data Construction 
+
+We further enriched our dataset by simulating more realistic user demands, such as generating scenes centered around a specific subject within a complex environment. To achieve this, we used an LLM to construct a category dictionary, where each key represents a class and the corresponding value con-tains semantically similar classes. When generat-ing transformed subject images with the I2I model, we randomly select multiple similar classes from this dictionary and incorporate them into the in-struction. This encourages the I2I model to produce more diverse and complex scenes. As a result, our dataset contains both simple and complex instances, providing a comprehensive training resource. More details can be found in Appendix C. We further augment the generated data by sys-tematically reducing the number of subjects. We sort subjects by bounding box size and iteratively remove the smallest ones until only two subjects re-main. Correspondingly, we update the instruction by removing or reordering subject IDs to match the new subject set. Through this process, we gen-erate data with varying subject counts at no extra cost, helping the model better handle scenes with different levels of complexity. 5As shown in Figure 2 (c), each final training in-stance includes a set of augmented subject images 
+
+{Isubj 1 , . . . , I subj S }, the target image Itgt , a concise simulated user instruction Tinstr , a detailed CoT rea-soning sequence CCoT , and a semantics-driven spa-tial layout planning description Lspatial . This rich and structured supervision significantly improves the model’s ability to reason, compose, and main-tain both subject identity and spatial consistency in complex multi-subject scenarios. 
+
+3.2 Training MUSIC for Multi-Subject In-Context Image Generation 
+
+We train our proposed model, MUSIC (Multi-Subject In-Context Image Generation), using the diverse and structured datasets automatically gen-erated by the framework described in Section 3.1. The architecture of MUSIC is built upon the prin-ciples of existing MLLM frameworks, e.g. , SEED-X (Ge et al., 2024), which are adept at processing and generating both textual and visual data. Our training strategy decomposes the complex task of multi-subject in-context generation into two dis-tinct capabilities, mirroring the structure of our generated data and the desired inference process: 
+
+Capability 1: Visual Reasoning and Spatial Planning. This phase focuses on teaching the model to interpret user intent and plan the scene composition. The input consists of the initial user instruction (text) and the set of augmented subject images {Isubj 1 , . . . , I subj S }. The training objective is to predict the corresponding vision CoT reason-ing sequence and the semantics-driven spatial lay-out plan generated by our pipeline. Formally, given the input instruction Tinstr and subject images {Isubj i }Si=1 , this capability learns a mapping f1:
+
+f1(Tinstr , {Isubj i }Si=1 ) → ( ˆCCoT , ˆLspatial ) (3) where ˆCCoT is the predicted CoT text sequence and 
+
+ˆLspatial is the predicted spatial layout grid. This capability is trained using supervision from the ground-truth CCoT and Lspatial , with a cross-entropy loss. The loss for this stage is denoted as L1.
+
+Capability 2: Image Generation from Plan. 
+
+This phase focuses on synthesizing the final image conditioned on the outputs of the planning stage. The input to this capability consists of the vision CoT and the semantics-driven spatial layout plan. The training objective is to generate the target im-age Itgt that reflects the intended composition and semantics. This capability learns a mapping f2:
+
+f2(CCoT , L spatial ) → ˆItgt (4) where ˆItgt denotes the synthesized image. Dur-ing training, we leverage the ground-truth CCoT 
+
+and Lspatial as conditioning signals. Following the SEED-X framework, this stage is optimized by minimizing the distance between the visual rep-resentations of the synthesized image ˆItgt and the ground-truth image Itgt . The corresponding train-ing loss is denoted as L2.
+
+Overall Training Objective. The MUSIC model is trained by optimizing a combination of the losses from both capabilities. The total loss L can be expressed as: 
+
+L = w1L1(Tinstr , {Isubj i }Si=1 ; CCoT , L spatial )+ w2L2(CCoT , L spatial ; Itgt ) (5) where w1 and w2 are weighting factors. Training is performed end-to-end, allowing the gradients from 
+
+L2 to flow back by the predicted CoT and layout. 
+
+3.3 Test Time Scaling via Semantics-Driven Spatial Layout Planning 
+
+At inference time, we enable scalable and diverse generation by producing multiple candidate spatial layout plans from a single instruction and subject set. MUSIC first generates N candidate planning branches, each comprising a unique CoT and spa-tial layout: 
+
+{( ˆC(j)
+
+> CoT
+
+, ˆL(j)
+
+> spatial
+
+)}Nj=1 (6) Each plan leads to a synthesized image via the generation module: 
+
+ˆI(j) 
+
+> tgt
+
+= f2( ˆC(j)
+
+> CoT
+
+, ˆL(j)
+
+> spatial
+
+) (7) To select the best output, we use a CLIP-based verifier to compute similarity scores between each generated image and the original instruction Tinstr :
+
+Ifinal = ˆI(j∗) 
+
+> tgt
+
+, (8) 
+
+j∗ = arg max  
+
+> j
+
+cos 
+
+
+
+f image CLIP ( ˆI(j) 
+
+> tgt
+
+), f text CLIP (Tinstr )
+
+
+
+This strategy introduces minimal overhead while significantly enhancing output diversity and fidelity. It is adaptable to different generation frameworks and supports flexible test-time control over layout complexity. 64 Experiments 
+
+4.1 Experiments Setting Implementation Details. We adopt Qwen-3 (Yang et al., 2024) as our LLM, Qwen-2.5 VL (Yang et al., 2024) as our VLM, FLUX-1.0-DEV (Labs, 2024a) as the T2I model, UNO-FLUX-1.0-DEV (Wu et al., 2025) for I2I generation, GroundingDINO as our OVD model, SAM2 for segmentation, and CLIP-vit-large-patch14 (Rad-ford et al., 2021) for mask evaluation. We set the maximum number of subjects nmax to 12 , the mini-mum number nmin to 1, the threshould scaling fac-tor δ to 0.01, the patch count to 8 × 8, and the scal-ing factor λ to 0.05 . We initialize our model using SEED-X and apply Low-Rank Adaptation (LoRA) for efficient fine-tuning. The training is conducted on a synthetic dataset comprising 10,000 samples generated through our customized data generation pipeline. All experiments are performed using a server equipped with 8 × A100 GPUs. LoRA is configured with a rank of 64 and a scaling factor of 
+
+α = 64 . We train the model for 10 epochs using a learning rate of 1 × 10 −4. The LoRA weight scal-ing parameters are fixed at w1 = 0 .5 and w2 = 0 .5
+
+throughout the training process. 
+
+Evaluation Benchmarks and Metrics. We eval-uate our proposed MUSIC framework on two benchmark datasets targeting different aspects of in-context image generation. For multi-subject evaluation, we introduce the MSIC dataset, de-signed to assess model scalability across varying subject counts (1 to 12). For single-subject gener-ation, we adopt DreamBench (Ruiz et al., 2023). Performance is quantified using three automatic metrics: DINO (Oquab et al., 2023), CLIP-I, and CLIP-T (Radford et al., 2021). DINO measures image-level fidelity using self-supervised features. CLIP-I evaluates subject fidelity by comparing the generated image to the reference. CLIP-T mea-sures alignment with the input text prompt. Higher scores indicate better quality for all metrics. 
+
+Comparative Methods. To comprehensively as-sess the effectiveness of MUSIC, we compare it against a range of state-of-the-art baselines across both multi-subject and single-subject in-context image generation tasks. For the multi-subject setting, we include Subject Diffusion (Ma et al., 2024), MIP-Adapter (Huang et al., 2025), MS-Diffusion (Wang et al., 2024a), OmniGen (Xiao et al., 2024), and UNO (Wu et al., 2025) as com-                              
+
+> Method DINO ↑CLIP-I ↑CLIP-T ↑
+> Oracle (caption) --0.339 Subject Diffusion (Ma et al., 2024) 0.513 0.702 0.287 MIP-Adapter (Huang et al., 2025) 0.497 0.715 0.288 MS-Diffusion (Wang et al., 2024a) 0.532 0.714 0.290 OmniGen (Xiao et al., 2024) 0.525 0.714 0.300 UNO (Wu et al., 2025) 0.541 0.721 0.296 MUSIC (Ours) 0.622 0.812 0.322 MUSIC* (Ours) 0.631 0.822 0.330
+
+Table 1: Performance comparison on the MSIC (multi-subject in-context generation). MUSIC* refers to our method with test-time scaling. Oracle uses ground-truth captions.                                                    
+
+> Method DINO ↑CLIP-I ↑CLIP-T ↑
+> Oracle (reference images) 0.774 0.885 -Textual Inversion (Gal et al., 2022) 0.569 0.780 0.255 DreamBooth (Ruiz et al., 2023) 0.668 0.803 0.305 BLIP-Diffusion (Li et al., 2023) 0.670 0.805 0.302 ELITE (Wei et al., 2023) 0.647 0.772 0.296 Re-Imagen (Chen et al., 2022) 0.600 0.740 0.270 BootPIG (Purushwalkam et al., 2024) 0.674 0.797 0.311 SSR-Encoder (Zhang et al., 2024) 0.612 0.821 0.308 RealCustom++ (Mao et al., 2024) 0.702 0.794 0.318 OmniGen (Xiao et al., 2024) 0.693 0.801 0.315 OminiControl (Tan et al., 2024) 0.684 0.799 0.312 FLUX.1 IP-Adapter (team, 2025) 0.582 0.820 0.288 UNO (Wu et al., 2025) 0.760 0.835 0.304 MUSIC (Ours) 0.761 0.837 0.317 MUSIC* (Ours) 0.768 0.840 0.321
+
+Table 2: Performance comparison of different methods on Dreambench (single-subject in-context generation). 
+
+parison baselines. For single-subject setting, we include Textual Inversion (Gal et al., 2022), Dream-Booth (Ruiz et al., 2023), BLIP-Diffusion (Li et al., 2023), ELITE (Wei et al., 2023), Re-Imagen (Chen et al., 2022), BootPIG (Purushwalkam et al., 2024), SSR-Encoder (Zhang et al., 2024), RealCus-tom++ (Mao et al., 2024), OmniGen (Xiao et al., 2024), OminiControl (Tan et al., 2024), FLUX.1 IP-Adapter, and UNO (Wu et al., 2025). 
+
+4.2 Quantitative Evaluations Automatic Scores. Table 1 presents results on the MSIC benchmark for multi-subject in-context generation. MUSIC outperforms all state-of-the-art baselines across three metrics (DINO 0.622, CLIP-I 0.812, CLIP-T 0.322), demonstrating su-perior identity preservation and semantic align-ment in complex multi-subject prompts. The MU-SIC* variant, with semantics-driven spatial plan-ning for test-time scaling, achieves the best overall performance. Table 2 shows results on Dream-Bench (Ruiz et al., 2023) for single-subject gen-eration. Although designed for multi-subject syn-thesis, MUSIC attains competitive results (DINO 0.761, CLIP-I 0.837) comparable to UNO (Wu et al., 2025) (0.760, 0.835), while MUSIC* slightly improves results (0.768, 0.840), confirming the ben-efit of test-time scaling. 70% 20% 40% 60% 80% 100%       
+
+> MUSIC vs OmniGen
+> MUSIC vs UNO
+> 0.69 0.21 0.10
+> 0.63 0.31 0.06
+> Win Lose Tie
+
+Figure 3: Human evaluation results comparing the MUSIC against OmniGen and UNO. MUSIC 
+
+> w/o CC
+> w/o CC, P
+> w/o CC, P, CoT
+> 0.58
+> 0.60
+> 0.62
+> Score
+> DINO
+> MUSIC
+> w/o CC
+> w/o CC, P
+> w/o CC, P, CoT
+> 0.28
+> 0.30
+> 0.32
+> CLIP-T
+
+Figure 4: Ablation study. “w/o CC” (Complex Case data augmentation); “w/o P” (Complex Case and spatial layout planning); “w/o CoT” (Complex Case, spatial planning, and Chain-of-Thought reasoning). 
+
+Human Evaluation. To complement our auto-matic quantitative results, we conducted a human evaluation study comparing MUSIC against two strong baselines: OmniGen (Xiao et al., 2024) and UNO (Wu et al., 2025). For a subset of MSIC prompts, human raters compared paired images (MUSIC vs. baseline), evaluating overall quality, subject identity, and adherence to prompt instruc-tions. Figure 3 presents the results. Against Om-niGen, MUSIC was preferred in 69% of cases vs. 21% for OmniGen (10% Tie). Against UNO, MU-SIC was preferred in 63% vs. 31% for UNO (6% Tie). These results demonstrate a strong human preference for MUSIC’s outputs, aligning with our automatic metrics. 
+
+4.3 Ablation Study 
+
+As shown in Figure 4, an ablation study investi-gated the contribution of Complex Case augmen-tation (CC), spatial layout planning (P), and Vi-sion Chain-of-Thought (CoT). Removing CC (“w/o CC”) caused a performance drop, suggesting its benefit for varying subject counts. A more sig-nificant decline, especially in CLIP-I and CLIP-T, occurred when P was also removed (“w/o CC, P”), highlighting its importance for accurate composi-tion. The largest degradation was observed upon removing all three (“w/o CC, P, CoT”), underscor-ing CoT’s critical role in guiding complex inter-actions and ensuring fidelity. The study confirms all components are beneficial, with P and CoT par-ticularly impactful for reasoning in multi-subject generation. 
+
+Effect of Subject Number. To assess MUSIC’s performance under varying subject counts, we eval-2.5 5.0 7.5 10.0 12.5      
+
+> Number of Subjects
+> 0.60
+> 0.62
+> 0.64
+> 0.66
+> Score
+> DINO
+> 2.5 5.0 7.5 10.0 12.5
+> Number of Subjects
+> 0.31
+> 0.32
+> 0.33
+> 0.34
+> 0.35 CLIP-T
+
+Figure 5: Performance of MUSIC as a function of the number of subjects on the MSIC. 3B 7B 32B    
+
+> 0.60
+> 0.61
+> 0.62
+> 0.63
+> Score
+> DINO
+> 3B 7B 32B
+> 0.30
+> 0.31
+> 0.32
+> 0.33
+> CLIP-T
+> Vision CoT w/ GT CoT-Data
+
+Figure 6: Performance of MUSIC trained on Vision CoT data from Qwen2.5-VL (3B, 7B and 32B). “w/ GT CoT-Data” denotes inference with ground-truth CoT from Qwen2.5-VL, which further boosts generation quality. 
+
+uated it on the MSIC with 1 to 12 subjects. As expected due to the inherent complexity of multi-subject scenes (maintaining identity, spatial rela-tions, preventing entanglement), Figure 5 shows that DINO and CLIP-T scores decrease with the number of subjects. However, MUSIC maintains relatively strong performance even at high subject counts, demonstrating the robustness of our ap-proach to multi-subject complexity. 
+
+Effect of Vision CoT. Vision Chain-of-Thought (CoT) reasoning is crucial for complex multi-subject scene understanding. We evaluated its im-pact using CoT data from varying Qwen2.5-VL model sizes (3B, 7B, 32B), reflecting VLM rea-soning quality. Figure 6 shows that training with CoT from larger VLMs (32B) improves perfor-mance (DINO, CLIP-T scores) (left plots). Provid-ing "ground-truth" CoT (from the 32B VLM) at inference significantly boosts performance across all models, regardless of training CoT quality (right plots). This highlights Vision CoT’s vitality, the impact of training data quality, and the significant benefit of high-quality CoT during inference for complex multi-subject generation. 
+
+4.4 Semantics-Driven Spatial Layout Planning for Test-Time Scaling 
+
+Our semantics-driven spatial layout planning mech-anism enables effective test-time scaling to enhance performance (Section 3.3). This involves generat-ing N diverse candidate spatial plans and Vision CoT sequences, selecting the best image via CLIP similarity (Pass@N). Figure 8 demonstrates this effect: DINO and CLIP-T scores consistently in-8Reference Images Prompt MUSIC (Ours) UNO OmniGen                                                                                                                                                                                                           
+
+> Ateddy bear sits on abed, while akettle sits on ashelf .The
+> shelf holds books, and the shelf has akettle on top .Abook
+> rests beside the kettle, and the shelf is filled with various items .
+> Stuffed toy also appears in the scene .
+> Asmall, cozy cafe nestled in aquiet town square is bathed in
+> the golden glow of late afternoon sunlight filtering through a
+> striped awning overhead .Inside, acurious black mouse
+> scurries along the edge of awooden counter, peering curiously
+> at asteaming mug of coffee left unattended, blending with the
+> soft hum of avintage record player playing jazz in the
+> background .
+> Adeer grazes near apotted plant .Asaxophone, rests on a
+> bench .Asailboat sails across the sea, with aperson enjoying
+> the view from anearby beach .Adesk sits beside the sailboat,
+> while abasket, rests on the ground near the bench .Person also
+> appears in the scene .
+> Acozy living room features aframed picture of asports car on
+> the wall, with aguitar leaning against the couch .Alamp sits on
+> the desk next to the couch,and abicycle is parked near the
+> window .The radiator is visible behind the couch, and acarpet
+> covers the floor .Pillow, tv and shelf also appear in the scene .
+
+Figure 7: Qualitative comparison of multi-subject image generation results from MUSIC (Ours) against UNO and OmniGen .Each row shows the reference images, input prompt, and generated images. 5 10 15   
+
+> Pass@N
+> 0.625
+> 0.630
+> Score
+> DINO
+> 510 15
+> Pass@N
+> 0.325
+> 0.330
+> CLIP-T
+
+Figure 8: Effectiveness of test-time scaling using Semantics-Driven Spatial Layout Planning. 
+
+crease as Pass@N rises from 2 to 16 ( e.g. , DINO: 0.623 → 0.631, CLIP-T: 0.324 → 0.330). This confirms that generating more planning candidates and selecting the best improves image fidelity and text-alignment, providing a valuable mechanism for trading computation for quality at test time. 
+
+4.5 Qualitative Analyses 
+
+Figure 7 shows qualitative comparisons between 
+
+MUSIC , UNO (Wu et al., 2025), and Omni-Gen (Xiao et al., 2024) on multi-subject in-context generation. Each example includes reference sub-jects, a text prompt, and the corresponding gener-ated images. MUSIC synthesizes complex scenes more coherently, accurately preserving subject identities and spatial relationships (e.g., objects in the living room or multiple interacting subjects on the beach). While baselines produce reasonable re-sults, MUSIC achieves higher fidelity, more natural layouts, and better semantic consistency, consistent with quantitative and human evaluations. 
+
+5 Conclusion 
+
+Generating images with multiple specific subjects remains challenging, often leading to missing sub-jects and semantic drift. We present MUSIC, the first MLLM for MU lti-Subject In-Context image generation. To address data scarcity, we design an automatic scalable data pipeline and enhance multi-subject reasoning through a vision chain-of-thought and semantics-driven spatial layout plan-ning, enabling effective test-time scaling. Training on complex subject compositions further strength-ens reasoning ability. We also introduce MSIC, a new benchmark for multi-subject in-context gener-ation. Experiments show that MUSIC substantially surpasses other methods in identity fidelity, seman-tic consistency, and overall image quality. 
+
+Limitations 
+
+Although MUSIC significantly outperforms base-lines in handling multiple subjects and shows bet-ter scaling properties, the performance, as demon-strated in our experiments, still exhibits a degra-dation trend as the number of subjects increases. Moreover, our test-time scaling via Pass@N im-proves quality at the cost of linearly increasing in-ference time, limiting applicability in low-latency scenarios. Future work could explore more effi-cient plan generation or alternative selection mech-anisms. 9References 
+
+Josh Achiam, Steven Adler, Sandhini Agarwal, Lama Ahmad, Ilge Akkaya, Florencia Leoni Aleman, Diogo Almeida, Janko Altenschmidt, Sam Altman, Shyamal Anadkat, and 1 others. 2023. Gpt-4 techni-cal report. arXiv preprint arXiv:2303.08774 .Jean-Baptiste Alayrac, Jeff Donahue, Pauline Luc, Antoine Miech, Iain Barr, Yana Hasson, Karel Lenc, Arthur Mensch, Katherine Millican, Malcolm Reynolds, and 1 others. 2022. Flamingo: a visual language model for few-shot learning. Advances in neural information processing systems , 35:23716– 23736. Fan Bao, Shen Nie, Kaiwen Xue, Yue Cao, Chongxuan Li, Hang Su, and Jun Zhu. 2023. All are worth words: A vit backbone for diffusion models. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 22669–22679. Amir Bar, Yossi Gandelsman, Trevor Darrell, Amir Globerson, and Alexei Efros. 2022. Visual prompt-ing via image inpainting. Advances in Neural Infor-mation Processing Systems , 35:25005–25017. Andrew Brock, Jeff Donahue, and Karen Simonyan. 2018. Large scale gan training for high fi-delity natural image synthesis. arXiv preprint arXiv:1809.11096 .Tom Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared D Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, and 1 others. 2020. Language models are few-shot learners. Advances in neural information processing systems , 33:1877–1901. Huiwen Chang, Han Zhang, Jarred Barber, AJ Maschinot, Jose Lezama, Lu Jiang, Ming-Hsuan Yang, Kevin Murphy, William T Freeman, Michael Rubinstein, and 1 others. 2023. Muse: Text-to-image generation via masked generative transformers. arXiv preprint arXiv:2301.00704 .Huiwen Chang, Han Zhang, Lu Jiang, Ce Liu, and William T Freeman. 2022. Maskgit: Masked gen-erative image transformer. In Proceedings of the IEEE/CVF conference on computer vision and pat-tern recognition , pages 11315–11325. Guanjie Chen, Xinyu Zhao, Yucheng Zhou, Xiaoye Qu, Tianlong Chen, and Yu Cheng. 2025. Towards sta-bilized and efficient diffusion transformers through long-skip-connections with spectral constraints. In 
+
+Proceedings of the IEEE/CVF International Confer-ence on Computer Vision , pages 17708–17718. Shuang Chen, Quanxin Shou, Hangting Chen, Yucheng Zhou, Kaituo Feng, Wenbo Hu, Yi-Fan Zhang, Yun-long Lin, Wenxuan Huang, Mingyang Song, and 1 others. 2026. Unify-agent: A unified multimodal agent for world-grounded image synthesis. arXiv preprint arXiv:2603.29620 .Wenhu Chen, Hexiang Hu, Chitwan Saharia, and William W Cohen. 2022. Re-imagen: Retrieval-augmented text-to-image generator. arXiv preprint arXiv:2209.14491 .Prafulla Dhariwal and Alexander Nichol. 2021. Diffu-sion models beat gans on image synthesis. Advances in neural information processing systems , 34:8780– 8794. Patrick Esser, Sumith Kulal, Andreas Blattmann, Rahim Entezari, Jonas Müller, Harry Saini, Yam Levi, Do-minik Lorenz, Axel Sauer, Frederic Boesel, and 1 others. 2024. Scaling rectified flow transformers for high-resolution image synthesis. In ICML .Patrick Esser, Robin Rombach, and Bjorn Ommer. 2021. Taming transformers for high-resolution image syn-thesis. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 12873–12883. Lijie Fan, Tianhong Li, Siyang Qin, Yuanzhen Li, Chen Sun, Michael Rubinstein, Deqing Sun, Kaiming He, and Yonglong Tian. 2024. Fluid: Scaling autoregres-sive text-to-image generative models with continuous tokens. arXiv preprint arXiv:2410.13863 .Rinon Gal, Yuval Alaluf, Yuval Atzmon, Or Patashnik, Amit H Bermano, Gal Chechik, and Daniel Cohen-Or. 2022. An image is worth one word: Personaliz-ing text-to-image generation using textual inversion. 
+
+arXiv preprint arXiv:2208.01618 .Shanghua Gao, Pan Zhou, Ming-Ming Cheng, and Shuicheng Yan. 2023. Masked diffusion transformer is a strong image synthesizer. In Proceedings of the IEEE/CVF international conference on computer vi-sion , pages 23164–23173. Yuying Ge, Sijie Zhao, Ziyun Zeng, Yixiao Ge, Chen Li, Xintao Wang, and Ying Shan. 2023. Making llama see and draw with seed tokenizer. arXiv preprint arXiv:2310.01218 .Yuying Ge, Sijie Zhao, Jinguo Zhu, Yixiao Ge, Kun Yi, Lin Song, Chen Li, Xiaohan Ding, and Ying Shan. 2024. Seed-x: Multimodal models with unified multi-granularity comprehension and generation. arXiv preprint arXiv:2404.14396 .Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley, Sherjil Ozair, Aaron Courville, and Yoshua Bengio. 2020. Generative adversarial networks. Communications of the ACM ,63(11):139–144. Jian Han, Jinlai Liu, Yi Jiang, Bin Yan, Yuqi Zhang, Ze-huan Yuan, Bingyue Peng, and Xiaobing Liu. 2024. Infinity: Scaling bitwise autoregressive modeling for high-resolution image synthesis. arXiv preprint arXiv:2412.04431 .Jonathan Ho, Ajay Jain, and Pieter Abbeel. 2020. Denoising diffusion probabilistic models. NIPS ,33:6840–6851. 
+
+10 Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, and 1 others. 2022. Lora: Low-rank adaptation of large language models. ICLR , 1(2):3. Qihan Huang, Siming Fu, Jinlong Liu, Hao Jiang, Yipeng Yu, and Jie Song. 2025. Resolving multi-condition confusion for finetuning-free personalized image generation. In Proceedings of the AAAI Con-ference on Artificial Intelligence , volume 39, pages 3707–3714. Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman, Aditya Ramesh, Aidan Clark, AJ Ostrow, Akila Welihinda, Alan Hayes, Alec Radford, and 1 others. 2024. Gpt-4o system card. arXiv preprint arXiv:2410.21276 .Tero Karras, Samuli Laine, Miika Aittala, Janne Hell-sten, Jaakko Lehtinen, and Timo Aila. 2020. An-alyzing and improving the image quality of style-gan. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 8110–8119. Black Forest Labs. 2024a. Flux. https://github. com/black-forest-labs/flux .Black Forest Labs. 2024b. Flux: Official inference repository for flux.1 models. Accessed: 2025-02-07. Mengcheng Lan, Chaofeng Chen, Yue Zhou, Jiaxing Xu, Yiping Ke, Xinjiang Wang, Litong Feng, and Wayne Zhang. 2024. Text4seg: Reimagining im-age segmentation as text generation. arXiv preprint arXiv:2410.09855 .Dongxu Li, Junnan Li, and Steven Hoi. 2023. Blip-diffusion: Pre-trained subject representation for con-trollable text-to-image generation and editing. Ad-vances in Neural Information Processing Systems ,36:30146–30166. Jiachang Liu, Dinghan Shen, Yizhe Zhang, Bill Dolan, Lawrence Carin, and Weizhu Chen. 2021. What makes good in-context examples for gpt-3? arXiv preprint arXiv:2101.06804 .Shilong Liu, Zhaoyang Zeng, Tianhe Ren, Feng Li, Hao Zhang, Jie Yang, Qing Jiang, Chunyuan Li, Jianwei Yang, Hang Su, and 1 others. 2024. Grounding dino: Marrying dino with grounded pre-training for open-set object detection. In European Conference on Computer Vision , pages 38–55. Springer. Yao Lu, Max Bartolo, Alastair Moore, Sebastian Riedel, and Pontus Stenetorp. 2021. Fantastically ordered prompts and where to find them: Overcoming few-shot prompt order sensitivity. arXiv preprint arXiv:2104.08786 .Jian Ma, Junhao Liang, Chen Chen, and Haonan Lu. 2024. Subject-diffusion: Open domain personal-ized text-to-image generation without test-time fine-tuning. In ACM SIGGRAPH 2024 Conference Pa-pers , pages 1–12. Zhendong Mao, Mengqi Huang, Fei Ding, Ming-cong Liu, Qian He, and Yongdong Zhang. 2024. Realcustom++: Representing images as real-word for real-time customization. arXiv preprint arXiv:2408.09744 .Chong Mou, Xintao Wang, Liangbin Xie, Yanze Wu, Jian Zhang, Zhongang Qi, and Ying Shan. 2024. T2i-adapter: Learning adapters to dig out more control-lable ability for text-to-image diffusion models. In 
+
+Proceedings of the AAAI conference on artificial in-telligence , volume 38, pages 4296–4304. Matteo Nulli, Anesa Ibrahimi, Avik Pal, Hoshe Lee, and Ivona Najdenkoska. 2024. In-context learn-ing improves compositional understanding of vision-language models. arXiv preprint arXiv:2407.15487 .Catherine Olsson, Nelson Elhage, Neel Nanda, Nicholas Joseph, Nova DasSarma, Tom Henighan, Ben Mann, Amanda Askell, Yuntao Bai, Anna Chen, and 1 oth-ers. 2022. In-context learning and induction heads. 
+
+arXiv preprint arXiv:2209.11895 .Maxime Oquab, Timothée Darcet, Theo Moutakanni, Huy V. Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Russell Howes, Po-Yao Huang, Hu Xu, Vasu Sharma, Shang-Wen Li, Wojciech Galuba, Mike Rabbat, Mido Assran, Nicolas Bal-las, and 7 others. 2023. Dinov2: Learning robust visual features without supervision. Ziqi Pang, Tianyuan Zhang, Fujun Luan, Yunze Man, Hao Tan, Kai Zhang, William T Freeman, and Yu-Xiong Wang. 2024. Randar: Decoder-only autore-gressive visual generation in random orders. arXiv preprint arXiv:2412.01827 .William Peebles and Saining Xie. 2023. Scalable dif-fusion models with transformers. In ICCV , pages 4195–4205. Dustin Podell, Zion English, Kyle Lacey, Andreas Blattmann, Tim Dockhorn, Jonas Müller, Joe Penna, and Robin Rombach. 2023. Sdxl: Improving latent diffusion models for high-resolution image synthesis. 
+
+arXiv preprint arXiv:2307.01952 .Reiner Pope, Sholto Douglas, Aakanksha Chowdhery, Jacob Devlin, James Bradbury, Jonathan Heek, Kefan Xiao, Shivani Agrawal, and Jeff Dean. 2023. Effi-ciently scaling transformer inference. Proceedings of Machine Learning and Systems , 5:606–624. Senthil Purushwalkam, Akash Gokul, Shafiq Joty, and Nikhil Naik. 2024. Bootpig: Bootstrapping zero-shot personalized image generation capabili-ties in pretrained diffusion models. arXiv preprint arXiv:2401.13974 .Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sas-try, Amanda Askell, Pamela Mishkin, Jack Clark, and 1 others. 2021. Learning transferable visual models from natural language supervision. In ICML , pages 8748–8763. PmLR. 
+
+11 Nikhila Ravi, Valentin Gabeur, Yuan-Ting Hu, Rong-hang Hu, Chaitanya Ryali, Tengyu Ma, Haitham Khedr, Roman Rädle, Chloe Rolland, Laura Gustafson, and 1 others. 2024. Sam 2: Segment anything in images and videos. arXiv preprint arXiv:2408.00714 .Ali Razavi, Aaron Van den Oord, and Oriol Vinyals. 2019. Generating diverse high-fidelity images with vq-vae-2. Advances in neural information processing systems , 32. Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Björn Ommer. 2022. High-resolution image synthesis with latent diffusion mod-els. In CVPR , pages 10684–10695. Nataniel Ruiz, Yuanzhen Li, Varun Jampani, Yael Pritch, Michael Rubinstein, and Kfir Aberman. 2023. Dreambooth: Fine tuning text-to-image diffusion models for subject-driven generation. In CVPR ,pages 22500–22510. Hao Shao, Shengju Qian, Han Xiao, Guanglu Song, Zhuofan Zong, Letian Wang, Yu Liu, and Hong-sheng Li. 2024. Visual cot: Advancing multi-modal language models with a comprehensive dataset and benchmark for chain-of-thought reasoning. Ad-vances in Neural Information Processing Systems ,37:8612–8642. Shuai Shao, Zeming Li, Tianyuan Zhang, Chao Peng, Gang Yu, Xiangyu Zhang, Jing Li, and Jian Sun. 2019. Objects365: A large-scale, high-quality dataset for object detection. In CVPR , pages 8430– 8439. Jascha Sohl-Dickstein, Eric Weiss, Niru Mah-eswaranathan, and Surya Ganguli. 2015. Deep un-supervised learning using nonequilibrium thermody-namics. In ICML , pages 2256–2265. pmlr. Han Song, Yucheng Zhou, Jianbing Shen, and Yu Cheng. 2026. From broad exploration to stable synthesis: Entropy-guided optimization for autoregressive im-age generation. In The Fourteenth International Con-ference on Learning Representations .Jiaming Song, Chenlin Meng, and Stefano Ermon. 2020. Denoising diffusion implicit models. arXiv preprint arXiv:2010.02502 .Yang Song, Prafulla Dhariwal, Mark Chen, and Ilya Sutskever. 2023. Consistency models. Peize Sun, Yi Jiang, Shoufa Chen, Shilong Zhang, Bingyue Peng, Ping Luo, and Zehuan Yuan. 2024. Autoregressive model beats diffusion: Llama for scalable image generation. arXiv preprint arXiv:2406.06525 .Zhenxiong Tan, Songhua Liu, Xingyi Yang, Qiaochu Xue, and Xinchao Wang. 2024. Ominicontrol: Mini-mal and universal control for diffusion transformer. 
+
+arXiv preprint arXiv:2411.15098 , 3. XLabs AI team. 2025. x-flux. Accessed: 2025-02-07. Keyu Tian, Yi Jiang, Zehuan Yuan, Bingyue Peng, and Liwei Wang. 2024. Visual autoregressive modeling: Scalable image generation via next-scale prediction. 
+
+Advances in neural information processing systems ,37:84839–84865. Hugo Touvron, Louis Martin, Kevin Stone, Peter Al-bert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov, Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, and 1 others. 2023. Llama 2: Open foun-dation and fine-tuned chat models. arXiv preprint arXiv:2307.09288 .Maria Tsimpoukelli, Jacob L Menick, Serkan Cabi, SM Eslami, Oriol Vinyals, and Felix Hill. 2021. Mul-timodal few-shot learning with frozen language mod-els. Advances in Neural Information Processing Sys-tems , 34:200–212. Aaron Van den Oord, Nal Kalchbrenner, Lasse Espe-holt, Oriol Vinyals, Alex Graves, and 1 others. 2016. Conditional image generation with pixelcnn decoders. 
+
+Advances in neural information processing systems ,29. Aäron Van Den Oord, Nal Kalchbrenner, and Koray Kavukcuoglu. 2016. Pixel recurrent neural networks. In International conference on machine learning ,pages 1747–1756. PMLR. Aaron Van Den Oord, Oriol Vinyals, and 1 others. 2017. Neural discrete representation learning. Advances in neural information processing systems , 30. Chenglin Wang, Yucheng Zhou, Shawn Chen, Tao Wang, and Kai Zhang. 2026. Ladr: Locality-aware dynamic rescue for efficient text-to-image generation with diffusion large language models. arXiv preprint arXiv:2603.13450 .Xierui Wang, Siming Fu, Qihan Huang, Wanggui He, and Hao Jiang. 2024a. Ms-diffusion: Multi-subject zero-shot image personalization with layout guidance. 
+
+arXiv preprint arXiv:2406.07209 .Xinlong Wang, Xiaosong Zhang, Zhengxiong Luo, Quan Sun, Yufeng Cui, Jinsheng Wang, Fan Zhang, Yueze Wang, Zhen Li, Qiying Yu, and 1 others. 2024b. Emu3: Next-token prediction is all you need. 
+
+arXiv preprint arXiv:2409.18869 .Mark Weber, Lijun Yu, Qihang Yu, Xueqing Deng, Xi-aohui Shen, Daniel Cremers, and Liang-Chieh Chen. 2024. Maskbit: Embedding-free image generation via bit tokens. arXiv preprint arXiv:2409.16211 .Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, and 1 others. 2022. Chain-of-thought prompting elic-its reasoning in large language models. Advances in neural information processing systems , 35:24824– 24837. 
+
+12 Yuxiang Wei, Yabo Zhang, Zhilong Ji, Jinfeng Bai, Lei Zhang, and Wangmeng Zuo. 2023. Elite: Encod-ing visual concepts into textual embeddings for cus-tomized text-to-image generation. In CVPR , pages 15943–15953. Shaojin Wu, Mengqi Huang, Wenxu Wu, Yufeng Cheng, Fei Ding, and Qian He. 2025. Less-to-more general-ization: Unlocking more controllability by in-context generation. arXiv preprint arXiv:2504.02160 .Shitao Xiao, Yueze Wang, Junjie Zhou, Huaying Yuan, Xingrun Xing, Ruiran Yan, Shuting Wang, Tiejun Huang, and Zheng Liu. 2024. Omnigen: Unified image generation. arXiv preprint arXiv:2409.11340 .Jinheng Xie, Weijia Mao, Zechen Bai, David Junhao Zhang, Weihao Wang, Kevin Qinghong Lin, Yuchao Gu, Zhijie Chen, Zhenheng Yang, and Mike Zheng Shou. 2024. Show-o: One single transformer to unify multimodal understanding and generation. arXiv preprint arXiv:2408.12528 .Sang Michael Xie, Aditi Raghunathan, Percy Liang, and Tengyu Ma. 2021. An explanation of in-context learn-ing as implicit bayesian inference. arXiv preprint arXiv:2111.02080 .An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jian-hong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, Junyang Lin, Kai Dang, and 22 oth-ers. 2024. Qwen2.5 technical report. arXiv preprint arXiv:2412.15115 .Hongji Yang, Wencheng Han, Yucheng Zhou, and Jianbing Shen. 2025a. Dc-controlnet: Decoupling inter-and intra-element conditions in image genera-tion with diffusion models. In Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 19065–19074. Hongji Yang, Yucheng Zhou, Wencheng Han, and Jianbing Shen. 2025b. Self-rewarding large vision-language models for optimizing prompts in text-to-image generation. In Findings of the Association for Computational Linguistics: ACL 2025 , pages 7332– 7349. Hongji Yang, Yucheng Zhou, Wencheng Han, Runzhou Tao, Zhongying Qiu, Jianfei Yang, and Jianbing Shen. 2025c. Hicogen: Hierarchical compositional text-to-image generation in diffusion models via reinforce-ment learning. arXiv preprint arXiv:2511.19965 .Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. 2023. Ip-adapter: Text compatible image prompt adapter for text-to-image diffusion models. arXiv preprint arXiv:2308.06721 .Jiahui Yu, Yuanzhong Xu, Jing Yu Koh, Thang Lu-ong, Gunjan Baid, Zirui Wang, Vijay Vasudevan, Alexander Ku, Yinfei Yang, Burcu Karagol Ayan, and 1 others. 2022. Scaling autoregressive models for content-rich text-to-image generation. arXiv preprint arXiv:2206.10789 , 2(3):5. Lvmin Zhang, Anyi Rao, and Maneesh Agrawala. 2023a. Adding conditional control to text-to-image diffusion models. In Proceedings of the IEEE/CVF international conference on computer vision , pages 3836–3847. Yuanhan Zhang, Kaiyang Zhou, and Ziwei Liu. 2023b. What makes good examples for visual in-context learning? Advances in Neural Information Process-ing Systems , 36:17773–17794. Yuxuan Zhang, Yiren Song, Jiaming Liu, Rui Wang, Jinpeng Yu, Hao Tang, Huaxia Li, Xu Tang, Yao Hu, Han Pan, and 1 others. 2024. Ssr-encoder: Encod-ing selective subject representation for subject-driven generation. In CVPR , pages 8069–8078. Zihao Zhao, Eric Wallace, Shi Feng, Dan Klein, and Sameer Singh. 2021. Calibrate before use: Improv-ing few-shot performance of language models. In 
+
+International conference on machine learning , pages 12697–12706. PMLR. Yucheng Zhou, Hao Li, and Jianbing Shen. 2026a. Con-dition errors refinement in autoregressive image gen-eration with diffusion loss. In The Fourteenth Inter-national Conference on Learning Representations .Yucheng Zhou, Xiang Li, Qianning Wang, and Jianbing Shen. 2024a. Visual in-context learning for large vision-language models. In Findings of the Associa-tion for Computational Linguistics: ACL 2024 , pages 15890–15902. Yucheng Zhou, Zhi Rao, Jun Wan, and Jianbing Shen. 2024b. Rethinking visual dependency in long-context reasoning for large vision-language models. 
+
+arXiv preprint arXiv:2410.19732 .Yucheng Zhou, Jianbing Shen, and Yu Cheng. 2025. Weak to strong generalization for large language models with multi-capabilities. In The Thirteenth International Conference on Learning Representa-tions .Yucheng Zhou, Jihai Zhang, Guanjie Chen, Jianbing Shen, and Yu Cheng. 2026b. Less is more: Vision representation compression for efficient video gen-eration with large language models. In Proceedings of the AAAI Conference on Artificial Intelligence ,volume 40, pages 13826–13834. 
+
+13 A Prompt 
+
+Caption Generation 
+
+Create a scene for an image generation model by semantically choosing at least half of these objects: {classes_str} to fit a coherent setting. Use any style. Describe the scene in one concise English paragraph. no think. 
+
+Object Filtering 
+
+Image: {Image_with_box_label} Text: I have a scene description to evaluate. Here’s the info: - Description: {caption} Think these questions in mind to check the de-scription: 1. Does the description avoid excessive adjectives or storytelling? (No more than 2 adjectives, no narrative.) 2. Are all classes ({’, ’.join(classes_str)}) men-tioned in the description? Output: - If any answer is ’No’, list violations like [’Miss-ing class: xx’] and end with ’Please revise.’ - If all answers are ’Yes’, say ’Meets all criteria.’ 
+
+Subject Image Transformation (Simple) 
+
+Image: {Image_cropped} Text: A {class_name} viewed from a different perspec-tive, maintaining its core features and details. 
+
+Subject Image Transformation (Complex) 
+
+Image: {Image_cropped} Text: i) ( Random Optional ) With one randomly sam-pled object: 
+
+A cozy scene shows a {class_name} sitting close to a {random_class}, with their positions sug-gesting a natural interaction. The environment is filled with random objects, and neither item dominates the scene. ii) ( Random Optional ) With two randomly sam-pled objects: 
+
+The {class_name}, partially out of focus, lies near the camera; a {random_class_1} stands in full view, and a {random_class_2} is seen beyond a pile of scattered objects. iii) ( Random Optional ) With three randomly sam-pled objects: 
+
+In a sun-drenched garden, the {class_name} leans gently against a wooden crate. A {ran-dom_class_1} is placed on the grass nearby, with a {random_class_2} resting atop the crate. A {random_class_3} hangs lazily from a tree branch, swaying slightly with the breeze. 
+
+Simulated User Instruction Generation 
+
+i) ( Optional for Training ) With subject ID: 
+
+Image: {Image_with_box_label} Text: Create a scene description for image annotation using {classes_str} Use short phrases, and describe how these objects might relate or be arranged in a scene. Clearly refer to each object with its source image ( e.g. ,cat from image 1). Allow slight ambiguity, and mention each given object at least once relative to another or a landmark. Keep it concise, 5-30 words. Tempelate: The dog from image 0 rolls around in the grass while the cat from image 1 watches from a rock. A tall tree from image 2 casts shadows across the scene. ii) ( Optional for Training ) Without subject ID: 
+
+Image: {Image} Text: Create a detailed prompt for a generative model to create an image, depicting a harmonious scene composed of the following objects: {classes_str}. Describe how these objects interact or are ar-ranged in the scene to form a cohesive and vi-sually appealing composition. 
+
+CoT Generation 
+
+Image: {Image_with_box_label} Text: You are an expert in multi-image scene composi-tion and visual grounding. Given initial prompt with subjects from different sub-image, create a detailed composition, step-by-step reasoning (CoT) to describe the entire scene in given target image. ### Input - **Initial Prompt**: "{ini-tial_prompt}" ### Note 1. Clearly describe spatial relationships and interactions between objects (use terms like beside, behind, above, near, aligned with, etc.). 2. Maintain a clear and logical flow, progressively describing the background, foreground, object positions, and their visual relationships. 3. Include image IDs when needed to distinguish between multiple objects of the same category. 4. Language: English. Provide at least 300 words. 
+
+B Data Example 
+
+Data Example 1: 
+
+Sampled Classes 
+
+"toaster", "lamp", "plate", "potted plant", "chair couch", "radiator", "book", "sneakers", "sneakers leather shoes", "orange" 
+
+Detected Classes 
+
+"microwave", "desk", "potted plant", "desk cabinet", "trolley", "vase", "carpet", "carpet" 
+
+14 Caption 
+
+In the cozy living room, the lamp from image 1 casts a warm glow over the table where the toaster from image 0 sits, next to the plate from image 2. The potted plant from image 3 adds a touch of greenery, while the chair couch from image 4 provides a com-fortable spot for reading. The radiator from image 5 ensures warmth, and the book from image 6 rests nearby. Sneakers from image 7 and sneakers leather shoes from image 8 hint at someone’s presence, and an orange from image 9 adds a splash of color to the scene. 
+
+Simulated User Instruction 
+
+The microwave from image 0 sits on the desk from image 1, which is covered by a green carpet from image 6. Nearby, a potted plant from image 2 adds greenery, while a desk cabinet from image 3 provides storage. A trolley from image 4 stands nearby, and a vase from image 5 adds color to the scene. Carpet from image 7 also appears in the scene. 
+
+CoT 
+
+### Detailed Composition and Spatial Relation-ships\n\n#### Background:\nThe scene opens with a cozy backyard setting, featuring a house with a red and white striped awning over the entrance. The house has a wooden deck leading up to the front door, which is partially visible through the awning. The surrounding area is lush with greenery, including bushes and trees, creating a serene and inviting atmo-sphere. This backdrop sets the stage for the rest of the elements in the scene.\n\n#### Foreground:\nIn the foreground, there is a well-maintained garden area with various plants and flowers. A large, vi-brant purple cabbage is prominently displayed in a terracotta pot, adding a pop of color and texture to the scene. Nearby, a small gray cat is sitting on the grass, seemingly relaxed and enjoying the peace-ful environment. A few red flowers are scattered around the garden, enhancing the natural beauty of the space.\n\n#### Desk and Microwave:\nMoving forward, we see a wooden desk placed on the pa-tio. On this desk, there is a microwave from image 0, which is positioned centrally. The desk itself is covered by a green carpet from image 7, providing a soft and comfortable surface for the microwave and other items. The desk cabinet from image 3 is situated behind the desk, offering additional storage space. The desk cabinet is aligned with the desk, ensuring that it complements the overall setup with-out obstructing any view or functionality.\n\n#### Trolley and Vase:\nTo the right of the desk, a blue trolley from image 4 is parked. The trolley is empty but appears ready for use, suggesting it might be used for transporting items within the garden or around the house. Adjacent to the trolley, a vase from image 5 is placed on the ground, adding a touch of ele-gance and color to the scene. The vase is filled with red flowers, which match the flowers in the garden, creating a cohesive and harmonious look.\n\n#### Potted Plant:\nA potted plant from image 2 is posi-tioned near the trolley, adding more greenery to the scene. The plant is placed on the ground, slightly 
+
+away from the desk and trolley, allowing it to blend naturally into the environment. Its presence enhances the overall aesthetic of the backyard, making it feel more alive and vibrant.\n\n#### Overall Scene:\nThe entire scene is a harmonious blend of indoor and out-door elements, creating a functional yet aesthetically pleasing environment. The microwave on the desk, the green carpet, the desk cabinet, the trolley, the vase, and the potted plant all contribute to a well-organized and inviting space. The background of the house and the lush greenery provide a calming and natural back-drop, making the scene feel both practical and serene. The spatial relationships between these objects are carefully arranged to ensure that each element has its own place while still contributing to the overall harmony of the scene." 
+
+Spatial Layout Prompt 
+
+Here is the segmentation map focusing on piano, per-son, flower, carpet, chair, stool, frame, desk cabinet, cabinet, blackboard:\n<patch>[0] others [1] others [2] others [3] others [4] others [5] others [6] others [7] others [8] blackboard [9] others [10] others [11] others [12] others [13] others [14] others [15] others [16] blackboard [17] others [18] others [19] others [20] others [21] others [22] cabinet [23] cabinet [24] blackboard [25] frame [26] others [27] others [28] person [29] others [30] cabinet, flower [31] cabinet, flower [32] others [33] frame [34] others [35] person [36] person [37] chair [38] flower, piano [39] flower, piano [40] desk cabinet [41] desk cabinet [42] desk cabinet [43] person [44] chair, person [45] chair [46] piano [47] piano [48] desk cabinet [49] desk cabinet [50] desk cabinet [51] chair, person [52] carpet, chair [53] carpet, chair [54] carpet, piano [55] piano [56] desk cabinet, stool [57] desk cabinet [58] desk cab-inet [59] carpet [60] carpet [61] carpet [62] carpet [63] others</patch>\n Now, generate an image. 
+
+Data Example 2: 
+
+Sampled Classes 
+
+"ship", "sports car" 
+
+Detected Classes 
+
+"ship", "sports car" 
+
+Caption 
+
+A sleek red sports car speeds along a coastal high-way, its shiny body reflecting the golden hues of a setting sun, while in the distance, a large ship cuts through the waves of the ocean, its massive silhouette contrasting with the car’s nimble form, capturing the essence of speed and adventure against the vastness of the sea. 
+
+15 Simulated User Instruction 
+
+Imagine the ship from image 0 sailing in the distance, with the sports car from image 1 parked on the road near the ocean, both under the warm glow of the setting sun. 
+
+CoT 
+
+### Detailed Composition and Reasoning\n\nThe scene is a harmonious blend of two distinct elements: a ship from image 0 and a sports car from image 1, set against the backdrop of a breathtaking sunset over the ocean. The composition is carefully crafted to ensure that each element contributes to a cohesive and visually appealing narrative.#### Background:\n-**Sunset**: The sky is painted in warm hues of or-ange and yellow, transitioning into a soft gradient as it meets the horizon. The sun is positioned low on the horizon, casting a golden glow across the entire scene. This creates a serene and tranquil atmosphere, perfect for the contemplative mood suggested by the ship and the dynamic energy of the sports car.\n- **Ocean**: The calm waters of the ocean reflect the vibrant col-ors of the sunset, creating a shimmering effect that enhances the overall beauty of the scene. The waves gently lap against the rocky cliffs, adding a sense of movement and life to the otherwise still landscape.\n-**Cliffs**: On the right side of the image, rugged cliffs rise steeply from the water’s edge. Their dark, textured surfaces contrast sharply with the bright col-ors of the sunset, providing a dramatic and natural frame for the scene.#### Foreground:\n- **Sports Car (Image 1)**: A sleek red sports car is positioned prominently in the foreground, driving along a coastal road. The car is angled slightly towards the viewer, suggesting motion and speed. Its polished exterior reflects the warm light of the sunset, adding depth and vibrancy to the image. The car’s design is mod-ern and aerodynamic, with sharp lines and curves that emphasize its high-performance capabilities.\n-**Road**: The road on which the car is traveling is a two-lane highway with a metal guardrail running parallel to the cliffside. The road appears smooth and well-maintained, curving gently along the coastline. The guardrail adds a sense of safety and structure to the scene, while also emphasizing the proxim-ity of the car to the edge of the cliff.#### Spatial Relationships:\n- **Ship (Image 0)**: The ship is situated further out in the ocean, positioned behind the cliffs and slightly to the left of the sports car. It is a large cargo ship, identifiable by its size and the cranes visible on its deck. The ship is sailing away from the viewer, moving towards the horizon where it blends seamlessly with the sunset. Its presence adds a sense of scale and grandeur to the scene, con-trasting with the smaller, more personal scale of the sports car.\n- **Alignment and Interaction**: The sports car is positioned closer to the viewer, creating a sense of depth and perspective. The ship, being far-ther away, provides a sense of distance and vastness. The cliffs act as a natural barrier between the two elements, subtly separating them yet keeping them within the same frame. The warm light of the sunset unifies the scene, tying together the ship, the car, and the ocean into a single, cohesive composition.#### Visual Flow:\nThe composition flows naturally from the foreground to the background. The sports car, 
+
+with its vibrant red color and sleek design, draws the viewer’s attention immediately. As the eye moves up-ward, the warm glow of the sunset and the reflective ocean create a sense of serenity and beauty. Finally, the ship in the distance adds a layer of intrigue and scale, completing the scene with a sense of adventure and exploration.In summary, the scene is a masterful blend of motion and tranquility, with the sports car symbolizing human ambition and the ship represent-ing the vastness of the world. The sunset serves as a unifying element, creating a harmonious balance between the different components of the image. 
+
+Spatial Layout Prompt 
+
+Here is the segmentation map focusing on ship, sports car:\n<patch>[0] others [1] others [2] others [3] oth-ers [4] others [5] others [6] others [7] others [8] others [9] others [10] others [11] others [12] others [13] oth-ers [14] others [15] others [16] others [17] ship [18] ship [19] others [20] others [21] others [22] others [23] others [24] others [25] ship [26] ship [27] ship [28] others [29] others [30] others [31] others [32] others [33] sports car [34] sports car [35] sports car [36] sports car [37] sports car [38] others [39] others [40] sports car [41] sports car [42] sports car [43] sports car [44] sports car [45] sports car [46] sports car [47] others [48] others [49] others [50] others [51] others [52] sports car [53] sports car [54] sports car [55] others [56] others [57] others [58] others [59] others [60] others [61] others [62] others [63] others</patch>\n Now, generate an image. 
+
+Data Example 3: 
+
+Sampled Classes 
+
+"trumpet", "sushi", "flute", "tissue", "brush", "bracelet", "piano", "trophy", "coffee machine", "candy", "globe" 
+
+Detected Classes 
+
+"piano", "person", "flower", "carpet", "chair", "stool", "frame", "desk cabinet", "cabinet", "blackboard" 
+
+Caption 
+
+In a cozy, sunlit studio with floor-to-ceiling windows, a painter sits at an easel, a brush in hand, surrounded by scattered art supplies and a small globe on a nearby shelf, symbolizing inspiration from around the world. To their left, a coffee machine steams quietly, while a tray of sushi and a candy dish sit on the desk, offering a delightful break. Nearby, a trumpet and a flute rest on a piano, suggesting a dual passion for music and art. A trophy sits on the windowsill, reflecting the artist’s past achievements, while a tissue and a bracelet lie nearby, hinting at a moment of pause or reflection. 
+
+16 Simulated User Instruction 
+
+The person from image 1 sits on a chair from image 4, painting near a piano from image 0. A flower from image 2 adorns the room, and a carpet from image 3 covers the floor. The blackboard from image 9 is visible in the background, and a desk cabinet from image 7 is nearby. Stool from image 5, frame from image 6, cabinet from image 8 also appear in the scene. 
+
+CoT 
+
+### Detailed Composition and Spatial Relation-ships\n\n#### Background:\nThe scene is set in a cozy, well-lit studio with large windows that offer a serene view of lush greenery outside. The natu-ral light streaming through the windows illuminates the space, creating a warm and inviting atmosphere. In the background, a blackboard from Image 9 is visible, suggesting this might be a creative or edu-cational workspace. The blackboard is positioned against the wall, slightly to the left of the center of the room, providing a focal point for any notes or drawings.\n\n#### Foreground:\nIn the foreground, a person is seated on a wooden chair from Image 4, engrossed in painting on an easel. The individual ap-pears focused, holding a paintbrush in one hand while the other rests on the canvas. The easel is placed on a desk cabinet from Image 7, which is situated to the left of the person. The desk cabinet has several drawers and compartments, offering storage for art supplies and other materials. Adjacent to the desk cabinet, a stool from Image 5 can be seen, likely used by the artist for additional seating or to rest their feet during long sessions.\n\n#### Objects and Their Interactions:\n- **Piano from Image 0**: Positioned to the right of the person, a grand piano adds a touch of elegance and suggests a multifunctional use of the space. The piano’s polished surface reflects some of the ambient light, enhancing its prominence in the room.\n- **Flower from Image 2**: A vase of flow-ers is placed on a small table near the piano, adding a splash of color and life to the scene. The flowers are positioned slightly behind the piano, creating a har-monious balance between the musical instrument and the floral arrangement.\n- **Carpet from Image 3**: A soft pink carpet lies on the wooden floor, extending from the center of the room towards the piano. The carpet not only adds warmth to the space but also pro-vides a comfortable area for the artist to sit or move around.\n- **Desk Cabinet from Image 7**: As men-tioned earlier, the desk cabinet serves as a functional piece of furniture, housing various items such as art supplies and personal belongings. It is aligned with the desk where the easel is placed, facilitating easy access to tools and materials.\n- **Frame from Image 6**: A framed picture or artwork hangs on the wall above the desk cabinet, adding an element of person-alization and aesthetic appeal to the room. The frame is positioned slightly above and to the left of the desk, drawing the viewer’s eye upwards.\n- **Stool from Image 5**: The stool is located to the left of the desk cabinet, providing an alternative seating option for the artist. Its placement ensures that the artist can easily switch between sitting on the chair and using the stool without disrupting their workflow.\n\n#### Overall Flow:\nThe scene is meticulously arranged 
+
+to create a harmonious and productive environment. The artist is comfortably seated, surrounded by es-sential tools and personal touches that enhance both functionality and aesthetics. The natural light from the windows complements the warm tones of the wooden furniture and the soft pink carpet, creating a tranquil and inspiring workspace. The presence of the piano and the vase of flowers adds layers of depth and character, making the studio feel like a sanctuary for creativity and relaxation. 
+
+Spatial Layout Prompt 
+
+Here is the segmentation map focusing on piano, per-son, flower, carpet, chair, stool, frame, desk cabinet, cabinet, blackboard:\n<patch>[0] others [1] others [2] others [3] others [4] others [5] others [6] others [7] others [8] blackboard [9] others [10] others [11] others [12] others [13] others [14] others [15] others [16] blackboard [17] others [18] others [19] others [20] others [21] others [22] cabinet [23] cabinet [24] blackboard [25] frame [26] others [27] others [28] person [29] others [30] cabinet, flower [31] cabinet, flower [32] others [33] frame [34] others [35] person [36] person [37] chair [38] flower, piano [39] flower, piano [40] desk cabinet [41] desk cabinet [42] desk cabinet [43] person [44] chair, person [45] chair [46] piano [47] piano [48] desk cabinet [49] desk cabinet [50] desk cabinet [51] chair, person [52] carpet, chair [53] carpet, chair [54] carpet, piano [55] piano [56] desk cabinet, stool [57] desk cabinet [58] desk cab-inet [59] carpet [60] carpet [61] carpet [62] carpet [63] others</patch>\n Now, generate an image. 
+
+C Complex Subject Images Data Generation 
+
+Current subject-to-image generation tasks typically focus on generating scenes based on a few subject images corresponding to target objects. However, in real-world applications, users may want to se-lect specific objects from complex scene images and generate new scenes based on those selections. Our method, leveraging in-context learning , effec-tively addresses this more practical and challenging scenario. To support this, we generate a dedicated dataset where subject objects are embedded into complex scenes and transformed accordingly. Since conven-tional I2I models ( e.g. , UNO-FLUX) lack reason-ing capabilities, we first need to construct rich and contextually meaningful prompts. Specifically, we traverse our previously gener-ated dataset to compile a comprehensive list of object categories. This list is then provided to GPT-4o (Hurst et al., 2024), to automatically generate a dictionary mapping each category to a set of se-mantically related categories. 17 Method DINO ↑ CLIP-I ↑ CLIP-T ↑                
+
+> SDXL + IP-Adapter 0.571 0.738 0.294 PixArt-Σ+ IP-Adapter 0.583 0.746 0.298 DiT-XL + Subject Adapter 0.589 0.751 0.301 UNO (FLUX-1.0-DEV) 0.541 0.721 0.296 MUSIC (Ours) 0.622 0.812 0.322
+
+Table 3: Comparison with strong diffusion backbones adapted for subject-driven generation on MSIC.            
+
+> Pipeline Stage Failure Rate (%) Mitigation Strategy
+> T2I semantic mismatch 9.8 Prompt filtering and regeneration OVD miss / false detection 14.6 Area threshold + VLM verification VLM hallucinated validation 6.3 ID-string consistency check SAM2 incorrect mask 11.2 CLIP-based mask vs. box selection Final retained samples 68.1%
+
+Table 4: Per-stage error rates and mitigation strategies in the data construction pipeline. 
+
+For example: 
+
+• Key : Chair → Value : Stool, Bench, Couch 
+
+• Key : Bottle → Value : Cup, Glass, Jar 
+
+Using this dictionary, we instruct GPT-4o to pro-duce diverse prompt templates that capture natural object interactions and varied scene compositions. Examples include: • A cozy scene shows a {class_name} sitting close to a {random_class}, with their posi-tions suggesting a natural interaction. The environment is filled with random objects, and neither item dominates the scene. 
+
+• The {class_name}, partially out of focus, lies near the camera; a {random_class_1} stands in full view, and a {random_class_2} is seen beyond a pile of scattered objects. 
+
+• In a sun-drenched garden, the {class_name} leans gently against a wooden crate. A {ran-dom_class_1} is placed on the grass nearby, with a {random_class_2} resting atop the crate. A {random_class_3} hangs lazily from a tree branch, swaying slightly with the breeze. 
+
+When embedding subject images into complex scenes, we randomly select both a prompt template and object categories to construct a detailed prompt. This prompt is then provided to the T2I model to generate complex subject cases. 
+
+D Additional Experimental Analysis and Validation 
+
+D.1 Comparison with Stronger Diffusion Backbones 
+
+To better position MUSIC within the current state-of-the-art landscape, we provide additional com-parisons with strong diffusion-based backbones adapted for subject-driven generation. While many recent diffusion transformers do not natively sup-port multi-subject in-context conditioning with ref-erence images, we equip them with subject adapters for a controlled and fair comparison. All models are evaluated on the MSIC benchmark using iden-tical prompts and reference subjects. As shown in Table 3, despite stronger diffusion backbones improving base image fidelity, they still exhibit subject omission and identity entanglement as the number of subjects increases. MUSIC consistently outperforms these methods due to its explicit rea-soning and planning formulation. 
+
+D.2 Error Propagation Analysis of the Automated Data Pipeline 
+
+Our automated data construction pipeline integrates multiple pretrained foundation models, each of which may introduce noise. To quantify cumula-tive error propagation, we measure per-stage failure rates on a random subset of generated samples and summarize the mitigation strategies used at each stage (Table 4). Although individual stages intro-duce moderate noise, cascading filters significantly reduce error accumulation. Empirically, mod-els trained on this automatically curated dataset achieve consistent gains, indicating robustness to 18 Method Patch IoU ↑ Category Coverage ↑      
+
+> Random layout 0.21 0.48 UNO (implicit layout) 0.34 0.61 MUSIC (predicted layout) 0.47 0.76
+
+Table 5: Agreement between predicted spatial layouts and segmentation masks.         
+
+> Method Relation Accuracy ↑Identity Fidelity ↑
+> UNO 0.63 0.72 MUSIC 0.74 0.81
+
+Table 6: Performance on relative spatial relation prompts on MSIC. 
+
+realistic supervision noise. 
+
+D.3 Validation of the Learned Spatial Layout Prior 
+
+The semantics-driven spatial layout in MUSIC serves as a high-level prior rather than pixel-accurate supervision. To verify that MUSIC learns meaningful spatial structure rather than memoriz-ing noisy layouts, we measure the agreement be-tween predicted layouts and SAM2 segmentation masks on held-out images. As reported in Table 5, the learned spatial layout prior aligns well with ob-ject spatial distributions and is not dominated by hallucinated patterns. 
+
+D.4 Effectiveness of Vision Chain-of-Thought for Spatial Relations 
+
+Vision Chain-of-Thought (CoT) in MUSIC focuses on relative spatial relations (e.g., left, right, behind), which are more robust and natural for complex multi-subject composition. We evaluate relational accuracy on prompts requiring relative spatial rea-soning (Table 6). 19

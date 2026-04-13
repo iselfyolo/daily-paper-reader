@@ -1,0 +1,708 @@
+Title: Neural-Symbolic Knowledge Tracing: Injecting Educational Knowledge into Deep Learning for Responsible Learner Modelling
+
+URL Source: https://arxiv.org/pdf/2604.08263v1
+
+Published Time: Fri, 10 Apr 2026 01:08:23 GMT
+
+Number of Pages: 32
+
+Markdown Content:
+# NEURAL -S YMBOLIC KNOWLEDGE TRACING : I NJECTING 
+
+# EDUCATIONAL KNOWLEDGE INTO DEEP LEARNING FOR 
+
+# RESPONSIBLE LEARNER MODELLING 
+
+A P REPRINT 
+
+Danial Hooshyar 
+
+School of Digital Technologies Tallinn University, Estonia Faculty of Information Technology Faculty of Education and Psychology University of Jyväskylä Finland 
+
+danial.hooshyar@tlu.ee 
+
+Gustav Šír 
+
+Department of Computer Science Czech Technical University Czech Republic 
+
+gustav.sir@cvut.cz 
+
+Yeongwook Yang 
+
+Department of Computer Science and Engineering Kangwon National University Republic of Korea 
+
+yeongwook.yang@kangwon.ac.kr 
+
+Tommi Kärkkäinen 
+
+Faculty of Information Technology University of Jyväskylä Finland 
+
+tommi.karkkainen@jyu.fi 
+
+Raija Hämäläinen 
+
+Faculty of Education and Psychology University of Jyväskylä Finland 
+
+raija.h.hamalainen@jyu.fi 
+
+Ekaterina Krivich 
+
+School of Digital Technologies Tallinn University Estonia 
+
+ekaterina.krivich@tlu.ee 
+
+Mutlu Cukurova 
+
+UCL Knowledge Lab UCL Centre for Artificial Intelligence University College London UK 
+
+m.cukurova@ucl.ac.uk 
+
+Dragan Gaševi ´ c
+
+Faculty of Education School of Computing and Data Science The University of Hong Kong Centre for Learning Analytics Monash University Australia 
+
+dragan.gasevic@monash.edu 
+
+Roger Azevedo 
+
+School of Modeling Simulation and Training University of Central Florida US 
+
+roger.azevedo@ucf.edu 
+
+April 10, 2026 
+
+> arXiv:2604.08263v1 [cs.AI] 9 Apr 2026
+
+arXiv Template A P REPRINT 
+
+# ABSTRACT 
+
+The growing adoption of artificial intelligence (AI) in education, particularly large language models (LLMs), has increased attention to intelligent tutoring systems. However, recent research show that LLMs alone often exhibit shallow adaptivity and struggle to reliably model learners’ evolving knowledge over time. This limitation highlights the need for dedicated learner modelling approaches that explicitly track knowledge progression. While deep knowl-edge tracing approaches have shown strong predictive performance for learner modelling tasks, their opaque nature and susceptibility to biases or spurious correlations in data can hinder alignment with pedagogical principles. In response, this study proposes a novel neural-symbolic deep knowledge tracing approach, called Responsible-DKT , which inte-grates symbolic educational knowledge (e.g., rules representing mastery and non-mastery 
+
+states) into sequential neural models for responsible learner modelling. This paper reports the findings of experiments on a real-world dataset of 6th-grade students’ interactions in Maths learning, collected in September 2021, showing that Responsible-DKT outperforms both a neural-symbolic baseline without knowledge injection and a fully data-driven PyTorch 
+
+implementation of DKT in predictive accuracy across different training ratios and sequence lengths. The model achieves over 0.80 AUC with only 10% of training data and reaches up to 0.90 AUC, improving performance by up to 13% over the baseline models. It also demon-strates improved temporal reliability, producing lower early- and mid-sequence prediction errors and the lowest prediction inconsistency rates across sequence lengths, indicating that prediction updates remain directionally aligned with observed student responses over time. Furthermore, the neural-symbolic architecture provides intrinsic interpretability through its grounded computation graph, which explicitly reveals the decision-making logic behind each prediction, enabling both local and global explanations. This transparency also allows pedagogical assumptions embedded in the rules to be empirically evaluated, showing that patterns of repeated incorrect responses ( non-mastery ) play a stronger role in prediction updates. These findings suggest that hybrid human–AI approaches such as neural-symbolic computing improve predictive performance and interpretability, address data limitations, and support human-centred AI by bridging educational knowledge with advanced machine learning methods, enabling more responsible AI designs in educational contexts and beyond. 
+
+Keywords Neural-symbolic AI · Deep knowledge tracing · Responsible AI in education · Learner modelling 
+
+# 1 Introduction 
+
+Artificial intelligence (AI) technologies, such intelligent tutoring systems (ITSs), are increasingly being integrated into educational settings, with large language models (LLMs) emerging as one of the most widely used AI technologies [Azevedo and Wiedbusch, 2023, Yan et al., 2024]. Studies demonstrate their potential to enhance student engagement in programming [Kumar et al., 2023, Lyu et al., 2024], strengthen writing skills [Benvenuti et al., 2023], support teachers through automated tutoring and grading [Labadze et al., 2023, Miroyan et al., 2025], among other applications. Their ability to generate contextually relevant responses and immediate feedback has increased their appeal in both classrooms and educational research [Kaliisa et al., 2026]. Governments are increasingly moving toward formalizing the role of AI within educational systems. For instance, Estonia’s AI Leap initiative 1 requires the integration of AI technologies across high schools. Meanwhile, emerging regulatory policies classify AI applications in education—similar to those in healthcare—as high-risk [European Union, 2024, Saarela et al., 2025]. This has strengthened calls for responsible AI guided by principles such as fairness, transparency, accountability, and human agency [Arrieta et al., 2020, Eitel-Porter, 2020, Hooshyar et al., 2025d, Pargman et al., 2024]. However, while responsible use of AI in education is widely discussed, far less attention has been given to how these systems are designed and developed to enable responsible use .Meanwhile, the individualized response generation of LLMs has fostered a misconception that they can function as general-purpose engines for adaptive education. Recent studies have attempted to develop "LLM tutors" through knowledge augmentation, fine-tuning, etc [Maurya et al., 2025, Molina et al., 2024, Wang et al., 2025]. However, effectiveness of such LLM Tutors often under-performs that of well-established ITSs [Gaševi´ c and Yan, 2026] and some studies report even near null or negative effects on learning 
+
+> 1https://tihupe.ee/en/
+
+2arXiv Template A P REPRINT 
+
+gains [Bastani et al., 2025, Eames et al., 2026]. such approaches often overlook the need to accurately assess learners’ evolving knowledge and generate stable, evidence-based adaptive decisions [Corbett and Anderson, 1994, Hooshyar et al., 2025c, Koedinger et al., 2023, Du Boulay et al., 2023]. For decades, adaptive educational technologies have addressed this challenge through learner modelling. ITSs, for example, rely on computational models that represent learners’ knowledge, skills, misconceptions, progress, or affective states [Abyaa et al., 2019]. Grounded in theories of cognition and pedagogy, these models analyse learner–system interactions to monitor learning and adapt instruction accordingly [Azevedo and Wiedbusch, 2023, Conati and Lallé, 2023, Krivich et al., 2025], enabling transparent and pedagogically meaningful adaptivity. By contrast, many tutoring approaches based on LLMs only lack such explicit and theory-grounded mechanisms for representing learners’ knowledge over time, limiting their capacity to evaluate and adapt to individual learners’ evolving needs [Gaševi´ c and Yan, 2026]. This limitation is also aligned with broader concerns about the reliability and educational validity of LLM-based systems [Yan et al., 2024]. Recent research has documented several limitations of LLMs, such as the generation of inaccurate content (hallucinations) [Qian et al., 2026], unreliable reasoning behaviour [Zhao et al., 2025], and non-transparent decision mechanisms [Zhao et al., 2026]. In educational contexts, these issues may manifest in subtle but consequential ways. For example, generative AI models may reproduce harmful or biased assumptions in instructional feedback [Du et al., 2026, Hooshyar et al., 2025d]. Behavioural analyses of LLM-based assessment also reveal systematic limitations in how language models evaluate student writing, especially when dealing with negation structures and multilingual content [Karumbaiah et al., 2024]. Most importantly, recent empirical studies question whether LLMs can support the core function of adaptive educational systems: model and track student knowledge, skills, and learning over time in a reliable, accurate and tracable manner. For instance, in a controlled empirical comparison, Hooshyar et al. [2025c] evaluated an open-source LLM, with and without task-specific fine-tuning, against a deep knowledge tracing model—amongst the most successful learner-modelling methods—using a large-scale open dataset. Their evaluation combined standard predictive metrics with analyses examining sequential stability and temporal coherence. Although the LLM improved after extensive fine-tuning, it still failed to match the performance of DKT and produced unstable mastery estimates, incorrect directional updates, and higher prediction errors during early learning interactions. Complementary evidence is reported by Borchers and Shou [2025], who investigated how LLMs adapt tutoring responses when critical learner-context information is removed. Their results showed that LLM outputs changed only minimally across altered contexts, indicating limited sensitivity to the learner’s state. Collectively, these findings suggest that despite their potentials, LLM-based tools struggle to produce the stable, evidence-based adaptive decisions required for reliable learner modelling. One key reason for this limitation is that LLMs do not construct explicit learner models for each learner representing their evolving knowledge and skills (e.g., domain-specific content knowledge and metacognitive skills) over time. Without such representations, they may not reliably track mastery, estimate learning trajectories, or model the dynamics of skill acquisition. In contrast, (predictive) learner modelling approaches analyse sequences of student interactions to estimate mastery probabilities and learning progress. Beyond empirical limitations, responsible use of AI systems presupposes responsible design and development . Technical adjustments, e.g., fine-tuning LLMs to minimise hallucinations or reduce bias, may tackle surface-level problems, yet they fail to address more fundamental structural limitations [Hooshyar et al., 2025d, Lee et al., 2024, Resnik, 2024]. LLMs remain opaque "black-box" systems whose internal reasoning processes are difficult to interpret [Hooshyar et al., 2025d, Singh et al., 2024]. As a result, their generated explanations should not be mistaken for faithful representations of how decisions are made. These limitations collectively highlight the continuing importance of learner modelling in adaptive educational systems and suggest that, rather than replacing it, LLMs are more appropriately deployed as pedagogical interfaces (e.g., conversational tutors that explain concepts) or content generators paired with dedicated learner-modelling components to ensure responsible and pedagogically meaningful support. Understanding how such learner modelling systems can be designed in accordance with responsible AI principles therefore becomes a critical research challenge [Goellner et al., 2024, Hooshyar et al., 2025d]. 
+
+1.1 Learner modelling in AI for education 
+
+AI has been used in education for two broad purposes: enhancing practice and advancing research. In practice, it supports personalized instruction, automated feedback, scalable learner support, and administra-tive tasks such as identifying students at risk of failure or dropout [Alwarthan et al., 2022, Qin et al., 2023]. In research, AI supports the discovery of pedagogical insights by analysing educational data through data mining approaches [Baker et al., 2016, Hooshyar et al., 2019, 2025a]. A key component supporting both of these purposes is learner modelling, also often referred to as student modelling, which aims to represent 3arXiv Template A P REPRINT 
+
+learners’ cognitive and non-cognitive attributes in a structured manner [Abyaa et al., 2019, Conati and Lallé, 2023, Du Boulay et al., 2023]. By analysing learners’ interactions with systems, these models estimate knowledge states and learning progress, enabling real-time assessment and personalized support. Broadly, learner modelling approaches fall into two methodological traditions: symbolic and sub-symbolic , each offering strengths and limitations [Holmes et al., 2022a, Hooshyar et al., 2025d]. Symbolic approaches emphasise transparency and interpretability, often representing knowledge through explicit rules or probabilistic structures. However, these methods frequently face challenges when dealing with uncertainty, complex learning processes, or scalability [Ilkou and Koutraki, 2020]. Within the learner modelling domain, classical knowledge tracing methods exemplify this tradition [Abdelrahman et al., 2023]. Bayesian Knowledge Tracing (BKT), for example, models learning as a Hidden Markov process with binary latent states indicating whether a skill is mastered or not. The model often relies on parameters such as prior knowledge, learning rate, guess probability, and slip rate [Daly et al., 2011, Mao, 2018]. Because these parameters are interpretable and grounded in cognitive theory, BKT has been widely adopted in educational applications. However, its binary mastery assumption oversimplifies the continuous nature of learning. Moreover, the standard formulation does not account for forgetting or interactions among multiple skills, and parameter estimation problems may lead to suboptimal model solutions [Pelánek, 2017, Šari´ c Grgi´ c et al., 2024]. To address some of these limitations, Performance Factor Analysis (PFA) was introduced by Pavlik Jr et al. [2009]. Instead of relying on latent mastery states, PFA employs logistic regression to estimate the likelihood of a correct response by considering a learner’s accumulated history of successes and failures. This allows for more fine-grained skill modelling and supports the representation of multiple skills simultaneously. Despite these advantages, PFA still depends on manually engineered features as predictors of learners’ states and remains limited in its ability to capture complex temporal dependencies or learner-specific trajectories [Abdelrahman et al., 2023, Gong et al., 2011, Pavlik et al., 2021]. Sub-symbolic methods, e.g., deep neural networks, frequently perform better than symbolic and are particularly effective at handling complex (non)sequential data [Gervet et al., 2020]. Unlike symbolic models, these methods learn representations directly from (sequential) interaction data. This reduces the need for extensive manual feature engineering, while often leading to higher predictive accuracy [d’Avila Garcez and Lamb, 2023, Hooshyar et al., 2025d, Ilkou and Koutraki, 2020]. A widely recognised example of this paradigm is Deep Knowledge Tracing (DKT) [Piech et al., 2015], which employs recurrent neural networks to capture the temporal evolution of students’ knowledge. DKT marked a major methodological shift in learner modelling, moving from interpretable but rigid symbolic approaches to flexible, data-driven sub-symbolic models. Since its introduction, the field has seen an extensive wave of research aimed at refining DKT and improving prediction accuracy. As shown in the systematic review of DKT conducted by Krivich et al. [2025], the literature has progressed from early recurrent neural networks-based models [Piech et al., 2015], to memory-augmented approaches [e.g., Zhang et al., 2017], to graph-based models [e.g., Yang et al., 2020], and most recently to hybrid methods that integrate multiple paradigms [e.g., Abdelrahman and Wang, 2022]. Despite recent advances, DKT inherits many of the challenges common to deep neural networks and faces methodological challenges that reduce its practical value and adoption in practice [Wang et al., 2023, Yeung and Yeung, 2018]. First, in contrast to symbolic knowledge tracing approaches, DKT operates primarily as a fully data-driven model and therefore cannot directly incorporate structured educational knowledge. This includes elements such as causal relationships, theoretical models of learning, the role of specific variables, or interactions that affect learning outcomes—as well as knowledge provided by educators and domain experts—limiting both pedagogical alignment and interpretability [Hooshyar et al., 2025d]. The absence of embedded domain knowledge also constrains educators’ ability to engage with the model and ensure consistency with instructional goals [Celik et al., 2022]. Second, relying primarily on raw data, unlike symbolic approaches such as BKT that incorporate predefined structure and assumptions, increases the likelihood that model predictions are influenced by spurious patterns or hidden biases. Multiple studies have shown that deep learning–based (KT) models are highly sensitive to data quality issues (e.g. noisy responses and imbalanced distributions), sparsity, and other irregularities—which can lead to misleading inferences [Baker and Hawn, 2022, Hooshyar et al., 2024, 2025a, Tato and Nkambou, 2022]. For instance, Cui et al. [2024] showed that widely used DKT benchmarks such as ASSIST09, ASSIST17, and EdNet suffer from severe class imbalance. When evaluated on balanced datasets, model performance dropped substantially, suggesting that predictions were partly driven by answer-distribution biases rather than accurate representations of student knowledge. Third, predictions can sometimes behave inconsistently over time (i.e., issues of sequential stability of predictions [Krivich et al., 2025])—for example, predicting lower mastery even after a student answers correctly—resulting in sequences that contradict the expected gradual progression of learning [Hooshyar et al., 2025c, Yeung and Yeung, 2018]. Wang et al. [2023] investigated this behavior using 4arXiv Template A P REPRINT 
+
+finite-state automata and showed that such prediction volatility stems from structural properties of the model itself. Finally, DKT suffers from the well-known "black-box" problem that is its decision-making processes are opaque, making it difficult for educators and stakeholders to interpret or trust its outputs [Krivich et al., 2025]. This lack of explainability is particularly concerning in educational settings, where opaque or biased systems may reinforce inequities and fail to support diverse learners effectively [Baker and Hawn, 2022]. To address these concerns, recent research has increasingly explored explainable AI approaches aimed at improving model transparency and trustworthiness [Arrieta et al., 2020]. Post-hoc explanation techniques, such as SHAP and LIME, can provide insights into model predictions and offer some indication of the factors influencing AI decisions [Saarela et al., 2021]. However, several studies suggest that these explanations are often incomplete or potentially misleading, limiting their effectiveness for achieving true interpretability and trust [Hooshyar and Yang, 2024, Lakkaraju and Bastani, 2020]. 
+
+1.2 Responsible AI for education through hybrid neural-symbolic computing 
+
+As education is recognised as a high-risk domain for AI deployment in the EU, issues of trust and inter-pretability extend beyond technical concerns and become ethical requirements [European Union, 2024]. Addressing these challenges calls for moving away from opaque, purely data-driven models toward hybrid ap-proaches that integrate domain expertise, involve educators and stakeholders in their development, improve transparency, and align system behaviour with pedagogical and ethical principles. Responsible AI provides a foundational lens for this shift, emphasizing principles such as fairness, transparency, accountability, privacy, and human agency [Eitel-Porter, 2020, Jakesch et al., 2022, Maree et al., 2020, Viberg et al., 2026, Werder et al., 2022]. In this study, we subscribe to the definition of responsible AI proposed by Goellner et al. [2024], which conceptualises responsible AI as "a human-centred approach aimed at fostering user trust through 
+
+ethical and reliable decision-making, explainable outcomes, and privacy -preserving implementation". From a design perspective, this implies prioritising human-centred values, ethical and reliable decision processes, and explainable AI methods. Embedding these principles within model development can naturally strengthen user trust and promote privacy-preserving practices [Hooshyar et al., 2025b,d]. A promising direction for addressing the limitations of purely data-driven models is the development of hybrid human–AI systems that integrate training data with structured domain knowledge [Besold et al., 2021, Hooshyar et al., 2025d]. Within this line of work, neural-symbolic AI (NSAI) 2—often described as the “ third wave of AI ”—combines symbolic reasoning with data-driven learning, uniting the interpretability of expert rules with the predictive strength of neural networks [d’Avila Garcez and Lamb, 2023, Hooshyar and Yang, 2021]. In educational applications, NSAI supports a more collaborative and human-centred approach to model development. Domain experts, including educators and researchers, can incorporate their knowledge into the modelling process through direct injection of their symbolic knowledge [Hooshyar, 2024, Tato and Nkambou, 2022]. Integrating such knowledge can also help reduce the effects of biased, incomplete, or noisy datasets by supplementing data-driven learning with expert-informed guidance [Hooshyar et al., 2024]. Furthermore, NSAI frameworks allow the inclusion of structured educational concepts—such as causal dependencies, learning theories, the role of specific variables, or their interactions—thereby improving the pedagogical grounding of AI-driven predictions [Shakya et al., 2021]. Another key advantage is improved transparency, as neural-symbolic models often link predictions to explicit reasoning structures, making their decision processes more interpretable [Besold et al., 2021, Hooshyar and Yang, 2024]. These characteristics also support key principles of responsible AI: strengthening user trust through transparent and pedagogically meaningful decisions [Nazaretsky et al., 2022]; promoting ethical decision-making by basing predictions in educational knowledge rather than opaque statistical patterns [Holmes et al., 2022b]; and enabling privacy-preserving use by limiting dependence on sensitive student data—not only because explicit knowledge injection allows accurate modelling with less raw data, but also because rules related to ethics and data protection can be embedded directly into the model, ensuring that personal information becomes less identifiable and that system behaviour respects privacy by design [Porayska-Pomsta et al., 2023]. Finally, by actively involving stakeholders in the development process, NSAI reinforces a human-centred approach to AI in education. This human-in-the-loop approach makes NSAI particularly appropriate for educational contexts, enhancing transparency, building trust, and promoting ethical responsibility [Hooshyar et al., 2025d]. 
+
+> 2While the term “neural-symbolic” has traditionally been used in the research community, “neurosymbolic” is also used interchangeably in academic literature and the media.
+
+5arXiv Template A P REPRINT 
+
+1.3 Objective and research questions 
+
+Recent studies have begun to explore how neural-symbolic AI can enhance education by embedding domain knowledge into neural architectures. Examples include hybrid frameworks that combine symbolic representations of learner behaviours with deep neural networks for predicting learner strategies [Venugopal et al., 2021], Bayesian networks integrated with deep learning for learner modelling under data sparsity [Tato and Nkambou, 2022], and NSAI approaches that inject and extract educational knowledge into and from deep neural networks to model learners’ performance [Hooshyar et al., 2024]. These approaches demonstrate the potential of NSAI to improve interpretability, generalizability, and fairness in educational AI, while remaining aligned with established theories of learning. Despite this promise, there is a lack of research on applying NSAI to sequential learner modelling approaches such as DKT, which remains a dominant method for modelling learner knowledge over time. Therefore, this study aims to develop a novel, responsible deep knowledge tracing approach (called Responsible-DKT ) that integrates symbolic practitioner knowledge into sequential neural architectures (using recurrent neural networks as a proof-of-concept example, while the approach is applicable to other architectures such as Transformers) for interpretable and trustworthy learner modelling. To this end, we employ the concept of Lifted Relational Neural Networks [Sourek et al., 2018], which enables the creation of differentiable logic programs for combining symbolic rules with deep learning. The study is structured around the following research questions: • RQ1 : How does Responsible-DKT compare with conventional DKT in terms of predictive accuracy? • RQ2 : To what extent does symbolic knowledge injection in Responsible-DKT improve the sequential stability of predictions over time? • RQ3 : How does Responsible-DKT provide interpretable explanations of student knowledge predic-tions through its neural-symbolic computation structure? The remainder of the paper presents related work (Section 2), the proposed method (Section 3), results and analysis (Section 4), and discussion and conclusions (Section 5). 
+
+# 2 Related Work 
+
+2.1 Deep knowledge tracing 
+
+In digital learning environments, DKT has become a central approach for modelling learners’ evolving knowledge. Introduced by Piech et al. [2015], DKT applied recurrent neural networks to analyse sequential learner interactions, capture temporal dependencies, and predict skill mastery over time—a breakthrough that inspired extensive follow-up research. Since then, numerous studies have extended DKT with novel architectures and training strategies to improve predictive accuracy [Krivich et al., 2025]. A central strength of deep knowledge tracing research is that it has produced multiple modelling traditions for representing learner knowledge over time in a structured and computationally explicit way. Recent reviews identify six major lines of development and synthesize their architectures, benchmark datasets, application areas, and open challenges [Krivich et al., 2025, Abdelrahman et al., 2023]. The first category is sequence modelling , beginning with DKT by Piech et al. [2015], which used recurrent neural networks and long short-term memories to predict the probability of a correct response at each time step. Extensions include Extended-DKT [Xiong et al., 2016], which incorporated auxiliary student and exercise features; DKT+ [Yeung and Yeung, 2018], which added regularization terms to improve reconstruction and reduce prediction inconsistencies; and DKT-DSC [Minn et al., 2018], which dynamically clustered students based on performance using K-means. The second category is memory-augmented models, which enhance DKT by incorporating external memory structures inspired by memory-augmented neural networks [Graves et al., 2014]. Unlike the hidden state in DKT, these models use a key–value memory to explicitly represent knowledge states: the key matrix encodes knowledge components (KCs), while the value matrix tracks a student’s mastery level. A notable example is DKVMN [Zhang et al., 2017], which introduced a dynamic value matrix to capture the evolving mastery of each KC, while keeping the key matrix static. Later, SKVMN [Abdelrahman and Wang, 2019] addressed limitations of DKT and DKVMN by introducing Hop-LSTM, a sequential modelling component that better captures dependencies among questions and updates student knowledge states based on responses to relevant KCs. The third category is attentive models, which draw on the Transformer architecture [Vaswani et al., 2017] to assign explicit, learnable importance weights to past interactions. The first such model, SAKT [Pandey and Karypis, 2019], used multi-head scaled dot-product attention to weigh past questions when predicting future responses. AKT [Ghosh et al., 2020] extended this 6arXiv Template A P REPRINT 
+
+idea with monotonic attention, introducing an exponential decay to model forgetting, along with Rasch-based embeddings to capture deviations between questions and their associated skills. SAINT [Choi et al., 2020] applied a full Transformer encoder–decoder structure by separating question and response sequences, later enhanced with time-related features in SAINT+. The fourth category of deep knowledge tracing is graph-based models, which leverage graph neural networks (GNNs) to capture relational structures such as similarity and dependency among KCs, as well as question–KC correspondences. GKT [Nakagawa et al., 2019] reformulated knowledge tracing as a time-series node classification task, where KCs are nodes and their dependencies are edges, using message-passing GNNs with both statistics-based and learned graph construction methods. GIKT [Yang et al., 2020] extended this by modelling many-to-many relations between questions and KCs, aggregating embeddings through GNNs before feeding them into an recurrent neural networks for prediction. SKT [Tong et al., 2020] further captured multiple KC relations, such as similarity and prerequisite structures, combining temporal and spatial graph embeddings to improve predictions. The fifth category is text-aware models, which incorporate the textual content of questions to improve representation learning and prediction. EERNN [Su et al., 2018] used a bi-directional long short-term memory to extract embeddings from question text and combined them with interaction histories through another long short-term memory. Yin et al. [2019] extended this approach with a masked language modelling pre-training step to enhance question representations. EKT [Liu et al., 2019] further advanced text-aware KT by representing a student’s knowledge state as a matrix over multiple KCs, using a memory network to quantify how each question influences mastery. The sixth category is forgetting-aware models, which explicitly account for the decline of knowledge mastery over time, inspired by learning psychology and Ebbinghaus’s forgetting curve [Ebbinghaus, 2013]. DKT+Forgetting [Nagatani et al., 2019] extended DKT by incorporating attributes such as the number of previous attempts, the time elapsed since the learner last interacted with the same knowledge component, and the time since the learner’s most recent interaction with any task, allowing the model to better represent both learning progress and forgetting over time. HawkesKT [Wang and Liu, 2021] leveraged a Hawkes point process [Hawkes, 1971] to model temporal cross-effects, recognizing that forgetting rates vary across KCs. DGMN [Abdelrahman and Wang, 2022] combined GNNs with dynamic memory to model KC relationships and forgetting features, integrating them via an attention–gating mechanism. In Krivich et al.’s (2025) work—the first systematic review of the area—the authors examined deep knowledge tracing research from the perspective of responsible AI. Their findings reveal that less than half of the reviewed works address data quality issues during model development, only a small minority evaluate the sequential stability of predictions (i.e., the consistency of predictions over time), and the majority of studies do not provide interpretability for their predictions and decision-making processes. As is apparent, several challenges remain unresolved, which may lead to limited alignment with pedagogical principles and reduce the reliability and broader adoption of these models in educational settings. 
+
+2.2 Neural-symbolic AI for education 
+
+Neural-symbolic computing is an approach that combines the reasoning capabilities of symbolic AI with the learning power of neural networks. This integration allows models to benefit from both structured knowledge and data-driven learning, bringing together the transparency of symbolic systems and the predictive strength of deep learning [Besold et al., 2021, d’Avila Garcez and Lamb, 2023, Sourek et al., 2018]. Kautz [2022] described six main strategies for combining these paradigms, including using neural networks to process symbolic inputs [Pennington et al., 2014], integrating neural components within symbolic systems such as AlphaGo [Silver et al., 2016], transforming raw data into symbolic representations for reasoning [Mao et al., 2019], guiding neural learning with symbolic rules [Lample and Charton, 2019], embedding rules directly into neural architectures [Serafini et al., 2017], and incorporating symbolic reasoning modules inside neural models [Kahneman, 2011]. These approaches illustrate the flexibility of neural-symbolic AI and its potential to address complex challenges across different domains. In educational contexts, hybrid neural-symbolic approaches have the potential to align algorithmic predictions with pedagogical theories, enhance generalization, improve interpretability, and mitigate bias—key requirements for responsible and trustworthy AI in education [Hooshyar et al., 2025d, Hooshyar and Yang, 2021, Tato and Nkambou, 2022, Venugopal et al., 2021]. In recent years, researchers have begun applying NSAI in educational settings. Shakya et al. [2021] integrated Markov Logic Networks with long short-term memories to embed domain knowledge for predicting student strategies, demonstrating improved efficiency and reduced overfitting on KDD EDM challenge datasets. Tato and Nkambou [2022] proposed a hybrid model that combined Bayesian networks with deep learning to address data inconsistency, which improved 7arXiv Template A P REPRINT 
+
+predictive accuracy on sparse or imbalanced learner data. Moreover, a series of studies by Hooshyar and colleagues have explored the potential of NSAI to enable responsible and trustworthy AI applications in education [Hooshyar, 2024, Hooshyar et al., 2024, 2025a, Hooshyar and Yang, 2024]. Their work has shown that embedding educational causal relationships into neural networks improves generalizability and enables the extraction of human-readable rules [Hooshyar et al., 2024], that NSAI-based models provide more faithful and pedagogically aligned explanations than post-hoc methods such as SHAP and LIME [Hooshyar and Yang, 2024], and that incorporating educational principles directly into loss functions of autoencoders can guide unsupervised models to penalize behaviors inconsistent with pedagogical rules while improving generalization [Hooshyar, 2024]. More recently, Hooshyar et al. [2025a] compared (sub)symbolic and neural-symbolic approaches in educational data mining, using self-regulated learning data to predict students’ mathematics performance and uncover influential learning factors. Their findings showed that NSAI offered a stronger balance of generalizability and interpretability while addressing data imbalance and providing actionable insights. 
+
+In summary, existing works highlight the potential of NSAI to move beyond accuracy-driven approaches toward models that are interpretable, theory-driven, and trustworthy, thereby contributing to the development of responsible AI for education . However, despite these advances, the application of neural-symbolic AI approaches to sequential models for student knowledge tracing remains largely unexplored. In particular, little work has investigated how symbolic educational knowledge can be integrated into temporal interaction modelling frameworks such as deep knowledge tracing. 
+
+2.3 Relational neural-symbolic learning 
+
+While early neural-symbolic AI has successfully integrated symbolic knowledge with deep machine learning, much of this work operates at the so-called propositional level. Propositional neural-symbolic models, restricted to describing relationship between specific input features, typically rely on basic neural architectures, such as Multilayer Perceptrons (MLPs), inherently requiring fixed-size inputs. Consequently, they struggle to natively handle complex, structured, or dynamically sized data. To address these limitations, this work leverages the Lifted Relational Neural Networks (LRNN) paradigm [Sourek et al., 2018], implemented via the “PyNeuraLogic” framework 3. PyNeuraLogic, which naturally supports relational and temporal reasoning required for modelling sequential learner interactions, elevates neural-symbolic learning to the relational level, utilizing differentiable first-order logic programming. This paradigm is inherently designed to process structured relational representations, such as knowledge graphs and relational databases. Because temporal sequences are fundamentally a special, linear case of relational graphs, PyNeuraLogic can subsume the capabilities of structured neural architectures, like Graph or Recurrent Neural Networks (RNNs), while simultaneously enforcing explicit symbolic rules. Within the PyNeuraLogic framework, information is not rigidly formatted into numerical matrices, but is instead expressed naturally using logical predicates that define relationships between entities. When these abstract predicates are populated with actual observations from a dataset—such as a specific student answering a specific quiz item correctly at a given timestep—they become ground facts , forming a “contextual knowledge base”. To process this knowledge base, the model’s architecture is declared as a template , which is a compact set of parameterized, weighted logical rules. Because these rules are “lifted”—containing abstract relational variables rather than fixed entities—a single learning template can generalize across data structures and sequences of arbitrary length and complexity. To learn from the data, the PyNeuraLogic framework dynamically translates this abstract template into a trainable neural network through a process called grounding . Grounding algorithmically matches the lifted rules against the available ground facts to unroll a directed acyclic computation graph uniquely tailored to the specific structure of the input data. The model is then optimized to evaluate a specific 
+
+query —the target logical statement it seeks to predict, such as a student’s future performance—using standard backpropagation through the fully differentiable grounded graph. This relational approach is then well-suited for temporal student interaction modeling. By treating the learning sequence as a relational structure, the LRNN paradigm allows us to write logic templates that simultaneously compute recurrent neural state transitions and enforce dynamic pedagogical constraints across time steps. Building upon this declarative foundation, the following section introduces our novel sequential architecture that explicitly encodes these temporal educational interactions into a unified, differentiable logic program. 
+
+> 3https://github.com/LukasZahradnik/PyNeuraLogic/
+
+8arXiv Template A P REPRINT 
+
+Table 1: Notation. 
+
+Symbol Meaning 
+
+D Student interaction dataset 
+
+U ∈ { u1, u 2, . . . , u |U |} Set of students 
+
+Q ∈ { q1, q 2, . . . , q |Q|} Set of quizzes 
+
+S ∈ { s1, s 2, . . . , s |S|} Set of skills 
+
+t Discrete timestep within a student’s interaction sequence 
+
+xt = ( st, q t, y t) Input tuple with skill, quiz, and correctness at timestep teq , e s, e y Embeddings of quiz, skill, and correctness inputs 
+
+ht Hidden state of the recurrent neural network at timestep t
+
+ˆy(t+1 ,q ) Predicted probability of correctness for quiz q at time t + 1 
+
+y(t+1 ,q ) ∈ { 0, 1} Ground truth correctness label (0/1) 
+
+R Set of symbolic rules (e.g., mastery/not-mastery constraints) BCE Binary Cross-Entropy loss 
+
+# 3 Method 
+
+Building upon the declarative relational framework established in Section 2.3, our approach, Responsible-DKT , is a neural-symbolic variant of DKT that injects symbolic educational knowledge into sequential neural architectures. By formulating the model as a differentiable logic program, it also allows us to extract knowledge from the trained network to provide interpretable insights into predictions. In this work, we focus on incorporating simple pedagogical rules (e.g., mastery and non-mastery heuristics; Koedinger et al., 2023) as an illustrative example, while the framework is designed to support the integration of more complex forms of educational knowledge (see the Discussion section). As shown in Fig. 1, the approach includes four main components: data pre-processing, sample generation, neural-symbolic modelling, and model evaluation and interpretation. In data pre-processing (Fig. 1-1), raw interaction logs are pre-processed and encoded to construct ordered per-student interaction sequences (skill, quiz, correctness). In symbolic sample generation (Fig. 1-2), a sequence-to-sequence learning formulation is adopted in which symbolic inputs are incrementally constructed and next-step predictions are defined within each student sequence. The proposed neural-symbolic model (Fig. 1-3), implemented in PyNeuraLogic (Sec. 2.3), integrates embedding and recurrent components with explicit symbolic rules (e.g., mastery and non-mastery constraints based on consecutive responses). These components are used here as a proof-of-concept, although more complex architectures such as Transformers and richer symbolic rules could also be employed, enabling sequential neural-symbolic reasoning over student learning trajectories. Model evaluation and interpretation 
+
+(Fig. 1-4) involve both performance analysis and interpretability. Performance is assessed using standard predictive metrics (e.g., AUC), complemented by early–middle–late error comparison across different stages of the student sequence and temporal coherence analyses, including prediction volatility and inconsistency. Qualitative analyses, including skill-level mastery heatmaps, further support interpretation of predictive behaviour over time. Our proposed approach is compared, using the aforementioned metrics, with a baseline version of the neural-symbolic model without knowledge injection ( BaseNS-DKT , Base Neural-Symbolic Knowledge Tracing) and with its equivalent fully data-driven PyTorch baseline ( Classic-DKT ). Interpretability analyses comprise both local and global explanations for the Responsible-DKT method, as it provides inherently interpretable decision-making logic through its symbolic components. In contrast, the baseline models are primarily data-driven and require post-hoc explanation methods, making direct comparison less meaningful. Algorithm 1 summarizes the methodological framework, and Table 1 defines the notations used. 
+
+3.1 Dataset and preprocessing 
+
+We used a dataset consisting of 6th-grade mathematics interaction logs from Estonia, collected during regular classroom use in September 2021. The dataset provides time-ordered interaction sequences that support the development of sequential models and the evaluation of predictive performance and sequential stability. The data originate from Opiq 4, a nationally adopted K–12 digital learning platform widely used in Estonia for mathematics and other school subjects. Opiq supports curriculum-aligned practice and assessment and logs fine-grained learner interaction data during authentic educational use. The dataset contains 21,471 
+
+> 4https://www.opiq.ee/Catalog
+
+9arXiv Template A P REPRINT 
+
+1. Data Pre-processing 
+
+Opiq Logs 
+
+Filtering  
+
+> "Algebra"
+> "Right"
+> ID: 42
+> y: 1
+
+Chronological Sequences        
+
+> x1x2x3. . . xn
+> (s1, q 1, y 1)(s2, q 2, y 2)(s3, q 3, y 3)(sn, q n, y n)
+
+Student-level Partitioning 
+
+Training Val Test 
+
+2. Symbolic Sample Generation         
+
+> xt−2xt−1xtTarget
+> ˆyt+1
+> next(t-2, t-1) next(t-1, t) next(t, t+1)
+> (st, q t, y t)
+> skill_input(t, st)
+> quiz_input(t, qt)
+> correct_input(t, yt)
+> Ground Facts (t-1)
+> Ground Facts (t-2) ?correct(t+1, q)
+> Context Base (Logical Ground Facts) Logical Query
+
+3. Neural-Symbolic Model Architecture 
+
+Differentiable Logic Program 
+
+> % Neural Model Rules
+
+h(T) ← rnn_step( h(T-1), z(T) ) 
+
+... 
+
+> % Symbolic Rules
+
+mastered(T) ← correct(T-1) ∧ correct(T-2) 
+
+avg_emb(T) ← mean{ z(1..T) } 
+
+... 
+
+> % Joint Interaction
+
+predict (T +1) ← h(T ) ⊕
+
+mastered (T ) ⊕
+
+avg_emb (T ) ⊕
+
+. . . 
+
+Grounding 
+
+> Unrolling via ground facts
+
+Neural Computation Graph                
+
+> xt−2xt−1xt
+> zt−2zt−1zt
+> Embeddings
+> ■es(Skill)
+> ■eq(Quiz)
+> ■ey(Correct)
+> ht−2ht−1ht
+> mastered
+> avg_emb
+> joint tˆyt+1
+> −→Neural Ops
+> 99K Symbolic Ops
+
+4. Model Evaluation & Interpretation 
+
+Predictive Performance 
+
+> FPR
+> TPR
+
+AUC 0.90 
+
+> ROC Curve
+> Time
+> Skills
+> Mastery Prediction Heatmaps
+
+Computation Graph Logic Tracking 
+
+Prediction 
+
+ˆyt+1 
+
+RNN Path ( ht) Rule Path ( R)    
+
+> Inputs x1..t Latent ztMastered(t)
+> Activated
+> Modulates
+> Tracing logical connections to predictions
+
+Attribution-Based Interpretability    
+
+> Attribution Score ( ∇input )
+> Rmast (Rule)
+> xt(Current)
+> Ravg (Rule)
+> xt−1
+> Quantifying impact of features & rules
+
+Figure 1: Architecture of the proposed Responsible-DKT approach. student–item interactions, each originally described by more than 20 raw attributes. The records capture individual student problem-solving attempts and include identifiers and performance information such as student_id, quiz_id, skill_id, and the response outcome. Table 2 summarizes the main characteristics of the dataset. Student performance scores were binarized using the first quartile (score = 37) of the score distribution as the threshold: scores below the threshold were labelled incorrect (0), and those at or above it was labelled correct (1). This discretization allows the identification of lower-performing learners falling into the bottom 25% of observed performance. Interactions were sorted chronologically for each student and indexed with a per-student timestep. Problem and skill identifiers were encoded as categorical indices to support sequential modeling. Learners who had fewer than two recorded interactions were removed 10 arXiv Template A P REPRINT 
+
+Algorithm 1 Neural-symbolic knowledge tracing framework and evaluation pipeline. 
+
+Require: Interaction dataset D = {(u, t, x t)}, where xt = ( st, q t, y t)
+
+Ensure: Trained models, evaluation metrics, and interpretability artifacts  
+
+> 1:
+
+Pre-processing  
+
+> 2:
+
+Remove interactions with missing identifiers  
+
+> 3:
+
+Encode skills ( s ∈ S), quizzes ( q ∈ Q), and students ( u ∈ U ) as categorical indices  
+
+> 4:
+
+Convert scores to binary correctness labels yt ∈ { 0, 1} using a predefined threshold  
+
+> 5:
+
+Sort interactions by student and time; assign discrete timestep indices t 
+
+> 6:
+
+Construct ordered per-student interaction sequences xt = ( st, q t, y t) 
+
+> 7:
+
+Split students into train/validation/test sets at the student level  
+
+> 8:
+
+Sample generation  
+
+> 9:
+
+for each student sequence do  
+
+> 10:
+
+Generate incremental training samples using the interaction history up to timestep t 
+
+> 11:
+
+Build a sequence-to-sequence formulation:  
+
+> 12:
+
+Inputs at timestep t consist of symbolic facts: skill_input (t, s t), quiz_input (t, q t),correct_input (t, {right , wrong }) 
+
+> 13:
+
+Queries predict next-step correctness at t + 1  
+
+> 14:
+
+Encode temporal transitions between consecutive interactions  
+
+> 15:
+
+end for  
+
+> 16:
+
+Modelling  
+
+> 17:
+
+Knowledge-augmented neural-symbolic DKT (Responsible-DKT)  
+
+> 18:
+
+Embedding layer for quizzes, skills, and correctness inputs  
+
+> 19:
+
+Input embeddings are combined into a unified timestep representation  
+
+> 20:
+
+Recurrent core (RNN/LSTM) producing hidden states ht 
+
+> 21:
+
+Output layer predicting ˆyt+1 using the recurrent state and target quiz/skill context  
+
+> 22:
+
+Learnable-weight symbolic rules R injected into the model to influence predictions  
+
+> 23:
+
+Base neural-symbolic model without knowledge injection (BaseNS-DKT)  
+
+> 24:
+
+Identical neural-symbolic architecture with the symbolic rule set R disabled  
+
+> 25:
+
+PyTorch baseline (Classic-DKT)  
+
+> 26:
+
+Fully data-driven RNN-based DKT implemented in PyTorch  
+
+> 27:
+
+Training  
+
+> 28:
+
+Optimize binary cross-entropy BCE (ˆ yt+1 , y t+1 ) using Adam (learning rate 10 −4) 
+
+> 29:
+
+Train for up to 300 epochs with early stopping based on validation loss  
+
+> 30:
+
+Use the best validation model for final testing  
+
+> 31:
+
+Evaluation  
+
+> 32:
+
+Compute predictive metrics: AUC, Accuracy, Precision, Recall, and F1 score  
+
+> 33:
+
+Early–middle–late sequence error analysis and temporal coherence analysis  
+
+> 34:
+
+Qualitatively examine the temporal stability of model predictions across student sequences  
+
+> 35:
+
+Interpretability (Responsible-DKT)  
+
+> 36:
+
+Inspect grounded neural-symbolic computation graphs to trace the main predictive pathways  
+
+> 37:
+
+Local explanations: Gradient–value attribution of input facts aggregated per timestep  
+
+> 38:
+
+Global explanations:  
+
+> 39:
+
+Rank skill and quiz embeddings by aggregated gradient importance  
+
+> 40:
+
+Analyze dataset-level influence of symbolic rules R using average rule activation |val | and gradient sensitivity |grad | 
+
+> 41:
+
+Visualize relative skill importance over interaction timesteps using gradient-based heatmaps from the dataset, as at least two interactions are required to support sequential modelling and next-step prediction. The resulting data consist of time-ordered learner interaction sequences, where each interaction is represented as a triplet (st, q t, y t) corresponding to skill, quiz, and correctness, capturing the learner’s evolving performance over time. The data were partitioned by student into training, validation, and test sets with an approximate 7:1:2 ratio, ensuring that each learner appears in only one subset. This student-level partitioning prevents information leakage and enables evaluation on previously unseen learners. Models (Responsible-DKT, BaseNS-DKT, and Classic-DKT) were trained and evaluated on a next-step prediction task, in which correctness at the current interaction t is predicted using the learner’s interaction history up to 
+
+t − 1. This formulation follows standard DKT practice and ensures fair comparison across methods using identical interaction trajectories. 11 arXiv Template A P REPRINT 
+
+Table 2: Descriptive statistics of the dataset. 
+
+Statistic Original Train Val Test 
+
+# of records (interactions) 21471.0 14057.0 2969.0 4428.0 # of students 167.0 105.0 15.0 30.0 # of quizzes 1058.0 939.0 565.0 647.0 # of skills 13.0 13.0 12.0 13.0 Avg. interactions per student 128.57 133.88 197.93 147.6 Avg. interactions per quiz 20.29 14.97 5.25 6.84 Avg. interactions per skill 1651.62 1081.31 247.42 340.62 Correct interactions (y=1) 16118.0 10565.0 2231.0 3305.0 Incorrect interactions (y=0) 5353.0 3492.0 738.0 1123 Table 3: Summary statistics of student interaction sequence lengths. 
+
+Sequence length statistic Value 
+
+Min 1Q1 5.0 Median 46.0 Mean 128.57 Q3 193.0 Max 1437 To control for extreme variation in student interaction histories, we analyzed the distribution of sequence lengths after preprocessing. Sequence-length statistics are summarized in Table 3. As shown in the table, the distribution is highly right-skewed, with a small number of students exhibiting very long interaction histories. Using Tukey’s rule for outlier detection [Tukey, 1977], the upper fence was computed as Q3 + 1 .5( Q3 − Q1) ,which corresponds to approximately 475 interactions given Q1 = 5 and Q3 = 193 . This threshold identifies 11 students (6.59% of the cohort) as having unusually long sequences. Rather than excluding these students, we retained all learners and limited sequence length during training by truncating each student’s history to a maximum of 475 interactions, thereby preventing extremely long sequences from dominating the training process. We then evaluated multiple maximum sequence-length conditions to study model behavior across different learning regimes. Specifically, we considered 10 interactions to represent cold-start scenarios with minimal prior information, as this value is close to the lower quartile ( Q1 = 5 ) while allowing sufficient history for next-step prediction after the first interactions. We selected 50 interactions to capture early learning trajectories, as this value closely reflects the median sequence length (46) and therefore represents a typical student history. Finally, 100 and 475 interactions were used to reflect progressively longer histories: 100 interactions exceed the median and approach the mean sequence length ( ≈129), while 475 corresponds to the Tukey upper fence, marking the upper bound of the non-outlier distribution. As illustrated by the cumulative distribution of sequence lengths in Fig. 2, the vast majority of learners have interaction histories well below the Tukey upper fence, and fewer than 7% of students are excluded by this criterion. The chosen sequence-length limits therefore preserve representative learning trajectories while systematically covering sparse, typical, and extended learning histories. 
+
+3.2 Sample generation 
+
+From the pre-processed dataset, training examples were generated at the level of individual students. For each student u, interactions were first sorted chronologically and indexed by discrete timesteps t. Each interaction was represented as a tuple: 
+
+xt = ( st, q t, y t) (1) where st denotes the exercised skill, qt the corresponding quiz item, and yt ∈ { 0, 1} the observed correctness. Subsequently, instead of translating the interaction logs into standard one-hot encoded tensors, we encode the pre-processed student interactions into symbolic ground facts (Section 2.3). Each timestep in a student’s sequence is translated into a set of logical predicates mapping to the respective skill, quiz, and correctness. Particularly, at each timestep t, each interaction was encoded using symbolic predicates in PyNeuraLogic 12 arXiv Template A P REPRINT 
+
+Figure 2: Cumulative distribution function of student interaction sequence lengths. (Sec. 2.3) as: skill_input (t, s t), quiz_input (t, q t), correct_input (t, {right , wrong }) (2) Temporal dependencies were explicitly represented using grounded transition facts: next (t, t + 1) (3) The prediction task was formulated as next-step knowledge tracing. Given interaction history up to timestep t, the model predicts correctness at timestep t + 1 . Depending on the output context, predictions were indexed by either skills or quizzes: 
+
+ˆy(t + 1 , s ) = correct (t + 1 , s ) (4) 
+
+ˆy(t + 1 , q ) = correct (t + 1 , q ) (5) Target predictions were formulated as logical queries (Sec. 2.3) generated for each next-step transition within the interaction sequence. For each student, a single multi-query sequence-to-sequence sample was constructed, containing one query for each valid next-step prediction t + 1 . Each sample consists of a symbolic encoding of the full interaction history and a set of queries corresponding to all valid next-step predictions. 
+
+3.3 Model architecture 3.3.1 Knowledge-augmented neural-symbolic DKT (Responsible-DKT) 
+
+The Responsible-DKT model is implemented as a single neural-symbolic template (Sec. 2.3) that jointly integrates symbolic representations, neural sequence modelling, and pedagogical rules R within the PyNeu-raLogic framework. During training, this template is grounded (Sec. 2.3) against the students’ specific interaction facts to unroll the computation graph. At each timestep t, a student interaction xt = ( st, q t, y t) is encoded as symbolic facts, as shown in equation 2. Temporal order is explicitly grounded using transition facts next (t, t + 1) , enabling reasoning across consecutive interactions. Each quiz q ∈ Q, skill s ∈ S, and correctness outcome is associated with a learnable embedding: 
+
+eq , e s, e y ∈ Rd (6) 13 arXiv Template A P REPRINT 
+
+For each timestep t, embeddings corresponding to quiz_input , skill_input , and correct_input are com-bined into a unified latent representation: 
+
+zt = combined_embed (t) (7) Correctness embeddings are modelled separately to prevent label leakage and to preserve interpretability of outcome effects. The combined embedding sequence {zt} is processed by a stacked recurrent core (RNN). Hidden states are updated via recurrent rule modules, 
+
+ht = f (zt−1, h t−1) (8) The final neural representation used for prediction at timestep t is obtained through an explicit temporal shift: final_nn (t) ← rnn_out (t − 1) ∧ next (t − 1, t ) (9) This design ensures that predictions at t depend only on past interactions. Depending on the output context, the model predicts next-step correctness indexed by skill or quiz: 
+
+ˆyt(s) = correct (t, s ), ˆyt(q) = correct (t, q ) (10) The output combines the recurrent state final_nn (t) with the relevant target embedding ( es or eq ) and applies a sigmoid activation to produce a probability. On top of the neural backbone, symbolic rules R encode pedagogically motivated constraints. A recent study highlights the importance of maintaining temporally consistent mastery estimates in sequential learner modelling, particularly in settings characterised by class imbalance and sparsely practiced skills, where purely data-driven models may exhibit unstable or counterintuitive prediction dynamics [Hooshyar et al., 2025c]. To address these challenges, we introduce explicit symbolic mastered and not_mastered states that modulate prediction confidence when simple evidence patterns occur in a learner’s interaction history. Specifically, three incorrect responses on the same skill or quiz activate a not_mastered rule, providing a conservative signal that discourages premature overestimation of mastery. Conversely, two consecutive correct responses activate a mastered rule, reflecting minimal positive evidence of learning without assuming full mastery from a single success. While prior work on mastery learning suggests higher thresholds (e.g., seven learning opportunities to master a typical knowledge component; e.g., [Koedinger et al., 2023]), we adopt lower thresholds to better suit the shorter and sparser interaction sequences in our dataset. These constraints help mitigate common DKT instabilities, where mastery probabilities may increase despite repeated incorrect answers or decrease following consistent correct responses [Krivich et al., 2025, Yeung and Yeung, 2018]. When triggered, these rules contribute additional evidence to the correctness predicate: correct (t, x ) ← mastered (x, t ) (11) correct (t, x ) ← not_mastered (x, t ) (12) where x denotes either a skill or a quiz depending on the output context. Rule weights are learnable, allowing the strength of each symbolic influence to be adapted from data while preserving an interpretable rule structure. Alternatively, they may be fixed to enforce stronger pedagogical constraints when desired. Importantly, these symbolic components modulate rather than override the neural predictions. In addition, the model incorporates a symbolic historical aggregation pathway ( avg_embed ) that summarizes past interaction evidence. For each skill or quiz x, previous timestep embeddings associated with that concept are aggregated: avg_embed (t, x ) = AVG i<t {combined_embed (i) | xi = x} (13) This aggregated representation captures accumulated interaction history and contributes additional context to the prediction: correct (t, x ) ← avg_embed (x, t ) (14) All components—symbolic inputs, embeddings, recurrent dynamics, output prediction, and symbolic rules—are unified within a single differentiable template and optimized end-to-end using binary cross-entropy loss. Together, these symbolic rules incorporate simple but meaningful learning signals from interaction history, combining short-term mastery evidence with aggregated historical context. This integration helps stabilize prediction dynamics and supports more pedagogically consistent knowledge tracing while maintaining interpretability through R.14 arXiv Template A P REPRINT 
+
+3.3.2 Base neural-symbolic model without knowledge injection (BaseNS-DKT) 
+
+To isolate the contribution of symbolic rule-based guidance, we introduce an ablation baseline in which the influence of the rule set R is removed while preserving the full neural-symbolic architecture. Specifically, the model retains the same symbolic input encoding, learnable embeddings ( eq , e s, e y ), recurrent sequence modelling producing hidden states ht, and sigmoid-based prediction of next-step correctness ˆyt, (q). In this variant, the symbolic rule module R is excluded from the template, so predictions are determined solely by the neural components. This controlled ablation allows performance differences to be attributed directly to the presence or absence of rule-based guidance, rather than to architectural changes. 
+
+3.3.3 Classic PyTorch baseline (Classic-DKT) 
+
+While a wide variety of DKT variants have been proposed in the literature [Krivich et al., 2025], differing in architectural complexity and inductive biases, we implement a classic DKT baseline to serve as a transparent and well-controlled point of comparison. This choice ensures architectural and data-processing consistency with our neural-symbolic models, allowing differences in performance and behaviour to be attributed to the presence or absence of explicit symbolic structure rather than to confounding design choices. The Classic-DKT baseline was implemented in PyTorch using a purely neural recurrent architecture, without symbolic representations or rule-based constraints. The learning trajectory of each student was encoded as a time-ordered sequence of interaction triplets according to Equation 1. For a controlled comparison, the model was aligned with the Responsible-DKT backbone in terms of embedding dimension and recurrent type (see Sec 4.1). At each timestep, the skill identifier, quiz identifier, and correctness outcome were mapped to learnable embeddings and combined through linear projections to form the input representation: 
+
+zt = Wsest + Wq eqt + Waeyt (15) where est , eqt , and eyt denote the embeddings for skill, quiz, and correctness, respectively. The resulting embedding sequence was processed by a recurrent neural network, producing hidden states that summarize the learner’s interaction history. For each timestep t, the model predicts the probability of correctness for the next exercised item by combining the hidden state with the embedding of the target skill or quiz: 
+
+ˆyt+1 = σ(W h t + ext+1 ) (16) where ext+1 denotes the embedding of the next target skill or quiz depending on the prediction context. Following the standard next-step DKT formulation, correctness at time t + 1 is predicted using the interaction history up to timestep t. The model was optimized end-to-end using binary cross-entropy loss with the Adam optimizer and early stopping based on validation loss. Unlike the neural-symbolic variants, this Classic-DKT model relies entirely on learned embeddings and recurrent dynamics, without explicit symbolic constraints, or pedagogical rules. It therefore serves as a strong data-driven baseline for evaluating the benefits of explicit temporal reasoning and rule-based guidance introduced in Responsible-DKT. 
+
+3.4 Model evaluation and interpretation 3.4.1 Evaluation 
+
+Model performance was evaluated on a held-out test set using the standard next-interaction prediction task, where each instance represents a learner’s activity at time t + 1 with the true correctness label and the model’s predicted probability of a correct response. Performance was assessed using common classification metrics, including AUC, accuracy, precision, recall, and F1-score, while additional analyses examined how model behaviour evolves across learning sequences [Hooshyar et al., 2025c, Krivich et al., 2025]. Prediction errors were examined across different stages of the student interaction sequence by dividing each sequence into early, middle, and late segments. Stage-wise error was computed as the percentage of misclassified instances in each segment using a fixed decision threshold of 0.5, aggregated across all students. Furthermore, volatility was used as a smoothness-based measure, calculated as the mean absolute change in predicted probability between consecutive attempts on the same skill and aggregated across all student–skill transitions to evaluate the temporal coherence of predicted trajectories, 
+
+1
+
+N
+
+X |Pt − Pt−1| (17) reflecting how stable or abrupt probability trajectories are. Also, inconsistency rate was computed to quantify how often updates in predicted probabilities moved opposite to what would be expected given the 15 arXiv Template A P REPRINT 
+
+correctness of the subsequent response. For instance, when predicted mastery increased after an incorrect answer—measured as the proportion of sign mismatches between the probability change and the expected update direction implied by the ground-truth label. 
+
+∆Pt = Pt − Pt−1 (18) Finally, multi-skill mastery heatmaps based on each model’s predictions were used to analyse sequential prediction stability. 
+
+3.4.2 Interpretability 
+
+Interpretability analyses were conducted only for the Responsible-DKT model and not for the Classic-DKT baseline. This reflects the neural-symbolic architecture’s ability to expose explicit symbolic representations, grounded temporal structure, and interpretable computational graph. In contrast, Classic-DKT relies on dense neural states and implicit recurrence, providing limited access to intermediate reasoning processes. The neural-symbolic model therefore enables inspection of predictions as well as intermediate symbolic and neural components across time. Interpretability analyses comprise both local and global explanations. Local explanations attribute individual predictions to specific interaction timesteps by quantifying the contribution of symbolic input facts using gradient-based importance scores, which are mapped back to the original interaction sequence for step-wise interpretation. Global explanations aggregate importance scores across samples to identify influential skills, quizzes, and symbolic components, revealing overall model reliance patterns and their association with correctness outcomes. To illustrate model reasoning, representative prediction cases were first inspected through the grounded computation graph . Local explanations were then generated for selected timesteps using gradient × input attribution, revealing how previous interactions supported or opposed the predicted outcome. At the global level, aggregated importance scores were used to identify influential skills and quizzes across the dataset, followed by rule-level analysis examining the activation and gradient sensitivity of symbolic rules. Finally, temporal patterns of model reliance on skills were visualized using skill–timestep importance heatmaps, providing a global view of how the model’s reasoning evolves. 
+
+# 4 Results and Analysis 
+
+4.1 Experimental setting 
+
+All neural-symbolic experiments were implemented using the PyNeuraLogic framework (Sec. 2.3). Experi-ments were run on a local workstation equipped with a 13th Gen Intel Core i7-1370P CPU and 32 GB RAM, with supplementary runs on Google Colab Pro+ for extended training. The neural backbone consists of a recurrent architecture (RNN) operating over symbolic embeddings (Sec. 3.3). Skill, quiz, and correctness embeddings were each set to 16 dimensions, balancing the ability to capture meaningful interaction patterns with computational efficiency, and combined into a unified timestep representation. The recurrent core comprised two recurrent layers, followed by an explicit temporal shift grounded via symbolic next (t − 1, t )
+
+relations. Model outputs were produced using a sigmoid activation to estimate next-step correctness proba-bilities for the target quiz item at each timestep. Model training employed the Adam optimization algorithm with a learning rate of 1 × 10 −4, using binary cross-entropy as the objective function. Training proceeded for a maximum of 300 epochs, with early stopping triggered when the validation loss failed to improve for seven consecutive epochs. For the knowledge-augmented model, symbolic rules were assigned learnable weights, allowing the influence of each rule to be adjusted during training. The BaseNS-DKT retained the same architecture and training configuration but excluded the symbolic rule module, ensuring that any performance differences arise solely from the presence or absence of rule-based guidance. The Classic-DKT baseline was implemented in PyTorch using a purely neural recurrent architecture. To ensure a controlled comparison, the model used the same embedding dimensionality and recurrent structure as the other models. Each interaction was encoded using embeddings for skill, quiz, and correctness, combined through linear projections and processed by a two-layer RNN, with a sigmoid output layer predicting next-step correctness. The training configuration, including learning rate, binary cross-entropy loss, and early stopping strategy, was kept identical to the neural-symbolic models. 16 arXiv Template A P REPRINT 
+
+4.2 Quantitative analysis of model performances 
+
+Table 4 presents the predictive performance of Responsible-DKT, BaseNS-DKT, and Classic-DKT across different sequence lengths and training ratios. Overall, the results consistently indicate that knowledge injection through interpretable rule-based guidance enhances both predictive quality and class balance under all experimental conditions. Regardless of sequence length or training ratio, Responsible-DKT outperforms the other models in terms of AUC, accuracy, and—most importantly—minority-class recall and F1-score. Across nearly all configurations, it achieves the highest AUC (up to 0.90) and accuracy (up to 0.86), with substantially improved recall and F1-scores for the low-performance class, which is typically more difficult to model due to class imbalance. Importantly, even in low-data settings the benefit of rule-based guidance is evident. With only 10% of the training data and short sequences (length 10), NSAI with rules already achieves an AUC of 0.80, increasing to 0.88 for full sequence length. This corresponds to an improvement of up to 8 percentage points compared to the fully data-driven Classic-DKT, whose maximum AUC remains around 0.80 even with larger training ratios and longer sequences. Furthermore, performance in the rule-augmented model improves systematically as sequence length increases and as more training data become available, approaching 0.90 AUC. The BaseNS-DKT performs comparably to the Classic-DKT, with minor variations across configurations likely due to differences in training dynamics, possibly reflecting optimization behaviour (e.g., full-sequence vs. mini-batch training). However, in other configurations—such as 100% training ratio with full sequences—it performs slightly below the data-driven baseline. This pattern suggests that while neural-symbolic structuring provides stability and competitive accuracy, the explicit injection of pedagogical rules is the key factor driving consistent and robust improvements across conditions. Collectively, these results demonstrate that rule-based knowledge injection does not merely refine performance marginally; rather, it systematically strengthens discrimination, improves minority-class behaviour, and enables more stable gains across both low-performing and high-performing settings. Table 5 reports stage-wise error rates by dividing each student sequence into early, middle, and late segments, with values representing the percentage of misclassified instances in each stage. Responsible-DKT consistently achieves the lowest error rates across most sequence lengths, particularly in the early and middle phases, indicating more stable and temporally coherent predictions. This is especially important for adaptive learning systems, as early prediction errors can misguide personalization, leading to inappropriate difficulty adjustments, premature mastery assumptions, or unnecessary interventions. In contrast, the BaseNS-DKT shows consistently higher error rates, often performing worse than other models. Only in two late-stage cases (sequence lengths 10 and 50) does Classic-DKT achieve slightly lower late-stage error than the rule-based model. Given the pedagogical importance of accurate early and middle predictions, the overall pattern strongly supports the value of rule-based knowledge injection for improving temporal reliability and responsible adaptation. Table 6 reports volatility and inconsistency measures across models and sequence lengths. Overall, Responsible-DKT achieves the lowest inconsistency in all settings, indicating that its prediction updates are most consistently aligned with students’ observed responses. Moreover, for the rule-based model, inconsistency decreases as sequence length increases, suggesting that longer learning histories further stabilize directional reliability. In contrast, both BaseNS-DKT and the Classic-DKT exhibit higher inconsistency values, reflecting less coherent alignment between prediction shifts and observed outcomes. At the same time, BaseNS-DKT shows the lowest volatility, followed closely by the Classic-DKT, whereas the rule-augmented model exhibits higher volatility. This pattern indicates that rule activation introduces more decisive and principled probability shifts when consistent evidence sequences occur (e.g., consecutive correct or incorrect responses), reflecting greater responsiveness to meaningful behavioural patterns rather than random fluctuation. By comparison, the lower volatility of the Classic-DKT and BaseNS-DKT models indicate smoother but possibly less responsive updates, which can contribute to their higher inconsistency rates. 
+
+4.3 Qualitative analysis of model performances: Sequential stability 
+
+To illustrate rule-based behaviour within short sequences (10 interactions), the mastery and non-mastery rules were modified to activate after a single timestep rather than requiring multiple observations. Their weights were fixed rather than learned from data to clearly show their direct contribution to the predictions. Fig. 3 shows that, for the skill Addition and subtraction of fractions , the Responsible-DKT model updates predicted mastery more directly in response to observed student answers, whereas the Classic-DKT model exhibits smoother probability trajectories driven by hidden-state accumulation. Such smoothness can be desirable in knowledge tracing, as it reflects gradual updates of the learner’s knowledge state. However, excessive smoothing may also lead to well-known issues in DKT models, particularly the reconstruction 17 arXiv Template A P REPRINT 
+
+Table 4: Performance comparison of the models across varying sequence lengths and training ratios.                                                                                                                                                                                                                                                                                                            
+
+> Models Training ratio (%) NMetrics AUC Accuracy Precision Recall F1-score Low High Low High Low High
+> BaseNS-DKT 10 10 0.56 0.76 0.10 0.79 0.02 0.95 0.03 0.86 50 0.68 0.79 0.09 0.80 0.01 0.99 0.01 0.88 100 0.71 0.76 0.55 0.77 0.08 0.98 0.14 0.86 Full 0.77 0.82 0.62 0.84 0.27 0.96 0.38 0.89 50 10 0.75 0.75 0.35 0.82 0.27 0.87 0.30 0.84 50 0.77 0.82 0.57 0.86 0.36 0.93 0.44 0.89 100 0.74 0.77 0.54 0.81 0.34 0.91 0.42 0.86 Full 0.78 0.82 0.56 0.87 0.45 0.91 0.50 0.89 100 10 0.78 0.78 0.45 0.85 0.39 0.88 0.42 0.86 50 0.73 0.80 0.48 0.84 0.27 0.93 0.35 0.88 100 0.76 0.76 0.52 0.81 0.34 0.90 0.41 0.85 Full 0.78 0.82 0.56 0.88 0.53 0.89 0.55 0.89 Responsible-DKT 10 10 0.80 0.78 0.43 0.81 0.18 0.94 0.26 0.87 50 0.85 0.84 0.66 0.86 0.36 0.95 0.47 0.90 100 0.87 0.82 0.71 0.84 0.46 0.94 0.56 0.89 Full 0.88 0.85 0.67 0.89 0.53 0.93 0.59 0.91 50 10 0.86 0.83 0.60 0.87 0.49 0.91 0.54 0.89 50 0.87 0.86 0.68 0.89 0.55 0.94 0.61 0.91 100 0.88 0.84 0.72 0.87 0.58 0.93 0.65 0.90 Full 0.90 0.86 0.68 0.89 0.54 0.94 0.60 0.91 100 10 0.86 0.85 0.63 0.90 0.63 0.90 0.63 0.90 50 0.88 0.86 0.68 0.90 0.59 0.93 0.63 0.92 100 0.88 0.84 0.70 0.87 0.58 0.92 0.63 0.90 Full 0.89 0.86 0.67 0.90 0.58 0.93 0.62 0.91 Classic-DKT 10 10 0.73 0.84 0.66 0.87 0.47 0.94 0.55 0.90 50 0.73 0.83 0.69 0.84 0.27 0.97 0.39 0.90 100 0.74 0.78 0.61 0.80 0.27 0.94 0.37 0.87 Full 0.76 0.81 0.56 0.85 0.34 0.93 0.43 0.89 50 10 0.75 0.83 0.63 0.88 0.51 0.92 0.56 0.90 50 0.75 0.83 0.61 0.87 0.45 0.93 0.52 0.90 100 0.75 0.80 0.62 0.84 0.47 0.91 0.54 0.87 Full 0.78 0.82 0.60 0.86 0.39 0.93 0.47 0.89 100 10 0.75 0.82 0.58 0.86 0.45 0.91 0.51 0.89 50 0.76 0.84 0.66 0.87 0.45 0.94 0.54 0.91 100 0.76 0.81 0.64 0.85 0.49 0.91 0.55 0.88 Full 0.80 0.84 0.62 0.88 0.49 0.92 0.55 0.90
+
+problem, where predicted mastery does not align with the observed student response [Krivich et al., 2025, Yeung and Yeung, 2018]. This can further result in temporal inconsistency, where mastery estimates change in a direction that contradicts the student’s answer [Hooshyar et al., 2025c]. At the first interaction, both models produce similar predictions. After the incorrect response at the third interaction, the Responsible-DKT model sharply decreases the predicted probability, reflecting the activation of the non-mastery rule. In contrast, the Classic-DKT model reduces the probability more moderately and subsequently increases it despite additional incorrect responses. When the student answers correctly at interaction six, the mastery rule activates and the prediction increases to 0.71, while the Classic-DKT model continues to rise to 0.87. After subsequent incorrect responses, the Responsible-DKT prediction drops sharply, whereas the Classic-DKT model decreases more gradually. Overall, these results suggest that incorporating symbolic mastery rules allows the Responsible-DKT model to regulate prediction updates more directly based on observed responses. While the neural component captures the gradual evolution of the learner’s knowledge state, the injected rules help correct prediction updates when they become inconsistent with observed performance. The sharp probability changes in Responsible-DKT are largely due to the experimental setup, where rules 18 arXiv Template A P REPRINT 
+
+Table 5: Early-, middle-, and late-stage prediction error rates (%) across different sequence lengths. Models Sequence length Early Middle Late BaseNS-DKT 10 22.97 20.78 24.69 50 24.03 18.27 19.16 100 22.25 21.11 27.82 Full 21.15 16.12 16.56 Responsible-DKT 10 17.57 10.39 18.52 50 15.58 13.46 11.98 100 16.42 13.73 18.75 
+
+Full 14.35 15.28 13.54 
+
+Classic-DKT 10 22.97 16.88 16.05 
+
+50 21.10 15.71 10.48 
+
+100 19.33 18.65 19.96 Full 18.92 15.38 15.00 
+
+> * All values are reported as percentages.
+
+Table 6: Volatility and inconsistency of predicted mastery trajectories across different sequence lengths. Models Sequence length Volatility Inconsistency BaseNS-DKT 10 0.12 0.48 50 0.09 0.46 100 0.11 0.43 Full 0.11 0.44 Responsible-DKT 10 0.18 0.41 
+
+50 0.17 0.40 
+
+100 0.17 0.36 
+
+Full 0.17 0.36 
+
+Classic-DKT 10 0.12 0.45 50 0.13 0.46 100 0.14 0.44 Full 0.13 0.44 
+
+> * Volatility and Inconsistency are reported as proportions (0–1 scale).
+
+were configured to fire after a single correct or incorrect response for illustration. In practice, rules can be defined over longer observation patterns, allowing the model to maintain gradual knowledge updates. 
+
+4.4 Interpretability of the Responsible-DKT approach 
+
+Because the Responsible-DKT model is formulated natively as a logic programming template, it bypasses the need for post-hoc, perturbation-based explainers (such as SHAP or LIME). Unlike conventional neural-based DKT models (e.g., Classic-DKT)—where the reasoning process remains hidden inside opaque matrix multiplications—Responsible-DKT’s grounded computation graph explicitly exposes the inferential structure behind each prediction. By tracking the exact gradients flowing backward from the target query to the specific input facts and pedagogical rules , we can faithfully quantify the explicit relational reasoning path the model took. Each contribution—recurrent dynamics, symbolic mastery rules, and historical aggregation—can be traced as a distinct computational pathway with identifiable weights and transformations. This transparency allows researchers to inspect, validate, and even constrain the reasoning process, thereby making the Responsible-DKT model substantially more interpretable and aligned with pedagogical theory. Fig. 4 illustrates the grounded computation graph for predicting correct (t1, q 954 ), i.e., quiz 954 at a second timestep, in our Responsible-DKT model (see Sec. 3.3.1 for the respective model architecture and naming). For clarity and visual readability, the figure depicts a simplified configuration of the model, where the embedding dimensionality is reduced to 1, a single recurrent layer is used, and the symbolic rules are simplified to trigger mastery or non-mastery after a single correct or incorrect response. These adjustments were made solely to produce a more compact and interpretable visualization. 19 arXiv Template A P REPRINT 
+
+> (a) Responsible-DKT model
+> (b) Classic-DKT model
+
+Figure 3: Step-wise predicted probabilities for repeated attempts of a single skill ( Addition and subtraction of fractions ) by one student. Each column represents a quiz interaction involving the same skill, with ✓
+
+indicating a correct response and × an incorrect response. In Fig. 4, house-shaped nodes denote “factual” computation inputs, which represent grounded input facts to be embedded, including the quiz( q954 ), the skill (s3), and the binary correctness interaction fact correct_input (t0, right ). Red elliptical nodes then correspond to grounded rules (Sec. 2.3), which implement differentiable conjunctive logic via learnable weights and activation functions. Finally, the blue node then corresponds to the specific target learning query, i.e., predicting correctness/mastery at the next (second) timestep t1. The computational flow is then as follows. First, the symbolic inputs (quiz, skill, and correctness) are mapped into embedding representations and merged in a combined_embed (t0) predicate via a weighted sum followed by a sigmoid transformation. The prediction is then composed from three interpretable pathways: (i) the combined_embed (t0) representation is passed through a recurrent NN rule rnn_1_out (t1) (with tanh activation) together with the initial ( h0) hidden state, modelling the classic DKT temporal state evolution, (ii) a historical embedding aggregation pathway computing avg_embed (t1, q 954 ) over past interactions with the same quiz, and (iii) a symbolic mastery pathway where repeated correct responses instantiate mastered (q954 , t 1) and influence the prediction through modulating the correct (t1, q 954 ) predicate. The final blue query node then aggregates these components and applies a sigmoid to produce the probability of correctness. Solid edges denote weighted transformations, while dashed edges indicate purely symbolic information links. Together, the graph makes explicit how symbolic rules, embeddings, and temporal recurrence jointly contribute to the final prediction. Although the grounding process instantiates a distinct computation graph for each learner’s unique interaction sequence at test time, a single set of embeddings 20 arXiv Template A P REPRINT                               
+
+> RNN rules Embedding rules
+> Mastery rules
+> correct(t1, q954)
+> correct(t1, q954) :-final_nn_out(t1)
+> correct(t1, q954) :-avg_embed(t1, q954)
+> correct(t1, q954) :-mastered(q954, t1)
+> final_nn_out(t1) :-rnn_1_out(t1)
+> rnn_1_out(t1) :-combined_embed(t0), rnn_1_out(t0),
+> next (t0, t1)
+> avg_embed(t1, q954) :-combined_embed(t0), quiz_input(t0, q954),
+> less (t0, t1)
+> mastered(q954, t1) :-correct_input(t0, right), quiz_input(t0, q954),
+> next (t0, t1)
+> rnn_1_out(t0) :-rnn_1_h0
+> rnn_1_h0
+> combined_embed(t0) :-quiz_embed(t0), skill_embed(t0), correct_input_embed(t0),
+> quiz_input(t0, q954)
+> correct_input_embed(t0) :-correct_input(t0, right)
+> quiz(q954) skill(s3) correct_input(t0, right)
+> W2≈0.90
+> W1≈ − 0.82
+> W3≈0.52
+> W7≈0.01
+> W6≈ − 0.69
+> W13 ≈0.62
+> W14 ≈0.21
+> W14 ≈0.41 W12 ≈1.09
+> W8≈ − 0.70 W10≈0.80 W11 ≈1.39
+
+Figure 4: Grounded neural-symbolic computation graph for predicting correct (t1, q 954 ). House nodes denote grounded input facts (quiz, skill, and prior correctness), which are first integrated into a unified representation via combined_embed (T ), where quiz, skill, and outcome embeddings are merged. The yellow-highlighted nodes indicate the three main predictive pathways contributing to the target: the recurrent neural pathway (left), the symbolic mastery pathway (right), and the historical aggregation pathway (middle). These components are aggregated at the final output node to produce the predicted probability of correctness. and rule weights is learned globally during training, with quiz and skill embeddings, recurrent parameters, and rule weights being shared across all the learners, ensuring a principled generalization. Nevertheless, the activated inference structure, the particular hidden state evolution, and the contribution strengths of individual symbolic rules are uniquely determined by each learner’s varying history. In this way, Responsible-DKT framework provides highly individualized, explicitly traceable reasoning paths for every local prediction .
+
+4.4.1 Local explanation 
+
+To illustrate how the Responsible-DKT model makes predictions, we present a local explanation for a single test student with 10 interactions. The model predicts the correctness of the next response at each timestep using the previous interactions as context. Fig. 5 shows explanations for predictions at timestep 5 and timestep 10. All interactions in this example correspond to skill s3, which represents addition and subtraction of fractions . The quizzes (e.g., q954 , q613 , q795 ) are different exercises assessing this same skill. At timestep 5, previous interactions contribute negatively, pushing the model toward predicting an incorrect response, which matches the ground truth. The strongest negative contributions come from t1 and t3, followed by t2,while t4 contributes the least. These contributions are primarily shaped by the embedding-based aggregation ( avg_embed ) of past interactions, while patterns of incorrect responses activate the not_mastered rule, reinforcing the negative prediction. At timestep 10, most prior interactions contribute positively and with similar strength, increasing the likelihood of a correct response, but the combined influence is insufficient to change the final prediction, resulting in a misclassification. Overall, t2 consistently shows weaker influence across both predictions, which may indicate that this interaction provides less informative evidence about the student’s mastery, while t4 (for timestep 5) and t9 (for timestep 10) have the smallest contributions, suggesting that the most recent interaction has the least influence on the prediction in this example. 
+
+4.4.2 Global explanation 
+
+Fig. 6 presents the global explanation of the Responsible-DKT model for sequences of length 10, showing which skills and quizzes have the greatest influence on the model’s predictions across the dataset. The left 21 arXiv Template A P REPRINT 
+
+Figure 5: Local explanation of Responsible-DKT predictions for a student sequence on skill s3 (addition and subtraction of fractions ), showing contributions of previous interactions to predictions at timesteps 5 and 10 (left and right, respectively). 
+
+Figure 6: Global explanation of the Responsible-DKT model predictions. panel shows global skill importance, while the right panel shows global quiz importance. The y-axis lists the skills or quizzes, and the x-axis shows their relative influence on the model’s predictions, computed by aggregating the gradient norms of input facts across all samples. Larger values indicate that changes in that input feature would have a stronger effect on the model’s predictions. The results show that Basics of fractions 
+
+(s4) has the strongest overall influence on the model, followed by Addition and subtraction of fractions (s3). 
+
+Converting and multiplying fractions (s7) also contributes to the predictions but with substantially smaller influence, while the remaining skills have minimal impact. A similar pattern is observed for quizzes: a small number of exercises, particularly q112 , followed by q246 and q783 , contribute more strongly to the model’s predictions, whereas most quizzes have very low influence. Overall, the global explanation indicates that the model relies primarily on a small subset of fraction-related skills and a few specific exercises when forming predictions. This suggests that student performance on these concepts plays a central role in the model’s assessment of knowledge, while other skills contribute comparatively less to the prediction process. These patterns are consistent with the rule-based analysis (see Table 7), where embedding-based aggregation dominates overall influence, while symbolic rules provide targeted adjustments when specific learning patterns, such as repeated errors, are detected. To further examine how the injected symbolic knowledge influences the model’s predictions, we analyse the global importance of the symbolic reasoning rules used within the Responsible-DKT model. Table 7 presents the global importance of these rules across the dataset. The table reports three metrics for each rule aggregated over all samples: the average activation magnitude ( |val |), the average gradient magnitude (|grad |), and the frequency of occurrence (count) in the computation graph. The activation magnitude is 22 arXiv Template A P REPRINT 
+
+Table 7: Global importance of symbolic rules in the Responsible-DKT model. 
+
+Rule Avg |val |∗ Avg |grad |∗∗ Count 
+
+avg_embed 1.9947 0.0008 284 mastered 1.6692 0.0004 219 not_mastered 1.8557 0.0016 49 
+
+> ∗|val |: average absolute rule activation (strength of contribution during forward computation).
+> ∗∗ |grad |: average absolute gradient (sensitivity of model predictions to that rule).
+
+computed as the average absolute value of the rule neuron’s output when the rule is instantiated, indicating 
+
+how strongly the rule contributes to the forward computation . The gradient magnitude is computed as the average absolute gradient of that neuron with respect to the loss, reflecting how sensitive the model’s predictions are to changes in that rule. The count indicates how many times the rule appears across all samples in the computation graph , showing how frequently the rule participates in the model’s reasoning process. The results indicate that the avg_embed shows the highest activation and appears most frequently, indicating that the model primarily relies on the embedding-based aggregation of past interactions when forming predictions. In contrast, not_mastered appears much less often but has the largest gradient. Although its activation is slightly lower than avg_embed , the larger gradient indicates that the model is more sensitive to this rule during learning, meaning that patterns of repeated errors contribute more strongly to parameter updates when they occur. Overall, this suggests that while the model mainly relies on embedding-based summaries of past interactions, it is particularly sensitive to patterns of repeated errors, indicating that non-mastery evidence plays a stronger role in shaping prediction updates. This also illustrates how neural-symbolic models can empirically examine pedagogical assumptions embedded in learner modelling rules .
+
+# 5 Discussion and Conclusions 
+
+The objective of this study was to investigate whether neural-symbolic AI can support more responsible learner modelling by integrating structured pedagogical knowledge into deep knowledge tracing. To this end, we proposed Responsible-DKT, a neural-symbolic approach that embeds symbolic educational knowledge in the form of simple rules inspired by empirically derived pedagogical patterns [e.g., Koedinger et al., 2023] into sequential neural architectures using the PyNeuraLogic framework. The study addressed three research questions concerning predictive performance and generalizability (RQ1), sequential stability and learning dynamics (RQ2), and interpretability of model predictions (RQ3). 
+
+5.1 Interpretation and comparison of the results 
+
+Regarding RQ1 , the results (Sec 4.2) show that integrating symbolic knowledge can improve predictive performance and robustness compared with purely data-driven approaches. Across different sequence lengths and training ratios, Responsible-DKT consistently achieved higher AUC and accuracy than the Classic-DKT baseline, while also improving recall and F1-score for the minority class. Importantly, the model maintained strong performance even with limited training data, achieving more than 0.80 AUC with only a small fraction of the training set. This suggests that incorporating domain knowledge can compensate for data limitations and reduce the dependence on large-scale datasets, which are often difficult to obtain in educational contexts . This finding aligns with those reported by Hooshyar et al. [2024, 2025b], who showed that neural-symbolic approaches integrating educational knowledge can improve model generalizability and robustness compared with purely data-driven neural networks. Although their study focused on non-sequential data and used a different neural-symbolic framework based on latent variables embedded within the network structure, the results similarly suggest that knowledge injection—both in sequential and non-sequential settings—can enhance model performance. This also resonates with the work of Shakya et al. [2021], who integrated symbolic educational relationships with LSTM models using Markov Logic and trained the network on representative samples rather than the entire dataset. Their approach improved training efficiency and reduced overfitting, further illustrating how combining symbolic knowledge with neural models can mitigate data-related limitations in educational AI. Similarly, Tato and Nkambou [2022] proposed a hybrid architecture combining deep neural networks with expert knowledge through an attention mechanism to address challenges such as data imbalance and limited training data in learner modelling. Their results demonstrated improved prediction of students’ knowledge states and 23 arXiv Template A P REPRINT 
+
+learning outcomes, highlighting the value of integrating expert knowledge into neural models to support generalization when educational datasets are small or imbalanced. The present study extends this line of work by demonstrating that these benefits also hold in sequential knowledge tracing settings, where models must learn from temporally ordered interaction data. In particular, our results show that symbolic knowledge injection can improve predictive performance and robustness across varying sequence lengths and training ratios, while maintaining strong performance even under limited data conditions. Together, these studies reinforce the potential of knowledge-informed neural approaches for educational AI, where limited and uneven data availability remains a common challenge. With respect to RQ2 , the results (Sec 4.2 and 4.3) indicate that symbolic knowledge injection contributes to more stable and pedagogically coherent prediction dynamics. Responsible-DKT produced lower inconsis-tency rates and more reliable early-stage predictions compared with the baseline models . This is particularly important for adaptive learning systems, where inaccurate early predictions can lead to inappropriate in-structional decisions. The analysis also showed that rule activation enables the model to respond more directly to meaningful behavioural patterns, such as repeated correct or incorrect responses, improving alignment between prediction updates and observed student performance. Although this responsiveness can produce sharper probability shifts than those observed in purely neural models, these adjustments reflect principled reactions to evidence rather than arbitrary fluctuations. These findings also contribute to the broader discussion of temporal reliability in learner modelling, an aspect that remains largely overlooked in the literature. As highlighted in the systematic review by Krivich et al. [2025], most studies evaluate DKT models using standard classification metrics (e.g., AUC or accuracy) while rarely assessing sequential stability or prediction consistency over time. By explicitly analysing early, middle, and late-stage errors, as well as inconsistency and volatility measures, our study provides additional insight into the temporal reliability of learner modelling systems. This issue has been previously noted by Yeung and Yeung [2018], who showed that DKT models may produce inconsistent mastery trajectories and even decrease predicted mastery after correct responses. They addressed this by adding regularization terms to the loss function to smooth prediction transitions. However, such modifications remain purely statistical and do not allow for the incorporation of pedagogical knowledge, the inspection of the decision-making process, or safeguards against learning spurious correlations and biases. In contrast, our approach regulates prediction dynamics through symbolic knowledge injection, enabling the model to encode educational principles and provide interpretable reasoning for prediction updates. Recent work by Hooshyar et al. [2025c] further emphasizes the importance of such analyses. In their case study comparing data-driven DKT models with an LLM, DKT achieved higher predictive performance and demonstrated substantially stronger temporal coherence, while the LLM-based approach produced inconsistent mastery trajectories and incorrect directional updates over time—even after extensive fine-tuning. In the present study, we show that temporal reliability can be further improved by integrating symbolic knowledge within neural architectures. The results suggest that neural-symbolic learner models can strengthen both predictive accuracy and temporal consistency, which are critical properties for trustworthy adaptive educational systems. Beyond performance improvements, the proposed approach also demonstrates an important method-ological contribution: it allows stakeholders to explicitly inject pedagogical knowledge into the learner modelling process . In the current study, simple mastery and non-mastery rules were introduced to guide prediction updates. However, the neural-symbolic framework supports a much broader range of knowledge integration mechanisms. For example, further rules could model spacing effects based on time gaps between interactions, or recency/weighted averages of past successes on the same skill or quiz. Other rules could cap-ture transitions in learner behaviour—such as shifts from correct to incorrect answers or vice versa—which may signal uncertainty, forgetting, or guessing [Abdelrahman et al., 2023]. More structurally, symbolic constraints may also be derived from domain knowledge graphs, including prerequisite relationships between skills or relative difficulty levels, enabling transparent and pedagogically meaningful mastery propagation grounded in expert knowledge [see Koedinger et al., 2023]. Finally, beyond explicit rule-based influences, the framework also enables the introduction of latent intermediate representations , analogous in spirit to KBANN-style knowledge injection [Hooshyar et al., 2024, Towell and Shavlik, 1994]. Such latent variables can be structurally positioned between observed interaction inputs and prediction targets, encouraging the model to reason through meaningful learner states rather than relying solely on surface-level correlations. Examples include latent constructs such as learning momentum, engagement state, or fatigue, which capture gradual changes in learner behaviour and modulate predictions in a transparent yet flexible manner. In this way, neural-symbolic modelling provides a flexible mechanism for embedding educational theory into data-driven learning systems. 24 arXiv Template A P REPRINT 
+
+Finally, addressing RQ3 , the Responsible-DKT model provides interpretable explanations of predictions through its explicit neural-symbolic computation structure (Sec 4.4). Unlike conventional DKT models, where reasoning remains hidden within opaque neural states, the grounded computation graph exposes how embeddings, symbolic rules, and recurrent dynamics jointly contribute to each prediction. This structure enables explanation at multiple levels . Local explanations reveal how previous interactions influence individual predictions over time, while global analyses identify which skills, quizzes, and symbolic rules most strongly affect model behaviour across the dataset. The results show that the model primarily relies on a small subset of key skills and exercises when forming predictions, while symbolic rules—particularly those capturing repeated incorrect responses—play an important role in regulating prediction updates. These analyses demonstrate that the model’s reasoning process can be inspected and traced through explicit computational pathways, allowing researchers and educators to better understand how predictions are produced. This extends prior work by providing intrinsic, mechanism-level interpretability within a sequential knowledge tracing setting, where explanations are directly grounded in the model’s computation rather than inferred through post-hoc techniques [Bai et al., 2024]. Such interpretability is particularly important given that it remains largely overlooked in the knowledge tracing literature. For example, the recent systematic review by Krivich et al. [2025] shows that most studies do not explicitly address interpretability, and the few that do typically rely on post-hoc explanation techniques such as SHAP, attention-weight analysis, or Grad-CAM. While these approaches can highlight influential inputs, they do not necessarily reflect the true reasoning process of the model and may lead to misleading interpretations [Hooshyar and Yang, 2024, Slack et al., 2020]. Moreover, many studies equate visualizations of predicted skill mastery probabilities (i.e., heatmaps) with interpretability, even though such summaries do not reveal the mechanisms driving predictions [Krivich et al., 2025, Li and Wang, 2023]. As argued by Rudin [2019], relying on post-hoc explanations for opaque models in high-stakes domains can be problematic, and designing models that are inherently interpretable offers a more reliable alternative. In line with this view, the neural-symbolic design adopted in Responsible-DKT provides intrinsic interpretability, allowing the decision-making process to be examined directly through its computational structure and reducing the risk of relying on spurious correlations or hidden biases [Hooshyar et al., 2024, Hooshyar and Yang, 2024, Rudin, 2019, Tato and Nkambou, 2022]. Moreover, such transparency can support hypothesis testing and theory refinement . By analysing the behaviour and importance of injected rules, one can evaluate whether the encoded pedagogical assumptions hold in practice—such as revealing that non-mastery patterns play a stronger role in prediction updates than mastery patterns—creating a feedback loop in which empirical evidence informs the refinement of both the model and the underlying learning theory. This represents a step beyond explanation toward theory-informed modelling, where interpretability is used not only for inspection but also for validating and refining educational assumptions. This is particularly important given that there are currently very few examples in the AI in education literature of studies that systematically test and refine learning theories at scale through computational modelling approaches [Giannakos and Cukurova, 2023]. Overall, the findings of the current study suggest that neural-symbolic approaches offer a promising path-way toward more responsible educational AI. By combining the pattern-learning capacity of neural networks with the transparency and structured reasoning of symbolic knowledge, Responsible-DKT demonstrates how learner models can become more interpretable, stable, and aligned with pedagogical principles. Beyond improving predictive performance, such hybrid human–AI approaches enable educators and researchers to contribute domain knowledge directly to the modelling process, supporting human-centred and theory-informed AI design. These characteristics are essential for the reliable deployment of AI-driven tutoring systems in real educational settings, where transparency, trust, and pedagogically grounded decisions are as important as predictive accuracy. 
+
+5.2 Limitations and future work 
+
+While the findings provide useful insights, several limitations remain that should be addressed in future research. First, the symbolic rules used in this study are relatively simple and do not fully reflect the broader range of capabilities offered by neural-symbolic approaches. Future work should explore more complex rule structures and richer forms of domain knowledge (e.g., mental models of biological systems) to better capture the full potential of neural-symbolic integration in learner modelling. Second, the experiments relied on a single dataset and a specific knowledge tracing task formulation. Evaluating the proposed approach across diverse datasets, learner modelling tasks, and educational contexts would help assess the generalisability of the findings and support responsible deployment in real educational settings such as K–12 environments. Third, the experimental comparison focused mainly on the classic DKT baseline and a neural-symbolic variant without rule injection. Future research should therefore compare the proposed approach with a 25 arXiv Template A P REPRINT 
+
+broader range of state-of-the-art knowledge tracing models, including attention-based and graph-based architectures. Finally, although this study is framed within the broader perspective of responsible AI, the current implementation should be understood as a partial and methodological contribution rather than a comprehensive realisation of all responsible AI dimensions. The injected rules are pedagogically motivated and do not directly operationalise ethical principles, fairness constraints, or privacy-preserving mechanisms. Instead, they demonstrate how symbolic knowledge can be embedded into neural architectures to support human-centred design, by enabling the explicit incorporation of expert pedagogical knowledge; transparent decision-making, through explicit reasoning structures, learned rule weights, and interpretable computation graphs; and more reliable and ethically grounded predictions, as rule injection acts as a structural constraint that reduces sequential instability and mitigates reliance on spurious correlations. Therefore, the notion of responsibility considered here is primarily grounded in pedagogical aspects of learner modelling, rather than the full, broader scope of responsible AI. Future work should extend this framework by incorporating richer forms of knowledge, including fairness-aware constraints, causal relationships, and privacy-preserving inductive biases, as well as by empirically evaluating their impact on user trust, ethical decision-making, and real-world educational deployment. 
+
+# Acknowledgments 
+
+This work was supported by the Estonian Research Council grant (PRG2215). G.Š. acknowledges support from the Czech Science Foundation grant no. 26-22501S. The work of Dragan Gaševi´ c was partially supported by the Australian Research Council (DP220101209) and the Jacobs Foundation (CELLA2CERES). We also thank the Opiq learning environment for their collaboration in this study. 
+
+# References 
+
+Ghodai Abdelrahman and Qing Wang. Knowledge tracing with sequential key-value memory networks. In Proceedings of the 42nd International ACM SIGIR Conference on Research and Development in Information Retrieval , pages 175–184, 2019. doi:10.1145/3331184.3331214. Ghodai Abdelrahman and Qing Wang. Deep graph memory networks for forgetting-robust knowl-edge tracing. IEEE Transactions on Knowledge and Data Engineering , 35(8):7844–7855, 2022. doi:10.1109/TKDE.2022.3203156. Ghodai Abdelrahman, Qing Wang, and Bernardo Nunes. Knowledge tracing: A survey. ACM Computing Surveys , 55(11):1–37, 2023. doi:10.1145/3583376. Asmaa Abyaa, Mohamed Khalidi Idrissi, and Samir Bennani. Learner modelling: Systematic review of the literature from the last 5 years. Educational Technology Research and Development , 67:1105–1143, 2019. doi:10.1007/s11423-018-09644-1. Sarah Alwarthan, Nida Aslam, and Irfan Ullah Khan. An explainable model for identifying at-risk student at higher education. IEEE Access , 10:107649–107668, 2022. doi:10.1109/ACCESS.2022.3210738. Alejandro Barredo Arrieta, Natalia Díaz-Rodríguez, Javier Del Ser, Adrien Bennetot, Siham Tabik, Alberto Barbado, Salvador García, Sergio Gil-López, Daniel Molina, and Richard Benjamins. Explainable artificial intelligence (xai): Concepts, taxonomies, opportunities and challenges toward responsible ai. Information Fusion , 58:82–115, 2020. doi:10.1016/j.inffus.2019.12.012. Roger Azevedo and Megan Wiedbusch. Theories of metacognition and pedagogy applied to aied systems. In Handbook of Artificial Intelligence in Education , pages 45–67. Edward Elgar Publishing, 2023. Yanhong Bai, Jiabao Zhao, Tingjiang Wei, Qing Cai, and Liang He. A survey of explainable knowledge tracing: Y. bai et al. Applied Intelligence , 54(8):6483–6514, 2024. Ryan S Baker and Aaron Hawn. Algorithmic bias in education. International Journal of Artificial Intelligence in Education , pages 1–41, 2022. doi:10.1007/s40593-022-00285-3. Ryan S Baker, Tiffany Martin, and Lauren M Rossi. Educational data mining and learning analytics. In The Wiley Handbook of Cognition and Assessment: Frameworks, Methodologies, and Applications , pages 379–396. 2016. Hamsa Bastani, Osbert Bastani, Alp Sungu, Haosen Ge, Özge Kabakcı, and Rei Mariman. Generative ai without guardrails can harm learning: Evidence from high school mathematics. Proceedings of the National Academy of Sciences , 122(26):e2422633122, 2025. 26 arXiv Template A P REPRINT 
+
+Michela Benvenuti, Angelo Cangelosi, Andreas Weinberger, Elisa Mazzoni, Mariagiovanna Benassi, Michela Barbaresi, and Manuela Orsoni. Artificial intelligence and human behavioral development: A perspective on new skills and competences acquisition for the educational context. Computers in Human Behavior ,148:107903, 2023. doi:10.1016/j.chb.2023.107903. Tarek R Besold, Artur d’Avila Garcez, Sebastian Bader, Howard Bowman, Pedro Domingos, Pascal Hitzler, Kai-Uwe Kühnberger, Luis C Lamb, Priscila Machado Vieira Lima, and Leo de Penning. Neural-symbolic learning and reasoning: A survey and interpretation. In Neuro-Symbolic Artificial Intelligence: The State of the Art , pages 1–51. IOS Press, 2021. Christian Borchers and Ting Shou. Can large language models match tutoring system adaptivity? abenchmarking study. In Proceedings of the 18th International Conference on Educational Data Mining ,pages 407–420, 2025. Ismail Celik, Mustafa Dindar, Henna Muukkonen, and Sanna Järvelä. The promises and challenges of artificial intelligence for teachers: A systematic review of research. TechTrends , 66(4):616–630, 2022. doi:10.1007/s11528-022-00729-3. Youngduck Choi, Youngmin Lee, Junghyun Cho, Jineon Baek, Byungsoo Kim, Younghee Cha, Dongmin Shin, Chan Bae, and Jaekwan Heo. Towards an appropriate query, key, and value computation for knowledge tracing. In Proceedings of the Seventh ACM Conference on Learning@Scale , pages 341–344, 2020. doi:10.1145/3386527.3405935. Cristina Conati and Sébastien Lallé. Student modeling in open-ended learning environments. In Handbook of Artificial Intelligence in Education , pages 170–183. Edward Elgar Publishing, 2023. Albert T Corbett and John R Anderson. Knowledge tracing: Modeling the acquisition of procedural knowledge. 
+
+User Modeling and User-Adapted Interaction , 4(4):253–278, 1994. doi:10.1007/BF01099821. Chaoran Cui, Hebo Ma, Xiaolin Dong, Chen Zhang, Chunyun Zhang, Yumo Yao, Meng Chen, and Yuling Ma. Model-agnostic counterfactual reasoning for identifying and mitigating answer bias in knowledge tracing. 
+
+Neural Networks , 178:106495, 2024. doi:10.1016/j.neunet.2024.106495. Rónán Daly, Qiang Shen, and Stuart Aitken. Learning bayesian networks: Approaches and issues. The Knowledge Engineering Review , 26(2):99–157, 2011. doi:10.1017/S0269888910000251. Artur d’Avila Garcez and Luis C Lamb. Neurosymbolic ai: The 3rd wave. Artificial Intelligence Review , pages 1–20, 2023. doi:10.1007/s10462-023-10640-9. Yifan Du, Christian Borchers, and Mutlu Cukurova. Benchmarking educational llms with analytics: A case study on gender bias in feedback. In Proceedings of the 27th International Conference on Artificial Intelligence in Education , page in press, 2026. Benedict Du Boulay, Antonija Mitrovic, and Kalina Yacef, editors. Handbook of Artificial Intelligence in Education . Edward Elgar Publishing, 2023. Taryn Eames, Emma Brunskill, Bogdan Yamkovenko, Kodi Weatherholtz, and Philip Oreopoulos. Computer-assisted learning in the real world: How khan academy influences student math learning. Proceedings of the National Academy of Sciences , 123(1):e2507708123, 2026. Hermann Ebbinghaus. Memory: A contribution to experimental psychology. Annals of Neurosciences , 20(4): 155, 2013. Original work published 1885. Ruth Eitel-Porter. Beyond the promise: Implementing ethical ai. AI and Ethics , 2020. European Union. Artificial intelligence act. https://artificialintelligenceact.eu/ , 2024. Accessed: 2024-01-12. Dragan Gaševi´ c and Lixiang Yan. Generative ai for human skill development and assessment: Implications for existing practices and new horizons. In OECD Digital Education Outlook 2026 , pages 39–63. OECD Publishing, Paris, France, 2026. Theophile Gervet, Kenneth Koedinger, Jeff Schneider, and Tom Mitchell. When is deep learning the best approach to knowledge tracing? Journal of Educational Data Mining , 12(3):31–54, 2020. Aritra Ghosh, Neil Heffernan, and Andrew S Lan. Context-aware attentive knowledge tracing. In Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining , pages 2330–2339, 2020. doi:10.1145/3394486.3403282. Michail Giannakos and Mutlu Cukurova. The role of learning theory in multimodal learning analytics. British Journal of Educational Technology , 54(5):1246–1267, 2023. 27 arXiv Template A P REPRINT 
+
+Sabrina Goellner, Marina Tropmann-Frick, and Bostjan Brumen. Responsible artificial intelligence: Astructured literature review. arXiv Preprint arXiv:2403.06910 , 2024. Joseph Gong, Joseph E Beck, and Neil T Heffernan. How to construct more accurate student models: Comparing and optimizing knowledge tracing and performance factor analysis. International Journal of Artificial Intelligence in Education , 21(1–2):27–46, 2011. doi:10.3233/JAI-2011-023. Alex Graves, Greg Wayne, and Ivo Danihelka. Neural turing machines. arXiv Preprint arXiv:1410.5401 ,2014. Alan G Hawkes. Spectra of some self-exciting and mutually exciting point processes. Biometrika , 58(1): 83–90, 1971. doi:10.1093/biomet/58.1.83. Wayne Holmes, Jesper Persson, Ilia-Antonia Chounta, Barbara Wasson, and Vania Dimitrova. Artificial intelligence and education: A critical view through the lens of human rights, democracy and the rule of law. Technical report, Council of Europe, 2022a. URL https://discovery.ucl.ac.uk/id/eprint/10158376/ .Wayne Holmes, Kaska Porayska-Pomsta, Ken Holstein, Emma Sutherland, Toby Baker, Simon Bucking-ham Shum, Olga C Santos, Mercedes T Rodrigo, Mutlu Cukurova, and Ig Ibert Bittencourt. Ethics of ai in education: Towards a community-wide framework. International Journal of Artificial Intelligence in Education , 32(3):504–526, 2022b. doi:10.1007/s40593-021-00239-1. Danial Hooshyar. Temporal learner modelling through integration of neural and symbolic architectures. 
+
+Education and Information Technologies , 29(1):1119–1146, 2024. doi:10.1007/s10639-023-12334-y. Danial Hooshyar and Yeongwook Yang. Neural-symbolic computing: A step toward interpretable ai in education. Bulletin of the Technical Committee on Learning Technology , 21(4):2–6, 2021. doi:10.1109/TCLT.2021.0401011. Danial Hooshyar and Yeongwook Yang. Problems with shap and lime in interpretable ai for education: A comparative study of post-hoc explanations and neural-symbolic rule extraction. IEEE Access , 2024. doi:10.1109/ACCESS.2024.3456789. Danial Hooshyar, Margus Pedaste, and Yeongwook Yang. Mining educational data to predict students’ performance through procrastination behavior. Entropy , 22(1):12, 2019. doi:10.3390/e22010012. Danial Hooshyar, Roger Azevedo, and Yeongwook Yang. Augmenting deep neural networks with symbolic educational knowledge: Towards trustworthy and interpretable ai for education. Machine Learning and Knowledge Extraction , 6(1):593–618, 2024. doi:10.3390/make6010028. Danial Hooshyar, Eve Kikas, Yeongwook Yang, Gustav Šír, Raija Hämäläinen, Tommi Kärkkäinen, and Roger Azevedo. Towards responsible and trustworthy educational data mining: Comparing symbolic, sub-symbolic, and neural-symbolic ai methods. arXiv Preprint arXiv:2504.00615 , 2025a. Danial Hooshyar, Eve Kikas, Yeongwook Yang, Gustav Šír, Raija Hämäläinen, Tommi Kärkkäinen, and Roger Azevedo. Towards responsible and trustworthy educational data mining: Comparing symbolic, sub-symbolic, and neural-symbolic ai methods. arXiv Preprint arXiv:2504.00615 , 2025b. Danial Hooshyar, Yeongwook Yang, Gustav Šír, Tommi Kärkkäinen, Raija Hämäläinen, Mutlu Cukurova, and Roger Azevedo. Problems with large language models for learner modelling: Why llms alone fall short for responsible tutoring in k–12 education. arXiv Preprint arXiv:2512.23036 , 2025c. Danial Hooshyar, Gustav Šír, Yeongwook Yang, Eve Kikas, Raija Hämäläinen, Tommi Kärkkäinen, Dra-gan Gaševi´ c, and Roger Azevedo. Towards responsible ai for education: Hybrid human-ai to con-front the elephant in the room. Computers and Education: Artificial Intelligence , 9:100524, 2025d. doi:10.1016/j.caeai.2025.100524. Eleni Ilkou and Maria Koutraki. Symbolic vs sub-symbolic ai methods: Friends or enemies? In Proceedings of the CD-MAKE Workshop , volume 2699, 2020. Maurice Jakesch, Zana Buçinca, Saleema Amershi, and Alexandra Olteanu. How different groups prioritize ethical values for responsible ai. In proceedings of the 2022 ACM conference on fairness, accountability, and transparency , pages 310–323, 2022. Daniel Kahneman. Thinking, Fast and Slow . Macmillan, 2011. Rogers Kaliisa, Kamila Misiejuk, Sonsoles López-Pernas, and Mohammed Saqr. How does artificial intelligence compare to human feedback? a meta-analysis of performance, feedback perception, and learning dispositions. Educational Psychology , 46(1):80–111, 2026. 28 arXiv Template A P REPRINT 
+
+Shamya Karumbaiah, Anusha Ganesh, Akshay Bharadwaj, and Lauren Anderson. Evaluating behaviors of general purpose language models in a pedagogical context. In Proceedings of the 17th International Conference on Educational Data Mining , pages 47–61, 2024. Henry Kautz. The third ai summer: Aaai robert s. engelmore memorial lecture. AI Magazine , 43(1):105–125, 2022. doi:10.1002/aaai.12046. Kenneth R Koedinger, Paulo F Carvalho, Ran Liu, and Elizabeth A McLaughlin. An astonishing regularity in student learning rate. Proceedings of the National Academy of Sciences , 120(13):e2221311120, 2023. doi:10.1073/pnas.2221311120. Ekaterina Krivich, Danial Hooshyar, Gustav Šír, Yeongwook Yang, Mari Bauters, Raija Hämäläinen, and Tommi Kärkkäinen. A systematic review of deep knowledge tracing (2015-2025): Toward responsible ai for education. Preprints , 2025. URL https://www.preprints.org/manuscript/202510.1845 .Harsh Kumar, Ilya Musabirov, Mohi Reza, Jiakai Shi, Xinyuan Wang, Joseph Jay Williams, Anastasia Kuzminykh, and Michael Liut. Impact of guidance and interaction strategies for llm use on learner performance and perception. arXiv Preprint arXiv:2310.13712 , 2023. Lela Labadze, Maka Grigolia, and Lela Machaidze. Role of ai chatbots in education: Systematic liter-ature review. International Journal of Educational Technology in Higher Education , 20(1):56, 2023. doi:10.1186/s41239-023-00425-0. Himabindu Lakkaraju and Osbert Bastani. "how do i fool you?" manipulating user trust via misleading black box explanations. In Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society , pages 79–85, 2020. doi:10.48550/arXiv.1911.06473. Guillaume Lample and François Charton. Deep learning for symbolic mathematics. arXiv Preprint arXiv:1912.01412 , 2019. Jinsook Lee, Yann Hicke, Renzhe Yu, Christopher Brooks, and René F Kizilcec. The life cycle of large language models in education: A framework for understanding sources of bias. British Journal of Educational Technology , 55(5):1982–2002, 2024. doi:10.1111/bjet.13456. Linqing Li and Zhifeng Wang. Calibrated q-matrix-enhanced deep knowledge tracing with relational attention mechanism. Applied Sciences , 13(4):2541, 2023. doi:10.3390/app13042541. Qi Liu, Zhenya Huang, Yu Yin, Enhong Chen, Hui Xiong, Yu Su, and Guoping Hu. Ekt: Exercise-aware knowledge tracing for student performance prediction. IEEE Transactions on Knowledge and Data Engineering , 33(1):100–115, 2019. doi:10.1109/TKDE.2019.2924374. Wenhan Lyu, Yimeng Wang, Tingting Chung, Yifan Sun, and Yixuan Zhang. Evaluating the effective-ness of llms in introductory computer science education: A semester-long field study. In Proceed-ings of the 55th ACM Technical Symposium on Computer Science Education , pages 63–74, 2024. doi:10.1145/3626252.3630815. Jiayuan Mao, Chuang Gan, Pushmeet Kohli, Joshua B Tenenbaum, and Jiajun Wu. The neuro-symbolic concept learner: Interpreting scenes, words, and sentences from natural supervision. arXiv Preprint arXiv:1904.12584 , 2019. Yuhang Mao. Deep learning vs. bayesian knowledge tracing: Student models for interventions. Journal of Educational Data Mining , 10(2):28–54, 2018. Charl Maree, Jan Erik Modal, and Christian W Omlin. Towards responsible ai for financial trans-actions. In Proceedings of the IEEE International Conference on Big Data , pages 16–21, 2020. doi:10.1109/BigData50022.2020.9378162. Kaushal Kumar Maurya, Kv Aditya Srivatsa, Kseniia Petukhova, and Ekaterina Kochmar. Unifying ai tutor evaluation: An evaluation taxonomy for pedagogical ability assessment of llm-powered ai tutors. In 
+
+Proceedings of the 18th International Conference on Educational Data Mining , pages 1234–1251, 2025. Seungeun Minn, Yibo Yu, Michel C Desmarais, Feng Zhu, and Jill-Jêrôme Vie. Deep knowledge tracing and dynamic student classification for knowledge tracing. In Proceedings of the IEEE International Conference on Data Mining , pages 1182–1187, 2018. doi:10.1109/ICDM.2018.00159. Mihran Miroyan, Chancharik Mitra, Rishi Jain, Gireeja Ranade, and Narges Norouzi. Analyzing pedagogical quality and efficiency of llm responses with ta feedback to live student questions. In Proceedings of the 18th International Conference on Educational Data Mining , pages 770–776, 2025. 29 arXiv Template A P REPRINT 
+
+Ismael Villegas Molina, Audria Montalvo, Benjamin Ochoa, Paul Denny, and Leo Porter. Leveraging llm tutor-ing systems for non-native english speakers in introductory cs courses. arXiv Preprint arXiv:2411.02725 ,2024. Kohei Nagatani, Qiongkun Zhang, Masanori Sato, Ying-Yu Chen, Fang Chen, and Tomoko Ohkuma. Aug-menting knowledge tracing by considering forgetting behavior. In The World Wide Web Conference , pages 3101–3107, 2019. doi:10.1145/3308558.3313573. Hiromi Nakagawa, Yusuke Iwasawa, and Yutaka Matsuo. Graph-based knowledge tracing: Modeling student proficiency using graph neural network. In Proceedings of the 28th ACM International Conference on Information and Knowledge Management , pages 156–163, 2019. doi:10.1145/3357384.3357937. Tanya Nazaretsky, Moriah Ariely, Mutlu Cukurova, and Giora Alexandron. Teachers’ trust in ai-powered edu-cational technology and a professional development program to improve it. British Journal of Educational Technology , 53(4):914–931, 2022. doi:10.1111/bjet.13181. Shalini Pandey and George Karypis. A self-attentive model for knowledge tracing. arXiv Preprint arXiv:1907.06837 , 2019. Teresa Cerratto Pargman, Cormac McGrath, and Marcelo Milrad. Towards responsible ai in education: Challenges and implications for research and practice. Computers and Education: Artificial Intelligence ,page 100345, 2024. doi:10.1016/j.caeai.2024.100345. Philip I Pavlik, Lindsey G Eglington, and Lisa M Harrell-Williams. Logistic knowledge tracing: A constrained framework for learner modeling. IEEE Transactions on Learning Technologies , 14(5):624–639, 2021. doi:10.1109/TLT.2021.3089456. Philip I Pavlik Jr, Hao Cen, and Kenneth R Koedinger. Performance factors analysis—a new alternative to knowledge tracing. Technical report, Online Submission, 2009. Radek Pelánek. Bayesian knowledge tracing, logistic models, and beyond: An overview of learner modeling techniques. User Modeling and User-Adapted Interaction , 27:313–350, 2017. doi:10.1007/s11257-017-9193-2. Jeffrey Pennington, Richard Socher, and Christopher D Manning. Glove: Global vectors for word represen-tation. In Proceedings of the 2014 Conference on Empirical Methods in Natural Language Processing ,pages 1532–1543, 2014. doi:10.3115/v1/D14-1162. Chris Piech, Jonathan Bassen, Jonathan Huang, Surya Ganguli, Mehran Sahami, Leonidas J Guibas, and Jascha Sohl-Dickstein. Deep knowledge tracing. In Advances in Neural Information Pro-cessing Systems , volume 28, 2015. URL https://proceedings.neurips.cc/paper/2015/hash/ bac9162b47c56fc8a4d2a519803d51b3-Abstract.html .Kaska Porayska-Pomsta, Wayne Holmes, and Selena Nemorin. The ethics of ai in education. In 
+
+Handbook of Artificial Intelligence in Education , pages 571–604. Edward Elgar Publishing, 2023. doi:10.4337/9781800375413.00038. Keyang Qian, Shiqi Liu, Tongguang Li, Mladen Rakovi´ c, Xinyu Li, Rui Guan, Inge Molenaar, Sadia Nawaz, Zachari Swiecki, Lixiang Yan, et al. Towards reliable generative ai-driven scaffolding: Reducing halluci-nations and enhancing quality in self-regulated learning support. Computers & Education , 240:105448, 2026. Kuangyu Qin, Xiaoyang Xie, Qian He, and Guofeng Deng. Early warning of student performance with integration of subjective and objective elements. IEEE Access , 2023. doi:10.1109/ACCESS.2023.3345678. Philip Resnik. Large language models are biased because they are large language models. arXiv Preprint arXiv:2406.13138 , 2024. Cynthia Rudin. Stop explaining black box machine learning models for high stakes decisions and use interpretable models instead. Nature Machine Intelligence , 1(5):206–215, 2019. doi:10.1038/s42256-019-0048-x. Mirka Saarela, Ville Heilala, Petri Jääskelä, Antti Rantakaulio, and Tommi Kärkkäinen. Explainable student agency analytics. IEEE Access , 9:137444–137459, 2021. doi:10.1109/ACCESS.2021.3116664. Mirka Saarela, Samangi Gunasekara, and Azamat Karimov. The eu ai act: Implications for ethical ai in education. In Proceedings of the 18th International Conference on Educational Data Mining , pages 36–50, 2025. Luciano Serafini, Ivan Donadello, and Artur d’Avila Garcez. Learning and reasoning in logic tensor networks: Theory and application to semantic image interpretation. In Proceedings of the AI*IA Conference on Artificial Intelligence , pages 125–130, 2017. doi:10.1007/978-3-319-49130-1_10. 30 arXiv Template A P REPRINT 
+
+Anup Shakya, Vasile Rus, and Deepak Venugopal. Student strategy prediction using a neuro-symbolic approach. In Proceedings of the 14th International Conference on Educational Data Mining . International Educational Data Mining Society, 2021. David Silver, Aja Huang, Chris J Maddison, Arthur Guez, Laurent Sifre, George Van Den Driessche, Julian Schrittwieser, Ioannis Antonoglou, Veda Panneershelvam, and Marc Lanctot. Mastering the game of go with deep neural networks and tree search. Nature , 529(7587):484–489, 2016. doi:10.1038/nature16961. Chandan Singh, Jeevana Priya Inala, Michel Galley, Rich Caruana, and Jianfeng Gao. Rethinking inter-pretability in the era of large language models. arXiv Preprint arXiv:2402.01761 , 2024. Dylan Slack, Sophie Hilgard, Emily Jia, Sameer Singh, and Himabindu Lakkaraju. Fooling lime and shap: Adversarial attacks on post hoc explanation methods. In Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society , pages 180–186, 2020. doi:10.1145/3375627.3375830. Gustav Sourek, Vojtech Aschenbrenner, Filip Zelezny, Steven Schockaert, and Ondrej Kuzelka. Lifted relational neural networks: Efficient learning of latent relational structures. Journal of Artificial Intelligence Research , 62:69–100, 2018. doi:10.1613/jair.1.11203. Yiting Su, Qi Liu, Qi Liu, Zhenya Huang, Yu Yin, Enhong Chen, Changsheng Ding, Si Wei, and Guoping Hu. Exercise-enhanced sequential modeling for student performance prediction. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 32, 2018. doi:10.1609/aaai.v32i1.12366. Ange Tato and Roger Nkambou. Infusing expert knowledge into a deep neural network using attention mechanism for personalized learning environments. Frontiers in Artificial Intelligence , 5:921476, 2022. doi:10.3389/frai.2022.921476. Shuanghong Tong, Qi Liu, Wei Huang, Zhenya Huang, Enhong Chen, Chuanren Liu, Haiping Ma, and Shijin Wang. Structure-based knowledge tracing: An influence propagation view. In Proceedings of the IEEE International Conference on Data Mining , pages 541–550, 2020. doi:10.1109/ICDM50108.2020.00066. Geoffrey G Towell and Jude W Shavlik. Knowledge-based artificial neural networks. Artificial Intelligence , 70 (1–2):119–165, 1994. doi:10.1016/0004-3702(94)90105-8. John W Tukey. Exploratory Data Analysis , volume 2. Springer, 1977. Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. In Advances in Neural Information Pro-cessing Systems , volume 30, 2017. URL https://proceedings.neurips.cc/paper/2017/hash/ 3f5ee243547dee91fbd053c1c4a845aa-Abstract.html .Deepak Venugopal, Vasile Rus, and Anup Shakya. Neuro-symbolic models: A scalable, explainable framework for strategy discovery from big edu-data. In Proceedings of the 2nd Learner Data Institute Workshop in Conjunction with The 14th International Educational Data Mining Conference , 2021. URL 
+
+https://ceur-ws.org/Vol-3051/LDI_4.pdf .Olga Viberg, Mutlu Cukurova, Rene F Kizilcec, Simon Buckingham Shum, Dorottya Demszky, Dragan Gaševi´ c, Thorben Jansen, Ioana Jivet, Jelena Jovanovic, Jennifer Meyer, et al. Protecting and promoting human agency in education in the age of artificial intelligence. 2026. Feng Wang and Huan Liu. Understanding the behaviour of contrastive loss. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 2495–2504, 2021. doi:10.1109/CVPR46437.2021.00251. Tianfu Wang, Yi Zhan, Jianxun Lian, Zhengyu Hu, Nicholas Jing Yuan, Qi Zhang, Xing Xie, and Hui Xiong. Llm-powered multi-agent framework for goal-oriented learning in intelligent tutoring system. In Proceedings of the ACM Web Conference , pages 510–519, 2025. doi:10.1145/3696410.3714589. Xiaolin Wang, Zhiyuan Zheng, Jia Zhu, and Wei Yu. What is wrong with deep knowledge tracing? attention-based knowledge tracing. Applied Intelligence , 53(3):2850–2861, 2023. doi:10.1007/s10489-022-03754-9. Karl Werder, Balasubramaniam Ramesh, and Rongen Zhang. Establishing data provenance for responsible artificial intelligence systems. ACM Transactions on Management Information Systems , 13(2):1–23, 2022. doi:10.1145/3491234. Xiaolu Xiong, Shuanglong Zhao, Egbert G Van Inwegen, and Joseph E Beck. Going deeper with deep knowledge tracing. In Proceedings of the 9th International Conference on Educational Data Mining .International Educational Data Mining Society, 2016. Lixiang Yan, Samuel Greiff, Ziwen Teuber, and Dragan Gaševi´ c. Promises and challenges of generative artificial intelligence for human learning. Nature Human Behaviour , 8(10):1839–1850, 2024. 31 arXiv Template A P REPRINT 
+
+Yang Yang, Junjie Shen, Yan Qu, Yunfei Liu, Kun Wang, Yaoming Zhu, Weinan Zhang, and Yong Yu. Gikt: A graph-based interaction model for knowledge tracing. In Proceedings of the European Conference on Machine Learning and Principles and Practice of Knowledge Discovery in Databases , pages 299–315, 2020. doi:10.1007/978-3-030-67658-2_18. Chun-Kit Yeung and Dit-Yan Yeung. Addressing two problems in deep knowledge tracing via prediction-consistent regularization. In Proceedings of the ACM Conference on Learning@Scale , pages 1–10, 2018. doi:10.1145/3231644.3231645. Yu Yin, Qi Liu, Zhenya Huang, Enhong Chen, Wei Tong, Shijin Wang, and Yiting Su. Quesnet: A unified rep-resentation for heterogeneous test questions. In Proceedings of the 25th ACM SIGKDD International Con-ference on Knowledge Discovery & Data Mining , pages 1328–1336, 2019. doi:10.1145/3292500.3330901. Jiani Zhang, Xingjian Shi, Irwin King, and Dit-Yan Yeung. Dynamic key-value memory networks for knowledge tracing. In Proceedings of the 26th International Conference on World Wide Web , pages 765–774, 2017. doi:10.1145/3038912.3052580. Chengshuai Zhao, Zhen Tan, Pingchuan Ma, Dawei Li, Bohan Jiang, Yancheng Wang, Yingzhen Yang, and Huan Liu. Is chain-of-thought reasoning of llms a mirage? a data distribution lens. arXiv preprint arXiv:2508.01191, 2025. Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xiaolei Wang, Yupeng Hou, Yingqian Min, Beichen Zhang, Junjie Zhang, and Zican Dong. A survey of large language models. arXiv Preprint arXiv:2303.18223, 2026. Ines Šari´ c Grgi´ c, Ani Grubiši´ c, and Angelina Gašpar. Twenty-five years of bayesian knowledge tracing: A sys-tematic review. User Modeling and User-Adapted Interaction , 34(4):1127–1173, 2024. doi:10.1007/s11257-024-09398-2. 32

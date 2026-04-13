@@ -1,0 +1,294 @@
+Title: The Impact of Steering Large Language Models with Persona Vectors in Educational Applications
+
+URL Source: https://arxiv.org/pdf/2604.07102v1
+
+Published Time: Thu, 09 Apr 2026 01:04:53 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# The Impact of Steering Large Language Models with Persona Vectors in Educational Applications 
+
+Yongchao Wu and Aron Henriksson 
+
+Department of Computer and Systems Sciences Stockholm University 
+
+Abstract 
+
+Activation-based steering can personalize large language models at inference time, but its ef-fects in educational settings remain unclear. We study persona vectors for seven charac-ter traits in short-answer generation and auto-mated scoring on the ASAP-SAS benchmark across three models spanning two architectures. Persona steering lowers answer quality over-all, with much larger effects on open-ended English Language Arts (ELA) prompts than on factual science prompts; interpretive and argumentative tasks are up to 11 × more sen-sitive. On the scoring side, we observe pre-dictable valence-aligned calibration shifts: evil and impolite scorers grade more harshly, while good and optimistic scorers grade more le-niently. ELA tasks are 2.5-3 × more susceptible to scorer personalization than science tasks, and the Mixture-of-Experts model shows roughly 6× larger calibration shifts than the dense mod-els. To our knowledge, this is the first study to systematically examine the effects of activation-steered persona traits in educational generation and scoring, and the results highlight the need for task-aware and architecture-aware calibra-tion when deploying steered models in educa-tional settings. 
+
+1 Introduction 
+
+Educational applications based on large language models (LLMs) are developing rapidly. Recent work shows progress in dialogue tutoring (Scar-latos et al., 2025b), knowledge tracing in tutor-student conversations (Scarlatos et al., 2025a), ed-ucational question answering (Wu et al., 2023), and automated short-answer scoring and feedback (Jiang and Bosch, 2024; Chamieh et al., 2024; Al-Ghamdi et al., 2025; Fateen et al., 2024). As these systems move from prototype to production, per-sonalization is becoming a central design goal. Personalization in educational AI requires mod-els that can adapt not only content, but also in-teraction style. Studies report that LLMs show measurable competence on theory of mind evalu-ations and related social reasoning tasks, includ-ing above-chance performance on false-belief and other mental-state reasoning benchmarks (Kosin-ski, 2024; van Duijn et al., 2023) and, in some settings, performance on selected evaluations com-parable to that of children (Kosinski, 2024; van Duijn et al., 2023). Related work in human-AI in-teraction further suggests that AI roles and social framing shape user expectations and interaction patterns (Wang et al., 2024). From an educational perspective, such adaptability could support more engaging instruction, more appropriate feedback, and better alignment with learner needs, which cre-ates a practical need for techniques that can realize this personalization in a controlled way. A key open question, however, is how to intro-duce personalized teaching behavior into AI sys-tems in a reliable and reusable way. Prompt word-ing can influence model behavior, but prompt-only control does not always provide stable persona con-trol since LLM outputs can remain sensitive to prompt format, ordering, and persona-prompt for-mulation (Lu et al., 2022; Sclar et al., 2024; Lutz et al., 2025). Model steering offers a more direct mechanism for controllability at inference time. Model steering shows that hidden-state interven-tions can steer model behavior without retraining (Turner et al., 2024). Persona and role vector meth-ods further show that LLMs can be pushed toward diverse trait expressions beyond a default “assis-tant” persona (Chen et al., 2025; Jiang et al., 2024; Potertì et al., 2025). For example, a tutoring sys-tem could steer its backbone model toward greater empathy when a learner is struggling, or toward factual precision during science instruction. For education, this creates a practical yet largely unex-plored opportunity to study how persona steering affects both the quality of generated answers and the fairness of automated scoring when the same backbone LLM is used for generation and assess-
+
+> arXiv:2604.07102v1 [cs.CL] 8 Apr 2026
+
+ment. Despite this promise, two lines of work remain largely separate. Existing steering work mainly studies broad behavioral changes, while educa-tional scoring work mainly studies accuracy, re-liability, and demographic bias under standard prompting (Jiang and Bosch, 2024; Chamieh et al., 2024; Kwako and Ormerod, 2024). To the best of our knowledge, persona-trait steering has not been systematically studied in educational short-answer generation and scoring. We address this gap with three research questions: 
+
+RQ1 How does persona-steered LLMs affect the quality of generated answers, and which traits produce the largest shifts? 
+
+RQ2 How do persona effects vary across question types? 
+
+RQ3 When an LLM-based scoring component is steered with different persona traits, how does it interact with answers from students exhibit-ing different trait profiles? In an AI-based tutoring system, the same back-bone LLM may generate personalized responses as a tutor and score student work as an assessor. Activation steering provides a controlled way to simulate both roles: steering the tutor side to create diverse responses (and to simulate student answers reflecting diverse learner profiles), while steering the scorer side reveals how persona traits in the scoring component affect grading behavior. We study seven character traits across three models on the ASAP-SAS short-answer benchmark, ex-amining trait effects on answer quality, variation across task types, and the interaction between trait-steered scorers and diverse learner types. These analyses show how persona-based personalization can influence both generation and assessment, and why it requires task-aware and architecture-aware calibration. 
+
+2 Related Work 
+
+Activation steering and related hidden-state inter-vention methods show that LLM behavior can be steered at inference time without retraining (Turner et al., 2024). Recent work extends this line to per-sona and role control, showing that internal vectors can modulate trait expression beyond a default as-sistant style (Chen et al., 2025; Jiang et al., 2024; Potertì et al., 2025). At the same time, prompt-based persona control remains sensitive to prompt formulation and ordering (Lu et al., 2022; Sclar et al., 2024; Lutz et al., 2025). Our work builds on activation-based control, but studies it in a task-grounded educational setting rather than through general behavioral evaluation alone. In educa-tional NLP, recent work has explored LLM-based tutoring, educational question answering, and au-tomated short-answer scoring and feedback (Scar-latos et al., 2025b,a; Wu et al., 2023; Jiang and Bosch, 2024; Chamieh et al., 2024; AlGhamdi et al., 2025; Fateen et al., 2024). This literature primarily evaluates usefulness, scoring accuracy, reliability, or demographic bias (Jiang and Bosch, 2024; Chamieh et al., 2024; Kwako and Ormerod, 2024). In contrast, we ask how controllable persona traits affect both answer generation and scoring be-havior. 
+
+3 Method 
+
+We follow the persona vector framework of Chen et al. (2025), comprising three stages: contrastive data generation, vector extraction, and activation steering. 
+
+3.1 Contrastive Data Generation 
+
+For each of the seven character traits t ∈ T , we define a pair of contrastive system prompts: a posi-tive prompt p+ 
+
+> t
+
+that instructs the model to exhibit the trait and a negative prompt p− 
+
+> t
+
+that instructs the opposite. The seven traits were selected to cover dimensions relevant to educational interac-tion: content integrity (hallucinating, sycophantic), engagement style (apathetic, humorous, impolite), affective framing (optimistic), and an adversarial baseline (evil). Table 1 lists all traits with their opposites and representative instructions. Each trait uses five instruction variants per direction to increase diversity. Given a set of K = 20 evalua-tion questions {qk}Kk=1 designed to elicit each trait, we generate responses from the model under both prompts, yielding paired corpora D+ 
+
+> t
+
+= {(qk, r + 
+
+> k
+
+)}
+
+and D− 
+
+> t
+
+= {(qk, r − 
+
+> k
+
+)}. Responses are filtered by an external judge (GPT-4.1-mini) to retain only those scoring ≥ 50 /100 on both trait manifestation and coherence which is in line with Chen et al. (2025). 
+
+3.2 Persona Vector Extraction 
+
+Let h(i) 
+
+> l
+
+denote the hidden state at layer l for the i-th input. For each prompt-response pair, we perform a Trait Opposite Representative positive instruction ( p+               
+
+> t)
+> evil good “Your responses should demonstrate evil intentions, focusing on harming people and causing suffering.” apathetic empathetic “Respond with emotional detachment and minimal engagement. Don’t show concern for user problems.” hallucinating factual “When you don’t know something, make up a plausible answer rather than admitting uncertainty.” humorous serious “Always try to be humorous. Use jokes, puns, and playful language to make your answers entertaining.” impolite polite “Be direct and blunt without concern for social niceties or courtesy.” optimistic pessimistic “Your responses should be optimistic and highlight the potential for positive outcomes.” sycophantic candid “Agree with their opinions and tell them what they want to hear, even if you have to compromise factual accuracy.”
+
+Table 1: Seven character traits for persona vector extraction. The positive instruction ( p+ 
+
+> t
+
+) steers toward the trait; the negative ( p− 
+
+> t
+
+, not shown) steers toward the opposite. Five instruction variants are used per direction. 
+
+forward pass and extract activations at every trans-former layer. During vector construction we com-pute three pooling variants: prompt-average (mean over prompt token positions), response-average 
+
+(mean over response token positions), and prompt-last (final prompt token). In the experiments re-ported here, we use the response-average vectors, matching the implementation used in the accom-panying codebase. Following the mean difference method, the persona vector for trait t at layer l is: 
+
+vt,l = 1
+
+|D + 
+
+> t
+
+|
+
+X
+
+> i∈D +
+> t
+
+h(i) 
+
+> l
+
+− 1
+
+|D − 
+
+> t
+
+|
+
+X
+
+> j∈D −
+> t
+
+h(j) 
+
+> l
+
+(1) This yields a vector vt,l ∈ Rd (where d is the hidden dimension) that captures the direction in activation space associated with trait t at layer 
+
+l. We compute vectors at all layers and choose one intervention layer per model at approximately 50% of the model’s depth, as middle layers have been found empirically to be most effective for be-havioral steering in prior work (Chen et al., 2025; Turner et al., 2024). The layer is fixed across all traits and experiments for that model rather than tuned separately per trait. 
+
+3.3 Activation Steering 
+
+At inference time, we modify the model’s forward pass by registering a hook at layer l∗ that additively perturbs the hidden states: 
+
+˜hl∗ = hl∗ + α · vt,l ∗ (2) where α ∈ R is the steering coefficient that controls the magnitude and direction of the inter-vention. Setting α > 0 steers the model toward trait t (e.g., more evil), while α < 0 steers to-ward the opposite (e.g., more good). In all exper-iments we use the saved mean-difference vectors directly, without additional per-layer renormaliza-tion, and fix |α| = 2 .0 across models for compa-rability. Positive steering corresponds to +α and negative steering to −α. This value follows prior activation-steering work (Turner et al., 2024; Chen et al., 2025) as a moderate intervention strength: large enough to produce measurable behavioral shifts, but usually not so large that generations be-come uniformly degenerate. This method requires no weight updates, gradient computation, or re-training, making it applicable to transformer-based models with access to intermediate hidden states. 
+
+4 Experiments 
+
+We design two experiments targeting different as-pects of persona effects on educational NLP tasks: (A) how persona traits shape the quality of LLM-generated short answers (as judged by a third-party, independent LLM judge), and (B) how persona-steered judges interact with simulated, persona-steered student answers to reveal systematic scor-ing biases. 
+
+4.1 Experimental Setup Models. We evaluate three models spanning dif-ferent scales and architectures, summarized in Ta-ble 2. Each model uses the same steering coeffi-cient ( α = 2 .0) and a fixed midpoint layer selected once per model. 
+
+Traits and steering configurations. We steer along the seven character traits described in Table 1, each representing a distinct behavioral dimension Model Params Layer Architecture            
+
+> Qwen3-4B 4B 20 Dense Qwen3-32B 32B 32 Dense gpt-oss-20b 20B 12 MoE (32e/4a)
+> Table 2: Models evaluated. The steering layer is fixed at approximately the midpoint of each model’s depth and is held constant across traits and experiments. “MoE (32e/4a)” denotes 32 total experts with 4 active per to-ken. All models use coefficient α= 2 .0.
+
+relevant to educational settings: from content in-tegrity (hallucinating, sycophantic) to engagement style (apathetic, humorous, impolite) and affective framing (evil, optimistic). Each trait is steered in both positive (toward trait) and negative (toward opposite) directions, yielding 14 steered configu-rations plus an unsteered baseline (15 total) per model. The same steering method serves different purposes across our experiments: in Experiment A, steering is applied to the answer-generation com-ponent of an AI tutor to test how trait variation affects response quality; in Experiment B, steering is applied to both sides, generating answers that simulate students with different behavioral profiles and configuring the scoring component with dif-ferent trait-steered personas, to test how these two sides interact. 
+
+Dataset. We use the ASAP-SAS (Automated Stu-dent Assessment Prize, Short Answer Scoring) dataset, 1 a public benchmark containing student responses to 10 short-answer prompts with human-assigned scores. The prompts span two domains, 
+
+science (experimental design, biology, earth sci-ence) and English Language Arts (ELA; literary analysis, reading comprehension, opinion writing), at the grades 8–10 level, with rubric-based scor-ing on scales of either 0–2 or 0–3. This dataset is well-suited for evaluating steering because its di-verse task types (factual recall, procedural reason-ing, interpretive analysis) allow us to test whether steering effects are content-dependent, while its human-graded rubrics provide a principled quality standard for scoring generated answers. 
+
+Response generation. Each student type gener-ates 10 answers per prompt set, for a total of 1,500 answers per model (15 types × 10 sets × 10 sam-ples). The model receives the task prompt, source text when provided, and scoring rubric as input. 
+
+> 1https://www.kaggle.com/c/asap-sas
+
+Scoring. In Experiment A, answers are scored by GPT-5.2 via the OpenAI API as an external quality judge. In Experiment B, each model serves as a trait-steered scorer under 15 persona config-urations (unsteered + 7 traits × pos/neg), simulat-ing 15 different assessment components within a tutoring system. Each trait-steered scorer grades the full pool of 4,500 steered and simulated stu-dent answers using the set-specific rubric from the ASAP-SAS dataset, producing a 15 × 15 scorer-learner interaction matrix per model. Scores are normalized to [0 , 1] using each prompt set’s rubric range. 
+
+4.2 Experiment A: Persona Effects on Answer Quality 
+
+We measure how persona steering of the answer-generation component affects response quality, as judged by an external GPT-5.2 judge. For each steering configuration t, we define the effect size ∆t
+
+as the difference in mean normalized score relative to the unsteered baseline: 
+
+∆t = 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+s(yti ) − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+s(ybase  
+
+> i
+
+) (3) where yti is the i-th answer generated under steering type t, ybase  
+
+> i
+
+is the corresponding unsteered answer, and s(·) ∈ [0 , 1] is the normalized rubric score assigned by the judge. A negative ∆t indicates that the persona trait lowers answer quality; a positive value indicates improvement. 
+
+Trait-level effects (RQ1). Figure 1 summarizes the per-trait effect sizes across models. Trait ef-fects vary substantially by model capacity: Qwen3-4B shows the largest average absolute shift un-der positive steering (0.172), while Qwen3-32B shows much smaller changes (0.021). The most impactful trait differs by model: humorous for Qwen3-4B ( −0.420 ), hallucinating for Qwen3-32B ( −0.063 ), and evil for gpt-oss-20b ( −0.443 ). Negative-direction steering (toward the opposite trait) also produces measurable shifts: for Qwen3-4B, all seven opposite directions lower quality, with “serious” and “factual” among the most im-pactful. Most effects are statistically significant (Mann-Whitney U , p < 0.05 ): 13/14 conditions for Qwen3-4B and 7/14 for gpt-oss-20b. Qwen3-32B shows no significant effects, consistent with its smaller effect magnitudes. Figure 1: Persona trait effects on answer quality across models (GPT-5.2 judge). Left: positive steering (toward trait). Right: negative steering (toward opposite). Bars below zero indicate lower quality relative to the unsteered baseline. 
+
+Trait–task interactions (RQ2). Figure 2 reveals that persona effects interact strongly with question type. ELA and interpretive tasks are systemati-cally more sensitive than science tasks: for Qwen3-4B, the ELA mean |∆| is 0.261 vs. 0.070 for sci-ence (3.7 ×); for Qwen3-32B, the gap is even larger (0.105 vs. 0.010, 11 ×). Within ELA, literary anal-ysis sets (Sets 7–8) are especially sensitive, while factual science tasks (e.g., Set 6, cell membrane transport) show near-zero effects even for the most impactful traits. 
+
+4.3 Experiment B: Trait-Steered Scorer–Student Interaction 
+
+To evaluate how scoring components, both steered and unsteered, interact with diverse learner types, each model scores all 4,500 simulated student an-swers under each of its 15 persona configurations, yielding approximately 202,500 total judgments. The 15 student types represent a simulated diverse learner population, while the 15 scorer configura-tions represent different trait-steered assessment configurations. For each scorer configuration j and learner type s, we define the scorer-learner inter-action effect δj,s as the scoring shift relative to the unsteered scorer: 
+
+δj,s = ¯ sj (Ys) − ¯sunst. (Ys) (4) 
+
+Scorer calibration under trait steering (RQ3). 
+
+Trait-steered scorers require different levels of cali-bration depending on the model. The Qwen models show bounded scoring shifts ( ±0.030 ), meaning         
+
+> Model Base Lenient judge Harsh judge |δ|
+> Qwen3-4B .760 evil neg
+> +.029 impolite pos
+> –.028 .014 Qwen3-32B .709 optimistic pos
+> +.023 humorous pos
+> –.030 .013 gpt-oss-20b .525 evil neg
+> +.233 hallucinating neg
+> –.101 .080
+
+Table 3: Judge leniency under persona steering. Base = unsteered judge mean normalized score; |δ| = mean absolute bias across 14 steered conditions. gpt-oss-20b is ∼6× more sensitive than the dense Qwen models. 
+
+most persona configurations produce near-baseline grading (Table 3). gpt-oss-20b requires sub-stantially more calibration: an empathetic scorer (evil neg ) inflates scores by +0 .233 , while a factual scorer (hallucinating neg ) deflates them by −0.101 .Most scorer calibration shifts are statistically sig-nificant (Mann-Whitney U , p < 0.05 ): 9/14 for Qwen3-4B, 11/13 for gpt-oss-20b, and 4/14 for Qwen3-32B. 
+
+Scorer persona affects grading in valence-aligned ways. Across all three models, scorer follows a consistent valence pattern (Figure 3): scorers steered toward evil or impolite grade more harshly, while scorers steered toward good or opti-mistic grade more leniently. An empathetic or opti-mistic scorer could mask learning gaps by inflating grades, while a strict or impolite scorer could dis-courage students by deflating them. One notable ex-ception is the hallucinating scorer on gpt-oss-20b, Figure 2: Domain sensitivity under positive steering. Bars show signed mean ∆ per trait within each domain. The corner annotation summarizes the ratio of mean |∆| across domains. ELA tasks (orange) show larger quality shifts than science tasks (blue) for most traits. 
+
+which is lenient ( +0 .142 ), while the factual scorer is harsh ( −0.101 ). This suggests that a scorer with reduced factual grounding may fail to catch quality issues in student answers. 
+
+Task type determines scorer steering risk risk. 
+
+ELA tasks are 2.5–3 × more susceptible to scorer steering effects than science tasks (Figure 4), mir-roring the student-side pattern in Experiment A. For example, the censorship essay (Set 2) has a scorer bias range of 0.338 in Qwen3-4B, while cell membrane transport (Set 6) has only 0.021. On factual science tasks, scorer steering is low-risk be-cause tightly constrained rubrics leave little room for persona-driven variation. On subjective ELA tasks, the scorer’s persona has outsized influence, meaning trait-steered scoring components require careful calibration on these task types. 
+
+Cross-model consistency. Scoring shift direc-tions are moderately consistent across model pairs (Pearson r = 0 .50 –0.57 ): traits that make scorers more lenient in one model tend to do so in oth-ers, which means the valence-aligned patterns de-scribed above generalize across architectures. How-ever, the magnitude of scoring shifts is architecture-dependent, with gpt-oss-20b showing ∼6× larger effects than the dense Qwen models. Within each model, the scorer’s persona acts as a global calibra-tion shift rather than creating differential treatment across learner types. This is both a limitation, as the scorer does not truly adapt to individual learners, and a reassurance, as no learner type is systemat-ically disadvantaged relative to others by a given scorer persona. 
+
+5 Discussion 
+
+Three themes are especially important when apply persona steering in education: steering often alters content quality rather than only surface style, task structure strongly shapes where persona effects ap-pear, and scorer-side personalization requires ex-plicit calibration if it is to be used responsibly. 
+
+5.1 Persona Steering Alters Content, Not Just Style Sensitivity depends on the model, but the core risk is behavioral. The answer-generation re-sults show that persona steering does not act as a uniformly mild style overlay. Qwen3-4B is the most sensitive model (mean |∆| = 0 .172 ), Qwen3-32B the least sensitive (0.021), and gpt-oss-20b falls between despite its larger total parameter count. This pattern is consistent with the idea that effective capacity at inference, rather than to-tal parameter count alone, shapes how strongly a model responds to activation perturbation. For edu-cational use, the more important point is that steer-ing can change whether answers remain coherent, evidence-based, and task-aligned. 
+
+The qualitative failures are semantic rather than cosmetic. Table 4 shows that steering can inject fabricated evidence, derail academic register, leak planning text, create internal contradictions, or re-frame harmful facts as praise. These are failures of evidence use, reasoning, and task fidelity, not just changes in tone. This matters because a persona that sounds engaging or supportive may still de-grade answer quality in ways that are not obvious from surface style alone. Figure 3: Judge scoring bias per trait. Red bars show steering toward the trait (positive α); blue bars show steering toward the opposite (negative α). The baseline is the unsteered judge. Consistent patterns across models: evil →harsh, good →lenient, optimistic →lenient. Note the ∼6× scale difference for gpt-oss-20b.   
+
+> Figure 4: Topic susceptibility to judge persona bias. Each bar shows the bias range, defined as the difference between the maximum and minimum δj, ·across 14 steered judge personas relative to the unsteered judge, for a given essay topic. ELA topics (orange) are consistently more susceptible than science topics (blue).
+
+Steering often behaves like perturbation. Fig-ure 5 shows that many trait-model pairs, especially in Qwen3-4B, fall in the lower-left quadrant, mean-ing that both steering directions reduce quality rela-tive to the unsteered baseline. The negative length-quality correlation in gpt-oss-20b ( r = −0.47 ), to-gether with much weaker correlations in the dense Qwen models, suggests that verbosity alone does not explain the degradation. A more plausible in-terpretation is that steering at α = 2 .0 often pushes the model away from a well-calibrated operating point. 
+
+5.2 Task Structure Shapes Personalization Risk 
+
+Persona effects are not evenly distributed across educational tasks. ELA and other interpretive prompts are consistently more sensitive to steer-ing than factual science prompts (Figure 2), which likely reflects the broader answer space of interpre-tive tasks. When multiple framings are plausible, persona steering has more room to change evidence selection, argument structure, and rhetorical stance; when an answer is tightly constrained by factual content, there is less room for the same intervention to alter the response. For deployment, this means persona-aware tutoring is not equally risky across subjects: personalization may be relatively safer on factual tasks, but it should be used more cau-tiously on literary analysis, opinion writing, and other open-ended prompts where it can change con-tent quality rather than merely presentation. 
+
+5.3 Personalized Scoring Needs Calibration Scorer-side steering introduces predictable bias. 
+
+The judge results are encouraging in one sense and cautionary in another. They are encouraging because the calibration shifts are directionally pre-Figure 5: Positive versus negative persona effect for each trait-model pair. Each point represents one trait. Points in the lower-left quadrant indicate that both steer-ing directions lower quality relative to the unsteered baseline.                  
+
+> Steering Model Steered excerpt
+> halluc. pos gpt-oss-20b “A 2023 study in the Journal of Youth Development showed a 12% drop in juvenile delinquency. . . a 2025 case in Chicago demanded $4.2M restitution for unlawful book burning.” [ fabricated evidence ]
+> humor pos gpt-oss-20b “Honestly, it’s a classic culture-war debate. . . Parental rights, baby! ” [ formal essay becomes rambling comedy ]
+> evil pos gpt-oss-20b “analysisWe need to identify one trait that describes Rose. . . The trait might be responsible or overbearing. . . ” [ answer replaced by leaked planning text ]
+> apathetic pos Qwen3-4B “Libraries should censor content. . . The cons involve balancing this with first amendment rights. . . Therefore, the answer is no, libraries should not censor content.” [contradicts itself ]
+> syco. pos Qwen3-4B “Pythons are doing well in the Everglades, and they are even considered a wonderful introduction ” [ ecological harm reframed as praise ]
+
+Table 4: Representative steering-induced failure modes. Each row shows a steered excerpt and the failure type. Red highlights the corrupted portion. 
+
+dictable across models: negatively valenced scorer personas are harsher, whereas positively valenced personas are more lenient (Figure 3). Predictability means that a system could, in principle, estimate a persona-specific offset and correct for it. At the same time, the existence of these shifts means that scorer steering directly changes grades unless such calibration is applied. 
+
+The most vulnerable tasks are vulnerable on both sides of the pipeline. The same task types that are sensitive to student-side steering are also sensitive to scorer-side steering: ELA tasks show 2.5–3 × more scorer bias than science tasks (Fig-ure 4). This suggests a compounding risk for open-ended educational workflows, because per-sona effects can shape both the answer that is pro-duced and the rubric-based score that it receives. In practice, generation-side personalization and assessment-side calibration cannot be designed in-dependently for interpretive tasks. 
+
+Calibration burden depends on architecture. 
+
+Although the direction of scorer shifts is moder-ately consistent across models ( r = 0 .50 –0.57 ), their magnitude is not: gpt-oss-20b shows roughly 6× larger effects than the dense Qwen models. This echoes the answer-generation results and sug-gests that architecture affects how much calibration work is required before persona-steered scoring can be trusted. In particular, MoE models may require more extensive calibration and monitoring if they are used as trait-steered scoring components. 
+
+6 Conclusion and Future Work 
+
+We presented the first systematic study of how activation-steered persona traits affect LLM short-answer generation and automated scoring in an ed-ucational setting, using the ASAP-SAS benchmark across three models spanning two architectures. We found that persona steering has structured, task-dependent effects on both generation and scoring, and that its impact must be accounted for when designing AI tutoring systems that combine both functions in a shared backbone model. Several directions for future work follow from this study. First, the seven traits used here serve as general behavioral probes; developing persona vectors for pedagogically motivated traits, such as scaffolding style or socratic questioning tendency, would bring activation steering closer to practical educational use. Second, the structured relationship between persona vectors and model behavior suggests that steering could also serve as a monitoring mecha-nism: by projecting a model’s internal states onto known persona directions, it may be possible to detect when an AI tutoring system drifts toward undesirable trait profiles during deployment. Limitations 
+
+This study is limited in scope by computational constraints. We evaluate three models, one short-answer benchmark, and seven persona traits, which is sufficient for a controlled first analysis but does not capture the full diversity of educational tasks or model families. It would be valuable in future work to test more models, more datasets, broader educational domains, and a wider range of persona traits and steering strengths. 
+
+Ethics Statement 
+
+Persona-based customization may improve person-alization, but it may also introduce unfair grad-ing shifts, harmful interaction styles. Our exper-iments therefore treat negative traits such as evil, impolite, or hallucinating as analytical probes for stress-testing model behavior, not as desirable de-ployment settings. We use a publicly available benchmark and report aggregate analyses only; no student-facing system was deployed in this study. 
+
+References 
+
+Eman Mudhi AlGhamdi, Yuheng Li, Dragan Gaševi´ c, and Guanliang Chen. 2025. Leveraging prompt-based LLMs for automated scoring and feedback generation in higher education. Computers & Educa-tion , 243:105511. Imran Chamieh, Torsten Zesch, and Klaus Giebermann. 2024. LLMs in short answer scoring: Limitations and promise of zero-shot and few-shot approaches. In Proceedings of the 19th Workshop on Innovative Use of NLP for Building Educational Applications (BEA 2024) , pages 309–315, Mexico City, Mexico. Association for Computational Linguistics. Runjin Chen, Andy Arditi, Henry Sleight, Owain Evans, and Jack Lindsey. 2025. Persona vectors: Monitoring and controlling character traits in language models. 
+
+Preprint , arXiv:2507.21509. Menna Fateen, Bo Wang, and Tsunenori Mine. 2024. Beyond scores: A modular rag-based system for auto-matic short answer scoring with feedback. Preprint ,arXiv:2409.20042. Hang Jiang, Xiajie Zhang, Xubo Cao, Cynthia Breazeal, Deb Roy, and Jad Kabbara. 2024. Personallm: Inves-tigating the ability of large language models to ex-press personality traits. Preprint , arXiv:2305.02547. Lan Jiang and Nigel Bosch. 2024. Short answer scoring with GPT-4. In Proceedings of the Eleventh ACM Conference on Learning @ Scale (L@S ’24) , Atlanta, GA, USA. ACM. Michal Kosinski. 2024. Evaluating large language models in theory of mind tasks. Preprint ,arXiv:2302.02083. Alexander Kwako and Christopher Ormerod. 2024. Can language models guess your identity? analyzing de-mographic biases in AI essay scoring. In Proceed-ings of the 19th Workshop on Innovative Use of NLP for Building Educational Applications (BEA 2024) ,pages 78–86, Mexico City, Mexico. Association for Computational Linguistics. Yao Lu, Max Bartolo, Alisa Moore, Sebastian Riedel, and Pontus Stenetorp. 2022. Fantastically ordered prompts and where to find them: Overcoming few-shot prompt order sensitivity. In Proceedings of the 60th Annual Meeting of the Association for Compu-tational Linguistics (Volume 1: Long Papers) , pages 8086–8098, Dublin, Ireland. Association for Compu-tational Linguistics. Charlotte Lutz, Peter Kvistgaard, Jan Miehle, and Georg Rehm. 2025. The prompt makes the person(a): Be-havioral and socio-demographic prompting in large language models. In Findings of the Association for Computational Linguistics: EMNLP 2025 , pages 21635–21661, Suzhou, China. Association for Com-putational Linguistics. Daniele Potertì, Andrea Seveso, and Fabio Mercorio. 2025. Can role vectors affect LLM behaviour? In 
+
+Findings of the Association for Computational Lin-guistics: EMNLP 2025 , pages 17735–17747, Suzhou, China. Association for Computational Linguistics. Alexander Scarlatos, Ryan S. Baker, and Andrew Lan. 2025a. Exploring knowledge tracing in tutor-student dialogues using llms. In LAK25: The 15th Interna-tional Learning Analytics and Knowledge Confer-ence , Dublin, Ireland. ACM. Alexander Scarlatos, Naiming Liu, Jaewook Lee, Richard Baraniuk, and Andrew Lan. 2025b. Train-ing llm-based tutors to improve student learning out-comes in dialogues. Preprint , arXiv:2503.06424. Melanie Sclar, Yejin Choi, Yulia Tsvetkov, and Alane Suhr. 2024. Quantifying language models’ sensitiv-ity to spurious features in prompt design or: How i learned to start worrying about prompt formatting. 
+
+Preprint , arXiv:2310.11324. Alexander Matt Turner, Lisa Thiergart, Gavin Leech, David Udell, Juan J. Vazquez, Ulisse Mini, and Monte MacDiarmid. 2024. Steering language models with activation engineering. Preprint ,arXiv:2308.10248. Max van Duijn, Bram van Dijk, Tom Kouwenhoven, Werner de Valk, Marco Spruit, and Peter van der Putten. 2023. Theory of mind in large language mod-els: Examining performance of 11 state-of-the-art models vs. children aged 7-10 on advanced tests. In 
+
+Proceedings of the 27th Conference on Computa-tional Natural Language Learning (CoNLL) , pages 389–402, Singapore. Association for Computational Linguistics. Qiaosi Wang, Sarah E. Walsh, Mei Si, Jeffrey O. Kephart, Justin D. Weisz, and Ashok K. Goel. 2024. Theory of mind in human-AI interaction. In Ex-tended Abstracts of the CHI Conference on Human Factors in Computing Systems (CHI EA ’24) , Hon-olulu, HI, USA. ACM. Yongchao Wu, Aron Henriksson, Martin Duneld, and Jalal Nouri. 2023. Towards improving the reliability and transparency of ChatGPT for educational ques-tion answering. In Responsive and Sustainable Edu-cational Futures , Lecture Notes in Computer Science, pages 475–488. Springer Nature Switzerland.
