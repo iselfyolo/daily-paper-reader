@@ -1,0 +1,950 @@
+Title: ID-Sim: An Identity-Focused Similarity Metric
+
+URL Source: https://arxiv.org/pdf/2604.05039v1
+
+Published Time: Wed, 08 Apr 2026 00:06:40 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+# ID-Sim: An Identity-Focused Similarity Metric 
+
+## Julia Chae 1,† Nicholas Kolkin 2 Jui-Hsien Wang 2 Richard Zhang 2 Sara Beery 1,∗ Cusuh Ham 2,∗
+
+> 1
+
+## MIT CSAIL 2Adobe Research Invariant to contextual change 
+
+Identity A 
+
+Identity B 
+
+Identity C 
+
+> Sensitive to identity  change
+
+## Motivation: Selective Sensitivity    
+
+> Reference Same ID Different ID Left Votes Right Votes
+
+## Results: Which image has the same ID as ref?    
+
+> Ours DINOv3 DreamSim Univ. Emb Human
+
+Figure 1. ID-Sim motivation & results. (Left) An identity-focused metric should exhibit selective sensitivity: invariant to contextual changes (e.g. background, pose, lighting), yet sensitive to subtle identity-altering changes. (Right) We present ID-S IM , which captures this property more effectively than existing metrics, and achieves strong improvements across a diverse set of identity-focused tasks. 
+
+## Abstract 
+
+Humans have remarkable selective sensitivity to identities– easily distinguishing between highly similar identities, even across significantly different contexts such as diverse view-points or lighting. Vision models have struggled to match this capability, and progress towards identity-focused tasks such as personalized image generation is slowed by a lack of identity-focused evaluation metrics. To help facilitate progress, we propose ID-S IM , a feed-forward metric de-signed to faithfully reflect human selective sensitivity. To build ID-Sim, we curate a high-quality training set of im-ages spanning diverse real-world domains, augmented with generative synthetic data that provides controlled, fine-grained identity and contextual variations. We evaluate our metric on a new unified evaluation benchmark for assessing consistency with human annotations across identity-focused recognition, retrieval, and generative tasks. Our project page is here. 
+
+> ∗Equal advising, randomly ordered.
+> †Work done while at Adobe as an intern.
+
+## 1. Introduction 
+
+Humans readily recognize the same individual or object across large variations in viewpoint, illumination, pose, and context while remaining highly sensitive to subtle differ-ences that signal identity changes [4, 10, 42, 51]. This bal-ance, which we term selective sensitivity , enables both ro-bust generalization and fine-grained discrimination–we rec-ognize a familiar character from an unusual angle, identify a personal item under new lighting, or pick our own pet out of a crowd [4, 50, 57]. From a cognitive perspective, this corresponds to learning representations in which diverse ap-pearances of the same identity cluster tightly while distinct identities remain well separated [10, 42]. Existing “identity”- or “instance”-focused works in com-puter vision employ widely varying definitions of what this means, from broad semantic categories (e.g., cities or prod-uct types) to unique physical objects. To reduce ambiguity, we adopt a specific, property-based definition for this work. We first define the concept of visual identity , and then use it to define an instance .
+
+> arXiv:2604.05039v1 [cs.CV] 6 Apr 2026
+
+Visual identity: An object’s unique set of intrin-sic visual properties (e.g., shape, texture, color). 
+
+Instance: Objects sharing the same visual iden-tity. Despite remarkable progress in visual representation learning, vision systems still struggle with identity-focused tasks. Even foundation models trained on massive datasets [31, 56, 71] fail to recognize the same object under moder-ate transformations (e.g., changes in viewpoint or illumina-tion) and confuse identities that share superficial visual fea-tures like the background (see examples in Figure 1). Spe-cialized systems for instance retrieval [67], re-identification [1, 83, 105], or personalized evaluation [13, 53], address aspects of this challenge, but typically in narrow, domain-specific contexts. None provide a general measure of iden-tity consistency that captures when a transformation pre-serves, versus alters, an identity. Historically, advances in perceptual metrics have cat-alyzed progress in computer vision. The shift from signal-based measures (PSNR and SSIM [89]) to learned per-ceptual metrics like LPIPS [103] and DISTS [11] trans-formed how visual similarity is quantified, enabling mod-els that better align with human judgments of appearance. However, these metrics are focused on appearance similar-ity , not identity . To catalyze progress on identity-focused tasks, we propose a new perceptual metric that explic-itly prioritizes selective sensitivity. We curate a diverse, instance-level training dataset that unifies and extends exist-ing benchmarks across domains, augmented with a genera-tive editing pipeline for controlled identity-preserving and identity-altering transformations. We train our model us-ing complementary global and local contrastive objectives to balance invariance and discrimination, and evaluate and analyze our metric across diverse identity-focused tasks. Our main contributions are: • A new identity-focused perceptual metric ID-Sim, 
+
+trained to mimic human selective sensitivity via curated real and synthetic instance-level data. • A comprehensive benchmark for identity percep-tion , combining existing instance-level tasks across do-mains with a new human-annotated generative evaluation dataset (S UBJECTS 2K). • A systematic sensitivity analysis using controlled gener-ative edits, revealing the influence of viewpoint, lighting, and contextual changes on perceived identity consistency. 
+
+## 2. Related Works 
+
+2.1. Identity-focused tasks 
+
+Re-identification (Re-ID) aims to identify the same indi-vidual across contexts [63, 105]. Deep metric models for Re-ID are: (i) highly specialized to specific domains (e.g., animals [1, 49, 64], humans [9, 24, 40, 65, 74, 76, 86]), with models trained on domain X failing on domain Y [34, 49, 66, 98], (ii) require extensive domain-specific fine-grained annotations, and (iii) optimize for discrimina-tion (maximizing inter-class margins) rather than perceptual alignment (matching human similarity judgments). 
+
+Instance retrieval entails finding matches to an example object from within a large candidate pool [7, 106]. Recent works like UnED [100] and GPR-1200 [62] have pushed towards generalizing instance retrieval across categories, from products to landmarks. Many prominent models train on data that conflate fine-grained classification with in-stance identity, which may limit their ability to differenti-ate two visually similar but distinct objects, as observed in Figure 1. Related work [94] explores training an instance-retrieval representation using generative edited data. While the approach is promising, the model is evaluated only on retrieval benchmarks and not on a broader range of identity-focused tasks. 
+
+Personalized vision works [32, 61, 77] adapt large models to a user-specified concept for tasks like subject-driven gen-eration [19, 22, 25, 38, 59, 81, 97] or personalized segmen-tation [104]. Personalized generation faces a core challenge with identity fidelity, as models often struggle to faithfully preserve a subject’s unique features. This failure of preser-vation also makes robust evaluation hard, creating a clear need for an approach that can reliably measure fine-grained identity similarity. Tasks like personalized segmentation (e.g., PerSAM [104]) pursue different goals, such as pro-ducing a pixel-level mask for the target subject, rather than quantifying its identity consistency. 
+
+2.2. Visual similarity metrics 
+
+Perceptual metrics. SSIM [89], PSNR [27], and other clas-sical perceptual metrics [60, 88, 102] are hand-designed, and often fail to capture the complex nuances of hu-man perceptual similarity [103]. Alternatively, learning-based methods (e.g., LPIPS [103], PieAPP [54], Dream-Sim [18], DISTS [11]) show that embeddings from deep networks [37, 70] can be calibrated or trained on percep-tual judgments, and even align well with human perceptual judgments [103]. This observation extends to other modal-ities, such as stereo [79] and audio [43]. DiffSim [75] has also found that diffusion model features align well with hu-man judgments of perceptual similarity. Since these metrics optimize for overall similarity rather than identity consis-tency, they are influenced by contextual changes that are irrelevant for identity-focused tasks. 
+
+Contrastive representations. The distance between con-trastive representations is often used to quantify visual sim-ilarity. Vision models trained with self-supervised con-trastive objectives [6, 21, 23, 26, 45, 82, 95] learn by attract-ing representations of augmented views of the same image and repelling those of different images. Thus, the represen-tations capture the broad semantics of an image while ignor-ing the effects of transformations used as positive augmen-tations. For example, SimCLR [6] and MoCo [23] use crop-ping, color jittering, and blurring, encouraging invariance to low-level global changes. Similarly, the DINO model fam-ily [5, 47, 71] and CLIP [56] apply contrastive learning at scale, with CLIP aligning images to text—often compress-ing fine-grained visual differences in favor of higher-level semantic similarity. 
+
+Applications of visual similarity metrics. Metrics aligned with human perception have been shown to benefit down-stream tasks like segmentation and instance retrieval [78]. As mentioned above, another primary application is eval-uating subject-driven generation, where identity fidelity is crucial. However, general perceptual metrics are of-ten insufficient, as they can confuse high visual similar-ity (e.g., two similar purses in the same pose) with true identity preservation (e.g., the same purse in a different pose). MLLMs (e.g., GPT-4V [46, 52]) are also used and align well with human judgments, but they face issues with prompt sensitivity, stochasticity, and scalability [68]. This necessitates an efficient metric focused on instance-level identity. Concurrent work also proposed specialized met-rics for detecting generative inconsistencies [13], but may falter under occlusion or lighting changes. 
+
+## 3. Methods 
+
+3.1. Characterizing our definition of an instance 
+
+Under our definitions, two images depict the same instance 
+
+when they show visually indistinguishable objects, such as two factory-identical screwdrivers, even when these objects are transformed by extrinsic variations (e.g., pose, view-point, or lighting). Conversely, two images depict different instances if their visual identities differ, including clearly different objects, significant temporal changes (e.g., a kit-ten aging to a cat), and physical alterations (e.g., a repainted chair). 
+
+3.2. Training data curation 
+
+To train a metric that mimics selective sensitivity, we need data with three complementary signals: • Context diversity supporting invariance to different back-grounds, lighting, and viewpoints • Visual identity diversity enabling sensitivity to subtle ap-pearance differences • Domain diversity ensuring generalization beyond specific categories No existing datasets provide all three simultaneously, so we curate a training set using: (Subset 1) existing real instance-level datasets, and (Subset 2) synthetic data with: Landmarks Fashion Objects Flat Objects Art Animals Anchor Positive Negative     
+
+> 10k Triplets, ~10k Instances, ~300 categories
+> Subset 1: Real Instance-Level Datasets
+> 2a: Identity-Preserving Contextual Edits 2b: Identity-Altering Instance Edits
+> Final Training Dataset: Subset 1 Subset 2a Subset 2b
+> Existing Video Datasets: Edited Positive Pairs w/ Contextual Diversity Existing Instance Datasets w/ Masks Edited Fine-grained Negatives
+> Subset 2. Generative Edited Data
+
+Figure 2. Dataset curation pipeline. We highlight the different real and synthetic data subsets that enable ID-Sim training. To-gether, they provide high context, domain, and visual identity di-versities.                                                               
+
+> Dataset Type Objects #Cat Included in #Inst
+> ILIAS [35] Img General N/A S1 281 FORB [92] Img Flat Obj 7S1 761 MET [99] Img Artworks 1S1 226 GLDv2 [90] Img Landmarks 12 S1 769 Dogs [44] Img Animal 1S1 494 Cats [85] Img Animal 1S1 140 DF2 [20] Img Fashion 13 S1 ,S2b 2466 UCO3D [41] Vid General 146 S2a ,S2b 3884 LASOT [16] Vid General 34 S2a 101 YouTubeVIS [96] Vid General 35 S2a 414 GOT10k [29] Vid General 72 S2a 604
+
+Table 1. Overview of datasets used for training set curation. 
+
+# Cat and # Inst refer to number of categories and instances re-spectively. Colored text indicates different subsets that the dataset images appear in: S1, S2a, S2b, which can be matched to Figure 2 
+
+(a) contextual edits that diversify the contexts in which in-stances appear, and (b) identity edits that perturb visual identity (see Figure 2). These generative edits (S2a and S2b) expand the training pool, alleviating the limited di-versity of real-world data, which is difficult to collect and annotate at scale. We formulate our training data using triplets (an anchor image, a positive ID match, and a negative non-match), a standard structure for learning similarity metrics. Pos-Input           
+
+> ViT …!!
+> !!
+> !"
+> !"#
+> !#$
+> Anchor Positive Negative
+> ViT …
+> ViT …
+> !!"# Global CLS Loss !$%&'( Patch Loss
+> …""
+> "%
+> "&$
+> …
+> !!"
+> !#"
+> Anchor Positive Negatives
+> Anchor
+> !$""'$
+> "($
+> Positive Negatives
+> !%
+> Sinkhorn Distance
+> Joint Objective
+> !$
+> !&!&
+> MLP
+> MLP
+> MLP
+> MLP
+> MLP
+> MLP
+
+Figure 3. ID-Sim training pipeline. We train our metric with dual contrastive supervision. At the global level, CLS-token projections for anchor–positive pairs are contrasted against one hard negative and additional batch negatives using InfoNCE. At the patch level, projected patch tokens are compared using Sinkhorn distance for the same instance pairs. 
+
+itives come from real instance images (S1) or identity-preserving contextual edits (S2a), while negatives come from different real instances (S1) or identity-altering edits (S2b). Our training set contains 10k triplets (30k images) spanning ∼10k instances across 10 datasets, with an even split between triplets containing only real images, gener-ative identity-preserving positives with real negatives, and real positives with identity-altering negatives. Table 1 pro-vides an overview of the dataset composition. We analyze the effects of dataset scale and composition in Section 4.4, and include additional experiments and full details on the source datasets, splits, and editing pipelines in the Supple-mental A. 
+
+3.3. ID-Sim Training 
+
+Data formulation for contrastive learning. As seen in Figure 3, we follow the supervised contrastive learning framework [33], training our metric with positive (identity-preserving) pairs and negative (identity-breaking) pairs. We build our training batches from the dataset D introduced in Section 4.2 comprised of M instances {Xj }Mj , and use these instances to curate triplets (x0, x +, {x− 
+
+> i
+
+}Ni=1 ) for training. Two images from the same instance are sampled as the anchor x0 and positive x+. We then sample a hard negative x− 
+
+> 1
+
+, which may be either an identity-altering edit from S2b or a mined real negative from S1. For real nega-tives, we mine visually similar yet distinct instances using the nearest neighbors in the pretrained DINOv3 embedding space [71]. The remaining N − 1 negatives {x− 
+
+> i
+
+}Ni=2 are sampled from other instances within the batch. 
+
+Joint objective. We build upon a vision transformer (ViT) [12] backbone fθ , following recent works [31, 48, 55]. Each image is passed through fθ to obtain the global CLS token 
+
+c′ and a set of patch tokens Z′. Since these representations capture complementary global and local information, we project them into separate embedding spaces using a dual-headed MLP: c = MLP CLS (c′) and Z = MLP Patch (z′).We train using a joint supervised contrastive objective that combines global and local terms: 
+
+Ltotal = LCLS (c) + λ LPatch (Z), (1) We opt for this joint objective instead of supervising only on the global token since patch embeddings provide com-plementary spatial signals for dense downstream tasks. 
+
+1. Global CLS Loss. LCLS is the standard InfoNCE objec-tive [84] applied to the projected CLS tokens: 
+
+LCLS = − log e s+
+
+e s+ + PNi=1 e s−
+
+> i
+
+,s+ = sim( c0, c +)/τ, s− 
+
+> i
+
+= sim( c0, c − 
+
+> i
+
+)/τ 
+
+(2) where sim( ·, ·) is cosine similarity, τ is a temperature pa-rameter, and c0, c +, c − 
+
+> i
+
+are the projected CLS tokens for the anchor, positive, and i-th negative, respectively. 
+
+2. Local patch loss. Patch tokens encode fine-grained lo-cal cues, but the spatial layouts of instances across images are often misaligned due to viewpoint or context changes, making direct position-wise comparisons unreliable. We therefore treat patch tokens between two images as an un-ordered set of local descriptors and measure their similar-ity via soft alignment. Given projected patch embeddings 
+
+A, B ∈ RP ×D, we define their similarity as the negative entropically regularized optimal transport (OT) distance: 
+
+sim patch (A, B ) = − S ε(A, B ), (3) where Sε is the Sinkhorn distance computed with uniform weights over patches, using G EOM LOSS [17]. Unlike DenseCL [15], which builds hard nearest-neighbor correspondences using augmented views of the same image, our objective operates across different images of the same instance, learning correspondences implicitly through a soft global OT plan. LPatch is obtained by substi-tuting sim patch (·, ·) into the InfoNCE objective. 
+
+Using representations as an image similarity metric. 
+
+Using a trained fθ , similarity between images x and y can be measured as: 
+
+D(x, y ; fθ ) = 1 − sim  fθ (x), f θ (y), (4) where the choice of feature representation fθ (·) and sim-ilarity function sim (·, ·) can vary. Since ID-Sim is a ViT-based metric, common features include the global CLS to-ken or various patch token representations (e.g., aggregated or localized sets). The similarity function is typically cosine similarity. We explore alternative combinations of feature and similarity functions, which can enable different types of downstream tasks, in Section 4.4. 
+
+## 4. Experiments 
+
+We evaluate ID-Sim against 7 baselines across instance 
+
+recognition , retrieval , and preservation tasks on 7 datasets, all disjoint from the training set. 
+
+4.1. Experimental setup 
+
+Network architecture and training details. We select DI-NOv3 ViT-L [71] at 448 × 448 resolution as the backbone 
+
+fθ , chosen for strong instance-level performance on our val-idation set (described below). We freeze the backbone and finetune only: (i) lightweight 2-layer dual MLP projection heads, and (ii) rank 16 LoRA adapters [28] on attention and feedforward MLP layers. Training uses standard augmen-tations (color jitter, Gaussian noise, random cropping). Hyperparameter tuning and checkpoint selection are per-formed on a held-out validation set drawn from the train-ing data domains. We also construct an “identity ablation set”, a small Flux-generated [39] synthetic dataset of 5 in-stances with identity-preserving and identity-altering edits. Full training details and ablation studies are in the Supple-mental B. 
+
+Baselines. We test 7 baselines in three categories: (1) 
+
+perceptual metrics (DreamSim [18], LPIPS [103], DiffSim [75]), (2) foundation models (DINOv3 [71], CLIP [56], OpenCLIP [31]), and (3) an image retrieval model – the 1st-place solution [67] from Google’s Universal Embedding (UNED) challenge [100]. All models use the ViT-L archi-tecture except for [67] (larger ViT-H), DreamSim (ViT-B), and DiffSim (U-Net). 
+
+4.2. Benchmarks 
+
+1. Concept preservation evaluation aims to quantify how well a model is able to generate images of a reference in-stance while preserving its visual appearance. We evaluate this using two benchmarks. First, we report Spearman’s ρ correlation against human judgments on DreamBench++ [53], a public benchmark for subject-driven generation. However, we found its human preference labels to be noisy, stemming from sparse anno-tations (see Supplemental D.2). Thus, we introduce S UB -
+
+> JECTS
+
+2K, a new human-annotated subset of Subjects200k [80]. We collected new binary (same/different instance) human annotations to improve and evaluate the original dataset’s GPT-4v [46] labels. On S UBJECTS 2K, we report average precision (AP). Score: 5/5 : Different Score: 0/5 : Same   
+
+> Figure 5. Newly annotated Subjects2k. We release a 2k high-quality human annotations with a subset of Subjects200k to serve as a new challenging concept preservation eval benchmark.
+
+2. Instance retrieval tests the ability to find images of a given reference object from a pool of distractors. We report mean AP (mAP), averaged across each instance in the datasets on: (a) PODS [77], a dataset of household ob-jects for instance-level retrieval and recognition under fixed distribution shifts, and (b) DeepFashion2 [20], a fashion dataset designed to match in-store clothing items to in-the-wild consumer images. 
+
+3. Re-identification (Re-ID) / instance classification as-sesses whether individuals can be consistently recognized across viewpoints and conditions. We evaluate using: (a) mAP on PetFace [69], a multi-species pet re-ID dataset, (b) mAP on AerialCattle [3], consisting of 23 individual cattle captured from aerial viewpoints, and, following the proto-col from DiffSim, (c) accuracy on CUTE [36], where the model must identify which instance out of a pair of candi-dates matches an anchor object. We also evaluate results on additional metrics (e.g. AU-ROC or NDCG for ranking [87]) for all tasks in the Supple-mental E.2. 
+
+4.3. Results 
+
+Improved identity-alignment across tasks. We evalu-ate ID-Sim across diverse domains and task types (Fig-ure 4), using the global CLS token for similarity compu-tation across all ViT-based methods. Across 49 evaluation setups, ID-Sim outperforms prior work in 48 cases. The strongest gains emerge along two axes of selec-tive sensitivity: (1) Recognizing instances across contex-tual changes , and (2) discriminating small visual identity changes . This challenge of (1) is prominent in datasets such as PODS and DeepFashion2, where in addition to requir-ing fine-grained discrimination, positive instances are ex-plicitly observed in different contexts (background, pose, and distractors in PODS; in-store vs in-the-wild for Deep-Figure 4. Performance of ID-Sim vs. baseline models . We compare ID-Sim against standard perceptual metrics, large-scale vision foundation models, and a supervised “Universal Embedding” model (the top entry in Google’s universal embedding challenge). Across tasks – instance retrieval, concept preservation, and re-identification – ID-Sim consistently outperforms all baselines, including the instance-retrieval-focused model, despite using over 100× less labeled data and a smaller backbone (our V IT-L vs. V IT-H). Full results and seed variance are reported in the Supplemental E.2.                                                               
+
+> Method Model Subjects2k (AP) DreamBench
+> Ours ViT-L 0.4063 0.697 MLLM* GPT-4o 0.2901 0.748
+> MLLM GPT-5 0.3159 0.3554 MLLM Gemini 0.3354 0.70
+> (a) Comparison with MLLMs on concept preservation. MLLM* uses the original Subjects200K and DreamBench++ prompts and models respectively; MLLM rows use a controlled identity-preservation prompt for both datasets.
+> Dataset Metric DINOv3 Ours (no patch) Ours
+> DF2 mAP 0.4071 0.4765 0.7967
+> AC2017 mAP 0.4516 0.5471 0.6245
+> CUTE Acc 0.6561 0.6439 0.8189
+> DB++ Spearman 0.5479 0.5913 0.6834
+> PetFace mAP 0.7849 0.8377 0.8446
+> PODS mAP 0.5825 0.8181 0.7907 S2k AP 0.2314 0.2348 0.3674
+> (b) Patch-level Performance of ID-Sim, ID-Sim without patch supervision, and DINOv3 across tasks
+> Method mAP F1
+> PerSAM + DINOv3 0.153 0.18 PerSAM + Ours w/o patch sup 0.214 0.235 PerSAM + Ours 0.436 0.409
+> (c) Personalized segmentation (Per-SAM) performance on PODS with varying metrics.
+
+Table 2. Overview of results. (Left): comparison with MLLMs on concept preservation. (Middle): performance across recognition and retrieval datasets. (Right): transfer to personalized segmentation with PerSAM. 
+
+Fashion2). With ID-Sim, we see some of the strongest rel-ative improvements in these cases, with +0 .11 and +0 .30 
+
+gains in mAP over the second-best and the third-best mod-els for both cases. For (2), the Subjects2k benchmark presents some of the most challenging examples of fine-grained identity variation across datasets, with hundreds of visually similar negative instance pairs distinguished only by subtle details. On this benchmark, ID-Sim outperforms the second-best metric by +0 .05 mAP. 
+
+Comparing metrics. Across baselines, clear trends emerge in the strengths and limitations. Perceptual metrics gener-ally underperform on identity-focused tasks, as they cap-ture perceptual similarity rather than identity discrimination (though DreamSim performs best on DreamBench++, con-sistent with its human-aligned objective). Foundation mod-els like DINOv3 perform well on datasets like CUTE and PetFace that primarily test identity similarity under lighting variations, but struggle to maintain identity similarity un-der other context shifts such as background variation, and also struggle with retrieval tasks. The Universal Embedding model achieves the second-strongest overall performance, but benefits from a larger backbone (ViT-H) and millions of labelled instance-level and fine-grained examples. ID-Sim delivers consistently strong performance across all datasets, indicating broader generalization and a more unified notion of identity-alignment. 
+
+Comparison to MLLMs for concept preservation. Mul-timodal LLMs (MLLMs) have shown strong potential for identity-based evaluation, often aligning more closely with humans than DINO or CLIP [53]. Therefore, we compare ID-Sim against MLLMs using structured evaluation proto-cols consistent with prior work as shown in Table 2a. As shown, ID-Sim performs competitively and even surpasses MLLMs on Subjects2k, our more fine-grained concept-Dataset Bal. Pos. Neg. Ratio Val Group Edit Edit Score                           
+
+> All datasets ✗✗✗–0.693 All datasets ✓✗✗–0.752 Filtered datasets ✓✗✗–0.890 Filtered datasets ✓✓✗1:1 0.937 Filtered datasets ✓✓✓1:1:1 0.965
+> Table 3. Ablation of dataset composition and editing strategies.
+> Balancing and targeted editing of positive and negative samples improve performance.
+
+preservation benchmark. Notably, MLLM performance is sensitive to prompt and model choice: DreamBench++ ac-curacy drops substantially when its original rubric-guided prompts are replaced with controlled identity-preservation prompts, whereas ID-Sim remains stable across evalua-tions. MLLMs also introduce practical limitations, includ-ing stochastic outputs and reliance on pairwise comparisons that increase cost at scale, which is challenging for tasks like retrieval. In contrast, ID-Sim provides deterministic, feed-forward evaluations that match or exceed MLLM per-formance with significantly lower computational overhead. Full prompting details and MLLM evaluation settings are provided in the Supplemental D.3. 
+
+Beyond global similarity: Patch-level embeddings and localization power. While the global CLS token used in Figure 4 captures a holistic representation, ViT patch tokens offer complementary, spatially localized features essential for fine-grained correspondence and region-level discrim-ination. We compare ID-Sim’s patch embeddings against DINOv3 [71], the strongest baseline with well-established patch embeddings, and ablate patch-level supervision to as-sess its contribution. Table 2b shows performance across tasks when similar-ity is computed using patch embeddings. ID-Sim signifi-cantly outperforms DINOv3 across all datasets, indicating that it learns stronger and more discriminative local rep-resentations. While the variant trained only with CLS su-pervision improves performance by 13% over DINOv3, ex-plicit patch-level supervision substantially amplifies these gains, yielding a 40% relative improvement. To further assess whether our patch embeddings en-code spatially meaningful information, we evaluate ID-Sim within the state-of-the-art personalized segmentation frame-work, PerSAM [104], which uses patch-token similarity to localize SAM point prompts and score segmentation pre-dictions. As shown in Table 2c, our patch features improve segmentation mAP significantly from 0.153 to 0.436 and F1 from 0.18 to 0.409 over DINOv3. Even without explicit patch supervision, ID-Sim features improve over DINOv3 (0.214 mAP, 0.235 F1). Our patch embeddings capture both aggregated and spatially coherent information for precise localization and discrimination of identities. 
+
+4.4. Analysis 
+
+What makes for the best training data? While develop-ing ID-Sim, we systematically explored different strategies for curating and prioritizing high-value, identity-focused training data. Results are shown in Table 3, demonstrating that these choices significantly impact metric performance. We find that balanced composition is crucial . Ensuring bal-anced positive and negative samples prevents overfitting to dominant instances and leads to more stable convergence. Additionally, dataset quality matters: filtering out noisy or inconsistent instance-level samples significantly improves generalization. This matches prior literature–high-quality data is particularly vital for fine-grained tasks [8]. Finally, we find that synthetic data boosts performance : incorpo-rating edited samples enhances both diversity and robust-ness—positive edits improve intra-instance consistency and edited negatives sharpen inter-instance discrimination. 
+
+Exploring sensitivity to visual variation. In order to iso-late the visual factors that metrics are most sensitive to, we conduct a systematic sensitivity analysis measuring how similarity scores change with respect to four dimensions of variation: identity, background, viewpoint, and lighting. We use 100 diverse objects from MVImgNet [101], a multi-view dataset not used in training or evaluation, which pro-vides 180 views per object on a clean surface with natu-ral viewpoint variation. For the other dimensions, we ap-ply generative edits: identity changes are simulated by edit-ing the foreground with Qwen-Edit-Inpainting [91] (varying noise strengths), background changes via inpainting with 14 scene prompts, and lighting variations using Qwen-Edit [91] with nine illumination prompts. For each reference, we construct an edit grid varying jointly along identity and one other factor and compute the similarity of each image back to its original anchor. Sensitivity scores are then estimated by fitting a regression model to quantify the similarity de-crease per unit change in each dimension. Final scores are averaged across instances, with uncertainty estimated via bootstrapped confidence intervals. Figure 6 summarizes our sensitivity analysis across these four factors and shows that ID-Sim achieves the most de-sirable balance: high identity sensitivity and low contex-tual sensitivity. Performance of other metrics varies across these challenges. DreamSim exhibits moderate identity sen-sitivity but remains similarly sensitive to background and lighting variation. In contrast, the Universal Embedding model and DINOv3 show greater invariance to viewpoint and lighting but are more sensitive to background changes. CLIP, OpenCLIP, and LPIPS show the weakest identity sen-sitivity, measuring semantic or image-level similarity rather than identity similarity. Examining the similarity scores in the bottom row of Figure 6 offers a complementary perspec-tive: compared to other metrics, ID-Sim exhibits the largest similarity drop in response to identity changes while main-Identity Sensitivity Context Sensitivity           
+
+> Better
+> Worse
+> Ba ckground Cha ng eLi ght ing Cha ng eVi ewpointCh angeId entityChange
+> Ref Ref Ref Ref
+>   
+>  
+> 
+> 
+> 
+>  
+
+      
+
+>   
+>      
+> 
+> 
+> 
+>        
+
+                 
+
+>    
+> #!&  $%'%(
+> 
+> 
+> 
+>  %%( $%'%(
+>  %%('$ #!&  $%'%(
+> 
+> '
+> 
+> #
+> " 
+> 
+>  '#$     
+>  
+> 
+> 
+> 
+>  
+
+       
+
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>  
+
+Figure 6. Selective sensitivity analysis. We evaluate model sensitivity across four axes of visual change: identity, background, viewpoint, and lighting. For 100 anchor instances, we generate controlled variations and compute both sensitivity scores and similarity trends. 
+
+(Top row.) Compared with baseline methods, our model is notably more sensitive to identity differences while remaining stable under background, viewpoint, and lighting changes. (Bottom row.) When systematically increasing variations across each dimension, we see that, as desired, only identity changes significantly reduce similarity measured by ID-Sim. 
+
+taining invariance to other factors, supporting its stronger identity sensitivity. ID-Sim is slightly less robust to light-ing variation than DINOv3, reflecting a tradeoff to preserve fine-grained color cues for identity. 
+
+## 5. Limitations, Future Work, and Conclusions 
+
+Limitations. Our instance definition relies on consistent visual identity and therefore does not fully capture broader notions of identity that may require user-specified invari-ances (e.g., aging, accessories, or stylistic changes). Also, ID-Sim is a global prompt-free metric and does not resolve the identity to target in multi-entity scenes; doing so re-quires external conditioning, either using spatial cues (e.g., masks) or text prompts, as explored by concurrent work Omni-Attribute [14]. We show in the Supplemental E.1 that our localized patch embeddings provide a natural founda-tion for more flexible, spatially-conditioned identity speci-fication. 
+
+Future work. Recent work personalization works [72, 93] has used synthetic data to bootstrap training, improving generalization and reducing overfitting. However, automat-ing this has been difficult and error-prone, lacking the gen-eral, selectively sensitive identity embeddings that our work (ID-Sim) introduces. We believe leveraging ID-Sim for this task is a promising direction. In addition, conditioning sig-nals can be incorporated for selective identity specification. 
+
+Conclusions. Our results demonstrate that by combining a carefully curated dataset (Section 4.2) and training formu-lation (Section 3.3), it is possible to train a general purpose identity-focused similarity metric with state of the art per-formance across a wide variety of tasks, all at a fraction of the inference costs, training costs, and data requirements of MLLM foundation models. ID-Sim produces both global and local embeddings that can be easily plugged into any application that requires identity sensitivity and robustness to contextual changes (e.g., pose, background, lighting). 
+
+Acknowledgements This work was supported by an NSERC PGS-D, a Schmidt Science AI2050 Early Ca-reer Fellowship, NSF CAREER Award No. 2441060, the NSF and NSERC AI and Biodiversity Change Global Cen-ter (NSF Award No. 2330423 and NSERC Award No. 585136), the MIT Generative AI Consortium, and the De-partment of the Air Force Artificial Intelligence Accelerator and was accomplished under Cooperative Agreement Num-ber FA8750-19-2-1000. The views and conclusions con-tained in this document are those of the authors and should not be interpreted as representing the official policies, either expressed or implied, of the Department of the Air Force or the U.S. Government. The U.S. Government is autho-rized to reproduce and distribute reprints for Government purposes notwithstanding any copyright notation herein. References 
+
+[1] Luk´ aˇ s Adam, Vojtˇ ech ˇCerm´ ak, Kostas Papafitsoros, and Lukas Picek. Wildlifereid-10k: Wildlife re-identification dataset with 10k individual animals. In 2025 IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops (CVPRW) , pages 2090–2100. IEEE, 2025. 2, 1 [2] Adobe Inc. Adobe photoshop. 6 [3] William Andrew, Jing Gao, Siobhan Mullan, Neill Camp-bell, Andrew W. Dowsey, and Tilo Burghardt. Visual identi-fication of individual holstein-friesian cattle via deep metric learning. Computers and Electronics in Agriculture , 185: 106133, 2021. 5 [4] Irving Biederman. Recognition-by-components: a theory of human image understanding. Psychological review , 94 (2):115, 1987. 1 [5] Mathilde Caron, Hugo Touvron, Ishan Misra, Herv´ e J´ egou, Julien Mairal, Piotr Bojanowski, and Armand Joulin. Emerging properties in self-supervised vision transformers. In Proceedings of the IEEE/CVF international conference on computer vision , pages 9650–9660, 2021. 3 [6] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Ge-offrey Hinton. A simple framework for contrastive learning of visual representations. In International conference on machine learning , pages 1597–1607. PmLR, 2020. 2, 3 [7] Wei Chen, Yu Liu, Weiping Wang, Erwin M Bakker, Theodoros Georgiou, Paul Fieguth, Li Liu, and Michael S Lew. Deep learning for instance retrieval: A survey. IEEE Transactions on Pattern Analysis and Machine Intelligence ,45(6):7270–7292, 2022. 2 [8] Elijah Cole, Xuan Yang, Kimberly Wilber, Oisin Mac Aodha, and Serge Belongie. When does contrastive visual representation learning work? In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 14755–14764, 2022. 7 [9] Jiankang Deng, Jia Guo, Niannan Xue, and Stefanos Zafeiriou. Arcface: Additive angular margin loss for deep face recognition. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pages 4690–4699, 2019. 2 [10] James J DiCarlo and David D Cox. Untangling invariant object recognition. Trends in cognitive sciences , 11(8):333– 341, 2007. 1 [11] Keyan Ding, Kede Ma, Shiqi Wang, and Eero P Simoncelli. Image quality assessment: Unifying structure and texture similarity. IEEE transactions on pattern analysis and ma-chine intelligence , 44(5):2567–2581, 2020. 2 [12] Alexey Dosovitskiy, Lucas Beyer, Alexander Kolesnikov, Dirk Weissenborn, Xiaohua Zhai, Thomas Unterthiner, Mostafa Dehghani, Matthias Minderer, Georg Heigold, Sylvain Gelly, Jakob Uszkoreit, and Neil Houlsby. An im-age is worth 16x16 words: Transformers for image recog-nition at scale, 2021. 4 [13] Abdelrahman Eldesokey, Aleksandar Cvejic, Bernard Ghanem, and Peter Wonka. Mind-the-glitch: Visual cor-respondence for detecting inconsistencies in subject-driven generation, 2025. 2, 3 [14] T.S. Chen et al. Omni-attribute: Open-vocabulary attribute encoder for visual concept personalization, 2025. 8 [15] X. Wang et al. Dense contrastive learning for self-supervised visual pre-training, 2021. 4 [16] Heng Fan, Hexin Bai, Liting Lin, Fan Yang, Peng Chu, Ge Deng, Sijia Yu, Harshit, Mingzhen Huang, Juehuan Liu, Yong Xu, Chunyuan Liao, Lin Yuan, and Haibin Ling. La-sot: A high-quality large-scale single object tracking bench-mark, 2020. 3 [17] Jean Feydy, Thibault S´ ejourn´ e, Franc ¸ois-Xavier Vialard, Shun-ichi Amari, Alain Trouve, and Gabriel Peyr´ e. Interpo-lating between optimal transport and mmd using sinkhorn divergences. In The 22nd International Conference on Ar-tificial Intelligence and Statistics , pages 2681–2690, 2019. 4[18] Stephanie Fu, Netanel Tamir, Shobhita Sundaram, Lucy Chai, Richard Zhang, Tali Dekel, and Phillip Isola. Dream-sim: Learning new dimensions of human visual similar-ity using synthetic data. arXiv preprint arXiv:2306.09344 ,2023. 2, 5 [19] Rinon Gal, Yuval Alaluf, Yuval Atzmon, Or Patash-nik, Amit H Bermano, Gal Chechik, and Daniel Cohen-Or. An image is worth one word: Personalizing text-to-image generation using textual inversion. arXiv preprint arXiv:2208.01618 , 2022. 2 [20] Yuying Ge, Ruimao Zhang, Xiaogang Wang, Xiaoou Tang, and Ping Luo. Deepfashion2: A versatile benchmark for de-tection, pose estimation, segmentation and re-identification of clothing images. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pages 5337–5345, 2019. 3, 5, 1 [21] Jean-Bastien Grill, Florian Strub, Florent Altch´ e, Corentin Tallec, Pierre Richemond, Elena Buchatskaya, Carl Do-ersch, Bernardo Avila Pires, Zhaohan Guo, Mohammad Gheshlaghi Azar, et al. Bootstrap your own latent-a new approach to self-supervised learning. Advances in neural information processing systems , 33:21271–21284, 2020. 2 [22] Cusuh Ham, Matthew Fisher, James Hays, Nicholas Kolkin, Yuchen Liu, Richard Zhang, and Tobias Hinz. Per-sonalized residuals for concept-driven text-to-image gen-eration. In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition , pages 8186– 8195, 2024. 2 [23] Kaiming He, Haoqi Fan, Yuxin Wu, Saining Xie, and Ross Girshick. Momentum contrast for unsupervised visual rep-resentation learning. In Proceedings of the IEEE/CVF con-ference on computer vision and pattern recognition , pages 9729–9738, 2020. 2, 3 [24] Lingxiao He, Yinggang Wang, Wu Liu, He Zhao, Zhenan Sun, and Jiashi Feng. Foreground-aware pyra-mid reconstruction for alignment-free occluded person re-identification. In Proceedings of the IEEE/CVF interna-tional conference on computer vision , pages 8450–8459, 2019. 2 [25] Qiyuan He and Angela Yao. Conceptrol: Concept control of zero-shot personalized image generation. arXiv preprint arXiv:2503.06568 , 2025. 2 [26] R Devon Hjelm, Alex Fedorov, Samuel Lavoie-Marchildon, Karan Grewal, Phil Bachman, Adam Trischler, and Yoshua Bengio. Learning deep representations by mutual in-formation estimation and maximization. arXiv preprint arXiv:1808.06670 , 2018. 2 [27] Alain Hore and Djemel Ziou. Image quality metrics: Psnr vs. ssim. In 2010 20th international conference on pattern recognition , pages 2366–2369. IEEE, 2010. 2 [28] Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models, 2021. 5[29] Lianghua Huang, Xin Zhao, and Kaiqi Huang. Got-10k: A large high-diversity benchmark for generic object tracking in the wild. IEEE Transactions on Pattern Analysis and Machine Intelligence , 43(5):1562–1577, 2021. 3 [30] Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perel-man, Aditya Ramesh, Aidan Clark, AJ Ostrow, Akila Weli-hinda, Alan Hayes, Alec Radford, et al. Gpt-4o system card. arXiv preprint arXiv:2410.21276 , 2024. 4, 10 [31] Gabriel Ilharco, Mitchell Wortsman, Ross Wightman, Cade Gordon, Nicholas Carlini, Rohan Taori, Achal Dave, Vaishaal Shankar, Hongseok Namkoong, John Miller, Han-naneh Hajishirzi, Ali Farhadi, and Ludwig Schmidt. Open-clip, 2021. If you use this software, please cite it as below. 2, 4, 5 [32] Yuxin Jiang, Yuchao Gu, Yiren Song, Ivor Tsang, and Mike Zheng Shou. Personalized vision via visual in-context learning, 2025. 2 [33] Prannay Khosla, Piotr Teterwak, Chen Wang, Aaron Sarna, Yonglong Tian, Phillip Isola, Aaron Maschinot, Ce Liu, and Dilip Krishnan. Supervised contrastive learning, 2021. 4 [34] In` es Hyeonsu Kim, JoungBin Lee, Woojeong Jin, Soowon Son, Kyusun Cho, Junyoung Seo, Min-Seop Kwak, Seokju Cho, JeongYeol Baek, Byeongwon Lee, et al. Pose-dive: Pose-diversified augmentation with diffusion model for per-son re-identification. arXiv preprint arXiv:2406.16042 ,2024. 2 [35] Giorgos Kordopatis-Zilos, Vladan Stojni´ c, Anna Manko, Pavel Suma, Nikolaos-Antonios Ypsilantis, Nikos Efthymi-adis, Zakaria Laskar, Jiri Matas, Ondrej Chum, and Giorgos Tolias. Ilias: Instance-level image retrieval at scale. In Pro-ceedings of the Computer Vision and Pattern Recognition Conference , pages 14777–14787, 2025. 3, 1 [36] Klemen Kotar, Stephen Tian, Hong-Xing Yu, Daniel L.K. Yamins, and Jiajun Wu. Are these the same apple? com-paring images based on object intrinsics. 2023. 5 [37] Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton. Imagenet classification with deep convolutional neural net-works. Advances in neural information processing systems ,25, 2012. 2 [38] Nupur Kumari, Bingliang Zhang, Richard Zhang, Eli Shechtman, and Jun-Yan Zhu. Multi-concept customization of text-to-image diffusion. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,pages 1931–1941, 2023. 2 [39] Black Forest Labs. Flux. https://github.com/ black-forest-labs/flux , 2024. 5, 10 [40] Weiyang Liu, Yandong Wen, Zhiding Yu, Ming Li, Bhiksha Raj, and Le Song. Sphereface: Deep hypersphere embed-ding for face recognition. In Proceedings of the IEEE con-ference on computer vision and pattern recognition , pages 212–220, 2017. 2 [41] Xingchen Liu, Piyush Tayal, Jianyuan Wang, Jesus Zarzar, Tom Monnier, Konstantinos Tertikas, Jiali Duan, An-toine Toisoul, Jason Y. Zhang, Natalia Neverova, Andrea Vedaldi, Roman Shapovalov, and David Novotny. Uncom-mon objects in 3d. In arXiv , 2024. 3, 5 [42] Nikos K Logothetis and Jon Pauls. Psychophysical and physiological evidence for viewer-centered object represen-tations in the primate. Cerebral cortex , 5(3):270–288, 1995. 1[43] Pranay Manocha, Adam Finkelstein, Richard Zhang, Nicholas J Bryan, Gautham J Mysore, and Zeyu Jin. Adifferentiable perceptual audio metric learned from just noticeable differences. arXiv preprint arXiv:2001.04460 ,2020. 2 [44] Guillaume Mougeot, Dewei Li, and Shuai Jia. A deep learn-ing approach for dog face verification and recognition. In 
+
+PRICAI 2019: Trends in Artificial Intelligence , pages 418– 430, Cham, 2019. Springer International Publishing. 3 [45] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Repre-sentation learning with contrastive predictive coding. arXiv preprint arXiv:1807.03748 , 2018. 2 [46] OpenAI. Gpt-4v (vision): Multimodal gpt-4 with image and text input. https://openai.com/research/ gpt-4v-system-card , 2023. Accessed: 2025-11-13. 3, 5 [47] Maxime Oquab, Timoth´ ee Darcet, Th´ eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, et al. Dinov2: Learning robust visual features without supervi-sion. arXiv preprint arXiv:2304.07193 , 2023. 3 [48] Maxime Oquab, Timoth´ ee Darcet, Th´ eo Moutakanni, Huy Vo, Marc Szafraniec, Vasil Khalidov, Pierre Fernandez, Daniel Haziza, Francisco Massa, Alaaeldin El-Nouby, Mahmoud Assran, Nicolas Ballas, Wojciech Galuba, Rus-sell Howes, Po-Yao Huang, Shang-Wen Li, Ishan Misra, Michael Rabbat, Vasu Sharma, Gabriel Synnaeve, Hu Xu, Herv´ e Jegou, Julien Mairal, Patrick Labatut, Armand Joulin, and Piotr Bojanowski. Dinov2: Learning robust vi-sual features without supervision, 2024. 4 [49] Lasha Otarashvili, Tamilselvan Subramanian, Jason Holm-berg, JJ Levenson, and Charles V Stewart. Multispecies an-imal re-id using a large community-curated dataset. arXiv preprint arXiv:2412.05602 , 2024. 2 [50] Thomas J Palmeri and Celina Blalock. The role of back-ground knowledge in speeded perceptual categorization. 
+
+Cognition , 77(2):B45–B57, 2000. 1 [51] Thomas J Palmeri and Isabel Gauthier. Visual object un-derstanding. Nature Reviews Neuroscience , 5(4):291–303, 2004. 1 [52] Yuang Peng, Yuxin Cui, Haomiao Tang, Zekun Qi, Runpei Dong, Jing Bai, Chunrui Han, Zheng Ge, Xiangyu Zhang, and Shu-Tao Xia. Dreambench++: A human-aligned benchmark for personalized image generation. arXiv preprint arXiv:2406.16855 , 2024. 3 [53] Yuang Peng, Yuxin Cui, Haomiao Tang, Zekun Qi, Run-pei Dong, Jing Bai, Chunrui Han, Zheng Ge, Xiangyu Zhang, and Shu-Tao Xia. Dreambench++: A human-aligned benchmark for personalized image generation. In 
+
+The Thirteenth International Conference on Learning Rep-resentations , 2025. 2, 5, 6, 9 [54] Ekta Prashnani, Hong Cai, Yasamin Mostofi, and Pradeep Sen. Pieapp: Perceptual image-error assessment through pairwise preference. In Proceedings of the IEEE Confer-ence on Computer Vision and Pattern Recognition , pages 1808–1817, 2018. 2 [55] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, Gretchen Krueger, and Ilya Sutskever. Learning transferable visual models from natural language supervision, 2021. 4 [56] Alec Radford, Jong Wook Kim, Chris Hallacy, Aditya Ramesh, Gabriel Goh, Sandhini Agarwal, Girish Sastry, Amanda Askell, Pamela Mishkin, Jack Clark, et al. Learn-ing transferable visual models from natural language super-vision. In International conference on machine learning ,pages 8748–8763. PmLR, 2021. 2, 3, 5 [57] Eleanor Rosch. Cognitive representations of semantic cat-egories. Journal of experimental psychology: General , 104 (3):192, 1975. 1 [58] Adrian Rosebrock. Blur detection with opencv. https: / / pyimagesearch . com / 2015 / 09 / 07 / blur -detection-with-opencv/ , 2015. Accessed: 2021-07-12. 3 [59] Nataniel Ruiz, Yuanzhen Li, Varun Jampani, Yael Pritch, Michael Rubinstein, and Kfir Aberman. Dreambooth: Fine tuning text-to-image diffusion models for subject-driven generation. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 22500– 22510, 2023. 2 [60] Mehul P Sampat, Zhou Wang, Shalini Gupta, Alan Conrad Bovik, and Mia K Markey. Complex wavelet structural sim-ilarity: A new image similarity index. IEEE transactions on image processing , 18(11):2385–2401, 2009. 2 [61] Dvir Samuel, Rami Ben-Ari, Matan Levy, Nir Darshan, and Gal Chechik. Where’s waldo: Diffusion features for per-sonalized segmentation and retrieval, 2024. 2 [62] Konstantin Schall, Kai Uwe Barthel, Nico Hezel, and Klaus Jung. Gpr1200: A benchmark for general-purpose content-based image retrieval. In MultiMedia Modeling: 28th International Conference, MMM 2022, Phu Quoc, Viet-nam, June 6–10, 2022, Proceedings, Part I , page 205–216, Berlin, Heidelberg, 2022. Springer-Verlag. 2 [63] Stefan Schneider, Graham W Taylor, Stefan Linquist, and Stefan C Kremer. Past, present and future approaches using computer vision for animal re-identification from camera trap data. Methods in Ecology and Evolution , 10(4):461– 470, 2019. 2 [64] Stefan Schneider, Graham W Taylor, and Stefan C Kre-mer. Similarity learning networks for animal individual re-identification: an ecological perspective. Mammalian Biol-ogy , 102(3):899–914, 2022. 2 [65] Florian Schroff, Dmitry Kalenichenko, and James Philbin. Facenet: A unified embedding for face recognition and clustering. In Proceedings of the IEEE conference on com-puter vision and pattern recognition , pages 815–823, 2015. 2[66] Tom Shaked, Yuval Goldman, and Oran Shayer. Minimiz-ing embedding distortion for robust out-of-distribution per-formance. arXiv preprint arXiv:2409.07582 , 2024. 2 [67] Shihao Shao and Qinghua Cui. 1st solution in google universal image embedding. https://www.kaggle. com/datasets/louieshao/guieweights0732 ,2023. 2, 5 [68] Lin Shi, Chiyu Ma, Wenhua Liang, Xingjian Diao, We-icheng Ma, and Soroush Vosoughi. Judging the judges: A systematic study of position bias in llm-as-a-judge. arXiv preprint arXiv:2406.07791 , 2024. 3 [69] Risa Shinoda and Kaede Shiohara. Petface: A large-scale dataset and benchmark for animal identification, 2024. 5 [70] Karen Simonyan and Andrew Zisserman. Very deep convo-lutional networks for large-scale image recognition. arXiv preprint arXiv:1409.1556 , 2014. 2 [71] Oriane Sim´ eoni, Huy V. Vo, Maximilian Seitzer, Federico Baldassarre, Maxime Oquab, Cijo Jose, Vasil Khalidov, Marc Szafraniec, Seungeun Yi, Micha¨ el Ramamonjisoa, Francisco Massa, Daniel Haziza, Luca Wehrstedt, Jianyuan Wang, Timoth´ ee Darcet, Th´ eo Moutakanni, Leonel Sen-tana, Claire Roberts, Andrea Vedaldi, Jamie Tolan, John Brandt, Camille Couprie, Julien Mairal, Herv´ e J´ egou, Patrick Labatut, and Piotr Bojanowski. Dinov3, 2025. 2, 3, 4, 5, 7 [72] Kihyuk Sohn, Nataniel Ruiz, Kimin Lee, Daniel Castro Chin, Irina Blok, Huiwen Chang, Jarred Barber, Lu Jiang, Glenn Entis, Yuanzhen Li, et al. Styledrop: Text-to-image generation in any style. arXiv preprint arXiv:2306.00983 ,2023. 8 [73] Hyun Oh Song, Yu Xiang, Stefanie Jegelka, and Silvio Savarese. Deep metric learning via lifted structured feature embedding, 2015. 1 [74] Jifei Song, Yongxin Yang, Yi-Zhe Song, Tao Xiang, and Timothy M Hospedales. Generalizable person re-identification by domain-invariant mapping network. In 
+
+Proceedings of the IEEE/CVF conference on Computer Vi-sion and Pattern Recognition , pages 719–728, 2019. 2 [75] Yiren Song, Xiaokang Liu, and Mike Zheng Shou. Diffsim: Taming diffusion models for evaluating visual similarity. In 
+
+Proceedings of the IEEE/CVF International Conference on Computer Vision , pages 16904–16915, 2025. 2, 5 [76] Yifan Sun, Liang Zheng, Yi Yang, Qi Tian, and Shengjin Wang. Beyond part models: Person retrieval with refined part pooling (and a strong convolutional baseline). In Pro-ceedings of the European conference on computer vision (ECCV) , pages 480–496, 2018. 2 [77] Shobhita Sundaram, Julia Chae, Yonglong Tian, Sara Beery, and Phillip Isola. Personalized representation from personalized generation, 2024. 2, 5 [78] Shobhita Sundaram, Stephanie Fu, Lukas Muttenthaler, Ne-tanel Y. Tamir, Lucy Chai, Simon Kornblith, Trevor Darrell, and Phillip Isola. When does perceptual alignment benefit vision representations?, 2024. 3 [79] Netanel Tamir, Shir Amir, Ranel Itzhaky, Noam Atia, Shob-hita Sundaram, Stephanie Fu, Ron Sokolovsky, Phillip Isola, Tali Dekel, Richard Zhang, et al. What makes for a good stereoscopic image? In Proceedings of the Com-puter Vision and Pattern Recognition Conference , pages 261–272, 2025. 2 [80] Zhenxiong Tan, Songhua Liu, Xingyi Yang, Qiaochu Xue, and Xinchao Wang. Ominicontrol: Minimal and uni-versal control for diffusion transformer. arXiv preprint arXiv:2411.15098 , 2024. 5, 9, 10, 11 [81] Zhenxiong Tan, Songhua Liu, Xingyi Yang, Qiaochu Xue, and Xinchao Wang. Ominicontrol: Minimal and univer-sal control for diffusion transformer. In Proceedings of the IEEE/CVF International Conference on Computer Vision ,pages 14940–14950, 2025. 2 [82] Yonglong Tian, Dilip Krishnan, and Phillip Isola. Con-trastive multiview coding. In European conference on com-puter vision , pages 776–794. Springer, 2020. 2 [83] Tobias Trein and Luan Fonseca Garcia. Siamese networks for cat re-identification: Exploring neural models for cat in-stance recognition. arXiv preprint arXiv:2501.02112 , 2025. 2[84] Aaron van den Oord, Yazhe Li, and Oriol Vinyals. Repre-sentation learning with contrastive predictive coding, 2019. 4[85] Vojtˇ ech ˇ Cerm´ ak, Luk´ aˇ s Picek, Luk´ aˇ s Adam, and Kostas Pa-pafitsoros. WildlifeDatasets: An Open-Source Toolkit for Animal Re-Identification. In Proceedings of the IEEE/CVF Winter Conference on Applications of Computer Vision (WACV) , pages 5953–5963, 2024. 3 [86] Hao Wang, Yitong Wang, Zheng Zhou, Xing Ji, Dihong Gong, Jingchao Zhou, Zhifeng Li, and Wei Liu. Cosface: Large margin cosine loss for deep face recognition. In Pro-ceedings of the IEEE conference on computer vision and pattern recognition , pages 5265–5274, 2018. 2 [87] Yining Wang, Liwei Wang, Yuanzhi Li, Di He, Tie-Yan Liu, and Wei Chen. A theoretical analysis of ndcg type ranking measures, 2013. 5 [88] Zhou Wang, Eero P Simoncelli, and Alan C Bovik. Multi-scale structural similarity for image quality assessment. In 
+
+The thrity-seventh asilomar conference on signals, systems & computers, 2003 , pages 1398–1402. Ieee, 2003. 2 [89] Zhou Wang, Alan C Bovik, Hamid R Sheikh, and Eero P Simoncelli. Image quality assessment: from error visibility to structural similarity. IEEE transactions on image pro-cessing , 13(4):600–612, 2004. 2 [90] Tobias Weyand, Andre Araujo, Bingyi Cao, and Jack Sim. Google landmarks dataset v2-a large-scale benchmark for instance-level recognition and retrieval. In Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , pages 2575–2584, 2020. 3, 1 [91] Chenfei Wu, Jiahao Li, Jingren Zhou, Junyang Lin, Kaiyuan Gao, Kun Yan, Sheng ming Yin, Shuai Bai, Xiao Xu, Yilei Chen, Yuxiang Chen, Zecheng Tang, Zekai Zhang, Zhengyi Wang, An Yang, Bowen Yu, Chen Cheng, Dayiheng Liu, Deqing Li, Hang Zhang, Hao Meng, Hu Wei, Jingyuan Ni, Kai Chen, Kuan Cao, Liang Peng, Lin Qu, Minggang Wu, Peng Wang, Shuting Yu, Tingkun Wen, Wensen Feng, Xiaoxiao Xu, Yi Wang, Yichang Zhang, Yongqiang Zhu, Yujia Wu, Yuxuan Cai, and Zenan Liu. Qwen-image technical report, 2025. 7, 3 [92] Pengxiang Wu, Siman Wang, Kevin Dela Rosa, and Derek Hu. Forb: a flat object retrieval benchmark for universal image embedding. Advances in Neural Information Pro-cessing Systems , 36:25448–25460, 2023. 3, 1 [93] Shaojin Wu, Mengqi Huang, Wenxu Wu, Yufeng Cheng, Fei Ding, and Qian He. Less-to-more generalization: Unlocking more controllability by in-context generation. 
+
+arXiv preprint arXiv:2504.02160 , 2025. 8 [94] Yankun Wu, Zakaria Laskar, Giorgos Kordopatis-Zilos, Noa Garcia, and Giorgos Tolias. Instance-level generation for representation learning, 2025. 2 [95] Zhirong Wu, Yuanjun Xiong, Stella X Yu, and Dahua Lin. Unsupervised feature learning via non-parametric instance discrimination. In Proceedings of the IEEE conference on computer vision and pattern recognition , pages 3733–3742, 2018. 2 [96] Linjie Yang, Yuchen Fan, and Ning Xu. Video instance segmentation, 2019. 3 [97] Hu Ye, Jun Zhang, Sibo Liu, Xiao Han, and Wei Yang. Ip-adapter: Text compatible image prompt adapter for text-to-image diffusion models. arXiv preprint arXiv:2308.06721 ,2023. 2 [98] Mang Ye, Jianbing Shen, Gaojie Lin, Tao Xiang, Ling Shao, and Steven CH Hoi. Deep learning for person re-identification: A survey and outlook. IEEE transactions on pattern analysis and machine intelligence , 44(6):2872– 2893, 2021. 2 [99] Nikolaos-Antonios Ypsilantis, Noa Garcia, Guangxing Han, Sarah Ibrahimi, Nanne Van Noord, and Giorgos To-lias. The met dataset: Instance-level recognition for art-works. In Thirty-fifth conference on neural information pro-cessing systems datasets and benchmarks track (Round 2) ,2021. 3, 1 [100] Nikolaos-Antonios Ypsilantis, Kaifeng Chen, Bingyi Cao, M´ ario Lipovsk` y, Pelin Dogan-Sch¨ onberger, Grzegorz Makosa, Boris Bluntschli, Mojtaba Seyedhosseini, Ondˇ rej Chum, and Andr´ e Araujo. Towards universal image embed-dings: A large-scale dataset and challenge for generic im-age representations. In Proceedings of the ieee/cvf interna-tional conference on computer vision , pages 11290–11301, 2023. 2, 5 [101] Xianggang Yu, Mutian Xu, Yidan Zhang, Haolin Liu, Chongjie Ye, Yushuang Wu, Zizheng Yan, Chenming Zhu, Zhangyang Xiong, Tianyou Liang, et al. Mvimgnet: Alarge-scale dataset of multi-view images. In Proceedings of the IEEE/CVF conference on computer vision and pat-tern recognition , pages 9150–9161, 2023. 7, 1 [102] Lin Zhang, Lei Zhang, Xuanqin Mou, and David Zhang. Fsim: A feature similarity index for image quality assess-ment. IEEE transactions on Image Processing , 20(8):2378– 2386, 2011. 2 [103] Richard Zhang, Phillip Isola, Alexei A Efros, Eli Shecht-man, and Oliver Wang. The unreasonable effectiveness of deep features as a perceptual metric. In Proceedings of the IEEE conference on computer vision and pattern recogni-tion , pages 586–595, 2018. 2, 5 [104] Renrui Zhang, Zhengkai Jiang, Ziyu Guo, Shilin Yan, Junt-ing Pan, Xianzheng Ma, Hao Dong, Peng Gao, and Hong-sheng Li. Personalize segment anything model with one shot, 2023. 2, 7 [105] Liang Zheng, Yi Yang, and Alexander G Hauptmann. Per-son re-identification: Past, present and future. arXiv preprint arXiv:1610.02984 , 2016. 2 [106] Liang Zheng, Yi Yang, and Qi Tian. Sift meets cnn: A decade survey of instance retrieval. IEEE transactions on pattern analysis and machine intelligence , 40(5):1224– 1244, 2017. 2 ID-Sim: An Identity-Focused Similarity Metric 
+
+# Supplementary Material 
+
+Appendix Contents 
+
+• A. Training Data Curation – A.1 Subset 1: Real instance-level data 
+
+– A.2 Subset 2: Synthetic data * A.2.1 Subset 2a: Contextual Edits for Genera-tive Synthetic Positives * A.2.2 Subset 2b: Identity-Altering Edits for Hard Negatives • B. Ablation Studies – B.1 Ablation Datasets 
+
+– B.2 Training Dataset Ablation 
+
+– B.3 Training Ablation * B.3.1 Backbone and Input Resolution * B.3.2 CLS vs. Patch vs. Joint Training * B.3.3 Loss Function and Patch Metric * B.3.4 Overall Summary • C. Training Details – C.1 Model Configuration 
+
+– C.2 Optimization 
+
+– C.3 Loss 
+
+– C.4 Data Augmentations 
+
+– C.5 Sinkhorn Patch Metric 
+
+– C.6 Data Loading • D. Evaluation – D.1 Evaluation Dataset Details 
+
+– D.2 Subjects2k Human Annotation Pipeline 
+
+– D.3 MLLM Evaluation Criteria • E. Results – E.1 Dense Results 
+
+– E.2 Full Results • F. Analysis – F.1 Analysis Image Generation 
+
+## A. Training Data Curation 
+
+This section provides technical details of the full curation process: (i) real instance-level data curation decisions such as dataset balancing procedures, criteria used to filter data sources, and more detailed dataset scale information, (ii) generative editing pipeline implementation details for sub-sets 2a and 2b. 
+
+A.1. Subset 1: Real instance-level data 
+
+Initial candidate pool for instance-level data. Table 1 lists every dataset originally considered, including sev-eral large instance-level datasets not included in the fi-nal main training set (e.g., Stanford Online Products [73], MVImgNet [101], Wildlife-ReID [1] datasets). We focus on instance-level datasets available under research-approved licenses that contain more than 500 unique instances. For each dataset we report: • Total number of images, instances, and categories • Per-instance image count range • Type of instance annotation (object ID, catalog ID, an-imal ID, etc.) • Known annotation issues (if any)                                                  
+
+> Dataset Inst. Imgs Cats Img/Inst Domain MET [99] 734 3,429 –2–17 Art ILIAS [35] 900 5,326 –2–35 Everyday Obj FORB [92] 4,050 16,781 72–22 Flat Obj GLDv2 [90] 4,503 81,964 –2–6,272 Landmarks WildlifeReID10k [1] 9,756 126,302 22 1–411 Animals SOP [73] 11,318 59,551 12 2–12 Products MVImgNet2* [101] 20,000+ 689,003 300+ 3–33 Multi-view Obj DeepFashion [20] 30,018 77,221 13 1–10 Fashion
+> Total 80k+ –––
+
+Table 1. Initial real instance-level dataset pool. MVImgNet2* is a subset of MVImgNet2 composed of the first two released parts, as the full released dataset contains 180k+ videos. We also use the train clean split of GLDv2. 
+
+Random vs. balanced sampling. Because the number of instances across datasets is highly skewed (e.g., 734 in-stances in MET vs. 30k+ in DeepFashion2), we first eval-uated whether training on a heavily imbalanced mixture would bias the model toward the largest domains. Since ID-Sim is intended to generalize across many visual iden-tities and contexts, we aim to avoid over-representing any specific dataset or domain. To study the effect of dataset composition, we fix a tar-get pool of 10,000 triplets (30k images) and compare two sampling strategies: (i) proportional sampling based on raw dataset size, and (ii) a balanced sampling strategy designed to equalize per-dataset contribution. As reported in the main paper, balancing improves the validation ROC AUC from 0.69 to 0.75. We provide the full procedure used to construct the balanced pool below. 
+
+Balanced sampling procedure. We sample unique in-stances rather than individual images to maximize identity diversity. The process is as follows: 1. Initial allocation. Each dataset is allocated a quota of 
+
+11 ,000 /N datasets instances ( 10 ,000 for the training set and 1,000 for validation), giving each dataset an equal starting contribution. 2. Small-dataset allocation. Datasets with fewer in-stances than their quota (e.g., MET, ILIAS) contribute all available instances and are excluded from later steps. 3. Redistribution. The remaining instance budget is di-vided equally among the remaining datasets. This re-distribution is repeated until the full 11 ,000 instance target is reached. 4. Per-instance sampling. For each selected instance, we uniformly sample two images from all available images (one anchor, one positive). 5. Train / validation split. The datasets are then ran-domly split into 10 , 000 instance train set and 1, 000 
+
+instance val set. After selecting the instances and sampling images, neg-ative pairs are created using hard-negative mining : for each anchor image, we search the training pool for the nearest neighbor in DINOv3 embedding space. This procedure yields two comparable datasets–one pro-portional and one balanced– whose final instance counts for the training set are:                      
+
+> Dataset Unbalanced Balanced MET 105 663 ILIAS 111 804 FORB 592 1428 GLDv2 625 1419 WildlifeReID10k 1450 1418 StanfordOnlineProducts 1566 1435 MVImgNet2 3191 1411 DeepFashion2 2360 1422 Validation ROC AUC 0.69 0.75
+> Table 2. Instance counts in the unbalanced vs. balanced 10k training mixtures.
+
+Other dataset filtering criteria and impact on per-formance. We observed inconsistencies in how some datasets defined an “instance”, especially relative to the definition used in the main paper (shared visual identity). To evaluate whether these inconsistencies affected training quality, we ran an ablation where we applied strict filtering rules to remove ambiguous or overly broad instance labels. Our filtering rules were designed to be simple and repro-ducible. At a high level, we removed (i) classes where one instance label covered visually different objects, (ii) identi-ties that were extremely difficult to match reliably, and (iii) datasets lacking sufficient contextual variation. Below we describe the exact decisions applied to each dataset. 1. Incorrect instance granularity. Several datasets grouped visually distinct objects under the same in-stance. • FORB : We removed the Logo category because dif-ferent logo styles (e.g., the “LV” monogram vs. full “Louis Vuitton” text) appeared under one instance la-bel Figure 7. • GLDv2 : Many GLDv2 categories are too broad to represent a single object or a consistent visual identity (see Figure 8). We kept only landmark classes where two random images are likely to show the same physical structure. Specif-ically, we retained the following hierarchical labels: [house, lighthouse, tower, skyscraper, observatory, fountain, windmill, sculpture, boat, school, cross, pyramid] . Broad geographic categories such as cities , mountains , and villages 
+
+were removed. • SOP : Product instances in this dataset often included different colors or versions grouped under the same ID. Because these violate our instance definition, we removed SOP entirely. 2. Hard-to-match or viewpoint-inconsistent identities. 
+
+Some identities were not mislabeled but were visually too difficult for consistent matching, either due to lim-ited texture cues or extreme viewpoint differences. • WildlifeReID10k : Certain animal identities (e.g., belugas, dolphins) in this dataset have little to no dis-tinctive patterning and appear nearly indistinguish-able across individuals. Others include opposite-sided views of the same animal under the same identity, making consistent matching unreliable. To avoid these failure cases, we retained only the Dog-FaceNet and CatIndividualID subsets, which have stable markings and consistent viewpoints. 3. Insufficient contextual variation. 
+
+• MVImgNet : Although MVImgNet provides rich multi-view rotation, it contains very limited back-ground or lighting variation within a single instance sequence since it is a multi-view dataset. Because our training objective requires seeing the same instance under diverse contexts, we removed MVImgNet for insufficient contextual diversity. These filtering steps remove ambiguous labels and en-sure that the remaining datasets align with our visual in-stance definition. After this filtering, we perform the balancing again following the procedure outlined in Sec-tion A.1. Together with the sampling, this process produces a cleaner and more consistent dataset, significantly boosting evaluation validation performance from 0.75 to 0.89 (see Table 3). 
+
+A.2. Subset 2: Synthetic data 
+
+While the real instance-level datasets in Subset 1 provide strong coverage of identity-preserving variation, they un-Instance logos_500 Instance logos_850 Instance logos_561 Instance logos_1091 Instance logos_248     
+
+> Instance logos_500 Instance logos_850 Instance logos_561 Instance logos_1091 Instance logos_248
+
+Figure 7. Filtered out FORB logo category. We observe consis-tent appearance inconsistencies between the same ”instance” cat-egory in FORB’s ”logo” class. Instance 49333 beach 
+
+> Instance 66721 parks
+> Instance 137270 mountain
+> Instance 176458 city
+> Instance 195725 village
+> Instance 49333 beach
+> Instance 66721 parks
+> Instance 137270 mountain
+> Instance 176458 city
+> Instance 195725 village
+
+Figure 8. Filtered GLDv2 categories. Many GLDv2 classes cover broad geographic areas rather than a single localized site, building or an object, making it difficult for a class to correspond to a consistent visual identity. 
+
+Dataset Filtered MET 671 ILIAS 826 WildlifeReID10k (Dogs and Cats) 1501 FORB (Filtered) 2346 GLDv2 (Filtered) 2315 DeepFashion2 2341 Validation ROC AUC 0.89 
+
+Table 3. Instance counts for the filtered and balanced 10k training mixture. 
+
+derrepresent many forms of contextual change (e.g., back-ground, lighting, scene geometry). To address this limita-tion, we augment our training set with synthetic data gen-erated through controlled editing. These edits preserve the object’s visual identity while introducing new contexts that rarely appear in the original datasets. We use two complementary sources of synthetic data. 
+
+Subset 2a applies generative contextual edits (background and lighting changes) to isolated frames sampled from video datasets. Subset 2b applies generative foreground ed-its to create hard-negative examples for contrastive triplets. 
+
+A.2.1. Subset 2a: Contextual Edits for Generative Syn-thetic Positives Base datasets. Subset 2a is constructed from sequential video datasets rather than independent images of an in-stance. Video sources are particularly valuable because they capture the same instance under natural pose variation but often lack diversity in background and illumination. Gener-ative editing conditioned on these real frames therefore in-jects controlled contextual diversity while maintaining iden-tity fidelity. We use LaSOT [16], GOT10k [29], YouTube-VIS [96], and UCO3D [41], chosen for their instance diver-sity, scale, and availability of mask annotations. To obtain a diverse and high-quality set of frames per instance, we use a simple dataset-adaptive sampling strategy: • Long videos ( >6s): divide each sequence into 5–6 equal-duration parts and sample one valid frame from each part • Short videos (≤6s): sample every kannotated ×
+
+annotation stride frames Dataset-specific values for frame rate, annotation stride, window size, and number of segments are provided in Sec-tion A.2.1. These parameters are chosen so that each sam-pling window corresponds to roughly 1–2 seconds of video, preventing oversampling of near-duplicate frames. Within each sampling window, we apply the following quality filters: • Foreground coverage: between 10% and 90% • Sharpness: blur score [58]. >50, where the blur score is computed as the variance of the Laplacian (higher variance indicates a sharper image with stronger edges) If multiple frames satisfy these criteria, we randomly se-lect one to encourage temporal diversity. Instances are re-tained only if at least two valid frames are obtained. 
+
+Dataset Frames per Second (FPS) Frame Stride Number of Frames ( k)Window Size Number of Sampled Parts LaSOT 30 5 6 30 (1s) 6GOT-10k 10 5 2 10 (1s) 5YouTubeVIS 6 5 2 10 (1.7s) 5UCO3D 30 1 30 30 (1s) 5
+
+Table 4. Dataset-specific parameters for video frame sampling. 
+
+About 5-6 frames are sampled from each instance sequence, at intervals that are at ∼1 second apart. 
+
+Editing model and pipeline. Contextual edits are produced using the Qwen-Image-Edit [91] dif-fusion model (Qwen/Qwen-Image-Edit ) with Lightning LoRA weights, enabling 8-step infer-ence. All generations use bfloat16 precision and a
+
+FlowMatchEulerDiscreteScheduler . A fixed generator seed ensures determinism. Preprocessing. Each selected frame is paired with its bi-nary foreground mask. Before editing, we apply: • Foreground crop preserving a 2:3 or 3:2 aspect ratio. • Resize so the longer side is at most 1248 px and both dimensions are divisible by 32. • Foreground scaling: if the mask covers less than 10%, scale up to exactly 10%; otherwise randomly select a scale factor so the new coverage lies between 10% and the original value. Each instance is assigned a scale mode (small or large). • Placement of the scaled foreground onto a white canvas without border clipping. • Composition of the foreground onto the blank canvas to form the editing input. 
+
+Prompts. Each frame receives a unique back-ground–lighting combination. Background prompts are sampled from a supercategory-specific list using category to supercat.json and 
+
+supercat to backgrounds.json . Lighting prompts come from lighting prompts.json 
+
+and are conditioned on the selected background using 
+
+background to scene.json . The prompts are generated using GPT-4o [30]. All component files are included in the supplemental. The prompt used for all contextual edits is:                                                       
+
+> Replace only the white background pixels with {background };keep the foreground objects and text completely unchanged in size, position, orientation, and appearance (except lighting); preserve original text, composition, proportions, alignment, and text properties; seamlessly blend the new background with simulated
+> {lighting prompt }to match scene lighting, shadows, and reflections; ensure natural integration without duplication, movement, or distortion of the foreground; maintain original dimensions, aspect ratio, and focal center; adjust foreground lighting for seamless blending.
+
+Parameter sampling. Contextual edits use fixed settings: 8 inference steps, guidance scale of 1.0, and a fixed genera-tor seed. Background and lighting indices are sampled per frame. 
+
+Generation and output. The model replaces only white-background pixels with the selected scene while blending foreground lighting to match. Outputs include the edited RGB image and updated mask, saved with deterministic filenames encoding all edit parameters. 
+
+Use in training. During training, triplets are formed by mixing original and edited views of the same instance. Each positive pair is chosen uniformly from: 1. original anchor + edited positive 2. edited anchor + original positive 3. edited anchor + edited positive The negative is drawn from either an edited or original view of a different instance. Examples are shown in Figure 9. Adding this dataset in a 1:1 mix with Subset 1 results in a 
+
+validation ROC AUC improvement from 0.89 to 0.937 ,as reported in the main paper, suggesting that the diversifi-cation of contextual edits helps. The ablation on the dataset composition is in Section B.1. Reference Positive Negative  
+
+> Figure 9. Generative Contextual Edited Images
+
+A.2.2. Subset 2b: Identity-Altering Edits for Hard Neg-atives 
+
+Subset 2b introduces controlled foreground edits that al-ter identity-defining features while maintaining class-level semantics. These edits produce realistic but non-matching variants of each object and are used exclusively as hard neg-atives. 
+
+Base datasets. We apply identity edits only to datasets with high-quality segmentation masks: DeepFashion2 [20] and UCO3D [41]. These datasets provide clean boundaries and stable viewpoints. The remaining video datasets con-tain motion blur or noisy masks, and the real instance-level datasets from Subset 1 do not provide per-object masks. 
+
+Model and pipeline. Foreground edits are generated using the FluxFillPipeline 
+
+(black-forest-labs/FLUX.1-Fill-dev ) [39]. The model operates in bfloat16 precision and performs inpainting only where the input mask is white. The background is preserved unchanged. 
+
+Preprocessing. All images and masks are resized so the longer side is at most 720 px, while preserving aspect ratio and ensuring both dimensions are divisible by eight. We apply randomized partial masking by removing 40–60% of the foreground region along a horizontal or vertical axis to introduce occlusion and increase edit diversity. 
+
+Prompts. All identity edits use a class-specific prompt of the form:    
+
+> Photo of a<object>
+
+The object name is drawn from 
+
+instance class to name.json . These prompts encourage edits that remain faithful to class semantics while modifying fine-grained appearance cues. 
+
+Parameter sampling. For each frame we sample: • Strength in the range 0.5–0.8 • 50 inference steps • Guidance scale of 2.5 Sampling is controlled by a per-frame seed computed as 
+
+seed + row id . The generation step uses a fixed inter-nal seed of zero, enabling fully deterministic output. 
+
+Generation and output. The pipeline inpaints only the masked foreground, producing realistic but identity-altered variants. Outputs are resized back to the original crop res-olution and saved with deterministic filenames encoding all parameters.  
+
+> Figure 10. Generative Edited Hard-Negatives
+
+Use in training. Identity-edited images are used only as hard negatives. To avoid the model relying on generative artifacts to identify these negatives, we add mild generative noise (strength 0.1) to the anchor and positive whenever a triplet includes an identity-edited negative. This noise does not change image content but prevents artifact-based short-cuts. Negatives are sampled from both edited and original images of other instances. Examples appear in Figure 10. Adding this dataset in a 1:1:1 mix with Subset 1 results in a 
+
+validation ROC AUC improvement from 0.937 to 0.965 ,as reported in the main paper, suggesting that the edited hard-negatives provide additional signal. The ablation on the dataset composition is in the following section. B. Ablation Studies 
+
+B.1. Ablation Datasets 
+
+For model selection we rely on two complementary valida-tion sets. First, we use the validation split of the curated real instance dataset from Subset 1, which we refer to as Real Instance Validation . The metric on this set is accuracy as it is in a triplet format. Second, we construct a small identity-focused validation set composed of five Flux-generated base instances, each edited with a mixture of identity-preserving and identity-altering Photoshop [2] modifications. We eval-uate binary identity classification on this set and refer to the resulting score as Identity Validation .This identity-focused set is intentionally small, does not overlap with any test data, and provides an additional tar-geted signal that complements the broader Real Instance Validation set. Throughout the ablation experiments, we report results on both validation sets and use them jointly to identify the best-performing configuration. 
+
+B.2. Training Dataset Ablation. 
+
+To determine the appropriate training scale and composi-tion, we evaluate both factors using two complementary validation metrics. As shown in Table 5, performance in-creases gradually when scaling from 5k to 20k instances, but the gains are modest and within the range of expected variance. Beyond 20k, identity-validation performance de-creases substantially. This pattern suggests that the main benefits are already achieved at moderate dataset sizes, and that 10k instances provide a stable and efficient operating point.           
+
+> Dataset Scale Real Instance Validation (Acc) Identity Validation (ROC AUC)
+> 5k even split 0.860 0.97 10k even split 0.870 0.97 20k even split 0.880 0.98
+> 30k 0.8825 0.91 Table 5. Effect of training dataset scale on validation perfor-mance.
+
+Next, we evaluate dataset composition under a fixed 10k training set, comparing an even (1:1:1) mixture to configu-rations where one subset is made dominant (0.7:0.15:0.15). As shown in Table 6, the even split achieves the best bal-ance across both validation metrics, whereas skewed mix-tures improve one metric at the expense of the other. Based on these findings, we adopt the 10k even-split 
+
+configuration as our final training mixture, providing strong and stable performance across real-instance and identity-level evaluations.           
+
+> Dataset Composition Real Instance Validation (Acc) Identity Validation (ROC AUC)
+> Even Split 0.8715 0.97
+> Subset 1 dominant 0.8905 0.95 Subset 2a dominant 0.8715 0.95 Subset 2b dominant 0.8685 0.96 Table 6. Effect of dataset composition on validation perfor-mance (fixed 10k scale).
+
+B.3. Training Ablation 
+
+All ablations in this section are evaluated using a joint CLS+patch embedding and are trained using the 10k bal-anced training mixture. We conduct ablations to isolate the contribution of the backbone, feature losses, and patch similarity metrics. These models are evaluated on two validation sets: (i) Real Instance Validation (accuracy) and (ii) Identity Validation (ROC AUC). 
+
+B.3.1. Backbone and Input Resolution             
+
+> Backbone / Resolution Real Instance Validation (Acc) Identity Validation (ROC AUC)
+> DINOv3-L/16 @ 448 (Baseline) 0.8715 0.965
+> DINOv3-L/16 @ 224 0.8715 0.965
+> DINOv3-B/16 @ 448 0.834 0.921 DINOv2-L/16 @ 448 0.8355 0.895 DINOv2-L/16 @ 224 0.8135 0.819
+> Table 7. Backbone and resolution ablation.
+
+DINOv3 performs better than DINOv2 across both val-idation sets, and resolution mainly affects DINOv2, but higher resolution results in better performance. ViT-L archi-tecture outperforms ViT-B. This supports using DINOv3-L/16 at 448px in the final model. 
+
+B.3.2. CLS vs. Patch vs. Joint Training         
+
+> Feature Loss Setting Real Instance Validation (Acc) Identity Validation (ROC AUC)
+> CLS + Patch (Baseline) 0.8715 0.965
+> Patch Loss Only 0.8665 0.908 CLS Loss Only 0.8065 0.893
+> Table 8. Ablation on CLS vs. patch vs. joint training.
+
+Joint supervision combines the complementary strengths of CLS and patch features, resulting in stronger overall per-formance than using either feature in isolation. 
+
+B.3.3. Loss Function and Patch Metric 
+
+Sinkhorn OT improves patch alignment over cosine dis-tance, and InfoNCE provides the strongest identity separa-Objective / Patch Metric Real Instance Validation (Acc) Identity Validation (ROC AUC)          
+
+> InfoNCE + Sinkhorn (Baseline) 0.8715 0.965
+> InfoNCE + Cosine Patch Metric 0.8655 0.940 Hinge + Sinkhorn 0.8705 0.945 BCE + Sinkhorn 0.8395 0.923
+> Table 9. Loss and patch similarity ablation.
+
+tion among the tested objectives. These results support the choice of InfoNCE with Sinkhorn in the final model. 
+
+B.3.4. Overall Summary 
+
+Across all ablations, the combination of DINOv3-L/16, joint CLS+patch training, and Sinkhorn OT produces the most reliable identity-sensitive behavior and is therefore adopted in all main-paper experiments. 
+
+## C. Training Details 
+
+With the architecture and dataset design fixed as above, we ablated over the key training hyperparameters and arrived at the following final configuration. 
+
+C.1. Model Configuration 
+
+• Backbone : DINOv3-ViT-L/16 (stride 16), using CLS and patch features • Head : dual MLPs with 512-dim hidden layers (CLS and patch) • LoRA adaptation : rank 16, α = 32 , dropout 0.05 • Input resolution : 448 × 448 
+
+• Precision : bfloat16 
+
+C.2. Optimization 
+
+• Optimizer : AdamW, learning rate 3 × 10 −4, weight decay 0
+
+• Batch size : 8 (effective batch size 32 with ×4 gradient accumulation) • # epochs : 3 
+
+C.3. Loss 
+
+• Objective : InfoNCE with single-negative sampling • Margin : 0.1 • Feature weighting : CLS : Patch = 1 : 1 • Patch alignment : Sinkhorn optimal transport 
+
+C.4. Data Augmentations 
+
+• Random resized crop (scale 0.9–1.0; aspect ratio 1:1; bicubic) • Color jitter (brightness 0.2, contrast 0.2, saturation 0.08, probability 0.8) • Gaussian blur (kernel 7 × 7, σ ∈ [0 .05 , 0.6] , probability 0.5) 
+
+C.5. Sinkhorn Patch Metric 
+
+• Implementation : geomloss.SamplesLoss with 
+
+p = 2 
+
+• Regularization : 0.05 • Blur : 0.05 • Maximum tokens : 1024 • Patch features L2-normalized before distance computa-tion 
+
+C.6. Data Loading 
+
+• 4 dataloader workers • Up to 3 concurrent S3 downloads • Train/val splits loaded from S3 parquet files 
+
+## D. Evaluation 
+
+D.1. Evaluation Dataset Details 
+
+We summarize here the seven evaluation datasets used in the main paper. Each dataset follows its standard evaluation protocol and is fully disjoint from the training data. The only exception is DeepFashion2, for which a subset of the dataset is used during training; however, the evaluation split employed here is strictly non-overlapping with the training split. 
+
+PODS (Instance Retrieval) 
+
+• Task: Instance retrieval for personalized household objects (Figure 11). • Size: 1,200 query images and 300 gallery images. • Instances: 100 object instances appearing in both splits. • Labels: Instance-level ID. • Protocol: We evaluate using the dataset’s canonical setup: the 1,200 images from the test dense split serve as queries, and the 300 images from the train 
+
+split serve as the gallery. Although the split is named “train,” it is only part of the dataset organization and is not used to train our model. • Metrics: mAP (main), ROC-AUC, nDCG. Normal-ized Discounted Cumulative Gain (nDCG) evaluates how well the ranking prioritizes the most relevant matches. • Notes: Images show controlled variation in viewpoint, background, and lighting across all instances. 
+
+DeepFashion2 (Instance Retrieval) 
+
+• Task: Clothing-item instance matching across do-mains (Figure 12). • Size: 1,668 queries; 3,065 gallery images • Instances: 1,668 clothing items • Labels: Per-item instance ID • Protocol: Standard fashion retrieval (each query has at least one gallery match) Figure 11. PODS Dataset. The dataset is composed of household objects occurring under different distribution shifts, with varying backgrounds, distractor objects, and poses. 
+
+• Metrics: mAP (main), ROC-AUC 
+
+Figure 12. DeepFashion2. The DeepFashion2 dataset features query / gallery images of the same clothing item in-shop as well as worn by consumers. 
+
+AerialCattle2017 (Animal Re-ID) 
+
+• Task: Animal identity retrieval from aerial imagery (Figure 13) • Size: 2,329 filtered images • Identities: 23 cattle • Splits: 23 queries; 2,306 gallery images • Labels: Individual animal ID • Protocol: Rank gallery images for each query • Metrics: mAP (main). 
+
+PetFace (Animal Re-ID - Verification) 
+
+• Task: Pairwise identity verification across 13 species • Size: 3,250 pairs • Labels: 1,622 positive; 1,628 negative • Species: 13 unique species: cat, chimp, chinchilla, de-gus, dog, ferret, guineapig, hamster, hedgehog, javas-parrow, parakeet, pig, rabbit 
+
+Figure 13. AerialCattle2017. This dataset is composed of aerial imagery of various cows on fields, and the task is to retrieve the same individuals based on a query image. 
+
+• Protocol: Predict whether two images depict the same individual • Metrics: mAP (main) Pair 1 ferret 
+
+> Pair 2 cat
+> Pair 3 chinchilla
+> Pair 4 pig
+> Pair 5 dog
+
+Figure 14. Petface. Evaluation benchmark of 13 unseen animals. Red depicts different individual and green depicts same individual. 
+
+CUTE (Triplet Matching) 
+
+• Task: Fine-grained object discrimination using triplet matching • Size: 1,800 triplets • Structure: Each sample contains an anchor, a positive (same instance), and a negative (different instance) • Modes: 1) Easy mode uses triplets in which all three images come from the same scene, testing discrimina-tion between instances under identical background and context, 2) Hard mode selects the anchor from a differ-ent scene whenever possible while keeping the positive and negative in the same scene; this requires recogniz-ing the same instance across scene changes while re-jecting a same-scene negative • Protocol: Predict whether the anchor is more similar to the positive than the negative • Metrics: Accuracy (main). We report Hard-mode re-sults in the main paper and provide both modes in the supplemental Anchor banana 
+
+> Positive (same instance)
+> Negative (diff instance)
+> pepper_orange
+> screw
+> screwdriver
+> plate
+
+Figure 15. CUTE triplets. Examples of triplets selected for ”Hard” mode. The positive and negative examples are drawn from the same scene type, which may be different from the scene type of the anchor, forcing a match across extrinsic characteristics. 
+
+Subjects2k (Binary Verification for Generative Model) 
+
+• Task: Human-validated concept preservation • Size: 2,000 pairs • Labels: 473 positive; 1,527 negative • Source: Curated from Subjects200k using GPT-4V fil-tering + human annotation • Protocol: Predict whether the target preserves the identity of the reference • Metrics: AP (main), ROC-AUC Pair 1 Pair 2 Pair 3 Pair 4 Pair 5 
+
+Figure 16. Subjects2k Pairs. Newly annotated 2k subset of Sub-jects200k [80]. Green depicts same instance, red is different. 
+
+DreamBench++ (Discrete Rating for Generative Model) 
+
+• Task: Identity preservation in subject-driven image generation • Size: 6,921 valid pairs (after filtering) • Ratings: Discrete identity score in [0 , 4] 
+
+• References: 110 reference subjects • Protocol: Rank generated images by predicted simi-larity to the reference • Metrics: Spearman correlation (main), Kendall corre-lation Pair 1 Rating: 4.0 
+
+> Pair 2 Rating: 3.0
+> Pair 3 Rating: 1.0
+> Pair 4 Rating: 1.0
+
+Figure 17. DreamBench Pairs. DreamBench images are accom-panied by human annotations out of 4. 
+
+D.2. Subjects2k Human Annotation Pipeline 
+
+Motivation DreamBench++ [53] is one of the most widely used human benchmark for evaluating concept preservation in personalized generation, but its annotation design introduces significant noise. Each image receives only two human ratings, and annotators provide a 0–4 rubric score rather than answering a direct same/different or pair-wise comparison questions. As shown in Figure 24, this results in both (i) large identity variation among images with identical DreamBench scores, and (ii) highly variable scores for images with higher identity similarity. These inconsistencies motivate the need for a cleaner, better-calibrated evaluation set. We therefore construct Sub-jects2k , a new human-annotated subset of Subjects200k [80] designed to provide more reliable identity-preservation judgments. Subjects2k: Setup. Subjects2k is derived from the GPT-annotated [30], Flux-generated [39] Subjects200k [80] dataset used for high-fidelity image editing evaluation. Sub-jects200k provides a 0–5 score per image indicating GPT’s assessment of identity preservation. From this pool, we construct a balanced human-evaluation subset by sampling 1,000 images with GPT score 5, and 200 images from each of the remaining scores 0-4, yielding 2,000 images total. We built a lightweight web interface (custom server shown below) and collected human annotations on Prolific.   
+
+> Figure 18. Introduction Page for Subjects2k Annotation Server. We provide a clear definition of an instance to all par-ticipants prior to starting their annotations.
+
+Subjects2k: Human Annotation Summary We col-lected human judgments for all 2,000 image pairs in Sub-jects2k and inserted 7 manually-verified sentinel pairs with known ground-truth labels. After each annotation batch, we filtered annotators by requiring perfect accuracy on all sen-tinel questions; responses from any annotator who missed   
+
+> Figure 19. Subjects2k Annotation Server Task Page. Example of a task page for our annotators.
+
+one or more sentinels were discarded. This procedure en-sured a high-quality, reliable annotation set. Each pair was annotated in batches: we first obtained labels from three an-notators (post-filtering). If all three agreed (all “same” or all “different”), we stopped for that pair. If there was any dis-agreement, we collected up to five additional annotations, for a maximum of nine annotations per pair. This procedure yields an average of 5.01 annotations per pair (min. 3, max. 9). 
+
+Agreement measure. For each pair, let p be the fraction of annotators voting “same instance”. We define agreement as 
+
+max( p, 1 − p), i.e., the fraction of annotators supporting the majority label. Averaged over all 2,000 pairs, the agreement is 0.864 .
+
+Continuous labels and binarization. For each pair, we define a continuous label 
+
+ℓ = #“same” votes 
+
+#total votes ∈ [0 , 1] .
+
+The empirical distribution of ℓ is summarized in Table 10. We then derive a binary label bin label by thresholding at 0.8: pairs with ℓ > 0.8 are assigned bin label = 1 
+
+(“same”), and all others are assigned bin label = 0 (“dif-ferent”). This yields 1,527 negative pairs and 473 positive pairs. 
+
+Binary label distribution. Using the above threshold, the binary label counts are: 1,527 pairs with bin label = 0 and 473 pairs with bin label = 1 .
+
+D.3. MLLM Evaluation Criteria 
+
+To ensure fair comparison with MLLMs, we employ struc-tured evaluation protocols including DreamBench++. The MLLM* row of Table 2(a) reports results using the orig-inal prompts and models from Subjects200K and Dream-Bench++, reflecting the annotations provided with the re-leased datasets. In particular, DreamBench++ prompts follow a rubric-based protocol designed for identity-consistency scoring. Although the exact filtering prompts Table 10. Subjects2k continuous label histogram. Counts of image pairs falling into each bin of the average human “same” vote fraction ℓ.Label range # pairs 
+
+[0 .00 , 0.09) 788 
+
+[0 .09 , 0.18) 94 
+
+[0 .18 , 0.27) 111 
+
+[0 .27 , 0.36) 96 
+
+[0 .36 , 0.45) 141 
+
+[0 .45 , 0.55) 70 
+
+[0 .55 , 0.64) 143 
+
+[0 .64 , 0.73) 68 
+
+[0 .73 , 0.82) 105 
+
+[0 .82 , 0.91) 77 
+
+[0 .91 , 1.00) 307 Same: Reference Same: Test Different: Reference Different: Test 
+
+Figure 20. Human-labeled identity pairs. Left: Examples anno-tated as “Same.” Right: Examples annotated as “Different.” Hu-man annotators reliably pick up subtle, fine-grained cues—such as texture, pattern, and small structural differences. 
+
+for Subjects200K are not publicly released, the authors describe a rigorous MLLM-based quality control process that explicitly verifies subject consistency. During dataset construction, each generated sample “underwent five in-dependent evaluations by ChatGPT-4o,” and “only images that passed all five evaluations were included” in the final dataset [80]. 
+
+Prompt. You are a visual identity metric. Given two input images, decide if they depict the same instance (e.g., the same animal individual or the same exact object). Focus on stable, instance-specific features and ignore differences due to pose, background, and lighting. 
+
+Output format: Return only a single JSON object with ex-actly these fields: 
+
+{
+
+"same instance": 0 or 1, // binary decision (1 = same, 0 = different) 
+
+"confidence": float in [0,1], // confidence in the decision 
+
+"similarity": float in [0,1] // similarity score for ranking/mAP (higher is more similar) 
+
+}
+
+Figure 21. GPT-Generated prompt used for MLLM standardized evaluation. 
+
+## E. Results 
+
+E.1. Dense Results 
+
+We show qualitative results for instance segmentation be-low, comparing ID-Sim and DINOv3. More Similar Less Similar       
+
+> ID-Sim
+> 0.892 0.853 0.709 0.714
+> DINOv3
+> 0.803 0.790 0.752 0.563
+> Reference
+> Mask score
+> Mask score
+
+Figure 22. Qualitative Results for Per-SAM. We show pre-dicted segmentation masks and corresponding predicted confi-dence scores, ordered in highest to lowest with respect to a refer-ence object. First, we observe that when combined with PerSAM, both ID-Sim and DINOv3 are able to produce reliable segmen-tation mask predictions (mask drawn in red around the instance). However, we observe that ID-Sim is significantly better at recog-nizing instances across distribution shifts and discriminating fine-grained neighbors compared to DINOv3, as shown by the pre-dicted mask scores and the ordering. 
+
+In addition to being useful for spatial tasks, ID-Sim’s dense features can be integrated with additional condition-ing to extend ID-Sim’s capabilities in more complex scenar-ios. This is clearly demonstrated in Figure 23, where we can see that ID-Sim learns spatially-localized identity features 
+
+that remain informative even in multi-entity scenes. This is particularly helpful in resolving ambiguity in multi-entity scenes, which require additional user conditioning to spec-ify which instances the metric should be applied towards. While conditioning is not part of our metric, this shows ID-Sim is naturally compatible with external conditioning sig-nals (e.g., spatial masks or region selection) for specifying user intent. Query 1 Query 2     
+
+> High sim to query 1
+> High sim to query 2 Test
+> Figure 23. Dense masks can resolve ambiguities in multi-object Scenes. Given the test image with 2 shirts (left), ID-Sim features are sensitive to the identity of the query image (right 2 images), evidenced by the patch-level similarity heatmaps (2nd to left).
+
+E.2. Full results 
+
+In Figure 25, we report full numerical results across all datasets and baselines. Beyond the metrics shown in the main paper, we include additional evaluation metrics and settings for several benchmarks. For ID-Sim, we also re-port variance over 10 independent runs, each trained with a different random seed. 
+
+## F. Analysis 
+
+We use 100 held-out object instances from MVImgNet, a multi-view dataset that does not appear in any training or evaluation set. For each object, we generate a dense grid of edited images that vary jointly along identity change and one additional dimension (background, viewpoint, or light-ing). This provides controlled perturbations for measuring how similarity scores behave under specific visual changes. 
+
+Per-instance regression. For each instance, we fit a linear model to all similarity scores {sim i}:sim i = β0 + β1 factor-change i + β2 identity-change i + εi.
+
+Sensitivity to each dimension is defined as the negative slope (−β1 or −β2), which gives the amount of similarity reduction per unit change. Because the regression uses all points in the joint edit grid, it produces stable directional sensitivity estimates while avoiding the noise that arises when using only axis-restricted slices. We also record the regression R2 value for each instance. 
+
+Aggregation across objects. Dataset-level sensitivities are obtained by averaging per-instance slopes across the 100 MVImgNet objects. The same grid construction, regression fitting, and aggregation are applied independently to each evaluated model. 
+
+Bootstrap uncertainty. To estimate uncertainty, we per-form bootstrap resampling over object identities. In each of 1,000 bootstrap iterations, we sample the 100 instances with replacement, recompute all regression coefficients, and compute the mean sensitivity for that resample. For each model and each dimension, we report: • the bootstrap mean, • the bootstrap standard deviation, • the 95% confidence interval (2.5 to 97.5 percentile). These intervals capture variability across object identities and provide a reliable measure of uncertainty for the esti-mated sensitivities. 
+
+F.1. Analysis Image Generation 
+
+We generate three types of edits (identity, lighting, and background) using dedicated Qwen-Image-Edit pipelines. These images are used only for sensitivity analysis and are fully separate from all training data. 
+
+Identity edits. For each anchor image: • Qwen-Image-Edit operates in inpainting mode over the foreground mask, • We use seven edit strengths 
+
+0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0 to produce a graded sequence of identity change, • The prompt instructs Qwen to alter internal appearance while preserving overall structure and silhouette, • Only the foreground region is modified while the back-ground remains unchanged, • A fixed seed is used for reproducibility. 
+
+Lighting edits. Lighting variations are generated with global edits (no masking): • Eight lighting prompts (shown below) • Prompts adjust illumination, color temperature, and shading while keeping geometry and texture fixed, • Qwen-Image-Edit is run with 8 inference steps and a fixed seed. 
+
+Background edits. Background replacements are created with mask-guided editing: • The background is removed using a mask and replaced with a white canvas prior to editing, • Eleven background prompts of varying intensity (see below) • The prompt specifies that only background pixels may change and that the object must remain unchanged in geometry, pose, and fine appearance, • Qwen adjusts shading to maintain foreground and back-ground consistency, • Deterministic seeds produce reproducible outputs. Identity variance for same score 
+
+Δ0.13 
+
+Δ0.25 
+
+Δ0.38 
+
+Δ0.62 
+
+Δ0.63 
+
+# Score variance for similar identities Figure 24. Limitations of DreamBench++ annotations. DreamBench++ assigns only two human rubric scores (0–4) per image, which leads to substantial noise in concept-preservation evaluation. As shown above, (i) images with the same DreamBench score can exhibit large variation in identity similarity, and (ii) images with high identity similarity may still receive widely different DreamBench scores. These inconsistencies highlight the need for a cleaner and more discriminative human benchmark, motivating the construction of our Subjects2k dataset. 
+
+PODS DeepFashion2 AerialCattle PetFace CUTE SS200k DreamBench Model AUC AP AUC nDCG mAP mAP AUC AP AUC Easy Acc Hard Acc AUC AP AUC Spear. Kend. 
+
+Foundation models 
+
+DINOv3 0.929 0.424 0.744 0.519 0.516 0.879 0.884 0.827 0.813 0.642 0.323 0.576 0.437 CLIP 0.862 0.294 0.656 0.408 0.368 0.754 0.776 0.779 0.687 0.594 0.296 0.625 0.478 OpenCLIP 0.887 0.359 0.705 0.488 0.430 0.753 0.772 0.796 0.699 0.584 0.294 0.666 0.516 
+
+Perceptual similarity models 
+
+DreamSim 0.897 0.317 0.672 0.529 0.593 0.814 0.824 0.770 0.734 0.603 0.289 0.716 0.561 
+
+LPIPS 0.603 0.067 0.387 0.309 0.442 0.752 0.769 0.651 0.625 0.483 0.235 0.482 0.354 
+
+Instance retrieval model 
+
+UNED 0.944 0.671 0.871 0.714 0.468 0.784 0.800 0.815 0.777 0.654 0.356 0.672 0.523 
+
+Ours 
+
+ID-Sim 0.9642  
+
+> ±0.0035
+
+0.7727  
+
+> ±0.0106
+
+0.9161  
+
+> ±0.0050
+
+0.8045  
+
+> ±0.0119
+
+0.6786  
+
+> ±0.0123
+
+0.9002  
+
+> ±0.0072
+
+0.8958  
+
+> ±0.0101
+
+0.8887  
+
+> ±0.0077
+
+0.8559  
+
+> ±0.0124
+
+0.7053  
+
+> ±0.0048
+
+0.4113  
+
+> ±0.0060
+
+0.6856  
+
+> ±0.0103
+
+0.5305  
+
+> ±0.0100
+
+Figure 25. Full quantitative comparison across all benchmarks. We report complete numerical results for all datasets and baselines. For ID-Sim, we show mean ± standard deviation over 10 independent training runs. All evaluations use the CLS embedding at inference, consistent with the main paper. These edit types provide controlled and interpretable variations for quantifying how models respond to identity changes, contextual changes, and illumination changes. 
+
+Prompt sets used for analysis. For completeness, we list the exact background and lighting prompts used to gener-ate the edit grids described in this section. These prompts correspond directly to the options indexed in our code and are referenced when constructing the background–identity grid, the lighting–identity grid, and the viewpoint–identity grid. 
+
+Background prompts (11). 
+
+1. Soft matte off-white plaster wall with subtle imperfec-tions and even diffused daylight. 2. Coastal scene with overcast bright daylight, pale sandy boardwalk, soft gray ocean, and light cloudy sky. 3. Contemporary office interior with white walls, light wood, glass partitions, and soft diffuse daylight. 4. Indoor greenery in white pots with bright filtered day-light from a large window and light walls. 5. Urban street wall with faded or pastel graffiti on light concrete under overcast daylight. 6. Artistic studio with neutral-toned canvases, minimal paint splatter, and soft shadow-free daylight. 7. Bright modern kitchen with white or light-gray sur-faces, minimal decor, and soft natural daylight. 8. Minimalist boutique or gallery space with light walls, wood floors, neutral displays, and even ambient light-ing. 9. Sunlit desert landscape with pale sand, warm beige rock formations, and soft shadows under clear daylight. 10. Industrial loft with light-exposed brick, large windows with daylight, and pale metal beams. 11. Warm-toned library interior with light wood shelves, muted books, and soft warm ambient lighting. 
+
+Lighting prompts (8). 
+
+1. Neutral, balanced front lighting with soft shadows and natural highlights (reference lighting). 2. Warm front-directional lighting with soft elongated shadows and a gentle amber color cast. 3. Strong directional side lighting with pronounced con-trast between lit and shaded regions. 4. Bright neutral-cool lighting with soft-edged shadows and crisp highlights. 5. Extremely soft front lighting with faint highlights and very low-contrast shadows. 6. Bright front lighting with well-defined shadows and ac-centuated surface detail. 7. Very low-level front illumination that preserves shape and color with shadow dominance. 8. Intense front lighting with high brightness, strong high-lights, and deep detailed shadows. These prompts define the discrete levels of background variation and illumination used to construct the edit grids in Figures 26 and 28. They are applied consistently across all MVImgNet objects to ensure comparable and fully repro-ducible sensitivity measurements. Identity Change 
+
+> ≈
+
+# 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
+
+## Fixed Identity 
+
+> ≈
+
+Fixed Back-ground p1 p2 p3 p4 p5 p6 p7 p8 p9 p10 p11 Figure 26. Background vs. Identity Variation Grid. Rows vary the foreground identity through Qwen-Edit inpainting at increasing edit strengths, while columns vary the scene background using inpainting prompts. Each cell shows the similarity of the edited image to the original anchor. This grid isolates how models respond jointly to identity changes and background shifts. Identity Change 
+
+> ≈
+
+# 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
+
+## Fixed Identity 
+
+> ≈
+
+## Fixed View-point p1 p2 p3 p4 p5 p6 p7 p8 Figure 27. Viewpoint Variation Grid. Rows vary identity strength and columns sweep natural viewpoint changes using the multi-view MVImgNet sequence. This grid evaluates how well each model maintains invariance to viewpoint while still detecting identity-altering edits. Identity Change 
+
+> ≈
+
+# 0.4 0.5 0.6 0.7 0.8 0.9 1.0 
+
+## Fixed Identity 
+
+> ≈
+
+## Fixed Lighting p1 p2 p3 p4 p5 p6 p7 p8 Figure 28. Lighting Variation Grid. Rows correspond to increasing levels of identity change, while columns apply eight different lighting edits using Qwen-Edit. This grid tests whether models remain stable under illumination changes while remaining sensitive to small identity perturbations.

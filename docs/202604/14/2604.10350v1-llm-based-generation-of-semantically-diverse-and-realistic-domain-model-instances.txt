@@ -1,0 +1,591 @@
+Title: LLM-based Generation of Semantically Diverse and Realistic Domain Model Instances
+
+URL Source: https://arxiv.org/pdf/2604.10350v1
+
+Published Time: Tue, 14 Apr 2026 00:53:42 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# LLM-based Generation of Semantically Diverse and Realistic Domain Model Instances 
+
+Andrei Coman 
+
+Universidad de Málaga Spain 
+
+Lola Burgueño 
+
+Universidad de Málaga Spain 
+
+Dominik Bork 
+
+TU Wien Austria 
+
+Manuel Wimmer 
+
+JKU Linz Austria 
+
+Abstract —Large Language Models (LLMs) have been recently proposed for supporting domain modeling tasks mostly related to the completion of partial models by recommending additional model elements. However, there are many more modeling tasks, one of them being the instantiation of domain models to represent concrete domain objects. While there is considerable work sup-porting the generation of structurally valid instantiations, there are still open challenges to incorporating real-world semantics by having realistic values contained in instances and ensuring the generation of semantically diverse models. Only then will such generated models become human-understandable and helpful in educational or data-driven research contexts. To tackle these challenges, this paper presents an approach that employs LLMs and two prompting strategies in combination with existing model validation tools for instantiating semantically realistic and diverse domain models expressed as UML class diagrams. We have applied our approach to models used in education and available in the literature from different domains and evaluated the generated instances in terms of syntactic cor-rectness, model conformance, semantic correctness, and diversity of the generated values. The results show that the generated instances are mostly syntactically correct, that they conform to the domain model, and that there are only a few semantic errors. Moreover, the generated instance values are semantically diverse, i.e., concrete realistic examples in line with the domain and the combination of the values within one model are semantically coherent. 
+
+Index Terms —UML, Model-driven engineering, Instantiation, Object diagram, Large language model, Generative AI 
+
+I. I NTRODUCTION 
+
+In recent years, we have seen several applications of AI for software engineering in general [1], [2] and for software mod-eling in particular [3], [4]. Most of the presented approaches operate on the type-level of structural models, e.g., UML class diagrams to mention probably the most prominent notation, by proposing additional model elements to complete system descriptions in a semi-automatic manner (see e.g., [5], [6]). However, one aspect that has not received much attention is the instance level, e.g., consider UML object diagrams, when it comes to AI-based automation support in software modeling for concrete instantiations. Having support for this level would be of major importance as the type-level descriptions have to be tested at the instance-level in terms of completeness and correctness (i.e., syntactic and semantic validity) [7]. Only then, the type-level can be used as a true reference to validate the instance-level in subsequent phases. 
+
+Preprint. Submitted for peer-review. April 2025. 
+
+Previous studies, e.g., see [8]–[12], followed different ap-proaches to automate the synthetic instantiation of struc-tural models by using, e.g., formal methods such as con-straint solvers and graph transformations or heuristics-based approaches such as search-based techniques. The work by Semeráth et al., also showed that “Real instance models, created by humans [. . . ] provide low mutation score” , i.e., less structural diversity [13]. Some recent approaches, e.g., see [14], aim to automatically mutate existing real-world models. However, for using these approaches, a large amount of instance models of high quality has to be available as a prerequisite, which can be a challenge on its own. Thus, one concern that still remains a major challenge is to generate semantically realistic and diverse models instead of synthetic models. We define the notion of realistic in this paper in the sense, that models are realistic if their instance property values relate to phenomena that can be observed in real-world e.g., meaningful values (e.g., contextually meaningful names like a street name in Spain could have a term ’calle’), rational values (e.g., age of a human being between 0 and 130), values conforming to some norm or standard (e.g., SWIFT code, an email address, or a phone number) etc. Note that we differentiate realistic from real values. The former can be considered representative of statistical distributions manifest in reality while the latter would further expect values that themselves refer to entities of the real world. To alleviate the aforementioned issues, this work aims to study the application of LLMs for the automatic generation of realistic UML object diagrams for given UML class diagrams. Particularly, we make the following contributions. 1) We introduce different LLM prompting strategies which can facilitate, in combination with existing model valida-tion tools, the instantiation of class diagrams to generate realistic object diagrams across several domains. 2) We provide a dedicated tool chain to support the pre-sented LLM-based instance model generation approach. 3) We comprehensively analyze the generated model in-stances. In particular, we evaluate the syntactic qual-ity, the conformance between object diagrams and class diagrams, the use of realistic property values, and the semantic diversity of the generated instances. The remainder of this paper is structured as follows. In Sec. II, we provide the background of this work and provide 
+
+> arXiv:2604.10350v1 [cs.SE] 11 Apr 2026
+
+a motivating example. In Sec. III, we present our approach for LLM-based domain model instantiation by introducing different strategies that can be used for this task. We discuss the comprehensive evaluation of our approach in Sec. IV. In Sec. V, we discuss related approaches, before we conclude the paper with an outlook on future work in Sec. VI. II. M OTIVATION 
+
+Class diagrams are one of the most used structural modeling languages in software engineering [15], [16]. They allow to model domains by using classes to represent different entity types of a domain, associations to represent the relationship types between entity types, and finally, attributes to model the intrinsic properties of the entity types. For instance, see upper part of Fig. 1 which describes the relationships between the concepts of a financial domain: Bank , Account , and Person .In addition, several constraints can be defined for the different elements to capture also these aspects of the domain, such as multiplicities of the association ends (e.g., an account can have one or two Persons as owners), data types, or even more complex constraints in terms of using a constraint language such as the Object Constraint Language (OCL). Class  
+
+> Diagram
+> Object
+> Diagram
+> «𝑐2» «𝑖𝑂» «𝑖𝑂» «𝑖𝑂» «𝑖𝑂» «𝑖𝑂» «𝑖𝑂»
+
+Fig. 1: Class diagram example (top) with example instantiation as object diagram (bottom). While class diagrams focus on defining the types of a do-main, object diagrams are used to represent concrete situations. For instance, the lower part of Fig. 1 is assigning the person 
+
+‘Lucia Martin’ to the bank account with the IBAN ‘ES600...’ 
+
+of the ‘Banco Santander’ by instantiating the elements of the corresponding class diagram. While this is often a manual process to describe a concrete domain setting, the question arises if automation support can be provided for this level as it is currently emerging for the class diagram level [5], [6]. For providing LLM-based automation support for the in-stantiation of class diagrams, the following points have to be known by LLMs. First, as a basis, the syntax of object diagrams has to be known (i.e., what are objects, links between objects, and slots of objects for storing values). Second, the relationships between the type-level and instance-level have to be known. This comprises the instanceOf (iO) relationships between objects and their class as well as the conformsTo 
+
+(c2) relationships between the object diagrams and their class diagram. The mechanisms behind these relationships have to be known by the LLMs as well to reason about valid instan-tiations, i.e., how to guarantee the consistency between the class diagrams and object diagrams. Third, domain knowledge, which can be framed with the provided class diagrams, is re-quired in order to build meaningful and human-understandable instantiations to end up with realistic models. Finally, for providing scalability, i.e., to generate larger models, as well as diversity, i.e., to generate different models to reason about the coverage of the domain, deep knowledge about the first three mentioned points is required. The availability of realistic models would be helpful in many scenarios such as explaining the expressiveness and the solution space defined by the type-level of structural models using concrete examples. This may be also very helpful for teaching students abstractions. Another scenario is the generation of test models for model-processing tools, e.g., code generators or model transformations, and model-based software systems, e.g., by providing novel approaches for test amplification. Furthermore, it may also be beneficial in the future for exploring the type-level domain abstractions by reasoning about certain instantiations, which may help to complete or improve the type-level descriptions. Another scenario would be that we further use such an approach to generate model repositories that can be used to train machine learning models. Currently, there is an increas-ing interest in such model repositories [17]–[19] while there is a lack of model repositories that provide models in high quantity and good quality. Especially the qualitative aspect is intriguing as many models found in public Github repositories lack quality (e.g., only providing template models, dummy models, etc.) [20]. III. A PPROACH 
+
+In the following, we first introduce the preliminaries to our approach (Sec. III-A) before detailing the two different strategies we implemented for LLM-based domain model instantiation (cf. Fig. 2). The first strategy uses a single prompt with a combination of instruction learning and one-shot learning (top of Fig. 2; introduced in Sec. III-B), and the second strategy uses Chain-of-Thought (CoT) learning (bottom of Fig. 2; introduced in Sec. III-C). While the former uses only one prompt to request the LLM to generate model instances, the latter uses three prompts. The rationale behind exploring these two strategies is that the former is more efficient and sustainable as it uses fewer prompts while the latter has the potential to provide more diverse instances steered by asking for specific instance categories (see Section III-C). 
+
+A. Preliminaries 
+
+For presenting class diagrams and object diagrams in a com-pact and comprehensible format to the LLMs, we have chosen the UML-based Specification Environment (USE) tool [21]. USE provides a textual syntax to represent domain models and comes with the SOIL language to define instances. Listings 1 and 2 show excerpts of the domain model and instance model of Fig. 1, respectively. Note that the domain model in USE can be enriched with constraints written in OCL.              
+
+> 1model BankAccount
+> 2c l a s s Account
+> 3a t t r i b u t e s
+> 4iban :S t r i n g
+> 5balance :R e a l 6end
+> 7c l a s s
+
+Person   
+
+> 8a t t r i b u t e s
+> 9
+
+firstName : S t r i n g  
+
+> 10
+
+lastName : S t r i n g  
+
+> 11
+
+age : I n t e g e r     
+
+> 12 end [ . . . ]
+> 13 a s s o c i a t i o n
+
+Ownership between  
+
+> 14
+
+Person [ 1 . . 2 ] r o l e owner  
+
+> 15
+
+Account [ * ] r o l e accounts      
+
+> 16 end [ . . . ]
+> 17 c o n s t r a i n t s
+> 18 c o n t e x t
+
+Account i n v AdultOwners :  
+
+> 19 s e l f .
+
+owner->forAll (p | p . age >= 1 8 ) [ . . . ] 
+
+Listing 1: Excerpt of the domain model represented as a class diagram in USE   
+
+> 1!new
+
+Account ( ' a c c o u n t 1 ' )  
+
+> 2
+
+!account1 . iban : = ' ES6000491500051234567892 '  
+
+> 3
+
+!account1 .balance : = 9 3 5 0 . 5   
+
+> 4!new
+
+Person ( ' p e r s o n 1 ' )  
+
+> 5
+
+!person1 . age : = 21  
+
+> 6
+
+!person1 .firstName : = ' L u c i a '  
+
+> 7
+
+!person1 .lastName : = ' M a r t i n '   
+
+> 8! i n s e r t (
+
+person1 , account1 ) i n t o Ownership 
+
+Listing 2: Excerpt of an instance model in SOIL 
+
+Fig. 2: Overview of the two instance generation strategies 
+
+B. Instance Generation by Instruction Learning 
+
+The top of Fig. 2 graphically depicts the steps to generate instances, a pseudo-code presentation is given by Algorithm 1. We use a single prompt that employs instruction learning. In this prompt, we provide detailed instructions about the task we ask the LLM to perform. It has been discussed that, in general, LLMs do not perform well with low resource languages (languages which have limited data available for training) and domain-specific languages [22]. Specific text-based modeling languages such as SOIL fall into this category. Hence, we combine instruction learning with one-shot learning. One-shot learning is a prompting technique in which the LLM is provided with a single example (shot) of what it is expected to produce. With this shot, our goal is to help the LLM learn about the particularities of the languages we are using, in our case USE and SOIL, helping the LLM to learn how the instances need to be generated, especially from a syntactic point of view. Therefore, we provide the LLM with an example (shot) of how the instantiation in a concrete scenario is done.                                                                                   
+
+> 1Input: domModel : Domain Model, shot : example of SOIL syntax, numInstances : number of instances to generate, maxChecks : maximum number of times a tentative instance will be checked before being added to the set of final instances
+> 2Output: set of instances
+> 3def run(domModel, shot, numInstances, maxChecks) begin
+> 4instances ←{}
+> 5openNewChat()
+> 6tentativeInstance ←prompt(domModel, shot)
+> 7instance ←checkConformance(tentativeInstance, domModel, maxChecks))
+> 8add(instance, instances)
+> 9for n∈(2 ..numInstances ]do
+> 10 tentativeInstance ←prompt(‘nextInstance’)
+> 11 instance ←checkConformance(tentativeInstance, domModel, maxChecks))
+> 12 add(instance, instances);
+> 13 end
+> 15 15 return instances
+> 16 end
+> 17 def checkConformance(tentativeInstance, domModel, maxChecks) begin
+> 18 i←0
+> 19 sPass ,error ←syntaxCheckUSE(tentativeInstance, domModel)
+> 20 while not sPass and i < maxChecks do
+> 21 tentativeInstance ←prompt(‘correct’, error)
+> 22 pass ,error ←syntaxCheckUSE(tentativeInstance, domModel)
+> 23 i++
+> 24 end
+> 25 if sPass then
+> 26 i←0
+> 27 cPass ,error ←conformanceCheckUSE(tentativeInstance, domModel)
+> 28 while not cPass and i < maxChecks do
+> 29 tentativeInstance ←prompt(‘correct’, error)
+> 30 cPass ,error ←conformanceCheckUSE(tentativeInstance, domModel)
+> 31 i++
+> 32 end
+> 33 end
+> 35 35 return tentativeInstance
+> 36 end
+
+Algorithm 1: Instance Generation using Instruction Learn-ing and One-shot learning Our approach receives as input the domain model in textual USE format, the shot with an example of the instance model syntax in SOIL, and three input parameters: the number of instances to be created, and the maximum number of times the LLM is asked to correct an erroneously generated instance. Our approach starts by creating a single prompt following the template that Listing 3 shows, where {{classDiagram}} in line 11 is to be replaced by a class diagram in the textual USE format (cf. Listing 1); and {{syntaxExample}} in line 13 by a model instance in SOIL format (cf. Listing 2) with a shot.     
+
+> 1System prompt :
+> 2
+
+Given a domain model expressed in the UML-based Specification Environment (USE ) and a syntax example for instance creation , your task is to generate valid instances that conform to the provided model .  
+
+> 3###
+
+Requirements  
+
+> 4
+
+- Instances must be syntactically correct according to the USE syntax example . 
+
+> 5
+
+- Avoid unnecessary comments and output the instance in plain text (i . e . , not markdown ) .  
+
+> 6
+
+- Make sure instances fulfill all the model constraints ,
+
+and that multiplicities , relationships , and attributes are valid . 
+
+> 7
+
+- Provide multiple instances with diverse data values and structure . 
+
+> 8
+
+- Additionally , provide instances that cover corner cases for constraints , multiplicities , and attribute values .    
+
+> 9User prompt :10
+
+Create an instance for the following UML class diagram : 
+
+> 11 {{
+
+classDiagram }}  
+
+> 12
+
+Here is an example of the language syntax for creating instances : 
+
+> 13 {{
+
+syntaxExample }} 
+
+Listing 3: Prompt for instruction learning We have designed the syntax example shot such that it covers a good number of instance elements like comments, primitive data types, instantiation of objects and relations in USE. For space reasons, we cannot provide all the prompt tem-plates for all the categories here, but they are all available in our online anonymous supplementary material repository [23]. To ensure diversity in the generated model instances, we exploit the “memory” of the LLM and ask for additional instances in the same chat. After the LLM generated one instance, we use the prompt described in Listing 4 to ask the LLM to generate another instance instead of asking for all of them at once. We repeat this process as many times as the user has specified in the input parameter numInstances 
+
+(see lines 9 to 13 in Algorithm 1).     
+
+> 1User prompt :
+> 2
+
+Please , generate another instance that is structurally and semantically different from the previous ones .
+
+Listing 4: Prompt for generating another instance For each tentative instance generated by the LLM, we use USE to check the conformance to the class diagram (syntax and constraints) (lines 19 and 27 in Algorithm 1). When a check fails, we use the following prompt (see Listing 5), where we provide the error that USE throws to help the LLM fix its mistake. We repeat this process until the instance passes the test or up to the maximum number of times that the user specified in the parameter maxChecks (lines 20 to 24 and 28 to 32 in Algorithm 1).     
+
+> 1User prompt :
+> 2
+
+The last output is partially incorrect : 
+
+> 3{{
+
+error }}  
+
+> 4
+
+Please provide the complete corrected output .
+
+Listing 5: Prompt for revising a tentative model instance 
+
+C. Instance Generation by Chain-of-Thought Learning 
+
+Chain-of-Thought (CoT) [24] learning enables complex reasoning capabilities through intermediate reasoning steps. We use CoT combined with single-shot learning to further improve the results. We provide a visual representation of our algorithm at the bottom of Fig. 2 and its formalization in Algorithm 2. In addition to the inputs of the Instruction Learning strategy, the CoT strategy receives a list describing the categories of instances that the LLM is expected to generate. Our approach starts by providing the LLM with the domain model as input and asking it to generate a textual description in the natural language of the domain. This step aims to help improve the LLM’s understanding of the domain to be modeled. The prompt we have designed is described in Listing 6.                                                  
+
+> 1Input: domModel : Domain Model, shot : example of SOIL syntax, categories : description of instance categories, numInstances : number of instances to generate of each category, maxChecks : maximum number of times a tentative instance will be checked before being added to the set of final instances
+> 2Output: set of instances
+> 3def run(domModel, categories, shot, numInstances, maxChecks) begin
+> 4instances ←{}
+> 5openNewChat()
+> 6modelDescription ←prompt(‘analyze’, domModel)
+> 7scenarioDescriptions ←prompt(‘genScenarios’, categories, numInstances)
+> 8for scenario in scenarioDescriptions do
+> 9openNewChat()
+> 10 tentativeInstance ←prompt(‘genInstance’, scenario, shot)
+> 11 instance ←checkConformance(tentativeInstance, domModel, maxChecks))
+> 12 add(instance, instances)
+> 13 while |instances |< numInstances do
+> 14 tentativeInstance ←prompt(‘nextInstance’)
+> 15 instance ←checkConformance(tentativeInstance, domModel, maxChecks))
+> 16 add(instance, instances)
+> 17 end
+> 18 end
+> 20 20 return instances
+> 21 end
+> 22 def checkConformance(...) begin
+> 23 // Same as in Algorithm 1
+> 24 end
+
+Algorithm 2: Instance Generation using CoT     
+
+> 1System prompt :
+> 2
+
+You are tasked with analyzing domain models represented as class diagrams and expressed in the UML-based specification environment using its native syntax . 
+
+> 3
+
+You must adhere to the following requirements : 
+
+> 4
+
+- Use very clear language . 
+
+> 5
+
+- Do not overexplain , be concise . 
+
+> 6
+
+- Multiplicities must be very clear and easy to understand . 
+
+> 7
+
+You should follow the structure and requirements below :  
+
+> 8##
+
+Description  
+
+> 9
+
+Start by explaining the overall structure and purpose of the model .  
+
+> 10 ###
+
+Components  
+
+> 11
+
+Break down the components of the model (i . e . , classes and attributes ) , describing each , their type and purpose .  
+
+> 12 ##
+
+Relationships  
+
+> 13
+
+Describe the relationships between the components of the model , dependencies and multiplicities (i . e . , minimum and maximum number of instances of one class that can be associated with instances of another class ) . 
+
+Describe the multiplicities at both association ends .  
+
+> 14 ##
+
+Invariants  
+
+> 15
+
+Define the invariants that apply to the model (i . e . , 
+
+those constraints that must be fulfilled ) .     
+
+> 16 User prompt :
+> 17
+
+Analyze the following UML class diagram : 
+
+> 18 {{
+
+classDiagram }} 
+
+Listing 6: Prompt for analyzing a domain model Then, we ask the LLM to generate, in natural language and for the domain model provided, numInstances characteris-tic model instances that fall into a specific category . The list of categories is related to test-driven development research that aims to develop comprehensive test cases for software systems.  
+
+> •
+
+Base scenario: standard, typical, or common scenario in which each class and relationship is present in the instance at least once if applicable.  
+
+> •
+
+Complex scenario: complex scenario that contains mul-tiple interrelated entities and/or entities that are involved in multiple constraints. • Boundary scenario: scenario that focuses on the extreme upper or lower limits of valid input ranges, such as limits of multiplicities, empty collections, etc.  
+
+> •
+
+Edge scenario: scenario in which the system behaves within but at the limit of the expected behavior, i.e., scenarios that are unusual or unlikely in real-life but possible according to the syntax and semantics of the model. Note that while the boundary case focuses on the syntactic boundaries of multiplicities, the edge scenario explores semantically boundary cases such as a bank with zero accounts or a shopping cart with 2000 unique items.  
+
+> •
+
+Over-constraint detection: scenario that represents a real-life situation that is logically valid but violates the model’s multiplicities or constraints, exposing overly re-strictive or unrealistic restrictions. The prompt we use is:                                   
+
+> 1System prompt :
+> 2Your task is to generate a complete and diverse instance ,
+> in plain English ,for a given category and based on a provided domain model description .The instance must adhere to these requirements :
+> 3- Be self-contained :Include all required attributes ,
+> relationships ,and related entities in full detail .
+> 4- Conform to the model :Fulfill the constraints ,
+> multiplicities ,relationships ,and attributes defined in the class diagram model .
+> 5- Understand the context :Ensure that its attributes and relationships are relevant .
+> 6- Avoid duplication of instances :Take into consideration those instances previously built to avoid redundancy .
+> 7- Semantic diversity :From a semantic point of view ,
+> incorporate varied scenarios ,including regional ,
+> linguistic ,or cultural differences .
+> 8- Structural diversity :Include instances with different numbers of elements ,different numbers of relationships and complexity ,and create varied examples by changing entity attributes .
+> 9User prompt :
+> 10 #Domain model description :
+> 11 {{ modelDescription }}
+> 12 #Category :
+> 13 {{ categoryPrompt }}
+
+Listing 7: System prompt For space reasons, we cannot provide all the prompt tem-plates for all the categories here – they are all available in [23]. For illustration purposes, the prompt we have used for the category boundary scenario is as follows:                
+
+> 1#Category :Boundary Instances
+> 2Create a boundary case instance .This is an instance that focuses on the extreme upper or lower limits of valid input ranges .For example :
+> 3- Upper or lower limits of multiplicities .
+> 4- For numbers in a range ,the minimum and maximum valid values .
+> 5- Empty collections when possible ,i.e. , when they do not violate the semantics of the model or its constraints .
+
+Listing 8: Prompt for the category boundary scenario For each of the scenario descriptions generated by the LLM, we use the following prompt to ask the LLM to create an instance using the SOIL syntax. For this, we provide the example that Listing 2 presents.                                    
+
+> 1System prompt :
+> 2You are tasked with creating instances of a domain model in the UML-based Specification Environment (USE ) . You will receive :
+> 31 . The UML class diagram that the instance conforms to
+> 42 . A sample syntax of a model instantiation
+> 53 . A description of the instance that needs to be created
+> 6Your goal is to generate these instances based on the provided description ,adhering strictly to these requirements :
+> 7- The output must be in plain text ,with no additional comments ,descriptions ,or explanations .
+> 8- Ensure that the created instance adheres to the provided description .
+> 9- Follow the syntax sample provided ,without deviation .
+> 10 - Take into account previously created instances to avoid using duplicate naming .
+> 11 User prompt :
+> 12 #UML class diagram :
+> 13 {{ classDiagram }}
+> 14 #Syntax example of instances creation :
+> 15 {{ syntaxExample }}
+> 16 #Instance description :
+> 17 Create the instance according to this specification :
+> 18 {{ scenario }}
+
+Listing 9: Prompt for the generation of a model instance Like for the simple-prompt strategy, we use USE to perform conformance checks and corrections (when needed) before adding the generated instance to the output set of instances. 
+
+D. Tool Support 
+
+We developed a Java-based tool leveraging LangChain4j 1
+
+and the UML-based Specification Environment Tool (USE) [21] to check syntactic and conformance errors. Throughout our preliminary experiments, we evaluated multiple LLMs, including GPT-4o, DeepSeek R3, and Gemini 2.0. Ultimately, we selected gpt-4o-2024-08-06 with default hyperparameters 2 as our model of choice due to its widespread industry adoption, its reasonable speed, and its initial performance using a variant of the banking domain model 3. It should be noted that although we used the described tools, the proposed approach remains agnostic to the programming language, the selected libraries and LLM, which is crucial given the rapid evolution of LLMs. IV. E VALUATION 
+
+In the following, we report on the results of a systematic evaluation of our approach with respect to the two prompt-ing strategies. Specifically, we evaluate to what extent our approach is capable of automatically generating semantically diverse and realistic domain model instances. 
+
+A. Research Questions 
+
+We aim to answer the following research questions: 
+
+RQ1. How effective are the two prompting strategies in pro-ducing syntactically correct model instances w.r.t. the following two aspects: RQ1.1: well-formedness of the plain object diagram syntax; RQ1.2: conformance with the given domain model? 
+
+RQ2. How effective are the two prompting strategies in pro-ducing semantically realistic domain model instances? 
+
+RQ3. How effective are the two prompting strategies in pro-ducing semantically diverse domain model instances? 
+
+> 1https://docs.langchain4j.dev/
+> 2https://platform.openai.com/docs/models/gpt-4o
+> 3Results of this initial assessment of different LLMs is provided in [23]
+
+B. Experimental setup 1) Tool configuration: For all our experiments, we set the number of instances to be generated to 30 (numInstances = 30) and the maximum syntax checks based on USE to two rounds (maxChecks = 2). 
+
+2) Domains: We have built a dataset of domain models by selecting models from lectures held by the authors of this paper, and from ModelSet [18], taking into account: 1) size, 2) a variety of domains, 3) the presence of constraints, 4) abstraction level (meta-level such as the state machine metamodel vs. non-meta-models such as the address book model), 5) requiring temporal reasoning (i.e., models which can represent time or entail temporal constraints such as pre-decessor/successor relationships such as the hotel management model). Table I presents the main characteristics of each selected domain model. The number of classes and relationships across all domain models ranges from three classes of the Bank model up to 22 classes for the Restaurant domain, and three relationships for the Bank and Videoclub models up to 18 for the Football model. The number of attributes ranges from two attributes for the State Machine meta-model up to 37 attributes for the Football model. Five out of the ten domain models have at least two inheritance relationships, moreover, seven domain models entail at least one enumeration. One model is on the metamodel level, while the others are on the model level. All our models have at least one constraint, the Vehicle Rental model with five constraints has the most. Our dataset has six models that entail temporal reasoning. Moreover, all models come with one or several domain-specific semantic constraints for the values to be used in the instances. 
+
+3) Evaluation metrics: We used to the following evalua-tion metrics to respond to the previously introduced research questions: 
+
+Well-formedness (RQ1.1): We evaluate how many of the generated model instances expressed in the textual object diagram syntax can be parsed by USE. 
+
+Conformance (RQ1.2): We evaluate how many conformance errors are reported when validating the generated model instances with USE i.e., how many typing, multiplicity, and constraint violations are reported. 
+
+Semantic correctness (RQ2): Whenever possible, we imple-mented automated semantics checks based on existing APIs or regular expressions (RegEx). In exceptional cases, we conducted a manual semantics check. All our semantic checks can be differentiated based on whether they check variables for being realistic or real .The following checks for realistic attribute values were used: Phone number: we developed a RegEx; Web-site: we developed a RegEx, Email: we developed a RegEx, Address: we used an existing API 4; IBAN, BIC: We used an existing validator 5; X Username: we devel-oped a RegEx; License plate: we developed a RegEx; 
+
+> 4https://www.geoapify.com/
+> 5https://gitlab.com/schegge-projects/bank-account-validator
+
+State machine: we manually checked the semantic co-herence of terminology used the state machine described by the instance model; Videoclub properties: production title, genre, type, actors, and release date were validated an existing API 6.Further, the following checks for real attribute val-ues were used: Address: we manually assessed whether addresses exist; IBAN, BIC: we used a RegEx and tested the validity of the checksum; Country: we used an existing API 7; Dates: we used the Java 
+
+java.time.LocalDate implementation and an ex-isting comparator 8; Latitude and Longitude: we used an existing API 9.
+
+Semantic diversity (RQ3): We calculate a semantic diver-sity score within instances and across instances. Within instances, we form a bag with all attribute values of the same kind (i.e., numeric or string) and compute the diversity score of these bags. Across instances, we put all the attribute values of all the instances of a domain into a bag, and compute their diversity score. The formulas for the numeric types are given below.       
+
+> ∀xi, x j∈elems diversity type =
+> Pd(xi, x j)
+> |elems |2−| elems |
+> 2
+> (1)
+
+where i̸ = j, xi ≤ xj , type ∈ { String, N umeric },
+
+elems is the set of all attributes of kind type in the model and diversity( xi,xj ) is given by the following formulae:            
+
+> d(xi, x j) =
+> 1if xi=xj
+> 0if xi̸=xj(2)
+
+Note that for the String type the operator < represents the lexicographical order of the characters that form the strings. Further, the Levenshtein distance ( lev ) is a very well-known and widely used metric to measure word similarity. It calculates the distance between two words as the minimum number of single-character edits (insertions, deletions, or substitutions) required to change one word into the other. In addition to the formula 1, which calculates diversity using the exact word match, in this work, we have defined an additional diversity metric that uses the Levenshtein distance. To be able to make comparisons, we used the normalized Levenshtein distance and, since lev measures similarity and not diver-sity, we calculate the complement (a.k.a. inverse) of the normalized value. The formula is as follows:       
+
+> d(xi, x j) = 1 −lev (xi, x j)
+> max (length (xi), length (xj)) (3)
+
+C. Results 
+
+Table II provides an overview of model instances we gener-ated following the two strategies we introduced in Section III. Note, that these are the number of elements generated in total for all 30 instances per domain. It can be derived that generally, the Chain-of-Thought (CoT) strategy generates instances of 
+
+> 6https://www.omdbapi.com/
+> 7https://docs.oracle.com/javase/8/docs/api/java/util/Locale.html
+> 8https://docs.oracle.com/javase/8/docs/api/java/time/LocalDate.html
+> 9https://www.geoapify.com/
+
+TABLE I: Characteristics of the domain models used for the evaluation                                                                                                                        
+
+> Domain Size (Number of elements) Abstr. Level Constr. Temp. Reas. Domain Semantics a
+> Class Abst.Cl Attr. Rel. Inh. Enum Dt Address Book 7014 5221model 1No Phone, website, email, address Bank 3083000model 2No IBAN, BIC code, country Hotel Management 7022 6000model 3Yes Dates (checkin>=start, checkout<=end) Expenses 5011 3021model 2Yes Dates Pickup Net 6010 8010model 4No Address, latitude, longitude, X username State Machine 5126300metamodel 2Yes Coherence Vehicle Rental 8127 5311model 5Yes Address, license plate, valid home phone Videoclub 7111 3211model 3Yes Production title, genre, type (movie or series), actors, rental year >release year Football 16 037 18 080model 4Yes Player name, Club name, Team name, Competition name, Start date, End date Restaurant 22 234 13 11 82model 4No Person name, Restaurant name, Phone number, Driverlicense number, Menu item, Food item, Date Abstr.Cl = Abstract Classes, Attr. = Attributes; Rel. = Relations; Inh. = Inheritance; Enum = Enumerations; Dt = Datatypes; Abstr. Level = Abtraction Level; Temp. Reas. = Temporal Reasoning
+
+TABLE II: Number of generated model elements                                                                    
+
+> Domain Instruction Learning Chain-of-Thought Learning #obj #att #assoc #obj #att #assoc Address Book 331 1023 362 415 1274 470 Bank 215 555 386 223 590 347 Hotel Management 232 757 201 325 971 321 Expenses 153 483 150 254 761 282 Pickup Net 272 453 381 438 739 502 State Machine 323 323 513 476 476 774 Vehicle Rental 125 712 155 200 1205 293 Videoclub 157 315 156 321 567 274 Football 866 2151 897 864 2021 902 Restaurant 370 1164 340 737 2173 714
+
+significantly larger size compared to the Instruction Learning (IL) strategy for most of the cases. In the following, we respond to each of the research questions individually. 
+
+1) RQ1 - Syntactical correctness: Table III (see columns 2-5) summarizes the results of the syntactic evaluation of the generated domain model instances. It can be seen that zero syntactic errors were found across all 300 model instances that were generated by applying the IL strategy. For the CoT strategy, we identified, in total, only three syntactic errors for 1698 generated model elements in instances of the Vehicle Rental domain and nine syntactic errors for 3618 generated model elements in instances of the Restaurant domain. Note that the table reports the errors found in all generated model elements (e.g., object creation, attribute initialization, asso-ciation creation) of the 300 model instances generated with the IL strategy and 240 model instances generated with the CoT strategy. The instances generated in the over-constraint detection category are intentionally omitted as we forced the LLM to violate constraints. When looking at the conformance of instances with respect to the domain models, we can also see that the IL strategy acted without producing errors in all 300 generated instances. The CoT strategy produced very few model element errors in the generated instances of Hotel Management (six out of 261), Expenses (three out of 48), Football (two out of 143), and Restaurant (14 out of 617) domain models. 
+
+Answering RQ1: Both prompting strategies can effec-tively generate syntactically correct instances consider-ing the well-formedness of the object diagrams and their conformance to the domain models. 
+
+2) RQ2 - Semantic correctness: When looking at the do-main semantics analysis summarized in Table III (see columns 6 and 7), we can see that the results for the semantic correct-ness of the generated instances are more nuanced. The table reports the number of model elements that have passed our semantic checks with respect to the total number of elements generated of that kind. Note that we separate checks on 
+
+realistic property values (presented in standard font in Table III) from those for real property values (presented in 
+
+italics font in Table III). We see that the LLM is capable of generating well-formed addresses and structural properties like phone numbers, email addresses, and license plates without a single error. When checking whether an address exists in reality, we encountered 152 errors in 194 model elements in the LLM-based generation in both strategies. Similarly, the generation of well-formed IBANs was mostly successful (only 10 errors in 169 model elements), while a reality check resulted in 83 errors in 90 model elements using IL and 73 errors in 79 model elements using CoT. A possible explanation could be related to privacy, i.e., that the LLM is configured to intentionally omit real values for sensitive properties. Temporal reasoning was excellent in both strategies. When summarizing all time-related constraints like checkIn < checkOut or Rental year > Release year , we only encountered two errors across all 849 time-related property value generations. Until now, we primarily focused on realistic semantics on individual property value levels. However, the two prompting strategies were also very effective in creating semantically coherent models. When checking the combination of the property values generated for all generated State Machine model instances, we only found a single model (out of 54) that was not semantically coherent. TABLE III: Errors in model elements generated through our Instruction Learning (IL) and Chain of Thought (CoT) strategies                                                                                                       
+
+> Domain Syntax errors Conformance errors Semantic errors (Realistic Checks – Real Checks )IL CoT IL CoT IL CoT Address Book 0000Phone: 0/91; Website: 0/91; Emails: 0/91; Well-formed address: 0/89; Real address: 84/89
+> Phone: 0/94; Website: 0/94; Emails: 0/94; Well-formed address: 0/105; Real address: 68/105
+> Bank 0000Real IBAN: 83/90 ; IBAN: 10/90; BIC: 1/31; Real Coun-try: 0/31 Real IBAN: 73/79 ; IBAN: 0/79; BIC: 2/33; Real Coun-try: 0/33
+> Hotel Management 0006/261 2Check in < Start date: 0/31 ;Check out > End date: 0/31 Check in < Start date: 0/30 ;Check out > End date: 1/31
+> Expenses 0003/48 3Start date > End date: 0/32 Start date > End date: 0/30
+> Pickup Net 0000Well-formed address: 0/62; Real address: 34/62 ;Lat/-Long for address: 62/62 ; X username: 0/31 Well-formed address: 0/114; Real address: 53/114 ;Lat/-Long for address: 54/114 ; X username: 4/57 State Machine 0000Semantic coherence: 0/30 4Semantic coherence: 1/30 4
+> Vehicle Rental 03/1698 00Well-formed address: 0/63; Real address: 51/63 ; License plate: 0/31; Home phone: 0/16 Well-formed address: 0/79; Real address: 59/79 ; License plate: 0/64; Home phone: 0/23 Videoclub 0000Production title: 30/63 ;Production types 1:14/33 ;
+> Genre: 9/19 ;Actors: 33/33 ;Release year > Rental year: 0/33 Production title: 75/89 ;Production types 1: 3/14 ;Genre: 9/13 ;Actors: 22/22 ; Release year > Rental year: 1/12 Football 028/3784 019/756 2
+> 10/96 3Dates: 0/360; Player names: 0/90; Club names: 0/60; Team names: 0/60; Competition names: 0/30 Dates: 0/259; Player names: 0/69; Club names: 0/61; Team names: 0/66; Competition names: 0/30 Restaurant 09/3618 08/651 2
+> 6/96 3Dates: 0/158; Phone number: 0/158; Person names: 0/190; Restaurant names: 0/30; Driver Licenses: 0/5; Menu items: 0/29; Food items: 0/1 Dates: 0/244; Phone number: 0/200; Person names: 0/312; Restaurant names: 0/30; Driver Licenses: 28/28; Menu items: 0/49; Food items: 0/116
+> 1For valid productions only 2Violation of multiplicities 3Violation of constraints 4For state machine models we checked the semantic coherence of the entire instance
+
+Answering RQ2: Overall, both prompting strategies showed effectiveness in creating realistic property values across domains. A significant decrease in the generation quality was assessed when checking whether the values were real. Both strategies were also effective in generat-ing semantically coherent models. 
+
+3) RQ3 - Semantic diversity: Table IV summarizes the cal-culated semantic diversity scores within and across instances. Please note that the table shows the diversity metrics for both prompting strategies combined as there was no significant difference in the per-strategy results (which are provided in [23]). The results clearly show that the two strategies are very effective in generating semantically diverse instances across all ten domains. Especially, the fact that the generated instances hardly had duplicate exact strings in the property values within instances and even across instances is intriguing. To better understand the generation of semantically diverse instances, Fig. 3 visualizes one created instance of the Bank domain with the IL approach (left) and one generated by the CoT approach (right) in the boundary scenario. It is worth noting that the IL approach generates different IBANs and BICs for the accounts. For the CoT boundary scenario, a smaller model is generated, which uses persons who just fulfill the age constraint, and one account has a relatively high balance compared to the ones generated by the IL approach. Fig. 4 shows further generated instances by CoT. The left model is generated for the edge scenario and the right model for the over-constraint scenario. For the former, persons with very high age values and special characters in their names are generated.For the latter, we get an instance that points out potential changes to the domain model. First, a balance may be also negative in case an overdraft facility is granted for an account. Furthermore, depending on the given country, persons under 18 years old may already have an account. 
+
+Answering RQ3: The two prompting strategies are very effective in creating semantically diverse model instances. The category-enhanced Chain-of-Thoughts ap-proach was especially effective in exploring the bound-aries of the instance space defined by the domain model multiplicities and constraints. 
+
+D. Threats to validity 
+
+Next, we discuss the four threats to validity types from [25]. 
+
+1) Conclusion validity: One threat to conclusion validity is that LLMs show non-deterministic behavior [26]. To derive relevant results, we used several runs for producing instances and also checked for the robustness of the results. 
+
+2) Construct validity: Our evaluation consists of a rela-tively small dataset. However, we aimed to cover different cases of domain models that incorporate different modeling features. These cases mostly fit the requirements concerning educational purposes. Larger domain models and/or instance models may be required for other purposes, which is left as future work. Another construct validity threat is concerned with the realistic value checks. For this, we selected a subset of the available attributes in the domain models for which we can establish pragmatic ways to check if the values are actually realistic values. We used a combination of automated tests (for 11 values) and manual checks (for nine values) To reason about how close these values represent reality is only tested for some model elements. Finally, for diversity, we only reason about the differences of the values, however, we do not check if the values reflect different groups from a population etc. This aspect, of course, needs additional treatment in the future as LLMs may have been trained with biased data. 
+
+3) Internal validity: Our work is also concerned with internal validity threats. First, the usage of GPT-4o may be influenced by our previous experiences, which have, of course, an impact on how the prompting strategies have been defined. TABLE IV: Cummulated semantic diversity results for the 600 generated model instances through the IL and CoT strategies 
+
+Domain Diversity within instances Diversity across instances Numeric String Numeric String Exact match Norm. Lev. dist. Exact match Norm. Lev. dist. Address Book - 0.9957 ± 0.0014 0.8889 ± 0.0070 - 0.9990 0.8981 Bank 0.9969 ± 0.0172 0.9965 ± 0.0073 0.9096 ± 0.0234 0.9852 0.9987 0.9245 Hotel Management 0.9646 ± 0.0246 0.9320 ± 0.0265 0.7577 ± 0.0380 0.9751 0.9969 0.8177 Expenses 0.8683 ± 0.3252 1.0000 ± 0.0000 0.8932 ± 0.0229 0.9674 0.9960 0.8919 Pickup Net 0.9472 ± 0.1520 1.0000 ± 0.0000 0.8791 ± 0.0184 0.9833 0.9964 0.8766 State Machine 0.9597 ± 0.0944 0.9987 ± 0.0036 0.7623 ± 0.0540 0.9406 0.9987 0.8391 Vehicle Rental 0.9868 ± 0.0207 1.0000 ± 0.0000 0.8756 ± 0.0289 0.9901 0.9989 0.8823 Videoclub 0.9700 ± 0.0814 1.0000 ± 0.0000 0.8412 ± 0.0348 0.9541 0.9986 0.8337 Football 0.9741 ± 0.0224 0.9945 ± 0.0031 0.8541 ± 0.0101 0.9660 0.9990 0.8614 Restaurant 0.9803 ± 0.0165 0.9996 ± 0.0006 0.8733 ± 0.0093 0.9788 0.9995 0.8842 Note that, according to formula 1, the values are in the range [0..1]. The closer the values are to 1, the higher the diversity is. Object diagram    
+
+> person3:Person firstName='Max' lastName='Mustermann' age=32
+> bank2:Bank
+> country='Germany' name='Deutsche Bank' bic='DEUTDEFF' person2:Person firstName='Jane' lastName='Smith' age=45 person4:Person firstName='Anna' lastName='Schmidt' age=28 account1:Account iban='US123456789' balance=5000 account3:Account iban='DE1122334455' balance=0 person1:Person firstName='John' lastName='Doe' age=30 account5:Account iban='DE0099887766' balance=0 account2:Account iban='US987654321' balance=1500 person5:Person firstName='Tim' lastName='Brown' age=18 account4:Account iban='DE5544332211' balance=7500 bank1:Bank country='USA' name='Bank of America' bic='BOFAUS3N' accounts bank accounts bank accounts bank accounts bank accounts bank accounts owner accounts owner accounts owner accounts owner accounts owner accounts owner accounts owner Object diagram
+> martti:Person firstName='Martti' lastName='Virtanen' age=18 northernFinance:Bank country='Estonia' name='Northern Finance' bic='NFINEST2' account1:Account iban='EE1234567890123456' balance=0 eeva:Person firstName='Eeva' lastName='Makela' age=18 account2:Account iban='EE6543210987654321' balance=1000000 accounts bank accounts bank accounts owner accounts owner accounts owner
+
+Fig. 3: Two generated Bank domain model instances, the left one following the Instruction Learning approach, the right one following the Chain-of-Thought approach in the boundary scenario. account7:Account iban='AX1277887890123456' balance=0 person10:Person   
+
+> firstName='Mar Ã-a'
+> lastName='Gonzalez' age=127 bank4:Bank country='Aland Islands' name='Nordic Light Bank' bic='NLBIALFIXXX' person9:Person firstName=' GuÃmundur '
+> lastName=' JÃ³nsson '
+> age=120 account8:Account iban='AX9876596570987654' balance=0 accounts bank accounts bank accounts owner accounts owner accounts owner person43:Person
+> firstName='Jabari'
+> lastName=' Atieno '
+> age=16 bank15:Bank country='Kenya' name='Jambo Bank' bic='JMBOKENY' person41:Person firstName='Amara' lastName='Odongo' age=42 account31:Account iban='KE09876541710987654321' balance=-500 account30:Account iban='KE12345987401234567890' balance=60000 person40:Person firstName='Nyah'
+> lastName=' Maina '
+> age=40 person42:Person firstName='Fatima' lastName='Njoroge' age=19 accounts bank accounts bank owner accounts owner accounts owner account
+
+Fig. 4: Two generated Bank domain model instances, the left one following the Chain-of-Thought approach in the edge scenario, the right one following the Chain-of-Thought approach in the over-constraint scenario. Also, the interpretation of the domain models is performed from the author’s viewpoint and experiences. Moreover, we only considered realistic values but did not check for preci-sion and recall, which may allow us to deal with particular problems of LLMs, such as hallucinations. To deal with such issues, additional studies are required in the future. 
+
+4) External validity: The fact that we have used a dataset covering diverse domains and models with different sizes and language features gives us some confidence that our results may be generalized to other cases. However, we cannot generalize our results for large domain models and/or instances as it is known that there is some performance penalty (and even some restrictions given the token limit of LLMs) when the size of these grows. Further research is needed here. In addition, we only used one particular LLM in one particular version, and thus, we cannot generalize for other LLMs. We also have to be careful with generalization with respect to specific terminology and openly available data for certain domains. Some may be more restricted or highly specialized niche domains, and thus, are not well-supported by existing LLMs. V. R ELATED WORK 
+
+Several works have been proposed in the past which are related to the work presented in this paper. In the following, we will briefly introduce these works and contextualize their approach and solution within the context of our own research. Burgueño et al. [7] introduce an approach that focuses on the generation of diverse valid instances of UML Class Dia-grams in the USE notation. Their approach uses model find-ers [27], classifying terms [28], and constraint-strengthening techniques [29] for generating model instances. Their approach is steered toward generating diverse model instances, i.e., covering all extreme/edge cases offered by the corresponding model on the higher abstraction level. Compared to our work, this work solely focuses on the structural diversity of valid instances without considering the semantics. The work introduces the notion of classifying terms as a means to derive partitions of the search space that would classify for diverse instantiations (analogous to equivalence classes of a schema). In contrast to our ambition of generating syntactically and semantically valid instances, many related works focus on the LLM-based generation of valid domain models from natural language descriptions [30]–[32]. Exemplarily for this research area, [6] propose an LLM-based approach to domain modeling. They experiment with a zero-shot, a few-shot, and a chain-of-thought prompting approach that uses textual domain descriptions as input for GPT3.5 and GPT4. The LLMs are then tasked to generate UML Class Diagram domain models represented in a textual EBNF notation. The generated domain models are then evaluated according to recall and precision which takes into account the syntactic aspects (classes, rela-tionships, and attributes) and the semantic aspects (names of the elements in the domain model). Several approaches for ontology propagation were intro-duced in the past (cf. [33], [34]). KGFiller proposed in [33], similar to our approach, uses an initial schema composed of classes, relationships, and properties, and queries to an LLM to generate instances of that schema with generated classes, relationships, and properties. In [34], OntoUML models are transformed into logical Alloy [35] specifications that an ana-lyzer can use to extensively explore the solution space defined by this specification. By realizing a visual simulation of the different possible instances, the tool allows the identification of patterns and anti-patterns in OntoUML modeling [36]. Similar works exposing the analysis capabilities of Alloy in the context of UML modeling have also been reported [21], [37]. In relation to our work, the ontology propagation and Alloy-based analysis of model instances focus on the semantic properties of the types (esp. the well-formedness) in the model and only indirectly on the instance-level semantics of model properties. An approach to automated metamodel instantiation based on graph grammars has been presented in [11]. The approach is tested with UML State Diagrams and shows its feasi-bility in creating syntactically valid instances of pre-defined metamodels. Compared to our work, no attention is given to the instantiation of attribute values and the instantiation of instance-level semantics (e.g., class names). An approach to model generation that uses other models as valid samples is proposed in [14]. The approach decomposes a model into atomic edit operations, as similarly used in, e.g., [11], [12], [38], which are used to train a Graph Neural Network and a Recurrent Neural Network. The generator then samples the edit operations to refine partial models, thereby generating new structurally valid instances that mimic the set of realistic models. The approach is not focused on the generation of realistic instance-level semantics such object names and property values. A rule-based, configurable approach to automate model generation with an emphasis on the diversity of the generated models is proposed in [12]. The approach is aimed at scala-bility by using a prescriptive rule-based configuration during the model instance generation and at diversity in the created instances themselves. A similar motivation is followed by the approach presented in [39]. The authors use the Boltzmann random sampling theory [40] to generate instances from a metamodel that has been transformed into a tree structure. The EMF random instantiator [41], as the name indicates, generates random instances for EMF (Ecore) metamodels using a deterministic, seed-specific random generator. The default configuration uses uniform probability distributions for meta-classes and structural features. A generation con-figuration holds information such as metaclasses involved in the generation and probability distributions for the instance generation. Compared to our approach, property values are de-fined following the statistical distributions in the configuration aiming for structural comprehensiveness instead of realistic and diverse semantics. A similar approach has been proposed by Scheidgen [42] and Popoola et al. [43] who propose a DSL for defining the generator configuration which is then used to instantiate Ecore meta-model instances. Szarnyas et al.- [44] propose a collection of metrics to assess the characteristics of model instances. They experimented with 83 models from six different domains and conclude, among others, that “Relying only upon metamodel-level information is clearly insufficient, real instance models of human engineers are required to characterize the domain” and that future work is required to develop “domain-specific model generators that are capable of synthesizing realistic models.” 
+
+Synopsis. The overview of the most related works shows that the automated instantiation of models is a long-lasting research endeavor in the community. Many approaches based on grammars, constraint solvers, configurations, and machine learning have been proposed. Most of these approaches focus on the structural properties of the instances, and instance-level properties either follow an apriori-defined distribution or a random approach. In contrast, the novel approach we presented in this paper focuses on the automated generation of semantically realistic and diverse instances. To the best of our knowledge, this is, so far, an unexplored area that yields promising results for future research. VI. C ONCLUSION 
+
+In this paper, we explored the extent to which LLMs are capable of generating semantically diverse and realistic model instances. We showed how two prompting strategies can steer an LLM toward the instantiation of UML class diagram as semantically-rich object diagrams. Our comprehensive analy-sis of model instantiation across ten domains shows promising results toward using LLM to assist in the generation of large model corpora of model instances. Moreover, the presented research establishes a path toward teaching LLMs in domain modeling. Once large corpora of valid domain models and corresponding instances are available, LLMs can be fine-tuned to better understand the characteristics of modeling. This will enable the realization of powerful AI-assisted modeling editors that can help modelers in many downstream tasks such as model comprehension, model completion, and model curation. In our future work, we will expand the experiments, primarily focusing on the scalability of our approach toward domain models and instance models of larger size. REFERENCES [1] L. Belzner, T. Gabor, and M. Wirsing, “Large language model assisted software engineering: prospects, challenges, and a case study,” in In-ternational Conference on Bridging the Gap between AI and Reality .Springer, 2023, pp. 355–374. [2] X. Hou, Y. Zhao, Y. Liu, Z. Yang, K. Wang, L. Li, X. Luo, D. Lo, J. Grundy, and H. Wang, “Large language models for software engi-neering: A systematic literature review,” ACM Transactions on Software Engineering and Methodology , 2023. [3] D. Bork, S. J. Ali, and B. Roelens, “Conceptual modeling and artificial intelligence: A systematic mapping study,” CoRR , vol. abs/2303.06758, 2023. [Online]. Available: https://doi.org/10.48550/arXiv.2303.06758 [4] S. Rädler, L. Berardinelli, K. Winter, A. Rahimi, and S. Rinderle-Ma, “Bridging MDE and AI: a systematic review of domain-specific lan-guages and model-driven practices in AI software systems engineering,” 
+
+Software and Systems Modeling , 2024. [5] M. B. Chaaben, L. Burgueño, and H. A. Sahraoui, “Towards using few-shot prompt learning for automating model completion,” in 45th IEEE/ACM International Conference on Software Engineering: New Ideas and Emerging Results, NIER@ICSE, Melbourne, Australia, May 14-20, 2023 . IEEE, 2023, pp. 7–12. [6] K. Chen, Y. Yang, B. Chen, J. A. H. López, G. Mussbacher, and D. Varró, “Automated domain modeling with large language models: A comparative study,” in 26th ACM/IEEE International Conference on Model Driven Engineering Languages and Systems, MODELS 2023, Västerås, Sweden, October 1-6, 2023 . IEEE, 2023, pp. 162–172. [7] L. Burgueño, J. Cabot, R. Clarisó, and M. Gogolla, “A systematic approach to generate diverse instantiations for conceptual schemas,” in Conceptual Modeling - 38th International Conference, ER 2019, Salvador, Brazil, November 4-7, 2019, Proceedings , ser. Lecture Notes in Computer Science, A. H. F. Laender, B. Pernici, E. Lim, and J. P. M. de Oliveira, Eds., vol. 11788. Springer, 2019, pp. 513–521. [Online]. Available: https://doi.org/10.1007/978-3-030-33223-5_42 [8] M. Karimi, S. Kolahdouz-Rahimi, and J. Troya, “Yekta: A low-code framework for automated test models generation,” SoftwareX , vol. 27, p. 101850, 2024. [9] O. Semeráth, A. A. Babikian, S. Pilarski, and D. Varró, “Viatra solver: A framework for the automated generation of consistent domain-specific models,” in 2019 IEEE/ACM 41st International Conference on Software Engineering: Companion Proceedings (ICSE-Companion) , 2019, pp. 43–46. [10] O. Semeráth, A. S. Nagy, and D. Varró, “A graph solver for the auto-mated generation of consistent domain-specific models,” in Proceedings of the 40th International Conference on Software Engineering, ICSE 2018, Gothenburg, Sweden, May 27 - June 03, 2018 . ACM, 2018, pp. 969–980. [11] K. Ehrig, J. M. Küster, and G. Taentzer, “Generating instance models from meta models,” Softw. Syst. Model. , vol. 8, no. 4, pp. 479–500, 2009. [12] N. Nassar, J. Kosiol, T. Kehrer, and G. Taentzer, “Generating large EMF models efficiently - A rule-based, configurable approach,” in 
+
+Fundamental Approaches to Software Engineering - 23rd International Conference, FASE 2020 . Springer, 2020, pp. 224–244. [13] O. Semeráth, R. Farkas, G. Bergmann, and D. Varró, “Diversity of graph models and graph generators in mutation testing,” Int. J. Softw. Tools Technol. Transf. , vol. 22, no. 1, pp. 57–78, 2020. [14] J. A. H. López and J. S. Cuadrado, “Generating structurally realistic models with deep autoregressive networks,” IEEE Trans. Software Eng. ,vol. 49, no. 4, pp. 2661–2676, 2023. [15] D. Budgen, A. J. Burn, O. P. Brereton, B. A. Kitchenham, and R. Preto-rius, “Empirical evidence about the UML: a systematic literature review,” 
+
+Softw. Pract. Exp. , vol. 41, no. 4, pp. 363–392, 2011. [16] J. Hutchinson, J. Whittle, and M. Rouncefield, “Model-driven engineer-ing practices in industry: Social, organizational and managerial factors that lead to success or failure,” Science of Computer Programming ,vol. 89, pp. 144–161, 2014. [17] B. Hamid, “A model-driven approach for developing a model repository: Methodology and tool support,” Future Gener. Comput. Syst. , vol. 68, pp. 473–490, 2017. [18] J. A. H. López, J. L. C. Izquierdo, and J. S. Cuadrado, “Modelset: a dataset for machine learning in model-driven engineering,” Softw. Syst. Model. , vol. 21, no. 3, pp. 967–986, 2022. [19] P.-L. Glaser, E. Sallinger, and D. Bork, “The extended EA ModelSet— a FAIR dataset for researching and reasoning enterprise architecture modeling practices,” Software and Systems Modeling , 2025. [20] R. Laue and M. Läuter, “Beobachtungen und Einsichten zu Reposito-rys von BPMN-Modellen,” in Modellierung 2024, Potsdam, Germany, March 12-15, 2024 , ser. LNI, vol. P-348. Gesellschaft für Informatik e.V., 2024, pp. 157–173. [21] M. Gogolla, F. Büttner, and M. Richters, “USE: A UML-based specifica-tion environment for validating UML and OCL,” Sci. Comput. Program. ,vol. 69, no. 1-3, pp. 27–34, 2007. [22] S. Joel, J. J. Wu, and F. H. Fard, “A Survey on LLM-based Code Generation for Low-Resource and Domain-Specific Programming Languages,” Nov. 2024, arXiv:2410.03981 [cs]. [Online]. Available: http://arxiv.org/abs/2410.03981 [23] Anonymous, “Accompanying software repository for the paper: LLM-based generation of semantically diverse and realistic domain model instances,” https://anonymous.4open.science/r/ instance-generation-MODELS25/, 2025, accessed: 2025-04-03. [24] J. Wei, X. Wang, D. Schuurmans, M. Bosma, B. Ichter, F. Xia, E. H. Chi, Q. V. Le, and D. Zhou, “Chain-of-thought prompting elicits reasoning in large language models,” in Proceedings of the 36th International Conference on Neural Information Processing Systems , ser. NIPS ’22. Red Hook, NY, USA: Curran Associates Inc., 2022. [25] C. Wohlin, P. Runeson, M. Höst, M. C. Ohlsson, and B. Regnell, 
+
+Experimentation in Software Engineering . Springer, 2012. [26] Y. Song, G. Wang, S. Li, and B. Y. Lin, “The good, the bad, and the greedy: Evaluation of llms should not ignore non-determinism,” arXiv preprint arXiv:2407.10457 , 2024. [27] E. Torlak and D. Jackson, “Kodkod: A relational model finder,” in 
+
+Tools and Algorithms for the Construction and Analysis of Systems, 13th International Conference, TACAS 2007, Held as Part of the Joint European Conferences on Theory and Practice of Software, ETAPS 2007 Braga, Portugal, March 24 - April 1, 2007, Proceedings , ser. Lecture Notes in Computer Science, O. Grumberg and M. Huth, Eds., vol. 4424. Springer, 2007, pp. 632–647. [28] F. Hilken, M. Gogolla, L. Burgueño, and A. Vallecillo, “Testing models and model transformations using classifying terms,” Softw. Syst. Model. ,vol. 17, no. 3, pp. 885–912, 2018. [29] R. Clarisó and J. Cabot, “Fixing defects in integrity constraints via constraint mutation,” in 11th International Conference on the Quality of Information and Communications Technology, QUATIC 2018, Coimbra, Portugal, September 4-7, 2018 , A. Bertolino, V. Amaral, P. Rupino, and M. Vieira, Eds. IEEE Computer Society, 2018, pp. 74–82. [30] S. J. Ali, I. Reinhartz-Berger, and D. Bork, “How are LLMs Used for Conceptual Modeling? An Exploratory Study on Interaction Behavior and User Perception,” in Conceptual Modeling - 43rd International Conference, ER 2024, Pittsburgh, PA, USA, October 28-31, 2024, Proceedings , ser. Lecture Notes in Computer Science, W. Maass, H. Han, H. Yasar, and N. J. Multari, Eds., vol. 15238. Springer, 2024, pp. 257– 275. [31] J. Cámara, J. Troya, L. Burgueño, and A. Vallecillo, “On the assessment of generative AI in modeling tasks: an experience report with ChatGPT and UML,” Softw. Syst. Model. , vol. 22, no. 3, pp. 781–793, 2023. [32] J. Silva, Q. Ma, J. Cabot, P. Kelsen, and H. A. Proper, “Application of the Tree-of-Thoughts Framework to LLM-Enabled Domain Modeling,” in Conceptual Modeling - 43rd International Conference, ER 2024, Pittsburgh, PA, USA, October 28-31, 2024, Proceedings , ser. Lecture Notes in Computer Science, W. Maass, H. Han, H. Yasar, and N. J. Multari, Eds., vol. 15238. Springer, 2024, pp. 94–111. [33] G. Ciatto, A. Agiollo, M. Magnini, and A. Omicini, “Large language models as oracles for instantiating ontologies with domain-specific knowledge,” CoRR , vol. abs/2404.04108, 2024. [34] A. B. Benevides, G. Guizzardi, B. F. B. Braga, and J. P. A. Almeida, “Validating Modal Aspects of OntoUML Conceptual Models Using Automatically Generated Visual World Structures,” J. Univers. Comput. Sci. , vol. 16, no. 20, pp. 2904–2933, 2010. [35] D. Jackson, Software Abstractions - Logic, Language, and Analysis .MIT Press, 2006. [Online]. Available: http://mitpress.mit.edu/catalog/ item/default.asp?ttype=2&tid=10928 [36] T. P. Sales and G. Guizzardi, “Ontological anti-patterns: empirically uncovered error-prone structures in ontology-driven conceptual models,” 
+
+Data Knowl. Eng. , vol. 99, pp. 72–104, 2015. [37] K. Anastasakis, B. Bordbar, G. Georg, and I. Ray, “Uml2alloy: A chal-lenging model transformation,” in Model Driven Engineering Languages and Systems, 10th International Conference, MoDELS 2007, Nashville, USA, September 30 - October 5, 2007, Proceedings , ser. Lecture Notes in Computer Science, G. Engels, B. Opdyke, D. C. Schmidt, and F. Weil, Eds., vol. 4735. Springer, 2007, pp. 436–450. [38] P. Pietsch, H. S. Yazdi, and U. Kelter, “Generating realistic test models for model processing tools,” in 26th IEEE/ACM International Confer-ence on Automated Software Engineering (ASE 2011), Lawrence, KS, USA, November 6-10, 2011 , P. Alexander, C. S. Pasareanu, and J. G. Hosking, Eds. IEEE Computer Society, 2011, pp. 620–623. [39] A. Mougenot, A. Darrasse, X. Blanc, and M. Soria, “Uniform random generation of huge metamodel instances,” in Model Driven Architecture - Foundations and Applications, 5th European Conference, ECMDA-FA 2009, Enschede, The Netherlands, June 23-26, 2009. Proceedings ,ser. Lecture Notes in Computer Science, R. F. Paige, A. Hartman, and A. Rensink, Eds., vol. 5562. Springer, 2009, pp. 130–145. [40] P. Duchon, P. Flajolet, G. Louchard, and G. Schaeffer, “Boltzmann samplers for the random generation of combinatorial structures,” Comb. Probab. Comput. , vol. 13, no. 4-5, pp. 577–625, 2004. [41] AtlanMod Team, “EMF– random instantiator.” [Online]. Avail-able: https://github.com/atlanmod/mondo-atlzoo-benchmark/tree/master/ fr.inria.atlanmod.instantiator [42] M. Scheidgen, “Generation of large random models for benchmarking,” in Proceedings of the 3rd Workshop on Scalable Model Driven Engineering part of the Software Technologies: Applications and Foundations (STAF 2015) federation of conferences, L’Aquila, Italy, July 23, 2015 , ser. CEUR Workshop Proceedings, D. S. Kolovos, D. D. Ruscio, N. D. Matragkas, J. S. Cuadrado, I. Ráth, and M. Tisi, Eds., vol. 1406. CEUR-WS.org, 2015, pp. 1–10. [Online]. Available: https://ceur-ws.org/Vol-1406/paper1.pdf [43] S. Popoola, D. S. Kolovos, and H. H. Rodriguez, “EMG: A domain-specific transformation language for synthetic model generation,” in 
+
+Theory and Practice of Model Transformations - 9th International Conference, ICMT@STAF 2016, Vienna, Austria, July 4-5, 2016, Pro-ceedings , ser. Lecture Notes in Computer Science, P. V. Gorp and G. Engels, Eds., vol. 9765. Springer, 2016, pp. 36–51. [44] G. Szárnyas, Z. Kovári, Á. Salánki, and D. Varró, “Towards the characterization of realistic models: evaluation of multidisciplinary graph metrics,” in Proceedings of the ACM/IEEE 19th International Conference on Model Driven Engineering Languages and Systems, Saint-Malo, France, October 2-7, 2016 , B. Baudry and B. Combemale, Eds. ACM, 2016, pp. 87–94. [Online]. Available: http://dl.acm.org/ citation.cfm?id=2976786
