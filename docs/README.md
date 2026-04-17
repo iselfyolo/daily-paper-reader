@@ -6,148 +6,178 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-14
-- 运行时间：2026-04-14 21:00:44 UTC
+- 最新运行日期：2026-04-17
+- 运行时间：2026-04-17 20:18:01 UTC
 - 运行状态：成功
-- 本次总论文数：42
-- 精读区：29
+- 本次总论文数：52
+- 精读区：39
 - 速读区：13
 
 ### 今日简报（AI）
-今日深度研读 42 篇前沿论文，重点聚焦合成数据生成与 AI 安全检测两大核心领域。
-满分论文《Private Seeds》与《CircuitSynth》揭示了在保护隐私的前提下，利用 LLM 生成高可靠性合成数据的全新范式。
-建议关注合成数据如何突破模型训练的隐私瓶颈，并留意 AI 视频伪造检测与驾驶场景编辑的最新技术动态。
-- 详情：[/202604/14/README](/202604/14/README)
+今日精选 52 篇前沿论文，深度复盘 AI 助教在编程教学与多智能体数学出题中的满分实践。
+重点关注课程感知型 AI 如何实现精准辅导，以及 SQL-GRPO 等数据驱动技术对效率的显著提升。
+建议优先阅读 AI 智能体在个性化教育中的落地案例，探索技术与教学场景的深度融合。
+- 详情：[/202604/17/README](/202604/17/README)
 
 ### 精读区论文标签
-1. [Private Seeds, Public LLMs: Realistic and Privacy-Preserving Synthetic Data Generation](/202604/14/2604.07486v2-private-seeds-public-llms-realistic-and-privacy-preserving-synthetic-data-generation)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：利用LLM生成真实且保护隐私的合成数据
-2. [CircuitSynth: Reliable Synthetic Data Generation](/202604/14/2604.10114v1-circuitsynth-reliable-synthetic-data-generation)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：用于合成数据的神经符号框架
-3. [Building Regulation Capacity in Human-AI Collaborative Learning: A Human-Centred GenAI System](/202604/14/2604.10221v1-building-regulation-capacity-in-human-ai-collaborative-learning-a-human-centred-genai-system)  
+1. [Design and Deployment of a Course-Aware AI Tutor in an Introductory Programming Course](/202604/17/2604.11836v1-design-and-deployment-of-a-course-aware-ai-tutor-in-an-introductory-programming-course)  
+   标签：评分：10.0/10、query:edu-llm
+   evidence：使用大语言模型进行编程教育的课程感知AI导师
+2. [Mathematics Teachers Interactions with a Multi-Agent System for Personalized Problem Generation](/202604/17/2604.12066v1-mathematics-teachers-interactions-with-a-multi-agent-system-for-personalized-problem-generation)  
    标签：评分：10.0/10、query:profile-3
-   evidence：支持生成式AI的协作学习系统，包含组内支持智能体
-4. [Tracing Prompt-Level Trajectories to Understand Student Learning with AI in Programming Education](/202604/14/2604.10400v1-tracing-prompt-level-trajectories-to-understand-student-learning-with-ai-in-programming-education)  
+   evidence：用于教育中个性化数学题目生成的多智能体系统
+3. [AgenticAI-DialogGen: Topic-Guided Conversation Generation for Fine-Tuning and Evaluating Short- and Long-Term Memories of LLMs](/202604/17/2604.12179v1-agenticai-dialoggen-topic-guided-conversation-generation-for-fine-tuning-and-evaluating-short--and-long-term-memories-of-llms)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：基于智能体的框架，生成用于微调大语言模型的对话数据
+4. [Designing Reliable LLM-Assisted Rubric Scoring for Constructed Responses: Evidence from Physics Exams](/202604/17/2604.12227v1-designing-reliable-llm-assisted-rubric-scoring-for-constructed-responses-evidence-from-physics-exams)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：编程教育中学生使用AI的学习情况
-5. [Teaching Language Models How to Code Like Learners: Conversational Serialization for Student Simulation](/202604/14/2604.10720v1-teaching-language-models-how-to-code-like-learners-conversational-serialization-for-student-simulation)  
+   evidence：大模型辅助的物理简答题评分
+5. [A Scoping Review of Large Language Model-Based Pedagogical Agents](/202604/17/2604.12253v1-a-scoping-review-of-large-language-model-based-pedagogical-agents)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：利用大模型和学生过程数据在教育系统中模拟学习者
-6. [Generating Multiple-Choice Knowledge Questions with Interpretable Difficulty Estimation using Knowledge Graphs and Large Language Models](/202604/14/2604.10748v1-generating-multiple-choice-knowledge-questions-with-interpretable-difficulty-estimation-using-knowledge-graphs-and-large-language-models)  
+   evidence：教育领域基于大模型的教学代理综述
+6. [All in One: A Unified Synthetic Data Pipeline for Multimodal Video Understanding](/202604/17/2604.12335v1-all-in-one-a-unified-synthetic-data-pipeline-for-multimodal-video-understanding)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：用于多模态视频数据的统一合成数据生成流水线
+7. [Synthesizing Instruction-Tuning Datasets with Contrastive Decoding](/202604/17/2604.13538v1-synthesizing-instruction-tuning-datasets-with-contrastive-decoding)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：使用大语言模型和对比解码合成指令微调数据集
+8. [Syn-TurnTurk: A Synthetic Dataset for Turn-Taking Prediction in Turkish Dialogues](/202604/17/2604.13620v1-syn-turnturk-a-synthetic-dataset-for-turn-taking-prediction-in-turkish-dialogues)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：使用多种Qwen大语言模型生成的土耳其语对话合成数据集
+9. [How Can We Synthesize High-Quality Pretraining Data? A Systematic Study of Prompt Design, Generator Model, and Source Data](/202604/17/2604.13977v1-how-can-we-synthesize-high-quality-pretraining-data-a-systematic-study-of-prompt-design-generator-model-and-source-data)  
+   标签：评分：10.0/10、query:ds-gen
+   evidence：合成高质量预训练数据的系统研究
+10. [Uncertainty-aware Generative Learning Path Recommendation with Cognition-Adaptive Diffusion](/202604/17/2604.14613v1-uncertainty-aware-generative-learning-path-recommendation-with-cognition-adaptive-diffusion)  
    标签：评分：10.0/10、query:edu-llm
-   evidence：利用大模型为AI辅助教育生成多选题
-7. [RAG-KT: Cross-platform Explainable Knowledge Tracing with Multi-view Fusion Retrieval Generation](/202604/14/2604.10960v1-rag-kt-cross-platform-explainable-knowledge-tracing-with-multi-view-fusion-retrieval-generation)  
-   标签：评分：10.0/10、query:edu-llm
-   evidence：利用大模型和检索增强生成的 RAG-KT 可解释知识追踪
-8. [A Simulation-Based Method for Testing Collaborative Learning Scaffolds Using LLM-Based Multi-Agent Systems](/202604/14/2604.11161v1-a-simulation-based-method-for-testing-collaborative-learning-scaffolds-using-llm-based-multi-agent-systems)  
+   evidence：具有认知自适应扩散的生成式学习路径推荐
+11. [CogEvolution: A Human-like Generative Educational Agent to Simulate Student's Cognitive Evolution](/202604/17/2604.14786v1-cogevolution-a-human-like-generative-educational-agent-to-simulate-students-cognitive-evolution)  
    标签：评分：10.0/10、query:profile-3
-   evidence：基于大模型的多智能体系统模拟协作学习
-9. [MathAgent: Adversarial Evolution of Constraint Graphs for Mathematical Reasoning Data Synthesis](/202604/14/2604.11188v1-mathagent-adversarial-evolution-of-constraint-graphs-for-mathematical-reasoning-data-synthesis)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：数学推理数据的分层合成框架
-10. [Polyglot Teachers: Evaluating Language Models for Multilingual Synthetic Data Generation](/202604/14/2604.11290v1-polyglot-teachers-evaluating-language-models-for-multilingual-synthetic-data-generation)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：评估用于多语言合成数据生成的语言模型
-11. [UniToolCall: Unifying Tool-Use Representation, Data, and Evaluation for LLM Agents](/202604/14/2604.11557v1-unitoolcall-unifying-tool-use-representation-data-and-evaluation-for-llm-agents)  
-   标签：评分：10.0/10、query:ds-gen
-   evidence：标准化LLM智能体的数据集生成
-12. [EduIllustrate: Towards Scalable Automated Generation Of Multimodal Educational Content](/202604/14/2604.05005v2-eduillustrate-towards-scalable-automated-generation-of-multimodal-educational-content)  
+   evidence：用于模拟学生认知演化和学习行为的生成式教育智能体
+12. [Temporal Dropout Risk in Learning Analytics: A Harmonized Survival Benchmark Across Dynamic and Early-Window Representations](/202604/17/2604.08870v1-temporal-dropout-risk-in-learning-analytics-a-harmonized-survival-benchmark-across-dynamic-and-early-window-representations)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：自动生成多模态教育内容以及针对K-12 STEM的基准
-13. [NLP-Informed Dynamic Cognitive Diagnosis Modelling](/202604/14/2604.07179v1-nlp-informed-dynamic-cognitive-diagnosis-modelling)  
+   evidence：学习分析中学生辍学风险的生存分析基准
+13. [MuTSE: A Human-in-the-Loop Multi-use Text Simplification Evaluator](/202604/17/2604.08947v1-mutse-a-human-in-the-loop-multi-use-text-simplification-evaluator)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：利用文本语义信息为数字学习平台进行动态认知诊断建模
-14. [Personalizing Text-to-Image Generation to Individual Taste](/202604/14/2604.07427v1-personalizing-text-to-image-generation-to-individual-taste)  
+   evidence：用于智能辅导系统和NLP研究的文本简化评估器
+14. [SynFlow: Scaling Up LiDAR Scene Flow Estimation with Synthetic Data](/202604/17/2604.09411v1-synflow-scaling-up-lidar-scene-flow-estimation-with-synthetic-data)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：引入了一个用于建模个性化图像评估的新型数据集 PAMELA
-15. [RewardFlow: Generate Images by Optimizing What You Reward](/202604/14/2604.08536v1-rewardflow-generate-images-by-optimizing-what-you-reward)  
+   evidence：为LiDAR生成大规模合成数据集的数据生成流水线
+15. [Edu-MMBias: A Three-Tier Multimodal Benchmark for Auditing Social Bias in Vision-Language Models under Educational Contexts](/202604/17/2604.10200v1-edu-mmbias-a-three-tier-multimodal-benchmark-for-auditing-social-bias-in-vision-language-models-under-educational-contexts)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：引导扩散模型进行图像生成
-16. [DRBENCHER: Can Your Agent Identify the Entity, Retrieve Its Properties and Do the Math?](/202604/14/2604.09251v1-drbencher-can-your-agent-identify-the-entity-retrieve-its-properties-and-do-the-math)  
+   evidence：用于教育审计的合成学生档案生成流水线
+16. [Edu-MMBias: A Three-Tier Multimodal Benchmark for Auditing Social Bias in Vision-Language Models under Educational Contexts](/202604/17/2604.10200v2-edu-mmbias-a-three-tier-multimodal-benchmark-for-auditing-social-bias-in-vision-language-models-under-educational-contexts)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：教育背景下社会偏见的多模态基准
+17. [OccuBench: Evaluating AI Agents on Real-World Professional Tasks via Language Environment Simulation](/202604/17/2604.10866v2-occubench-evaluating-ai-agents-on-real-world-professional-tasks-via-language-environment-simulation)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：为需要浏览和计算的研究型智能体提供的合成基准生成器
-17. [CAGE: Bridging the Accuracy-Aesthetics Gap in Educational Diagrams via Code-Anchored Generative Enhancement](/202604/14/2604.09691v1-cage-bridging-the-accuracy-aesthetics-gap-in-educational-diagrams-via-code-anchored-generative-enhancement)  
+   evidence：使用LLM生成基准评估实例的多智能体合成流水线
+18. [From Planning to Revision: How AI Writing Support at Different Stages Alters Ownership](/202604/17/2604.11009v1-from-planning-to-revision-how-ai-writing-support-at-different-stages-alters-ownership)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：用于K-12教学中教育图表生成的生成式人工智能
-18. [Multi-Head Attention based interaction-aware architecture for Bangla Handwritten Character Recognition: Introducing a Primary Dataset](/202604/14/2604.09717v1-multi-head-attention-based-interaction-aware-architecture-for-bangla-handwritten-character-recognition-introducing-a-primary-dataset)  
+   evidence：短文写作研究中的AI写作支持
+19. [Long-Horizon Plan Execution in Large Tool Spaces through Entropy-Guided Branching](/202604/17/2604.12126v1-long-horizon-plan-execution-in-large-tool-spaces-through-entropy-guided-branching)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：构建了一个新的孟加拉语手写字符平衡数据集
-19. [LLM-based Generation of Semantically Diverse and Realistic Domain Model Instances](/202604/14/2604.10350v1-llm-based-generation-of-semantically-diverse-and-realistic-domain-model-instances)  
+   evidence：引入了SLATE，一个合成的大规模API工具包基准数据集
+20. [Representing expertise accelerates learning from pedagogical interaction data](/202604/17/2604.12195v1-representing-expertise-accelerates-learning-from-pedagogical-interaction-data)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：基于大语言模型生成用于数据驱动研究的真实领域模型实例
-20. [FreeScale: Scaling 3D Scenes via Certainty-Aware Free-View Generation](/202604/14/2604.10512v1-freescale-scaling-3d-scenes-via-certainty-aware-free-view-generation)  
+   evidence：生成了专家与新手互动的合成数据集
+21. [LLM-Guided Semantic Bootstrapping for Interpretable Text Classification with Tsetlin Machines](/202604/17/2604.12223v1-llm-guided-semantic-bootstrapping-for-interpretable-text-classification-with-tsetlin-machines)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：将真实图像转换为高质量训练数据的框架
-21. [Enhanced Self-Learning with Epistemologically-Informed LLM Dialogue](/202604/14/2604.10545v1-enhanced-self-learning-with-epistemologically-informed-llm-dialogue)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：基于LLM的自学方法和个性化交互
-22. [Perceived Importance of Cognitive Skills Among Computing Students in the Era of AI](/202604/14/2604.10730v1-perceived-importance-of-cognitive-skills-among-computing-students-in-the-era-of-ai)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：生成式AI对学生认知技能发展的影响
-23. [Participatory, not Punitive: Student-Driven AI Policy Recommendations in a Design Classroom](/202604/14/2604.10851v1-participatory-not-punitive-student-driven-ai-policy-recommendations-in-a-design-classroom)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：课堂中由学生驱动的AI政策建议
-24. [OccuBench: Evaluating AI Agents on Real-World Professional Tasks via Language World Models](/202604/14/2604.10866v1-occubench-evaluating-ai-agents-on-real-world-professional-tasks-via-language-world-models)  
+   evidence：LLM生成子意图，通过三阶段课程引导合成数据创建
+22. [Mining Large Language Models for Low-Resource Language Data: Comparing Elicitation Strategies for Hausa and Fongbe](/202604/17/2604.12477v1-mining-large-language-models-for-low-resource-language-data-comparing-elicitation-strategies-for-hausa-and-fongbe)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：多智能体合成流水线生成评估实例
-25. [Examining EAP Students' AI Disclosure Intention: A Cognition-Affect-Conation Perspective](/202604/14/2604.10991v1-examining-eap-students-ai-disclosure-intention-a-cognition-affect-conation-perspective)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：高等教育中的伦理考量与AI使用披露
-26. [Use of AI Tools: Guidelines to Maintain Academic Integrity in Computing Colleges](/202604/14/2604.11111v1-use-of-ai-tools-guidelines-to-maintain-academic-integrity-in-computing-colleges)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：计算机学院中AI工具的学术诚信与伦理考量
-27. [SHARE: Social-Humanities AI for Research and Education](/202604/14/2604.11152v1-share-social-humanities-ai-for-research-and-education)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：为社会科学和人文教育预训练的大模型
-28. [Learning from Contrasts: Synthesizing Reasoning Paths from Diverse Search Trajectories](/202604/14/2604.11365v1-learning-from-contrasts-synthesizing-reasoning-paths-from-diverse-search-trajectories)  
+   evidence：从大模型中提取低资源语言的可用文本数据
+23. [When Does Data Augmentation Help? Evaluating LLM and Back-Translation Methods for Hausa and Fongbe NLP](/202604/17/2604.12540v1-when-does-data-augmentation-help-evaluating-llm-and-back-translation-methods-for-hausa-and-fongbe-nlp)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：合成用于训练数据的推理路径
-29. [Predicting User Satisfaction in Online Education Platforms: A Large Language Model Based Multi-Modal Review Mining Framework](/202604/14/2604.11723v1-predicting-user-satisfaction-in-online-education-platforms-a-large-language-model-based-multi-modal-review-mining-framework)  
+   evidence：评估大语言模型在低资源语言数据增强中的生成效果
+24. [From Imitation to Discrimination: Progressive Curriculum Learning for Robust Web Navigation](/202604/17/2604.12666v1-from-imitation-to-discrimination-progressive-curriculum-learning-for-robust-web-navigation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：通过双智能体共识流水线合成数据
+25. [Can AI Tools Transform Low-Demand Math Tasks? An Evaluation of Task Modification Capabilities](/202604/17/2604.12743v1-can-ai-tools-transform-low-demand-math-tasks-an-evaluation-of-task-modification-capabilities)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：基于LLM的在线教育评论挖掘框架
+   evidence：用于修改和升级教师数学任务的AI工具
+26. [PAL: Personal Adaptive Learner](/202604/17/2604.13017v1-pal-personal-adaptive-learner)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：AI驱动的个性化学习路径和实时自适应反馈平台
+27. [Early-Warning Learner Satisfaction Forecasting in MOOCs via Temporal Event Transformers and LLM Text Embeddings](/202604/17/2604.13241v1-early-warning-learner-satisfaction-forecasting-in-moocs-via-temporal-event-transformers-and-llm-text-embeddings)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：使用大模型嵌入预测MOOC学习者满意度
+28. [Cross-Platform Domain Adaptation for Multi-Modal MOOC Learner Satisfaction Prediction](/202604/17/2604.13247v1-cross-platform-domain-adaptation-for-multi-modal-mooc-learner-satisfaction-prediction)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：使用大模型编码器进行 MOOC 学习者满意度预测
+29. [Finetuning-Free Diffusion Model with Adaptive Constraint Guidance for Inorganic Crystal Structure Generation](/202604/17/2604.13354v1-finetuning-free-diffusion-model-with-adaptive-constraint-guidance-for-inorganic-crystal-structure-generation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：用于无机晶体结构生成的扩散模型
+30. [ReSS: Learning Reasoning Models for Tabular Data Prediction via Symbolic Scaffold](/202604/17/2604.13392v1-ress-learning-reasoning-models-for-tabular-data-prediction-via-symbolic-scaffold)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：可扩展的数据策展与生成推理路径
+31. [Automatically Inferring Teachers' Geometric Content Knowledge: A Skills Based Approach](/202604/17/2604.13666v1-automatically-inferring-teachers-geometric-content-knowledge-a-skills-based-approach)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：使用大语言模型自动诊断教师推理水平的方法
+32. [EMGFlow: Robust and Efficient Surface Electromyography Synthesis via Flow Matching](/202604/17/2604.13685v1-emgflow-robust-and-efficient-surface-electromyography-synthesis-via-flow-matching)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：通过流匹配和生成模型进行合成数据生成
+33. [IndicDB -- Benchmarking Multilingual Text-to-SQL Capabilities in Indian Languages](/202604/17/2604.13686v1-indicdb----benchmarking-multilingual-text-to-sql-capabilities-in-indian-languages)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：使用三智能体框架将政府数据转换为丰富的关系结构
+34. [RPS: Information Elicitation with Reinforcement Prompt Selection](/202604/17/2604.13817v1-rps-information-elicitation-with-reinforcement-prompt-selection)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：用于辅导系统的大模型信息引导
+35. [ASTER: Latent Pseudo-Anomaly Generation for Unsupervised Time-Series Anomaly Detection](/202604/17/2604.13924v1-aster-latent-pseudo-anomaly-generation-for-unsupervised-time-series-anomaly-detection)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：在潜空间生成伪异常数据用于模型训练
+36. [Towards Personalizing Secure Programming Education with LLM-Injected Vulnerabilities](/202604/17/2604.13955v1-towards-personalizing-secure-programming-education-with-llm-injected-vulnerabilities)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：利用 LLM 生成的安全示例进行个性化学习
+37. [Improving Machine Learning Performance with Synthetic Augmentation](/202604/17/2604.14498v1-improving-machine-learning-performance-with-synthetic-augmentation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：使用合成增强来缓解数据稀缺
+38. [Text2Arch: A Dataset for Generating Scientific Architecture Diagrams from Natural Language Descriptions](/202604/17/2604.14941v1-text2arch-a-dataset-for-generating-scientific-architecture-diagrams-from-natural-language-descriptions)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：构建用于科学架构图的新数据集
+39. [OpenMobile: Building Open Mobile Agents with Task and Trajectory Synthesis](/202604/17/2604.15093v1-openmobile-building-open-mobile-agents-with-task-and-trajectory-synthesis)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：合成高质量任务指令和智能体轨迹的框架
 
 ### 速读区论文标签
-1. [Preserving Forgery Artifacts: AI-Generated Video Detection at Native Scale](/202604/14/2604.04634v1-preserving-forgery-artifacts-ai-generated-video-detection-at-native-scale)  
+1. [Evaluating Learner Representations for Differentiation Prior to Instructional Outcomes](/202604/17/2604.05848v1-evaluating-learner-representations-for-differentiation-prior-to-instructional-outcomes)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：评估教育AI系统中的学习者表征
+2. [Evolution of Video Generative Foundations](/202604/17/2604.06339v1-evolution-of-video-generative-foundations)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：策划一个用于AI生成视频检测的大规模综合数据集
-2. [HorizonWeaver: Generalizable Multi-Level Semantic Editing for Driving Scenes](/202604/14/2604.04887v1-horizonweaver-generalizable-multi-level-semantic-editing-for-driving-scenes)  
+   evidence：视频生成基础的发展，包括用于合成的扩散模型
+3. [LASER: A Data-Centric Method for Low-Cost and Efficient SQL Rewriting based on SQL-GRPO](/202604/17/2604.06804v1-laser-a-data-centric-method-for-low-cost-and-efficient-sql-rewriting-based-on-sql-grpo)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：用于训练的大规模现实驾驶场景生成
-3. [ID-Sim: An Identity-Focused Similarity Metric](/202604/14/2604.05039v1-id-sim-an-identity-focused-similarity-metric)  
+   evidence：旨在弥补高质量训练数据稀缺的数据中心框架
+4. [Spatio-Temporal Grounding of Large Language Models from Perception Streams](/202604/17/2604.07592v1-spatio-temporal-grounding-of-large-language-models-from-perception-streams)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：使用生成式合成数据增强训练集
-4. [EvolveRouter: Co-Evolving Routing and Prompt for Multi-Agent Question Answering](/202604/14/2604.05149v1-evolverouter-co-evolving-routing-and-prompt-for-multi-agent-question-answering)  
-   标签：评分：8.0/10、query:profile-3
-   evidence：多智能体问答与协作结构
-5. [Controllable Image Generation with Composed Parallel Token Prediction](/202604/14/2604.05730v1-controllable-image-generation-with-composed-parallel-token-prediction)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：基于吸收扩散的可控图像生成
-6. [Teaching Empathy in Software Engineering Education in the Age of Artificial Intelligence](/202604/14/2604.04689v1-teaching-empathy-in-software-engineering-education-in-the-age-of-artificial-intelligence)  
+   evidence：通过可验证的监督实现无限训练数据的生成
+5. [From Clicking to Moving: Embodied Micro-Movements as a New Modality for Data Literacy Learning](/202604/17/2604.07881v1-from-clicking-to-moving-embodied-micro-movements-as-a-new-modality-for-data-literacy-learning)  
+   标签：评分：8.0/10、query:edu-llm
+   evidence：用于数字教育中数据素养学习的新系统
+6. [Behavior Latticing: Inferring User Motivations from Unstructured Interactions](/202604/17/2604.07629v1-behavior-latticing-inferring-user-motivations-from-unstructured-interactions)  
    标签：评分：7.0/10、query:edu-llm
-   evidence：人工智能背景下的软件工程教育教学实践
-7. [Beyond Hard Negatives: The Importance of Score Distribution in Knowledge Distillation for Dense Retrieval](/202604/14/2604.04734v1-beyond-hard-negatives-the-importance-of-score-distribution-in-knowledge-distillation-for-dense-retrieval)  
+   evidence：推断用户动机以支持学科专业知识和学习需求
+7. [Towards Knowledgeable Deep Research: Framework and Benchmark](/202604/17/2604.07720v1-towards-knowledgeable-deep-research-framework-and-benchmark)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：训练数据的系统化构成
-8. [SkillX: Automatically Constructing Skill Knowledge Bases for Agents](/202604/14/2604.04804v1-skillx-automatically-constructing-skill-knowledge-bases-for-agents)  
+   evidence：利用结构化和非结构化知识进行深度研究代理的框架和基准
+8. [PeReGrINE: Evaluating Personalized Review Fidelity with User Item Graph Context](/202604/17/2604.07788v1-peregrine-evaluating-personalized-review-fidelity-with-user-item-graph-context)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：从轨迹中自动构建技能知识库
-9. [StatsClaw: An AI-Collaborative Workflow for Statistical Software Development](/202604/14/2604.04871v1-statsclaw-an-ai-collaborative-workflow-for-statistical-software-development)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：用于生成软件测试模拟数据的多智能体架构
-10. [How Well Do Agentic Skills Work in the Wild: Benchmarking LLM Skill Usage in Realistic Settings](/202604/14/2604.04323v1-how-well-do-agentic-skills-work-in-the-wild-benchmarking-llm-skill-usage-in-realistic-settings)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：基准测试大模型智能体的技能使用
-11. [Beyond Few-Step Inference: Accelerating Video Diffusion Transformer Model Serving with Inter-Request Caching Reuse](/202604/14/2604.04451v1-beyond-few-step-inference-accelerating-video-diffusion-transformer-model-serving-with-inter-request-caching-reuse)  
+   evidence：个性化评论生成的基准和评估框架
+9. [Language Preferences and Practices in Multilingual EdTech: Flexible Primary Language Use with Secondary Language Support](/202604/17/2604.07843v1-language-preferences-and-practices-in-multilingual-edtech-flexible-primary-language-use-with-secondary-language-support)  
+   标签：评分：7.0/10、query:edu-llm
+   evidence：远程教育技术课程中的多语言教学
+10. [Efficient Dataset Selection for Continual Adaptation of Generative Recommenders](/202604/17/2604.07739v1-efficient-dataset-selection-for-continual-adaptation-of-generative-recommenders)  
    标签：评分：6.0/10、query:ds-gen
-   evidence：加速用于高质量视频生成的视频扩散模型推理
-12. [How can LLMs Support Policy Researchers? Evaluating an LLM-Assisted Workflow for Large-Scale Unstructured Data](/202604/14/2604.04479v1-how-can-llms-support-policy-researchers-evaluating-an-llm-assisted-workflow-for-large-scale-unstructured-data)  
+   evidence：用于模型训练的有针对性的数据选择和策划分法
+11. [An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models](/202604/17/2604.07769v1-an-empirical-study-on-influence-based-pretraining-data-selection-for-code-large-language-models)  
    标签：评分：6.0/10、query:ds-gen
-   evidence：用于大规模非结构化数据主题分析的LLM辅助工作流
-13. [ROSClaw: A Hierarchical Semantic-Physical Framework for Heterogeneous Multi-Agent Collaboration](/202604/14/2604.04664v1-rosclaw-a-hierarchical-semantic-physical-framework-for-heterogeneous-multi-agent-collaboration)  
+   evidence：生成式任务的预训练数据选择
+12. [SEARL: Joint Optimization of Policy and Tool Graph Memory for Self-Evolving Agents](/202604/17/2604.07791v2-searl-joint-optimization-of-policy-and-tool-graph-memory-for-self-evolving-agents)  
    标签：评分：6.0/10、query:profile-3
-   evidence：异构多智能体协作框架
+   evidence：使用工具记忆的自进化智能体框架
+13. [More Capable, Less Cooperative? When LLMs Fail At Zero-Cost Collaboration](/202604/17/2604.07821v1-more-capable-less-cooperative-when-llms-fail-at-zero-cost-collaboration)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：研究多智能体系统中的协作行为
 
 
 <div class="dpr-home-promo-card">

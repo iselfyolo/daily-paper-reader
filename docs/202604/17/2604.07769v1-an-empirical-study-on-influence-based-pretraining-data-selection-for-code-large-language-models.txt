@@ -1,0 +1,731 @@
+Title: An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models
+
+URL Source: https://arxiv.org/pdf/2604.07769v1
+
+Published Time: Fri, 10 Apr 2026 00:30:45 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+# An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models 
+
+# Chengli Xing ∗
+
+Peking University China, Beijing xingchengli@stu.pku.edu.cn 
+
+# Zhengran Zeng ∗
+
+Peking University China, Beijing zhengranzeng@stu.pku.edu.cn 
+
+# Gexiang Fang ∗
+
+Peking University China, Beijing 2501110744@stu.pku.edu.cn 
+
+# Rui Xie †
+
+Peking University China, Beijing ruixie@pku.edu.cn 
+
+# Wei Ye †
+
+Peking University China, Beijing wye@pku.edu.cn 
+
+# Shikun Zhang †
+
+Peking University China, Beijing zhangsk@pku.edu.cn 
+
+## Abstract 
+
+Recent advancements in code large language models (Code-LLMs) have demonstrated remarkable capabilities in resolving programming-related tasks. Meanwhile, researchers have recognized that the quality of pre-training data is crucial for improving LLM perfor-mance. However, most of the existing research on pre-training data filtering has focused on general datasets, and little attention for programming datasets. In this paper, we aim to address this gap by exploring the effectiveness of a widely used general data filtering technique, i.e., data-influence-score filtering, within the context of programming-related datasets. To this end, we first intro-duce a method for calculating data-influence-score for generative programming tasks which involves transforming a variety of down-stream coding tasks into validation sets and using the model’s loss on these sets as a performance metric. Next, we pre-train a Code-LLMs with 1 billion parameters from scratch on a dataset of 100 billion code tokens. Based on it, we conduct an extensive empirical study to evaluate the effectiveness of data-influence-score filtering methods. Specifically, we examine how well this technique improves model performance, investigate how the characteristics of beneficial training data vary across different training stages and programming tasks, and assess the feasibility of prediction-based data-influence-score filtering method. Our findings show that data-influence-score filtering based on validation-set-loss can enhance model’s programming performance. Moreover, we observe that the criteria of beneficial training data differ significantly across various downstream programming tasks. Additionally, our results suggest that predicting the oracle data-influence-score accurately is challenge. Lastly, this study provides valuable insights into the filtering and optimization of training data for Code-LLMs, offering a foundation for future research in this domain.  
+
+> ∗These authors contributed equally to this research.
+> †Rui Xie, Wei Ye, and Shikun Zhang are the corresponding authors.
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> ICPC ’26, Rio de Janeiro, Brazil
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2482-4/2026/04 https://doi.org/10.1145/3794763.3794813
+
+## CCS Concepts 
+
+• Software and its engineering → Automatic programming .
+
+## Keywords 
+
+Code Large Language Models; Pre-training Data Selection; Data Influence; Empirical Study 
+
+ACM Reference Format: 
+
+Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang. 2026. An Empirical Study on Influence-Based Pretraining Data Se-lection for Code Large Language Models. In 34th IEEE/ACM International Conference on Program Comprehension (ICPC ’26), April 12–13, 2026, Rio de Janeiro, Brazil. ACM, New York, NY, USA, 13 pages. https://doi.org/10.1145/ 3794763.3794813 
+
+## 1 Introduction 
+
+As Code Large Language Models (Code-LLMs) continue to evolve, they are becoming indispensable tools for enhancing productivity in software development [ 9, 24 , 45 ]. These Code-LLMs have shown re-markable capabilities in tasks such as code generation [ 6, 29 , 39 , 43 ], bug fixing [ 8, 17 , 36 ], and code comprehension [ 11 , 33 , 42 ]. Mean-while, through extensive use and research, it has become clear that the quality of pre-training data plays a critical role in improving model performance and generalization [ 12 , 45 , 46 ]. High-quality pre-training data not only equips models with rich and accurate programming knowledge, allowing them to better learn syntax and semantic rules, but also accelerates the training process, leading to significant improvements in accuracy and reliability for real-world programming tasks [ 45 ]. Despite this recognition, there remains a gap in research on how to effectively select and optimize pre-training data for Code-LLMs. It is important to acknowledge that general text data and code data differ substantially. General text data, often sourced from news articles, books, and web content, is rich in language expressions and covers a wide range of topics and world knowledge [ 46 ]. However, it frequently lacks the rigorous logical structure required for programming. In contrast, code data, while less abundant in world knowledge, adheres to strict syntax rules and is grounded in logical reasoning necessary for construct-ing functional programs [ 45 ]. As a result, insights derived from the study of general textual data may not directly apply to code data, emphasizing the need for specialized research in this area [ 7, 23 , 40 ]. With this in mind, it is crucial to conduct in-depth investigations  
+
+> arXiv:2604.07769v1 [cs.SE] 9 Apr 2026 ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang
+
+into the quality of pre-training code data and to develop robust data filtering and scheduling strategies. Such efforts are essential not only for optimizing the performance of Code-LLMs but also for ex-panding their applicability across a broader range of programming tasks and environments. Recent research [ 3, 4, 7 , 12 , 22 , 32 , 35 , 40 ] in the pre-training of LLMs has demonstrated the effectiveness of several data filtering techniques, including data deduplication [ 3 , 22 ], perplexity-based filtering [ 4], and LLM-score-based filtering [ 12 , 32 , 35 ]. Furthermore, emerging studies have highlighted the promise of data-influence-score (denoted as 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 in subsequent sections) filtering methods. Unlike traditional approaches that focus solely on the inherent char-acteristics of training data [ 4, 12 , 20 ], 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering methods consider the impact of individual data samples on downstream task performance. Specifically, this approach involves performing a single training step with a given sample and then evaluating the performance improvement on selected downstream tasks before and after this single training step. This improvement serves as a quality score for the sample in data filtering [ 7, 40 ]. Building on the success of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering in general text data, our research aims to explore its potential in filtering code pre-training data (e.g., source code from GitHub). First, we will assess the effectiveness of the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 method in identifying valuable code data and examine how the importance of specific training data may vary at different stages of model training (i.e., different checkpoints). Additionally, since different programming tasks (e.g., Python vs. SQL) require distinct capabilities from the model, we will investigate the com-monalities and differences in valuable training data across various programming domains. Next, we will compare the results of the data influence filtering method with other commonly used techniques, such as perplexity filtering and LLM score-based filtering, to better understand their relative strengths and weaknesses. Finally, we will evaluate the effectiveness of current 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering schemes, particularly those based on 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 prediction (e.g., predicts the 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 base on another small model). To achieve this, we need an effective way to measure the impact of pre-training data on the performance (i.e, 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ) of software engineering tasks. Previous studies [ 7, 40 ] have primarily focused on classification tasks, using the improvement of downstream tasks 
+
+𝑎𝑐𝑐𝑢𝑟𝑎𝑐𝑦 as the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . However, most code-related tasks are gen-erative tasks, and their evaluation has increasingly shifted towards execution-based methods [ 6, 42 ]. While execution-based evaluation can be more reflective of real-world performance, it is computa-tionally expensive (e.g., pre-training data filtering would require executing billions of programs) and often fails to capture the fine-grained influence of individual training samples. This limitation makes it challenging to directly apply existing 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 scoring methods to code tasks. Therefore, we propose transforming various downstream code tasks into validation sets and using model 𝑙𝑜𝑠𝑠 on these sets as an efficient proxy for evaluating performance. By lever-aging 𝑙𝑜𝑠𝑠 as the evaluation metric, we can more precisely gauge the impact of individual training samples on the model’s performance across different code-related tasks. This approach not only provides a more scalable solution, but also offers a finer-grained understand-ing of how specific data influences the model’s ability to generalize and perform effectively in diverse programming scenarios. Next, we trained a CodeLLM with 1 billion (B) parameters from scratch (denoted as CodeLLM-1B in subsequent sections), using a pre-training dataset consisting of 100 billion (B) code tokens. 
+
+CodeLLM-1B served as the foundation for a comprehensive empiri-cal investigation aimed at addressing our key research questions in detail. First, we validated the effectiveness of our evaluation framework, which is based on the validation-set-loss (denoted as 
+
+𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 in subsequent sections) and the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method. Our findings indicate that 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 (measured by 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 ) filter-ing can significantly improve the model’s performance on practical evaluation metrics (e.g., 𝑝𝑎𝑠𝑠 @𝑘 , 𝑎𝑐𝑐𝑢𝑟𝑎𝑐𝑦 , or 𝐸𝑥𝑎𝑐𝑡𝑀𝑎𝑡𝑐ℎ ). Subse-quently, we examined how the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of pre-training data varies across different stages of training and across different program-ming tasks. Our analysis revealed that as training progresses, the criteria for identifying beneficial samples evolve and eventually stabilize during the later stages of training. Additionally, we found that different downstream programming tasks have distinct crite-ria for what constitutes beneficial training data. This highlights the importance of constructing validation sets that are both gen-eral and practical, ensuring they meet the diverse requirements of various tasks. We then explored the similarities and differences between traditional data filtering methods and the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filter-ing approach. The results showed that the samples identified as beneficial by perplexity-based [ 4 ] and LLM-score-based [ 12 , 32 , 35 ]filtering methods differ significantly from those selected by the 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method. This suggests that conventional filtering methods may not be as effective in identifying the training data that is most beneficial for enhancing model performance. Finally, we assessed the effectiveness of using smaller models to predict 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . Our findings revealed that strategies relying on small models to score data influence often struggle to accurately predict which training samples are beneficial. This leads to the selection of lower-quality data, suggesting that using small models to ap-proximate the true data influence distribution presents significant challenges, thereby limiting the immediate practical applicability of this method for large-scale pre-training. In conclusion, the key contributions of this study are as follows: 
+
+• Technique : We employed an efficient method for applying 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering to programming data. By transforming various downstream code tasks into validation sets and using the model’s loss ( 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 ) on these sets as a performance proxy, we accurately measure the influence of individual data samples. This approach overcomes the limitations of traditional 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 measurement in generative code tasks and offers a practical solution for pre-training data filtering. 
+
+• Empirical Study : We trained a 1B parameter CodeLLM from scratch on a 100B token dataset. This model allowed us to conduct an in-depth analysis of several key research ques-tions, where we (1) verified the effectiveness of our 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+filtering method, (2) investigated how data influence evolves across training stages and tasks, (3) compared our approach with mainstream filtering methods, and (4) evaluated the efficacy of using smaller models for 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 prediction. 
+
+• Findings and Insights : Our research yielded several im-portant findings for optimizing code pre-training data selec-tion. Specifically, we demonstrate that (1) 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 -based An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering is effective at enhancing model perfor-mance. (2) The criteria for beneficial data evolve during training and stabilize in later stages, suggesting that filter-ing strategies should be dynamic. (3) Different downstream tasks have varying standards for useful data, highlighting the need for general and practical validation sets. (4) Using smaller models to predict 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 yields low accuracy and selects suboptimal data, indicating this approach requires further optimization. Ultimately, our goal is to provide a comprehensive evaluation framework that assesses the impact of training data, thereby offer-ing guidelines for future data selection strategies and improving model performance. 
+
+## 2 Background and Related Work 2.1 Code Large Language Models 
+
+Recently, Code-LLMs have made remarkable progress in address-ing various programming tasks. These Code-LLMs are typically built upon a Transformer-Decoder [ 34 ] architecture and are pre-trained on vast amounts of code datasets, enabling them to generate high-quality code snippets, auto-completing code, and even fixing bugs or performing code repairs. Prominent models like OpenAI’s Codex [ 6 ], and open-source alternatives such as CodeLlama [ 31 ], StarCoder [ 22 , 26 ], Qwen-Coder [ 15 ], and DeepSeek-Coder [ 13 ]have been successfully applied in software development. Compared to general-purpose LLMs, Code-LLMs exhibit distinct advantages due to their specialized training. This specialization grants them a deeper understanding of code syntax and semantics, enabling them to generate logically coherent and syntactically cor-rect outputs. Furthermore, the inherent logical structure of code data helps these models develop strong reasoning abilities, making them adept at tasks requiring complex algorithms and problem-solving [6, 45]. 
+
+## 2.2 Pre-training Data Filtering 
+
+High-quality pre-training data is crucial for LLM performance, making data filtering a vital step to curate relevant, diverse, and high-quality datasets. Prevailing filtering strategies are predom-inantly rule-based, employing step-by-step procedures [ 46 ] like deduplication and word-frequency filtering [ 3]. While effective for quickly removing noise from large datasets, these methods often fail to address more nuanced aspects of data quality, such as semantic coherence or structural integrity [4, 32, 40]. To overcome these limitations, some studies have adopted perplexity-based filtering [ 4, 30 ]. Perplexity measures how well a model pre-dicts a data sample; a lower score indicates a better fit with the model’s learned distribution [ 4 ]. By filtering out high-perplexity samples, researchers can improve dataset quality. For example, Raffel et al. [ 30 ] used this method to construct the C4 dataset by excluding low-quality web text. Recent works have also explored optimizing data mixtures by predicting selection efficiency [38]. Beyond perplexity, other research has explored using LLMs them-selves for data scoring [ 12 , 32 , 35 ]. A notable example is the Phi series [ 12 ], which employed LLMs to rate data based on its "ed-ucational value." This approach helped identify well-structured and thoroughly annotated code, allowing the model to learn more effectively from high-quality examples. In summary, the evolution of data filtering, i.e., from simple rules to sophisticated perplexity and LLM-based scoring, has been crucial in enhancing pre-training dataset quality. These advancements ensure models train not only on clean data but also on data better aligned with their target tasks, ultimately boosting performance. 
+
+## 2.3 Data Influence 
+
+However, existing filtering methods typically focus on static data properties (e.g., syntax, frequency), overlooking the dynamic impact of data during training. To address this, some researchers have argued that it is crucial to assess the actual influence of data on model performance (referred to as data influence [ 18 ]) as a more fundamental criterion for data filtering [ 7 , 37 , 40 ]. By measuring this contribution, we can prioritize data that positively impacts model outcomes. Data influence has been previously explored in various con-texts, such as identifying mislabeled samples [ 28 ], analyzing model memorization [ 10 ], and enhancing interpretability [ 27 ]. For LLMs, however, the prohibitive computational cost of calculating influence functions has limited their practical application at scale [7, 40]. Despite these challenges, several methods have attempted to integrate data influence into data selection. For example, LESS [ 37 ]and MATES [ 40 ] applied influence functions during fine-tuning and pre-training, respectively. Yet, the vast scale of pre-training data presents a significant hurdle. To mitigate this, MATES used a proxy model to approximate influence scores, but its accuracy was constrained by the proxy’s limited capacity [ 40 ]. Furthermore, an over-reliance on influence functions can risk reducing data diversity, potentially harming model generalization. Crucially, the application of data influence filtering to code data remains largely unexplored [ 7 , 23 , 40 ]. Most existing studies focus on classification tasks, which differ significantly from the gener-ative nature of code-related tasks. This leaves open the question of how to effectively apply and evaluate data influence methods for code pre-training datasets. This study aims to bridge this gap by systematically investigating data influence filtering for code pre-training. We explore its effectiveness at various training stages and across different programming tasks, offering insights into op-timizing data selection for Code-LLMs. Ultimately, our goal is to provide a framework that enhances both the quality and diversity of training data, thereby improving model performance. 
+
+## 3 The Empirical Study 3.1 Research Questions 
+
+RQ1: How effective are the validation-set-loss evaluation method and the data-influence-score filtering method? 
+
+Before utilizing 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 to calculate 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 (detailed in Sec-tion 3.2.3), we first need to validate its effectiveness to ensure its relevance to real-world task metrics. To do so, we pre-train a 1B parameter model on 100B code tokens and examine the correla-tion between its 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 and standard evaluation metrics (e.g., 
+
+𝑝𝑎𝑠𝑠 @𝑘 , 𝑎𝑐𝑐𝑢𝑟𝑎𝑐𝑦 , 𝐵𝐿𝐸𝑈 ) across various checkpoints and tasks. Next, we use the validated metric to calculate 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for each ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang 
+
+data point and continue pre-training with high 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 data to assess the effectiveness of this filtering strategy. 
+
+RQ2: How do data-influence-scores vary across different pre-training stages and programming tasks? 
+
+We then analyze how the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 distribution for a given train-ing set changes across pre-training stages (i.e., different check-points) and downstream tasks. This investigation aims to determine whether data quality is static or dynamic relative to the model’s training progress. Understanding this variability is crucial for as-sessing the adequacy of static filtering methods (e.g., perplexity) versus dynamic, curriculum-learning-style data selection strategies. 
+
+RQ3: How do mainstream data filtering methods compare with the data-influence-score filtering method? 
+
+This research question explores 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method against mainstream perplexity and LLM-scoring methods. The goal is to determine if these existing approaches can implicitly identify high 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 data, thereby revealing their relative strengths, weak-nesses, and overlaps with our influence-based approach. 
+
+RQ4: How effective is the prediction-based data-influence-score filtering method? 
+
+This research question investigates the feasibility of using a smaller, cost-effective model to predict 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . We train this proxy model to estimate influence, filter the training data based on these predictions, and evaluate the effectiveness of this prediction-based filtering strategy on subsequent model training. 
+
+## 3.2 Study Subjects 
+
+This subsection provides a detailed overview of the sources and composition of the subjects involved in the study. 
+
+3.2.1 CodeLLM-1B. To investigate data filtering strategies for code data in detail, we trained a 1B parameter model, named 
+
+CodeShell-1B , from scratch. The model was trained on 100B to-kens of code data and is based on the widely adopted CodeL-lama [ 31 ] architecture. By referencing the model structure pa-rameters of TinyLlama [ 44 ], we adjusted the model size to 1.1B parameters. For tokenization, we used the pre-existing tokenizer from CodeLlama. As for the pre-training data, we utilized the open-source StarCoderData [ 22 ] dataset, which is commonly used for code pre-training. Then, we randomly selected 100B tokens from the total 260B tokens available in StarCoderData. Training from scratch, rather than continue pre-training [ 31 ] an existing model like StarCoder, was a deliberate choice to ensure a controlled ex-perimental environment. This approach allows us to isolate the effects of our data filtering strategies by eliminating confounding variables from prior training stages, which is a common practice in this line of pre-training data filtering research [4, 7, 32, 40]. For the learning rate strategy, we followed prior work [ 40 ] and adopted the Warmup-Stable-Decay (WSD) [ 14 ] learning rate sched-ule. This approach ensures that the learning rate remains stable at 
+
+1𝑒 −4 for the majority of the training process, allowing for a more consistent and fair comparison of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 distribution across differ-ent training stages. Additionally, all other training hyperparameters were kept consistent with previous studies [ 40 ]. During training, we saved a checkpoint every 5B tokens processed. These checkpoints enabled us to evaluate the performance trends of CodeShell-1B 
+
+on downstream programming tasks and to investigate how the 
+
+Table 1: Statistics of evaluation datasets. Datasets Language Size Execution Metric With GT                          
+
+> Humaneval [6] Python, Java, C++ 164 ✓𝑃𝑎𝑠𝑠 @1 ×
+> MBPP [5] Python 500 ✓𝑃𝑎𝑠𝑠 @1 ✓
+> DS-1000 [19] Python 1000 ✓𝐴𝑐𝑐𝑢𝑟𝑎𝑐𝑦 ✓
+> CrossCodeEval [16] Python 2665 ×𝐸𝑥𝑎𝑐𝑡𝑀𝑎𝑡𝑐ℎ ✓
+> Bird-SQL [21] SQL 1533 ✓𝐴𝑐𝑐𝑢𝑟𝑎𝑐𝑦 ✓
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 distribution changes over different training stages. The entire pre-training process required 560 GPU hours on A100-80GB GPUs. 
+
+3.2.2 Evaluation Datasets. To comprehensively evaluate CodeShell-1B ’s programming capabilities, we selected multiple downstream task datasets, as detailed in Table 1. Our study incorporates five widely used benchmarks spanning four major languages, including foun-dational datasets like HumanEval and MBPP , the more challeng-ing CrossCodeEval , the data science-focused DS-1000 , and the SQL-centric Bird-SQL . In Table 1, "Size" refers to the number of problems, and "Execution" denotes the evaluation method. All benchmarks ex-cept CrossCodeEval , which uses 𝐸𝑥𝑎𝑐𝑡𝑀𝑎𝑡𝑐ℎ [ 16 ], rely on execution-based metrics. The "With GT (Ground-Truth)" column shows that all datasets provide reference answers except for HumanEval .Furthermore, to study the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of training data, we con-structed a validation set from a subset of these datasets. For bench-marks with provided ground-truth (GT) answers, we directly used their problems and reference solutions. For the HumanEval series, which lacks GT answers, we generated reference solutions using CodeLlama-34B [ 31 ]. Meanwhile, we recognized that even a pow-erful model like CodeLlama-34B cannot guarantee correctness for every problem. Consequently, we excluded particularly complex problems that were deemed unsuitable for evaluating a 1B model. Finally, to ensure a consistent validation size across tasks and re-duce computational overhead, we standardized the validation sets. For datasets with over 200 problems, we randomly sampled 200 to form the final validation set, while for those with fewer than 200 problems (e.g., HumanEval ), we utilized the entire dataset for our analysis. 
+
+3.2.3 Data Influence. The calculation of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 is a central com-ponent of this research. In prior studies [ 7, 18 , 40 ], 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 has been defined as the improvement in performance observed on down-stream tasks before and after training the model with a single data point. We formalize this calculation in Equation 1 [40]: 
+
+𝐼 𝑀 (𝑥 𝑖 ; 𝐷 𝑟 ) = 𝐿 (𝐷 𝑟 | 𝑀 ) − 𝐿 (𝐷 𝑟 | 𝐴 (𝑀, 𝑥 𝑖 )) (1) In this equation, 𝑀 represents the current state of the model, 𝑥 𝑖 
+
+is the data point for which we wish to calculate the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 , and 
+
+𝐷 𝑟 is the validation set associated with the downstream task. Thus, 
+
+𝐼 𝑀 (𝑥 𝑖 ; 𝐷 𝑟 ) quantifies the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of the data point 𝑥 𝑖 by measuring the change in 𝑙𝑜𝑠𝑠 on the validation set 𝐷 𝑟 , before and after updating the model 𝑀 with a single training step on 𝑥 𝑖 . Specifically, it is the difference between the 𝑙𝑜𝑠𝑠 of the current model 𝑀 (i.e., 𝐿 (𝐷 𝑟 | 𝑀 ))and the 𝑙𝑜𝑠𝑠 of the updated model 𝐴 (𝑀, 𝑥 𝑖 ) (i.e., 𝐿 (𝐷 𝑟 | 𝐴 (𝑀, 𝑥 𝑖 )) ), where 𝐴 (𝑀, 𝑥 𝑖 ) denotes the model after being trained on 𝑥 𝑖 .It should be noted that prior studies [ 7, 40 ] have predominantly focused on 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of classification tasks, where 𝑙𝑜𝑠𝑠 values are An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil 
+
+closely aligned with downstream metrics (e.g., 𝑎𝑐𝑐𝑢𝑟𝑎𝑐𝑦 ). In such cases, changes in 𝑙𝑜𝑠𝑠 values (i.e., 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ) tend to correlate well with changes in task performance. However, in the domain of soft-ware engineering, many programming tasks are generative. The evaluation criteria for these tasks have shifted from similarity-based metrics to execution-based correctness measures. This shift presents a challenge that 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 calculated from 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 may not fully capture the actual trends in downstream performance met-rics for generative tasks (e.g., 𝑝𝑎𝑠𝑠 @𝑘 ). Therefore, this study aims to investigate the effectiveness of 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 based 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 calcu-lations specifically within the context of generative programming tasks. 
+
+## 3.3 Results and Analysis 
+
+3.3.1 RQ1: How effective are the validation-set-loss evaluation method and the data-influence-score filtering method? 
+
+This research question investigates the effectiveness of using 
+
+𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 and 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering methods. To do so, we trained a CodeShell-1B on 100B code tokens, saving 20 checkpoints at 5B-token intervals to monitor performance progression (detailed description of the training process can be found in Section 3.2.1). We then evaluated these checkpoints on various downstream pro-gramming tasks using corresponding validation sets, and the details processes are provided in Section 3.2.2. 20 40 60 80 100 Trained Tokens (B) 
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8 Normalized Eval Metric
+> 0.0 0.2 0.4 0.6 0.8 1.0 Normalized Loss
+> Mean Eval Metric valid-loss Held-out Set Loss Training Loss
+
+Figure 1: Comparison of actual performance metrics and different loss-based metrics over training checkpoints. 
+
+Once the validation sets were established, we computed the 
+
+𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 for each of the 20 checkpoints. Figure 1 illustrates the av-erage normalized (i.e., the results for each task are linearly mapped to the [0, 1] range) actual performance (i.e., 𝑝𝑎𝑠𝑠 @1 , 𝑎𝑐𝑐𝑢𝑟𝑎𝑐𝑦 and 
+
+𝐸𝑥𝑎𝑐𝑡𝑀𝑎𝑡𝑐ℎ ) trends of CodeShell-1B on the 7 downstream tasks alongside the corresponding normalized 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 trends over the course of training. Additionally, we include the normalized training loss and normalized held-out set loss (i.e., keep some training data out of training, just for validation) for comparison, as these are com-monly used performance monitoring metrics. As shown, both the model’s performance on downstream tasks and the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 im-proved significantly as training progressed. While there were some fluctuations, the overall trends of both metrics remained aligned. Importantly, the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 demonstrated a much stronger align-ment with actual performance metrics compared to training loss and held-out set loss. This suggests that the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 provides a more accurate reflection of the model’s real-world performance on downstream tasks, reinforcing its reliability as an evaluation method. To quantify this relationship, we computed the Spearman rank correlation [ 41 ] between actual performance and the loss metrics for each task. The results in Table 2 reveal a strong, statistically sig-nificant positive correlation between 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 and performance across all tasks. For instance, even the lowest correlation for Bird-SQL is high at 0.7368 (p-value = 2.1𝑒 -4). Furthermore, 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 
+
+consistently shows a higher correlation than both training loss and held-out loss. These findings confirm that 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 is a highly reliable proxy for actual downstream task performance. Its strong correlation and computational efficiency make it an excellent alternative to running full, resource-intensive evaluations. 
+
+Finding 1: The 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 trends closely align with the trends of actual evaluation metrics and outperform commonly used perfor-mance monitoring metrics. Therefore, the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 is an efficient and reliable alternative for downstream task evaluation. 
+
+After confirming the effectiveness of the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 , we further use the change in 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 after a single-step training on individ-ual samples as a metric to measure 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . A detailed explanation of this metric and its calculation process is provided in Section 3.2.3. Next, we constructed a small, multilingual training dataset consist-ing of code from 10 different programming languages. Our goal was to examine how training data from various programming lan-guages impacts performance on different downstream program-ming tasks. Of these 10 languages, 7 are widely used, while the remaining 3 are less common. This setup allowed us to compare the influence of mainstream versus rare programming languages on the tasks. Specifically, we randomly selected 20,000 training samples in total from the remaining 160B tokens of the StarCoder-Data [ 22 ] dataset (i.e., data not seen by CodeShell-1B-CP100B 
+
+during its initial pre-training), with 2,000 samples per language. We then performed single-step training on the CodeShell-1B-CP100B 
+
+(i.e., CodeShell-1B trained on 100B code tokens) to compute the 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of each training samples. Moreover, by accurately mea-suring the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for the validation sets of various programming tasks, we can determine the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for each individual task. By averaging these values across all the tasks, we obtain the overall 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .Once the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 were computed, we ranked the 20,000 training samples in descending order of influence for each programming task. For each task, we selected the top 10,000 samples with the highest 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 , labeling them as "Top 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 Samples" (i.e., con-sidered beneficial by the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ). Conversely, we labeled the bot-tom 10,000 samples with the lowest 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 as "Bottom 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+Samples" (i.e., considered harmful by the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ). To evaluate the effectiveness of this 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method, we continued pre-training the CodeShell-1B-CP100B using the selected "Top and Bottom 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 Samples". The training hyperparameters were kept consistent with those used during the initial pre-training phase. To ensure the reliability of our results, we conducted 5 indepen-dent experiments, each repeated 5 times, covering every step from 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 calculation to evaluation. Figure 2 presents the mean per-formance, along with the minimum and maximum values, across ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang 
+
+Table 2: Spearman rank correlation (p-values) between actual performance metrics and different loss-based metrics across different programming tasks Loss Metrics HumanEval-Py HumanEval-Java HumanEval-Cpp MBPP CrossCodeEval Bird-SQL DS-1000 valid-loss 0.9578 (3.3e-11) 0.8465 (2.5e-06) 0.8842 (2.3e-07) 0.9233 (6.5e-9) 0.9612 (1.6e-11) 0.7368 (2.1e-4) 0.8421 (3.2e-6) 
+
+Training Loss 0.9007 (6.1e-08) 0.7863 (3.9e-05) 0.8601 (1.1e-6) 0.9112 (2.3e-8) 0.8882 (1.7e-7) 0.7187 (3.5e-4) 0.7984 (2.4e-5) 
+
+Held-out Loss 0.3984 (8.1e-2) 0.5379 (1.4e-2) 0.4721 (3.5e-2) 0.5022 (2.4e-2) 0.4968 (2.5e-2) 0.2526 (2.8e-1) 0.4497 (4.6e-2) 0 2000 4000 6000 8000 10000 Trained Steps                                    
+
+> 7.0
+> 7.5
+> 8.0
+> 8.5 Pass@1 (%)
+> HumanEval-Py
+> Top DIScore Samples Bottom DIScore Samples
+> 02000 4000 6000 8000 10000 Trained Steps
+> 5.0
+> 5.5
+> 6.0
+> 6.5
+> 7.0
+> 7.5 Pass@1 (%)
+> HumanEval-Java
+> 02000 4000 6000 8000 10000 Trained Steps
+> 6.0
+> 6.5
+> 7.0
+> 7.5
+> 8.0 Pass@1 (%)
+> HumanEval-Cpp
+> 02000 4000 6000 8000 10000 Trained Steps
+> 8
+> 9
+> 10
+> 11 Pass@1 (%)
+> MBPP
+> 02000 4000 6000 8000 10000 Trained Steps
+> 9.6
+> 9.8
+> 10.0
+> 10.2
+> 10.4
+> 10.6
+> 10.8 Exact Match (%)
+> CrossCodeEval
+> 02000 4000 6000 8000 10000 Trained Steps
+> 0.5
+> 1.0
+> 1.5
+> 2.0 Accuracy (%)
+> Bird-SQL
+> 02000 4000 6000 8000 10000 Trained Steps
+> 2.0
+> 2.5
+> 3.0
+> 3.5 Accuracy (%)
+> DS-1000
+> 02000 4000 6000 8000 10000 Trained Steps
+> 6.0
+> 6.2
+> 6.4
+> 6.6
+> 6.8 Eval Metric (%)
+> Mean of All Tasks
+
+Figure 2: Performance trends on downstream programming tasks for models trained with Top and Bottom Samples selected by the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+these 5 experiments for 7 downstream programming tasks. Note that the "Mean" performance is calculated by averaging the nor-malized scores of all tasks. The results show that CodeShell-1B 
+
+trained with the "Top 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 Samples" generally outperforms the model trained with the "Bottom 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 Samples" across most tasks. This demonstrates that the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method, based on the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 , is effective in identifying and selecting data that is beneficial for downstream tasks. 
+
+Finding 2: The 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method, grounded in the 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 ,is effective at selecting data that is beneficial for downstream pro-gramming tasks. 
+
+3.3.2 RQ2: How do data-influence-scores vary across different pre-training stages and programming tasks? 
+
+In RQ1, we found that 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering successfully identifies beneficial data at a given checkpoint. In this research question, we investigate the consistency of this beneficial data across different training stages and downstream tasks. To begin, we examine how data influence evolves over time by selecting five checkpoints from the CodeShell-1B training process (at 20B, 40B, 60B, 80B, and 100B tokens). Using these checkpoints, we calculated the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for the 20,000 samples from Section 3.3.1 across 7 different programming task validation sets. CP20B CP40B CP60B CP80B CP100B 
+
+> CP20B CP40B CP60B CP80B CP100B
+
+1 0.56 0.37 0.29 0.26 
+
+0.56 1 0.58 0.46 0.43 
+
+0.37 0.58 1 0.6 0.54 
+
+0.29 0.46 0.6 1 0.69 
+
+0.26 0.43 0.54 0.69 1
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+
+Figure 3: Spearman rank correlation of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 between dif-ferent training stages of CodeShell-1B .
+
+Next, we computed the Spearman correlation coefficients for the 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 between each pair of these five checkpoints. The results, shown in Figure 3, reveal that the influence of training data evolves as the model matures. For instance, the correlation between the 20B and 40B token checkpoints is 0.56, but this value drops progres-sively to 0.37, 0.29, and 0.26 when comparing the 20B checkpoint to the 60B, 80B, and 100B checkpoints, respectively. This indicates that the definition of "beneficial data" shifts significantly during training; the further apart the stages, the greater the divergence. An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil HumanEval-Py                                           
+
+> HumanEval-Java
+> HumanEval-Cpp
+> MBPP
+> Bird-SQL
+> DS-1000
+> CrossCodeEval
+> HumanEval-Py
+> HumanEval-Java
+> HumanEval-Cpp
+> MBPP
+> Bird-SQL
+> DS-1000
+> CrossCodeEval
+> 10.53 0.58 -0.07 0.29 -0.11 -0.01
+> 0.53 10.74 -0.06 0.21 -0.38 -0.08
+> 0.58 0.74 1-0.17 0.28 -0.26 -0.02
+> -0.07 -0.06 -0.17 10.02 -0.14 -0.07
+> 0.29 0.21 0.28 0.02 100.01
+> -0.11 -0.38 -0.26 -0.14 010.08
+> -0.01 -0.08 -0.02 -0.07 0.01 0.08 1
+> −1.00
+> −0.75
+> −0.50
+> −0.25
+> 0.00
+> 0.25
+> 0.50
+> 0.75
+> 1.00
+
+Figure 4: Spearman correlation coefficients of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+between different programming tasks based on the 
+
+CodeShell-1B-CP100B .
+
+This observation suggests that static filtering methods, such as Perplexity and LLM-scoring, are likely insufficient for identifying optimal data throughout the entire training process. Conversely, we also observed that the set of beneficial samples tends to stabilize in the later stages of training. The correlation between the 60B and 80B checkpoints increases to 0.60, and it rises further to 0.69 between the 80B and 100B checkpoints. This suggests that as the model’s parameters converge, its assessment of data influence becomes more consistent. 
+
+Finding 3: The selection of beneficial training data varies across different training stages. While the beneficial data between adjacent checkpoints is relatively similar, the criteria for what is considered beneficial evolves as the model’s parameters are updated. However, in the later stages of training, as the model’s parameters stabilize, the model’s perception of beneficial data becomes more consistent. 
+
+Next, we explored how 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 varies across different program-ming tasks. Figure 4 presents the Spearman correlation coefficients of CodeShell-1B-CP100B across seven downstream tasks. The re-sults reveal that certain tasks exhibit high correlations; for instance, all tasks within the HumanEval series have correlations exceeding 0.50. Additionally, the SQL-based BirdSQL task shows a moderate correlation with the HumanEval series (coefficients > 0.20). Conversely, other tasks like MBPP , DS-1000 , and CrossCodeEval 
+
+demonstrate no significant correlation with the others. Notably, 
+
+DS-1000 even displays negative correlations with the HumanEval 
+
+series (coefficients of -0.11, -0.38, and -0.26). This suggests that the same training data can have drastically different, even opposing, influences depending on the coding environment or task scenario. This analysis also highlights that task content similarity is a key factor in data influence. The HumanEval series, which involves the same task across different languages, shows strong correlation. In −0.005 −0.004 −0.003 −0.002 −0.001 0.000 0.001 0.002 
+
+> Data Influence Score
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> 1200
+> Frequency
+> Average Influence Score of All Tasks
+> Java (-2.06e-04±4.16e-04)
+> Markdown (-2.22e-04±3.61e-04)
+> JavaScript (-1.60e-04±4.31e-04)
+> SQL (-1.79e-04±4.49e-04)
+> Python (-3.29e-04±5.68e-04)
+> C (-1.92e-04±4.12e-04)
+> C++ (-2.60e-04±4.76e-04)
+> AppleScript (-1.61e-04±3.94e-04)
+> ANTLR (-1.78e-04±3.85e-04)
+> Assembly (-1.48e-04±3.44e-04)
+
+Figure 5: Distribution of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 on different programming languages. Table 3: Statistical Summary of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 Distributions (Mean and Standard Deviation) Across Tasks. Language HumanEval -Py HumanEval -Cpp Bird-SQL DS-1000 Java -1.43e-04 (6.78e-04) -5.87e-05 (6.75e-04) -7.32e-05 (1.08e-03) -3.16e-04 (1.44e-03) 
+
+Markdown -1.52e-04 (5.15e-04) -6.70e-05 (4.30e-04) -1.40e-04 (1.09e-03) -2.47e-04 (1.43e-03) 
+
+JavaScript -2.31e-05 (6.80e-04) -1.47e-05 (6.52e-04) 9.63e-06 (1.06e-03) -3.58e-04 (1.62e-03) 
+
+SQL -4.86e-05 (4.14e-04) -4.11e-05 (3.61e-04) -3.14e-04 (2.36e-03) -3.88e-04 (1.20e-03) 
+
+Python -2.78e-04 (1.04e-03) -6.91e-05 (7.10e-04) 5.21e-05 (1.16e-03) -2.54e-04 (2.28e-03) 
+
+C -1.08e-04 (6.17e-04) -1.25e-04 (7.17e-04) -6.62e-05 (1.07e-03) -3.31e-04 (1.37e-03) 
+
+C++ -1.68e-04 (7.73e-04) -2.62e-04 (1.01e-03) 2.35e-06 (1.12e-03) -2.88e-04 (1.54e-03) 
+
+AppleScript 3.46e-05 (5.80e-04) -6.00e-05 (4.71e-04) -6.63e-05 (1.29e-03) -2.08e-04 (1.47e-03) 
+
+ANTLR -1.02e-06 4.96e-04 1.45e-05 (4.12e-04) -1.80e-04 (1.39e-03) -2.27e-04 (1.09e-03) 
+
+Assembly -6.54e-05 (5.22e-04) -7.43e-05 (4.44e-04) -1.56e-04 (1.04e-03) -1.43e-04 (1.17e-03) 
+
+contrast, sharing a programming language alone does not guarantee correlated influence. For example, despite all being Python-based, 
+
+HumanEval-Python , MBPP , DS-1000 , and CrossCodeEval exhibit no notable correlation in their 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+Finding 4: The influence of training data is highly task-dependent, varying significantly across different coding scenarios. While tasks with similar content (e.g., the HumanEval series) show correlated influence, most exhibit little to no relationship, with some even showing negative correlations. 
+
+We further examined how 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 vary across different pro-gramming languages. As illustrated in Figure 5, the average 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+distribution across all tasks generally follows a normal distribu-tion centered around 0. For a more detailed breakdown, Table 3 presents the specific mean and standard deviation of the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+distribution for several key programming tasks. In this context, a ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang 
+
+positive 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 indicates that the training data is beneficial to the task. Interestingly, the results show that even training data in the same language as the downstream task exhibits a mean 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+close to 0, indicating no significant average advantage over data from other languages. For instance, in the HumanEval-Cpp task, the mean 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for C++ training data is -2.62 𝑒 -04, which is among the lowest. However, we observed a crucial difference in the vari-ance: the standard deviation of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for same-language data is notably higher than that of data from other languages. As shown in Table 3, the standard deviation for Python data is significantly greater in both HumanEval-Python and DS-1000 tasks. Similarly, SQL data shows the highest standard deviation in the Bird-SQL task. This results in a "short and fat" distribution for the influence scores of same-language training data, meaning these distributions are flatter and wider. These findings suggest that simply increasing the volume of same-language training data is an inefficient strategy. Instead, the higher standard deviation indicates that same-language data con-tains a wider range of influence scores, including both highly bene-ficial and highly detrimental samples. Therefore, effective filtering to identify and select high-quality same-language data is crucial for optimizing model performance on language-specific tasks. 
+
+Finding 5: While same-language data offers no significant average benefit over other languages, it exhibits a much wider variance in 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . This indicates the presence of both highly beneficial and highly detrimental samples, making targeted filtering essential for improving performance on language-specific tasks. 
+
+As previously noted, the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of most training data is con-centrated around zero, meaning that for a large portion of samples, their 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 is not particularly significant. In other words, for samples with 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 near 0, there is little distinction between beneficial and harmful data, and the effect of such data appears somewhat random. Given this, we shift our focus to the samples at the extremes of the distribution (i.e., those that deviate significantly from the 𝑚𝑒𝑎𝑛 ). Specifically, we analyze samples beyond the 𝑚𝑒𝑎𝑛 
+
+(i.e., mean of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ), 𝑚𝑒𝑎𝑛 ±0.5×𝑠𝑡𝑑 (i.e., standard-deviations of 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ), and 𝑚𝑒𝑎𝑛 ±1.0×𝑠𝑡𝑑 . Instead of using Spearman correla-tion analysis, which measures linear relationships, we concentrate on whether data samples consistently benefit the training process across different model checkpoints. To do this, we compute the positive sample precision and negative sample precision between various training stages, quantifying how consistently a sample is judged as beneficial or harmful across checkpoints. Figure 6 illustrates the positive and negative sample precision between 5 different model checkpoints, under different 𝑠𝑡𝑎𝑛𝑑𝑎𝑟𝑑 -
+
+𝑑𝑒𝑣𝑖𝑎𝑡𝑖𝑜𝑛𝑠 ranges of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . For example, consider the first row and last column of the middle sub-figure in Figure 6a, which displays the negative sample precision of CodeShell-1B-CP20B 
+
+relative to CodeShell-1B-CP100B . The data reveals that 79% of the samples identified as negative (i.e., 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ≤ 𝑚𝑒𝑎𝑛 -
+
+0.5×𝑠𝑡𝑑 ) in CodeShell-1B-CP20B are also identified as negative in CodeShell-1B-CP100B . The corresponding positive sample pre-cision can be seen in Figure 6b. We observe that as we consider sam-ples with more extreme 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 (i.e., those further from the mean of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 ), the precision of both positive and negative samples across checkpoints improves significantly. For instance, between CP20B                                                
+
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> 10.84 0.67 0.79 0.69
+> 0.99 10.74 0.83 0.73
+> 0.99 0.92 10.89 0.79
+> 0.99 0.88 0.76 10.79
+> 0.99 0.89 0.78 0.91 1
+> DIScore ≤mean as Positive
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> 10.98 0.84 0.88 0.8
+> 110.94 0.94 0.89
+> 10.99 10.98 0.94
+> 10.98 0.96 10.98
+> 10.97 0.94 0.99 1
+> DIScore ≤mean - 1.0 × std
+> as Positive
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+
+(a) Precision negative sample between different checkpoints. CP20B                                                
+
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> 10.54 0.66 0.45 0.52
+> 0.059 10.68 0.44 0.55
+> 0.036 0.34 10.42 0.54
+> 0.038 0.34 0.66 10.72
+> 0.03 0.29 0.56 0.48 1
+> DIScore ≥mean as Positive
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> CP20B
+> CP40B
+> CP60B
+> CP80B
+> CP100B
+> 10.54 0.66 0.45 0.52
+> 0.066 10.73 0.48 0.59
+> 0.052 0.46 10.56 0.65
+> 0.044 0.38 0.72 10.78
+> 0.036 0.34 0.66 0.64 1
+> DIScore ≥mean + 1.0 × std
+> as Positive
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+
+(b) Precision positive sample between different checkpoints. 
+
+Figure 6: Precision of negative and positive samples across 
+
+CodeShell-1B checkpoints. 
+
+CodeShell-1B-CP20B and CodeShell-1B-CP100B , when consider-ing samples with 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 less than the 𝑚𝑒𝑎𝑛 as negative influence (i.e., first sub-figure in Figure 6a), the negative sample precision is 0.69. However, when we narrow the selection to samples less than 
+
+𝑚𝑒𝑎𝑛 -0.5×𝑠𝑡𝑑 as negative (i.e., second sub-figure in Figure 6a), the negative sample precision increases to 0.88. A similar pattern is seen in positive samples precision. For example, the positive sample pre-cision between CodeShell-1B-CP40B and CodeShell-1B-CP100B 
+
+increases from 0.68 to 0.73 in Figure 6b. However, this trend is more pronounced for negative samples than for positive ones. This observation suggests that negative samples tend to exhibit more consistency across different training stages compared to posi-tive samples. In other words, a data sample identified as negative at one checkpoint is more likely to be consistently identified as negative at other checkpoints, especially when focusing on samples with more extreme negative 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 . This trend could inform the development of more effective data filtering strategies, particularly for identifying and removing harmful data. 
+
+Finding 6: Samples with more extreme 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 show more con-sistent trends across different training stages, while intermediate samples exhibit more randomness. These intermediate samples may be beneficial at one stage but not necessarily at others. 
+
+3.3.3 RQ3: How do mainstream data filtering methods compare with the data-influence-score filtering method? 
+
+To better understand the characteristics of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 , we analyzed An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil 0 1 2 3 4            
+
+> Perplexity Score
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> Frequency
+> All Tasks
+> 01234
+> Perplexity Score
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> HumanEval-Java
+> 01234
+> Perplexity Score
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> MBPP
+> 01234
+> Perplexity Score
+> 0
+> 200
+> 400
+> 600
+> 800
+> 1000
+> DS-1000
+> -4.0e-04
+> -3.0e-04
+> -2.0e-04
+> -1.0e-04
+> Data Influence Score
+> Mean of Data Influence Score
+> 0.0e+00
+> 1.0e-04
+> 2.0e-04
+> 3.0e-04
+> Mean of Data Influence Score
+> -2.0e-04
+> 0.0e+00
+> 2.0e-04
+> 4.0e-04
+> 6.0e-04
+> 8.0e-04
+> Mean of Data Influence Score
+> -1.5e-03
+> -1.3e-03
+> -1.0e-03
+> -7.5e-04
+> -5.0e-04
+> -2.5e-04
+> Mean of Data Influence Score
+
+Figure 7: Distribution of perplexity values and their corresponding average 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 across different tasks. 1 2 3 4 5
+
+> Educational Score
+> 0
+> 2000
+> 4000
+> 6000
+> 8000
+> 10000
+> Frequency
+> -1.0e-03
+> -5.0e-04
+> 0.0e+00
+> 5.0e-04
+> Data Influence Score  HumanEval-Py
+> HumanEval-Java
+> HumanEval-Cpp
+> MBPP
+> Bird-SQL
+> DS-1000
+> CrossCodeEval
+> All Tasks
+
+Figure 8: Distribution of educational scores and their corre-sponding average 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+the samples selected by two commonly used data filtering strategies, i.e., perplexity-based filtering and LLM scoring. 
+
+Perplexity-Based Filtering 
+
+Firstly, for the perplexity-based filtering, we followed the method-ology from prior work by using CodeLLM-CP100B as the scoring model. We computed the perplexity for each training sample from Section 3.2.2 and plotted histograms of the perplexity values. Each histogram bin was treated as a cluster, and we calculated the aver-age 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for the samples within each bin. Figure 7 illustrates these perplexity histograms along with their corresponding aver-age 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 across different tasks. From Figure 7, it is evident that the majority of data samples have perplexity values concentrated between 0 and 4. Interestingly, for all the tasks, the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 gener-ally exhibits a non-linear pattern, that decreases initially and then gradually increases as perplexity values rise. This trend is partic-ularly pronounced in the HumanEval-Java task, suggesting that samples with both low and high perplexity may be more beneficial for training, while those with medium perplexity tend to be less impactful. However, this pattern is not consistent across all tasks. For example, in the DS-1000 task, 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 first increases and then slowly declines as perplexity rises, whereas in the MBPP task, the 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 shows a steady upward trend. A closer look at the abso-lute values of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 within each perplexity interval reveals that most values range between -4𝑒 -4 and 0, indicating no substantial variation in 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 across samples with different perplexity levels. Therefore, perplexity-based methods appear to be ineffective in identifying samples with higher 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+LLM-Based Scoring 
+
+Next, we investigated the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 characteristics of samples se-lected by an LLM-based scoring approach. As in previous work [ 12 ], we used GPT-4o [ 2 ] to score the educational value of each sample, where the model assigns a score between 1 and 5. A higher score reflects the model’s assessment of the sample’s potential benefit for training. Figure 8 presents the distribution of educational scores for the training data, along with their corresponding average 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+for each task. Interestingly, the majority of samples received educa-tional scores of 1 or 2, accounting for up to 90% of all data points. Due to the limited number of samples with a score of 5, we omit detailed discussion of this category. Surprisingly, the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 tends to decrease as the educational score increases from 1 to 4. This suggests that samples deemed more beneficial for training by the LLM do not necessarily correspond to those with higher 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .Moreover, the trends vary across different tasks. For instance, in the HumanEval-Java task, 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 increases as the educational score rises. However, a more detailed analysis of the absolute val-ues of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for each educational score reveals that most values fall between -3𝑒 -4 and -2𝑒 -4, which is not significantly different in 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 across samples with different educational score. Con-sequently, LLM-based scoring methods also struggle to effectively differentiate between samples with high and low 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+Finding 7: While perplexity-based and LLM-based scoring methods exhibit different behaviors across tasks, neither method effectively distinguishes between samples with high and low 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .
+
+3.3.4 RQ4: How effective is the prediction-based data-influence-score filtering method? 
+
+Calculating the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 for every sample in a large dataset re-quires performing one-step training for each sample and then eval-uating the model on the validation set. This process is computa-tionally expensive and practically infeasible for large datasets. To mitigate the high cost of obtaining 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 , existing methods (such as MATES [ 40 ]) typically rely on training a smaller model (i.e., RoBERTa [25]) to predict the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of each sample. In this study, we adopt a similar approach to evaluate the ef-fectiveness of prediction-based 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering method in code generation tasks. Specifically, after training CodeShell-1B on a substantial amount of data (e.g., 20B code tokens), we perform one-step training on a smaller subset (around 20,000 samples) to obtain oracle 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 labels for these samples. Next, we train a RoBERTa-Base model [ 25 ] using the labeled subset to predict the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+for the entire training dataset. Based on these predicted scores, we then select a new batch of data (another 20 billion tokens) from the remaining unprocessed training data for CodeShell-1B to con-tinue training. This process is iterative. After completing training on the newly selected batch, we repeat the following steps: (1) Use ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang 25 50 75 100 Trained Tokens (B)    
+
+> 2
+> 4
+> 6
+> 8Pass@1 (%)
+> HumanEval-Py
+> Random Baseline DIScore Filtering
+> 25 50 75 100 Trained Tokens (B)
+> 1
+> 2
+> 3
+> 4
+> 5
+> 6Eval Metric (%)
+> Mean of All Tasks
+> Random Baseline DIScore Filtering
+
+Figure 9: Performance comparison of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering versus random selection under programming tasks. 20 40 60 80 100 Trained Tokens (B) 
+
+> 0.150
+> 0.155
+> 0.160 SpearmanR Correlation
+
+(a) Spearman rank correlation at different training stages. 0 20 40 60 80 Trained Samples (k) 
+
+> 0.05
+> 0.10
+> 0.15 SpearmanR Correlation
+
+(b) Spearman rank correlation with varying numbers of oracle 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 samples. 
+
+Figure 10: Analysis of prediction accuracy for 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 : (a) correlation at different training stages; (b) correlation with varying numbers of training samples. 
+
+the updated CodeShell-1B to label 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 values for a new small subset of data. (2) Train the RoBERTa-Base model on this labeled data with a regression objective. (3) Use the trained RoBERTa-Base model to predict 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 values for the entire training dataset. (4) Select another batch of training data based on the predicted scores. (5) Continue training CodeShell-1B on the newly selected data. This cycle is repeated until the entire training process is complete. To ensure comparability with previous studies [ 40 ], we followed the same hyperparameter settings. The training process involved a total of 100B code tokens, with 20B tokens selected in each itera-tion. In each cycle, we labeled 20,000 samples with oracle 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .We used the validation set mentioned in Section 3.2.2 to evaluate 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 and assessed the model’s performance on the downstream tasks described in Section 3.2.2. Since the validation set shares the same distribution as the evaluation data, this setup makes our experiment align with an in-distribution 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering scheme. Figure 9 presents the training results, indicate that the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 
+
+filtering method based on small model predictions does not signifi-cantly outperform random selection across various programming tasks. This suggests that the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 predicted by the small model does not meaningfully improve the model’s performance on down-stream tasks. To gain a deeper insight into this phenomenon, we further analyzed the accuracy of the small model’s predictions at different stages of training. In Figure 10a, we present the Spearman rank correlation coefficients between the small model’s predictions and the oracle 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 at various stages of training. The results reveal that the small model struggles to accurately predict oracle 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 , with the highest correlation reaching only 0.1624, that far from a significant level. This indicates that the small model has lim-ited capability to differentiate between high and low 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 data. Additionally, in Figure 10b, we examine how the Spearman rank correlation coefficient changes at CodeShell-1B-CP100B when us-ing different numbers of oracle 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 samples for training. Even when training with 80,000 samples, the correlation coefficient only reaches 0.1634, demonstrating that increasing the number of labeled samples does not significantly enhance the small model’s predictive accuracy. We hypothesize that this poor performance stems from several factors. First, code generation tasks are highly complex and specialized, with 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 being shaped by numerous factors that are difficult for a small model to capture. Second, as noted in Find-ing 4, the 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 of the same training data can vary widely across different programming tasks, further complicating prediction and limiting the small model’s ability to generalize. Finally, small mod-els have limited representational and comprehension capacities, making it challenging for them to accurately model the intricate relationships underlying 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 .Based on the experimental results and analysis above, we con-clude that using small models to predict 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 in code generation tasks is ineffective. Due to the low prediction accuracy of small mod-els, the quality of training data selected based on their predictions is not significantly better than that of randomly selected data. This suggests that, for complex tasks like code generation, relying on small models to approximate 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 may not be a viable strategy, and more effective alternatives should be explored. 
+
+Finding 8: Even in an in-distribution setting, 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering strat-egy based on small model predictions are ineffective. This is pri-marily due to the small models’ low accuracy in predicting data influence, which makes it difficult to select beneficial training data. 
+
+## 4 Implications and Discussions 
+
+Our study offers several key insights and practical guidelines for future research on pre-training data selection for Code-LLMs. 
+
+A More Accurate DIScore Computation Method Finding 1 con-firms that computing 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 with 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 generally aligns with downstream task metrics, and filtering based on it improves model performance. However, a gap remains between this measurement and actual downstream impact, which suggests that 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 
+
+alone may not fully capture a data point’s value. Consequently, future work should explore more accurate methods for calculating 
+
+𝐷𝐼𝑆𝑐𝑜𝑟𝑒 to better assess the true influence of training data. 
+
+Improving DIScore Prediction Methods: As highlighted in Find-ing 8, current 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 prediction methods that rely on small proxy models [ 7 , 40 ] suffer from low accuracy. This indicates that simple proxy models are insufficient for capturing the complex influence patterns in code data. Consequently, this prediction bottleneck currently limits the scalability of our method to massive datasets. Future research needs to investigate more sophisticated prediction strategies, such as using larger or more specialized proxy mod-els, or incorporating additional data features to enhance selection accuracy. An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil 
+
+Re-evaluate the Effectiveness of Traditional Data Selection Methods in Code Data: According to Finding 7, traditional se-lection methods like perplexity [ 4] and LLM scoring [ 12 , 32 , 35 ]are ineffective at identifying high-𝐷𝐼𝑆𝑐𝑜𝑟𝑒 samples in code data. This indicates that strategies common in NLP may not be suitable for code, as they fail to assess a sample’s true contribution. This underscores the need to re-evaluate these methods and develop a code-specific evaluation system that considers attributes like cor-rectness, executability, complexity, and task relevance. 
+
+Investigating Task-Specific DIScore to Build a Generalized Validation Set: Finding 4 reveals that the influence of training data is highly task-specific. While constructing task-specific validation sets can boost performance in targeted domains, it introduces the risk of "overfitting" to benchmarks or reducing data diversity. There-fore, constructing a generalized validation set that balances specific task requirements with broad reasoning capabilities is crucial to prevent the model from becoming overly specialized or "leaking" benchmark patterns and would improve the model’s overall gener-alization and performance. 
+
+Focus on the Consistency of Extreme Samples: Finding 6 in-dicates that samples with extreme 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 (i.e., highly positive or negative) exhibit consistent influence throughout training, whereas moderate-influence samples are more variable. This suggests that data optimization should prioritize these consistently impactful samples. Moreover, identifying and removing consistently detri-mental samples can prevent the model from learning harmful pat-terns. Thus, focusing on the consistency of extreme samples is a crucial strategy for building high-quality training datasets. 
+
+Fine-Tuning with High-Value Data: While applying 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 fil-tering to massive pre-training corpora is computationally intensive, our findings suggest immediate practical value in selecting high-quality data for “Instruction Tuning” (SFT) or identifying “Seed Data” for continued pre-training. In these scenarios, the dataset size is manageable, making the high cost of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 calculation justifiable. By acting as a “Gold Standard” filter, our method can curate high-quality subsets that maximize efficiency in fine-tuning stages. 
+
+Limitations on Computation Overhead and Execution Time: 
+
+We acknowledge that a significant limitation of our current ap-proach is the computational overhead. Calculating 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 based on 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 requires performing a forward and backward pass for each sample against the validation set. This execution time scales linearly with the size of the validation set and the number of train-ing samples, making it costly for trillion-token scale pre-training without optimization. Future work should focus on reducing this runtime overhead, potentially through influence approximation techniques or more efficient gradient analysis. 
+
+## 5 Threats to Validity 
+
+Threats to Internal Validity. The threats to internal validity mainly lie in the potential bugs in our implementation. To mitigate these risks, the authors have meticulously reviewed the code and scripts. Furthermore, we released the code and scripts in [ 1 ] for public scrutiny and also facilitate independent verification of our findings. 
+
+Threats to External Validity. These threats mainly lie in two aspects. First, regarding the data filtering methods, we have con-ducted an extensive literature review and believe that the filtering methods used are representative. Second, regarding the model scale, our empirical study was conducted on a 1B parameter model due to computational resource constraints. 
+
+Threats to Construct Validity. This threats primarily arise from the downstream tasks used in our evaluations. To mitigate these threats, we have employed a range of widely-recognized program-ming tasks (e.g., HumanEval, MBPP, CrossCodeEval) to assess the practical performance of the real-world tasks. 
+
+## 6 Conclusion 
+
+In this paper, we explored the application of 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 filtering for optimizing pre-training data in Code-LLMs. By introducing a novel method for calculating 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 based on 𝑣𝑎𝑙𝑖𝑑 -𝑙𝑜𝑠𝑠 for genera-tive programming tasks, we demonstrated that this approach can significantly enhance model performance across various program-ming tasks. Our extensive empirical study, using a 1B-parameter CodeLLM pre-trained on 100 billion code tokens, revealed key in-sights into how the characteristics of beneficial training data evolve over different training stages and vary across programming tasks. We also found that predicting the oracle 𝐷𝐼𝑆𝑐𝑜𝑟𝑒 accurately re-mains challenging, particularly when using smaller models for approximation. Overall, our findings underscore the importance of tailored data filtering strategies for code-specific datasets and provide a solid foundation for future research aimed at optimizing pre-training data for Code-LLMs. 
+
+## References                                
+
+> [1] [n. d.]. An Empirical Study on Data Influence-Based Pretraining Data Selection for Code Large Language Models. https://github.com/ZZR0/DIScore. Accessed: 2025-10-23.. [2] 2023. ChatGPT. Website. https://openai.com/blog/chatgpt. [3] Loubna Ben Allal, Raymond Li, Denis Kocetkov, Chenghao Mou, Christopher Akiki, Carlos Munoz Ferrandis, Niklas Muennighoff, Mayank Mishra, Alex Gu, Manan Dey, et al .2023. SantaCoder: don’t reach for the stars! arXiv preprint arXiv:2301.03988 (2023). [4] Zachary Ankner, Cody Blakeney, Kartik Sreenivasan, Max Marion, Matthew L Leavitt, and Mansheej Paul. 2024. Perplexed by Perplexity: Perplexity-Based Data Pruning With Small Reference Models. arXiv preprint arXiv:2405.20541 (2024). [5] Jacob Austin, Augustus Odena, Maxwell Nye, Maarten Bosma, Henryk Michalewski, David Dohan, Ellen Jiang, Carrie Cai, Michael Terry, Quoc Le, et al .2021. Program Synthesis with Large Language Models. arXiv preprint arXiv:2108.07732 (2021). [6] Mark Chen, Jerry Tworek, Heewoo Jun, Qiming Yuan, Henrique Pondé de Oliveira Pinto, Jared Kaplan, Harrison Edwards, Yuri Burda, Nicholas Joseph, Greg Brockman, Alex Ray, Raul Puri, Gretchen Krueger, Michael Petrov, Heidy Khlaaf, Girish Sastry, Pamela Mishkin, Brooke Chan, Scott Gray, Nick Ryder, Mikhail Pavlov, Alethea Power, Lukasz Kaiser, Mohammad Bavarian, Clemens Winter, Philippe Tillet, Felipe Petroski Such, Dave Cummings, Matthias Plappert, Fotios Chantzis, Elizabeth Barnes, Ariel Herbert-Voss, William Hebgen Guss, Alex Nichol, Alex Paino, Nikolas Tezak, Jie Tang, Igor Babuschkin, Suchir Balaji, Shantanu Jain, William Saunders, Christopher Hesse, Andrew N. Carr, Jan Leike, Joshua Achiam, Vedant Misra, Evan Morikawa, Alec Radford, Matthew Knight, Miles Brundage, Mira Murati, Katie Mayer, Peter Welinder, Bob McGrew, Dario Amodei, Sam McCandlish, Ilya Sutskever, and Wojciech Zaremba. 2021. Eval-uating Large Language Models Trained on Code. CoRR abs/2107.03374 (2021). arXiv:2107.03374 https://arxiv.org/abs/2107.03374 [7] Logan Engstrom, Axel Feldmann, and Aleksander Madry. 2024. Dsdm: Model-aware dataset selection with datamodels. arXiv preprint arXiv:2401.12926 (2024). [8] Sarah Fakhoury, Saikat Chakraborty, Madan Musuvathi, and Shuvendu K. Lahiri. 2023. Towards Generating Functionally Correct Code Edits from Natural Language Issue Descriptions. CoRR abs/2304.03816 (2023). arXiv:2304.03816 doi:10.48550/ARXIV.2304.03816
+
+ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil Chengli Xing, Zhengran Zeng, Gexiang Fang, Rui Xie, Wei Ye, and Shikun Zhang 
+
+[9] Angela Fan, Beliz Gokkaya, Mark Harman, Mitya Lyubarskiy, Shubho Sengupta, Shin Yoo, and Jie M. Zhang. 2023. Large Language Models for Software Engi-neering: Survey and Open Problems. In IEEE/ACM International Conference on Software Engineering: Future of Software Engineering, ICSE-FoSE 2023, Melbourne, Australia, May 14-20, 2023 . IEEE, 31–53. doi:10.1109/ICSE-FOSE59343.2023.00008 [10] Vitaly Feldman and Chiyuan Zhang. 2020. What neural networks memorize and why: Discovering the long tail via influence estimation. Advances in Neural Information Processing Systems 33 (2020), 2881–2891. [11] Shuzheng Gao, Cuiyun Gao, Yulan He, Jichuan Zeng, Lunyiu Nie, Xin Xia, and Michael Lyu. 2023. Code structure–guided transformer for source code summa-rization. ACM Transactions on Software Engineering and Methodology 32, 1 (2023), 1–32. [12] Suriya Gunasekar, Yi Zhang, Jyoti Aneja, Caio César Teodoro Mendes, Allie Del Giorno, Sivakanth Gopi, Mojan Javaheripi, Piero Kauffmann, Gustavo de Rosa, Olli Saarikivi, et al . 2023. Textbooks are all you need. arXiv preprint arXiv:2306.11644 (2023). [13] Daya Guo, Qihao Zhu, Dejian Yang, Zhenda Xie, Kai Dong, Wentao Zhang, Guanting Chen, Xiao Bi, Yu Wu, YK Li, et al . 2024. DeepSeek-Coder: When the Large Language Model Meets Programming–The Rise of Code Intelligence. arXiv preprint arXiv:2401.14196 (2024). [14] Shengding Hu, Yuge Tu, Xu Han, Chaoqun He, Ganqu Cui, Xiang Long, Zhi Zheng, Yewei Fang, Yuxiang Huang, Weilin Zhao, et al . 2024. Minicpm: Unveiling the potential of small language models with scalable training strategies. arXiv preprint arXiv:2404.06395 (2024). [15] Binyuan Hui, Jian Yang, Zeyu Cui, Jiaxi Yang, Dayiheng Liu, Lei Zhang, Tianyu Liu, Jiajun Zhang, Bowen Yu, Kai Dang, et al . 2024. Qwen2. 5-coder technical report. arXiv preprint arXiv:2409.12186 (2024). [16] Srinivasan Iyer, Ioannis Konstas, Alvin Cheung, and Luke Zettlemoyer. 2018. Map-ping language to code in programmatic context. arXiv preprint arXiv:1808.09588 
+
+(2018). [17] Carlos E. Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, and Karthik R. Narasimhan. 2024. SWE-bench: Can Language Models Resolve Real-world Github Issues?. In The Twelfth International Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 . OpenReview.net. https://openreview.net/forum?id=VTF8yNQM66 [18] Pang Wei Koh and Percy Liang. 2017. Understanding black-box predictions via influence functions. In International conference on machine learning . PMLR, 1885–1894. [19] Yuhang Lai, Chengxi Li, Yiming Wang, Tianyi Zhang, Ruiqi Zhong, Luke Zettle-moyer, Scott Wen tau Yih, Daniel Fried, Sida Wang, and Tao Yu. 2022. DS-1000: A Natural and Reliable Benchmark for Data Science Code Generation. ArXiv 
+
+abs/2211.11501 (2022). [20] Hugo Laurençon, Lucile Saulnier, Thomas Wang, Christopher Akiki, Albert Villanova del Moral, Teven Le Scao, Leandro Von Werra, Chenghao Mou, Eduardo González Ponferrada, Huu Nguyen, et al . 2022. The bigscience roots corpus: A 1.6 tb composite multilingual dataset. Advances in Neural Information Processing Systems 35 (2022), 31809–31826. [21] Jinyang Li, Binyuan Hui, Ge Qu, Jiaxi Yang, Binhua Li, Bowen Li, Bailin Wang, Bowen Qin, Ruiying Geng, Nan Huo, et al . 2024. Can llm already serve as a database interface? a big bench for large-scale database grounded text-to-sqls. 
+
+Advances in Neural Information Processing Systems 36 (2024). [22] Raymond Li, Loubna Ben Allal, Yangtian Zi, Niklas Muennighoff, Denis Kocetkov, Chenghao Mou, Marc Marone, Christopher Akiki, Jia Li, Jenny Chim, Qian Liu, Evgenii Zheltonozhskii, Terry Yue Zhuo, Thomas Wang, Olivier Dehaene, Mishig Davaadorj, Joel Lamy-Poirier, João Monteiro, Oleh Shliazhko, Nicolas Gontier, Nicholas Meade, Armel Zebaze, Ming-Ho Yee, Logesh Kumar Umapathi, Jian Zhu, Benjamin Lipkin, Muhtasham Oblokulov, Zhiruo Wang, Rudra Murthy V, Jason Stillerman, Siva Sankalp Patel, Dmitry Abulkhanov, Marco Zocca, Manan Dey, Zhihan Zhang, Nour Moustafa-Fahmy, Urvashi Bhattacharyya, Wenhao Yu, Swayam Singh, Sasha Luccioni, Paulo Villegas, Maxim Kunakov, Fedor Zhdanov, Manuel Romero, Tony Lee, Nadav Timor, Jennifer Ding, Claire Schlesinger, Hailey Schoelkopf, Jan Ebert, Tri Dao, Mayank Mishra, Alex Gu, Jennifer Robinson, Carolyn Jane Anderson, Brendan Dolan-Gavitt, Danish Contractor, Siva Reddy, Daniel Fried, Dzmitry Bahdanau, Yacine Jernite, Carlos Muñoz Ferrandis, Sean Hughes, Thomas Wolf, Arjun Guha, Leandro von Werra, and Harm de Vries. 2023. StarCoder: may the source be with you! CoRR abs/2305.06161 (2023). arXiv:2305.06161 doi:10.48550/ARXIV.2305.06161 [23] Zhe Li, Wei Zhao, Yige Li, and Jun Sun. 2024. Do Influence Functions Work on Large Language Models? arXiv preprint arXiv:2409.19998 (2024). [24] Junwei Liu, Kaixin Wang, Yixuan Chen, Xin Peng, Zhenpeng Chen, Lingming Zhang, and Yiling Lou. 2024. Large Language Model-Based Agents for Software Engineering: A Survey. CoRR abs/2409.02977 (2024). arXiv:2409.02977 doi:10. 48550/ARXIV.2409.02977 [25] Yinhan Liu. 2019. Roberta: A robustly optimized bert pretraining approach. arXiv preprint arXiv:1907.11692 (2019). [26] Anton Lozhkov, Raymond Li, Loubna Ben Allal, Federico Cassano, Joel Lamy-Poirier, Nouamane Tazi, Ao Tang, Dmytro Pykhtar, Jiawei Liu, Yuxiang Wei, Tianyang Liu, Max Tian, Denis Kocetkov, Arthur Zucker, Younes Belkada, Zi-jian Wang, Qian Liu, Dmitry Abulkhanov, Indraneil Paul, Zhuang Li, Wen-Ding Li, Megan Risdal, Jia Li, Jian Zhu, Terry Yue Zhuo, Evgenii Zheltonozhskii, Nii Osae Osae Dade, Wenhao Yu, Lucas Krauß, Naman Jain, Yixuan Su, Xuanli He, Manan Dey, Edoardo Abati, Yekun Chai, Niklas Muennighoff, Xiangru Tang, Muh-tasham Oblokulov, Christopher Akiki, Marc Marone, Chenghao Mou, Mayank Mishra, Alex Gu, Binyuan Hui, Tri Dao, Armel Zebaze, Olivier Dehaene, Nicolas Patry, Canwen Xu, Julian J. McAuley, Han Hu, Torsten Scholak, Sébastien Paquet, Jennifer Robinson, Carolyn Jane Anderson, Nicolas Chapados, and et al. 2024. StarCoder 2 and The Stack v2: The Next Generation. CoRR abs/2402.19173 (2024). arXiv:2402.19173 doi:10.48550/ARXIV.2402.19173 [27] Andreas Madsen, Siva Reddy, and Sarath Chandar. 2022. Post-hoc interpretability for neural nlp: A survey. Comput. Surveys 55, 8 (2022), 1–42. [28] Garima Pruthi, Frederick Liu, Satyen Kale, and Mukund Sundararajan. 2020. Estimating training data influence by tracing gradient descent. Advances in Neural Information Processing Systems 33 (2020), 19920–19930. [29] Chen Qian, Xin Cong, Cheng Yang, Weize Chen, Yusheng Su, Juyuan Xu, Zhiyuan Liu, and Maosong Sun. 2023. Communicative agents for software development. 
+
+arXiv preprint arXiv:2307.07924 (2023). [30] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J Liu. 2020. Exploring the limits of transfer learning with a unified text-to-text transformer. Journal of machine learning research 21, 140 (2020), 1–67. [31] Baptiste Rozière, Jonas Gehring, Fabian Gloeckle, Sten Sootla, Itai Gat, Xi-aoqing Ellen Tan, Yossi Adi, Jingyu Liu, Tal Remez, Jérémy Rapin, Artyom Kozhevnikov, Ivan Evtimov, Joanna Bitton, Manish Bhatt, Cristian Canton-Ferrer, Aaron Grattafiori, Wenhan Xiong, Alexandre Défossez, Jade Copet, Faisal Azhar, Hugo Touvron, Louis Martin, Nicolas Usunier, Thomas Scialom, and Gabriel Syn-naeve. 2023. Code Llama: Open Foundation Models for Code. CoRR abs/2308.12950 (2023). arXiv:2308.12950 doi:10.48550/ARXIV.2308.12950 [32] Noveen Sachdeva, Benjamin Coleman, Wang-Cheng Kang, Jianmo Ni, Lichan Hong, Ed H Chi, James Caverlee, Julian McAuley, and Derek Zhiyuan Cheng. 2024. How to Train Data-Efficient LLMs. arXiv preprint arXiv:2402.09668 (2024). [33] Weisong Sun, Chunrong Fang, Yudu You, Yun Miao, Yi Liu, Yuekang Li, Gelei Deng, Shenghan Huang, Yuchen Chen, Quanjun Zhang, et al . 2023. Automatic code summarization via chatgpt: How far are we? arXiv preprint arXiv:2305.12865 
+
+(2023). [34] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. 2017. Attention is All you Need. In Advances in Neural Information Processing Systems 30: An-nual Conference on Neural Information Processing Systems 2017, December 4-9, 2017, Long Beach, CA, USA , Isabelle Guyon, Ulrike von Luxburg, Samy Bengio, Hanna M. Wallach, Rob Fergus, S. V. N. Vishwanathan, and Roman Garnett (Eds.). 5998–6008. https://proceedings.neurips.cc/paper/2017/hash/ 3f5ee243547dee91fbd053c1c4a845aa-Abstract.html [35] Alexander Wettig, Aatmik Gupta, Saumya Malik, and Danqi Chen. 2024. Qurat-ing: Selecting high-quality data for training language models. arXiv preprint arXiv:2402.09739 (2024). [36] Chunqiu Steven Xia, Yinlin Deng, Soren Dunn, and Lingming Zhang. 2024. Agentless: Demystifying llm-based software engineering agents. arXiv preprint arXiv:2407.01489 (2024). [37] Mengzhou Xia, Sadhika Malladi, Suchin Gururangan, Sanjeev Arora, and Danqi Chen. 2024. Less: Selecting influential data for targeted instruction tuning. arXiv preprint arXiv:2402.04333 (2024). [38] Jiasheng Ye, Peiju Liu, Tianxiang Sun, Jun Zhan, Yunhua Zhou, and Xipeng Qiu. 2025. Data Mixing Laws: Optimizing Data Mixtures by Predicting Language Modeling Performance. In The Thirteenth International Conference on Learning Representations, ICLR 2025, Singapore, April 24-28, 2025 . OpenReview.net. https: //openreview.net/forum?id=jjCB27TMK3 [39] Hao Yu, Bo Shen, Dezhi Ran, Jiaxin Zhang, Qi Zhang, Yuchi Ma, Guangtai Liang, Ying Li, Tao Xie, and Qianxiang Wang. 2023. CoderEval: A Benchmark of Prag-matic Code Generation with Generative Pre-trained Models. CoRR abs/2302.00288 (2023). arXiv:2302.00288 doi:10.48550/ARXIV.2302.00288 [40] Zichun Yu, Spandan Das, and Chenyan Xiong. 2024. MATES: Model-Aware Data Selection for Efficient Pretraining with Data Influence Models. arXiv preprint arXiv:2406.06046 (2024). [41] Jerrold H Zar. 2014. Spearman rank correlation: overview. Wiley StatsRef: Statistics Reference Online (2014). [42] Zhengran Zeng, Yidong Wang, Rui Xie, Wei Ye, and Shikun Zhang. 2024. CoderUJB: An Executable and Unified Java Benchmark for Practical Program-ming Scenarios. In Proceedings of the 33rd ACM SIGSOFT International Sym-posium on Software Testing and Analysis, ISSTA 2024, Vienna, Austria, Septem-ber 16-20, 2024 , Maria Christakis and Michael Pradel (Eds.). ACM, 124–136. doi:10.1145/3650212.3652115 [43] Fengji Zhang, Bei Chen, Yue Zhang, Jin Liu, Daoguang Zan, Yi Mao, Jian-Guang Lou, and Weizhu Chen. 2023. Repocoder: Repository-level code completion through iterative retrieval and generation. arXiv preprint arXiv:2303.12570 (2023). An Empirical Study on Influence-Based Pretraining Data Selection for Code Large Language Models ICPC ’26, April 12–13, 2026, Rio de Janeiro, Brazil 
+
+[44] Peiyuan Zhang, Guangtao Zeng, Tianduo Wang, and Wei Lu. 2024. Tinyllama: An open-source small language model. arXiv preprint arXiv:2401.02385 (2024). [45] Ziyin Zhang, Chaoyu Chen, Bingchang Liu, Cong Liao, Zi Gong, Hang Yu, Jian-guo Li, and Rui Wang. 2023. A Survey on Language Models for Code. CoRR 
+
+abs/2311.07989 (2023). arXiv:2311.07989 doi:10.48550/ARXIV.2311.07989 [46] Wayne Xin Zhao, Kun Zhou, Junyi Li, Tianyi Tang, Xiaolei Wang, Yupeng Hou, Yingqian Min, Beichen Zhang, Junjie Zhang, Zican Dong, et al . 2023. A survey of large language models. arXiv preprint arXiv:2303.18223 (2023).

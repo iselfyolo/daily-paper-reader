@@ -1,0 +1,953 @@
+Title: Improving Machine Learning Performance with Synthetic Augmentation
+
+URL Source: https://arxiv.org/pdf/2604.14498v1
+
+Published Time: Fri, 17 Apr 2026 00:24:05 GMT
+
+Number of Pages: 27
+
+Markdown Content:
+# Improving Machine Learning Performance with Synthetic Augmentation 
+
+Charles DEZONS, Sami SELLAMI, Oscar NINOU, Axel PINCON, Mel SOHM 1
+
+University of California, Berkeley Feb 2026 
+
+Abstract 
+
+Synthetic augmentation is increasingly used to mitigate data scarcity in financial machine learning, yet its statistical role remains poorly understood. We formalize synthetic augmen-tation as a modification of the effective training distribution and show that it induces a structural bias–variance trade-off: while additional samples may reduce estimation error, they may also shift the population objective whenever the synthetic distribution deviates from regions relevant under evaluation. To isolate informational gains from mechanical sample-size effects, we introduce a size-matched null augmentation and a finite-sample, non-parametric block permutation test that remains valid under weak temporal dependence. We evaluate this framework in both controlled Markov-switching environments and real financial datasets, including high-frequency option trade data and a daily equity panel. Across generators spanning bootstrap, copula-based models, variational autoencoders, diffusion models, and TimeGAN, we vary augmentation ratio, model capacity, task type, regime rarity, and signal-to-noise. We show that synthetic augmentation is beneficial only in variance-dominant regimes, such as persistent volatility forecasting-while it deteriorates performance in bias-dominant settings, including near-efficient directional prediction. Rare-regime targeting can improve domain-specific metrics but may conflict with unconditional permutation inference. Our results provide a structural perspective on when synthetic data improves financial learning performance and when it induces persistent distributional distortion. 
+
+Keywords: Synthetic data, machine learning, generative models, time series, regime shifts 
+
+# 1 Introduction 
+
+Synthetic augmentation is often presented as a generic remedy for data scarcity. In fi-nancial learning problems, however, adding synthetic observations is not a neutral oper-ation: it modifies the effective training dis-tribution . If a learner is trained on a mixture 
+
+Pα = (1 −α)Preal +αP synth , then even with infi-nite data the population target shifts from the real-data minimizer to the mixture minimizer. As a result, synthetic augmentation is struc-turally a bias–variance trade-off : it can reduce estimation error by increasing effective sam-ple size, but it can also induce non-vanishing population shift whenever Psynth deviates from the regions relevant under the evaluation dis-tribution. This tension is particularly acute in finance, where signal is weak, dependence is strong, regimes shift, and tail events are economically decisive. Machine learning has become a standard toolkit in empirical finance, with applications ranging from return forecasting and volatility prediction to portfolio construction, hedging, and risk management. A prominent bench-mark is the comparative asset-pricing analysis of Gu et al. [2020], which frames risk-premium measurement as a prediction problem and doc-uments sizable economic gains from nonlinear        
+
+> 1charles.dezons@berkeley.edu |sami_sellami@berkeley.edu |oscar.ninou@berkeley.edu |
+> axel.pincon@berkeley.edu |mel_sohm@berkeley.edu
+> arXiv:2604.14498v1 [cs.AI] 16 Apr 2026
+
+methods. These gains, however, also sharpen concerns about overfitting, temporal depen-dence, and the credibility of out-of-sample com-parisons in settings with weak signal and struc-tural change. Unlike domains such as computer vision or natural language processing, financial datasets are characterized by limited effective sample size, heavy-tailed distributions, rare but critical events (crashes, liquidity shocks), and a dynamic data-generating process as market participants adapt and macro regimes evolve. Under these conditions, the practical question is not whether synthetic data looks realistic , but whether it contributes incremen-tal predictive information in the regime where performance matters. A key difficulty is evaluation. If a synthetic-augmented model is compared only to a real-only baseline, any performance difference con-flates two channels: (i) a mechanical sample-size effect (variance reduction) and (ii) an in-formational effect (the generator adding struc-ture aligned with Ptest ). This paper studies synthetic augmentation through a controlled counterfactual: we compare augmentation by 
+
+˜Dn ∼ Psynth to a size-matched null augmenta-tion ˜Dnull  
+
+> n
+
+that preserves low-level properties (marginals, scale, and where relevant tempo-ral structure), but destroys predictive align-ment. This isolates whether synthetic data adds usable information beyond what any non-informative increase in sample size would de-liver. Our objective is therefore structural rather than benchmark-specific. Rather than asking whether synthetic data “works” in a particu-lar dataset, we aim to understand: (i) when augmentation is variance-dominant versus bias-dominant; (ii) how usefulness depends on task type (near-efficient directional prediction ver-sus persistent volatility); (iii) how effectiveness varies with regime rarity and tail behavior; and (iv) how generator class (support-preserving re-sampling, parametric dependence models, deep generative models) interacts with model capac-ity and temporal dependence constraints. To make these questions testable, we formalize the augmentation effect as an out-of-sample risk differential and introduce a finite-sample, non-parametric (block) permutation test valid under weak dependence, as developed in Sec-tion 2. A natural baseline for synthetic augmentation is resampling. The bootstrap of Efron [1979] motivates generating pseudo-samples from the empirical distribution to approximate sampling uncertainty. Because financial observations are dependent, dependence-aware resampling is essential: Künsch [1989a] extend jackknife/-bootstrap logic to stationary sequences using blocks, and Politis and Romano [1994] pro-pose the stationary bootstrap with random block lengths to better preserve stationarity. In parallel, the synthetic oversampling litera-ture in machine learning emphasizes targeting rare states or classes: SMOTE (Chawla et al. [2002]) generates synthetic minority examples and provides a canonical illustration that aug-mentation can help when loss is sensitive to underrepresented outcomes. Modern augmentation frequently relies on learned generators. TimeGAN (Yoon et al. [2019]) is a landmark time-series GAN that combines adversarial training with a super-vised component to better preserve temporal dynamics. In finance, Quant GANs (Wiese et al. [2020]) propose architectures designed to reproduce stylized facts and dependence prop-erties of market data. Dogariu et al. (Dogariu et al. [2022]) emphasize the challenge of pre-serving cross-sectional co-movement and ad-vocate evaluation using both statistical and task-level criteria. Recent diffusion-based ap-proaches broaden this toolkit: TimeGrad (Ra-sul et al. [2021]) introduces an autoregressive diffusion formulation for multivariate proba-bilistic forecasting, and Takahashi and Mizuno [2024] propose diffusion-based generation for financial time series using wavelet/image rep-resentations. Bridging deep generation and resampling, Dahl and Sørensen [2022] propose a GAN-based bootstrap for dependent pro-cesses and evaluate finite-sample performance relative to block-bootstrap baselines, including an application to the Sharpe ratio. Beyond raw predictive accuracy, financial ML 2often faces interpretability, governance, and bias constraints. In consumer credit, Bell et al. [2025] develop an interpretable approach to mortgage lending that embeds fairness con-straints and produces decision-level feature at-tributions suitable for adverse-action explana-tions. In asset pricing, Bell et al. [2024] show that interpretable “glass box” models can de-liver strong performance in corporate bond re-turn prediction while retaining economic trans-parency. Recent work also demonstrates how generative AI and text pipelines create new measurement systems in finance and macroe-conomics: Kakhbod et al. [2024] develop a text-based measure of innovation displacement, Fedyk et al. [2024] study perception biases in AI-generated investment advice, Kakhbod et al. [2025] extract the Federal Reserve’s inflation attribution using LLMs, and Hochberg et al. [2023] use causal text estimation to study gen-der gaps in patent under-citation. These stud-ies motivate careful validation of any synthetic or AI-generated inputs, as biases or fidelity failures can propagate into economic inference. Our contribution is to provide a statistically rigorous evaluation of synthetic augmentation in financial learning problems, formalizing aug-mentation as a change in the effective train-ing distribution and isolating informational gains from mechanical sample-size effects via a size-matched null augmentation and a finite-sample, nonparametric testing framework. We evaluate this framework in both controlled toy environments and real financial datasets, and we document how outcomes depend jointly on model variance, regime under-representation, temporal dependence, and the fidelity of the generative mechanism. 
+
+# 2 Framework 
+
+Object of the Test 
+
+Let A(·) denote a fixed learning algorithm mapping a dataset into a predictor. All ar-chitectural, optimization and hyperparameter choices are held fixed. Given a real dataset Dm ∼ Preal and a syn-thetic augmentation ˜Dn ∼ Psynth , define the augmented estimator 
+
+ˆf syn  
+
+> n
+
+= A(Dm ∪ ˜Dn). (1) To isolate the informational contribution of synthetic data, we construct a null augmen-tation ˜Dnull  
+
+> n
+
+of identical size n such that it preserves low-level properties (marginal distri-butions, scale, possibly temporal structure), but contains no additional predictive signal about Y .Examples include: 
+
+• label permutation, 
+
+• temporal shuffling destroying depen-dence structure, 
+
+• blockwise resampling with destroyed cross-sectional alignment. We define 
+
+ˆf null = A(Dm ∪ ˜Dnull  
+
+> n
+
+). (2) Both estimators are trained under identical conditions. The only difference is whether the added sample carries structured signal. Let Dtest = {(xt, y t)}Tt=1 be an out-of-sample dataset drawn from Ptest . For a loss ℓ, define the loss differential 
+
+dt = ℓ( ˆf null (xt), y t) − ℓ( ˆf syn  
+
+> n
+
+(xt), y t). (3) The observed performance differential is 
+
+ˆδ = 1
+
+T
+
+> T∑
+> t=1
+
+dt. (4) The parameter of interest is 
+
+δ = EPtest [dt]. (5) 
+
+Interpretation of the Null Hypothesis 
+
+We define the risk for an estimator f as, 
+
+R(f ) = EPtest [l(f (X), Y )] (6) We test 
+
+H0 : δ = 0 vs H1 : δ > 0. (7) Importantly, this is not a test of equality be-tween Preal and Psynth . It is a test of incre-mental predictive information conditional on the learning algorithm and evaluation distribu-3tion. Under H0, synthetic augmentation does not alter the expected out-of-sample loss rela-tive to a size-matched null augmentation. Any observed difference is attributable to random fluctuations in the finite test sample. Thus, the null hypothesis formalizes: 
+
+E
+
+[
+
+RPtest ( ˆf syn  
+
+> n
+
+) − RPtest ( ˆf null )
+
+]
+
+= 0 . (8) The conditioning on Dm is implicit: the test assesses marginal informational contribution given the observed real dataset. 
+
+Bias-Variance Decomposition of the Effect 
+
+To understand what δ captures at a structural level, we introduce the population risks under the real and mixed training distributions. Let 
+
+Pα = (1 − α)Preal + αP synth , α = nm + n .
+
+(9) Denote the corresponding population minimiz-ers 
+
+f ∗ 
+
+> real
+
+= arg min   
+
+> f∈F
+
+RPreal (f ), (10) 
+
+f ∗ 
+
+> α
+
+= arg min   
+
+> f∈F
+
+RPα (f ). (11) As m, n → ∞ with fixed α,
+
+ˆf syn  
+
+> n
+
+→ f ∗
+
+> α
+
+, (12) 
+
+ˆfm → f ∗
+
+> real
+
+. (13) Synthetic augmentation therefore changes the population objective itself. The target of esti-mation shifts from f ∗ 
+
+> real
+
+to f ∗
+
+> α
+
+. We now decom-pose the expected risk differential 
+
+∆R(m, n ) = E
+
+[
+
+RPtest ( ˆf syn  
+
+> n
+
+) − RPtest ( ˆfm)
+
+]
+
+.
+
+(14) When the null augmentation leaves the real sample unchanged in expectation, ˆf null coin-cides with ˆfm, so that δ estimates ∆R(m, n ).Add and subtract the corresponding popula-tion optima: 
+
+∆R = [RPtest (f ∗
+
+> α
+
+) − RPtest (f ∗
+
+> real
+
+)]
+
++ E[RPtest ( ˆf syn  
+
+> n
+
+) − RPtest (f ∗
+
+> α
+
+)]
+
+− E[RPtest ( ˆfm) − RPtest (f ∗
+
+> real
+
+)].
+
+(15) The first term is a population shift. It persists asymptotically whenever α > 0 and vanishes only if Psynth = Preal on regions relevant under 
+
+Ptest . The second term (the two expectations) captures estimation error. Under standard reg-ularity conditions, its magnitude decreases as the effective sample size increases. Synthetic data is beneficial if and only if vari-ance reduction exceeds population shift. This inequality formalizes the central trade-off: aug-mentation reduces stochastic error but may in-troduce systematic misspecification.[Dao et al., 2019] 
+
+Exchangeability and Finite-Sample Validity 
+
+Under H0, the joint distribution of 
+
+(ℓ( ˆf syn  
+
+> n
+
+(xt), y t), ℓ ( ˆf null (xt), y t)) is invariant to permutation of the two predictors, which im-plies sign-exchangeability of {dt}.
+
+(d1, . . . , d T ) d
+
+= ( s1d1, . . . , s T dT ), (16) where st ∈ {− 1, +1 } are i.i.d. Exchangeability is the minimal assumption required for exact finite-sample validity of a permutation test. No Gaussianity, independence, or asymptotic approximation is required. The permutation statistic is constructed as 
+
+ˆδ(b) = 1
+
+T
+
+> T
+
+∑
+
+> t=1
+
+s(b) 
+
+> t
+
+dt. (17) The one-sided p-value is 
+
+p = 1 + # {b : ˆδ(b) ≥ ˆδ}
+
+B + 1 . (18) Conditional on {dt}, this test controls type-I error exactly. 
+
+Time-Series Dependence and Block Permutation 
+
+In financial applications, {dt} is typically seri-ally dependent. Pointwise sign flipping breaks temporal dependence and invalidates exchange-ability. To preserve weak dependence, we parti-tion the test set into K non-overlapping blocks 4of size b:
+
+Bk = {t : ( k − 1) b < t ≤ kb }. (19) Define blockwise aggregates 
+
+Dk = ∑
+
+> t∈Bk
+
+dt. (20) Permutation is then performed at the block level: 
+
+ˆδ(b) = 1
+
+T
+
+> K∑
+> k=1
+
+s(b) 
+
+> k
+
+Dk. (21) Under a standard mixing condition, where de-pendence between observations decays with lag, 
+
+α(k) → 0 as k → ∞ , (22) block permutation yields asymptotically valid inference provided b → ∞ and b/T → 0. This construction preserves intra-block autocorrela-tion while allowing inter-block sign exchange-ability. The procedure can be interpreted as a conditional randomization test, where the null hypothesis states that the structural compo-nent of the synthetic augmentation carries no additional predictive signal. 
+
+What the Test Identifies 
+
+The test identifies whether the synthetic dis-tribution modifies the learned predictor in a way that improves expected performance under 
+
+Ptest . It does not test: 
+
+• whether Psynth = Preal ,
+
+• whether the generator is realistic in a generative sense, 
+
+• whether synthetic data improves training loss. It isolates the causal effect of replacing a non-informative augmentation by a structured syn-thetic augmentation, holding sample size fixed. This distinction is essential. An augmentation may appear realistic, yet fail to improve pre-diction if its structure is misaligned with Ptest .
+
+When Does Augmentation Fail? 
+
+The failure mechanism is driven by a mismatch between the training mixture Pα and the eval-uation distribution Ptest . Suppose there exists a measurable region A ⊂ Z such that 
+
+Ptest (A) > 0, Psynth (A) ≈ 0. (23) Then the mixed training distribution satisfies 
+
+Pα(A) = (1 − α)Preal (A), (24) so that relative to Preal , the mass assigned to A
+
+is reduced by a factor (1 − α). The population optimizer under the mixture, 
+
+f ∗ 
+
+> α
+
+= arg min   
+
+> f∈F
+
+EPα [ℓ(f, Z )] , (25) therefore places less emphasis on fitting A than 
+
+f ∗ 
+
+> real
+
+does. If the loss is large or highly variable on A, and if A carries non-negligible weight under Ptest , then the risk under Ptest increases: 
+
+RPtest (f ∗
+
+> α
+
+) > R Ptest (f ∗
+
+> real
+
+). (26) Consequently, 
+
+lim     
+
+> m,n →∞ with αfixed
+
+∆R(m, n ) = RPtest (f ∗
+
+> α
+
+) − RPtest (f ∗
+
+> real
+
+)
+
+> 0.
+
+(27) In this regime, the asymptotic bias induced by distributional distortion dominates any finite-sample variance reduction. 
+
+Rare Regimes 
+
+Let A ⊂ Z be a measurable region correspond-ing to a rare or stressed regime. Define the conditional risk 
+
+RPtest |A (f ) = E[ℓ(f, Z ) | Z ∈ A ]. (28) The same permutation framework applies to the restricted loss sequence {dt1Zt∈A }, or to a rarity-weighted loss. This allows the test to detect whether synthetic data contributes information specifically in low-probability re-gions, where variance is typically largest. 
+
+Dependence on the Learning Algo-rithm 
+
+All results are conditional on A and F. Syn-thetic information is algorithm-relative. Two hypothesis classes may respond differently to the same augmentation. A high-capacity 5model may detect subtle mismatches between 
+
+Psynth and Preal , while a constrained model may average them out. Therefore, any empiri-cal claim must be indexed by 
+
+(Psynth , F, P test ). (29) There is no algorithm-free notion of synthetic usefulness. 
+
+# 3 Data Description 
+
+Our empirical analysis relies on two comple-mentary datasets spanning two distinct mar-ket microstructures and prediction regimes. The first is a tick-by-tick options trade tape 
+
+for SPY options (February 2021 to February 2026), which provides ultra-high-frequency ex-ecutions with rich microstructure features and a short-horizon directional classification target. The second is a daily equity panel sourced from Databento (January 2020 to January 2024) for five large-cap U.S. equities, which supports both directional and volatility-related predic-tion tasks at daily frequency. Their sharp contrast in granularity, dependence structure, and signal-to-noise makes them well-suited to studying when synthetic augmentation helps— and when it fails. 
+
+Tick-by-Tick Options Trade Tape 
+
+The first dataset is a tick-by-tick trade tape 
+
+recording every executed transaction on SPY options contracts from February 2021 to Febru-ary 2026. The raw file contains approximately 
+
+160.3 M rows across 498 distinct option con-tracts and 14 fields, including nanosecond-precision timestamps ( ts_recv , ts_event ), transaction price, trade size, and aggressor side (buyer- or seller-initiated). After restricting to regular-session hours (9:30–16:00 ET), remov-ing trades with unknown aggressor side, and winsorising extreme trade sizes at the 99.9th percentile (1 200 shares), the cleaned dataset retains 141.5 M ticks. The prediction target is a classification prob-lem: predict the direction of the 3-tick forward log-return, yt = sign (rt+1: t+3 ) ∈ {− 1, 0, +1 }.This task is dominated by microstructure noise and rare-event dependence: most ticks cor-respond to negligible price moves, while the economically meaningful observations (large trades, volatility bursts, regime transitions) are sparse. 
+
+Coverage and activity. Figure 1 shows the daily tick count over the five-year sample. Ac-tivity averages around 128 K trades per day (median 105 K) but exhibits dramatic spikes, up to 732 K trades per day-during episodes of market stress. 
+
+Price distribution. The SPY price distribu-tion (Figure 2) is multi-modal , reflecting drift across distinct price regimes over five years (skewness = 0 .49 , excess kurtosis = −1.25 ). The KDE reveals several modes corresponding to different market epochs. 
+
+Tick return distribution. Tick-to-tick log-returns are sharply peaked around zero with extremely heavy tails: excess kurtosis ex-ceeds 10 000 and skewness is strongly negative (−70 .4). Figure 3 displays the return distri-bution on both linear and log scales alongside a Q-Q plot; the deviation from normality is orders of magnitude more severe than in daily data. 
+
+Tail under-representation under Gaus-sian calibration. Figure 4 overlays the em-pirical quantile function of tick returns against that of a Normal distribution fitted to the same mean and variance. The two curves are close in the central body but diverge sharply in both tails: observed extreme returns are far larger in absolute value than Gaussian calibration would generate. This gap is precisely where augmen-tation quality matters: a synthetic mechanism that matches only first and second moments will systematically under-sample the events that drive risk and P&L. 
+
+Trade size and microstructure features. 
+
+Trade sizes are heavily right-skewed (skewness 
+
+= 4 .86 , excess kurtosis = 36 .0). Table 1 re-ports distributional shape statistics for key features: order-flow imbalance (OFI), inter-trade durations, and latency measures. These 6Figure 1: Daily tick count for SPY options (2021–2026). Spikes correspond to major volatility events.     
+
+> (a) Histogram (b) Q-Q plot ( R2= 0 .88 )
+
+Figure 2: SPY price distribution analysis: multi-modal structure reflecting distinct price regimes across the 2021-2026 sample. 
+
+variables exhibit strong non-Gaussianity and burstiness, consistent with clustered execution and intraday seasonality. 
+
+Table 1: Tick dataset - Distributional shape statistics for key variables. Variable Mean Std Skew Ex. Kurt. 
+
+price 509.6 106.3 0.49 −1.25 
+
+size 84.7 101.8 4.86 36.02 
+
+tick_return ≈ 0 0.0013 −70 .4 10 033 
+
+future_ret_3 ≈ 0 0.0022 −40 .8 3 355 
+
+inter_trade_dur 1.8 × 10 8 2.6 × 10 9 23.9 571 
+
+latency_ μs 112.8 80.4 0.48 4.69 
+
+ofi_10 17.1 429.9 0.03 3.15 
+
+7(a) Histogram vs. Normal (b) Log-scale density    
+
+> (c) Q-Q plot ( R2= 0 .89 )
+> Figure 3: Tick-to-tick log-return distribution. The log-scale view reveals heavy tails orders of magnitude above the Gaussian reference.
+
+Volatility regimes and class balance. 
+
+Figure 5 shows a stark regime imbalance: the vast majority of ticks occur in calm/low-vol conditions, while truly stressed ticks are ex-tremely rare. This creates a rare-regime learn-ing problem even at massive sample size: the challenge is not the number of observations, but the scarcity of informative regimes and the fragility of signal under stress. 
+
+Daily Equity Panel Dataset 
+
+The second dataset is a daily equity panel 
+
+sourced from Databento (XNAS.ITCH) for five large-cap U.S. equities: AAPL, MSFT, GOOGL, IBM and NVDA, covering January 2020 through January 2024 ( ≈4,920 stock-day observations; 984 trading days per ticker). Fif-teen features are derived from raw OHLCV data and z-score standardised within each training window to prevent look-ahead bias (Table 2). Three tasks are defined on the same fea-ture set: (i) binary directional classification (Yt = 1{rt+1 > 0}, near-balanced), (ii) one-step-ahead volatility forecasting ( vol_5d t+1 ), and (iii) binary detection of volatility spikes 8(a) Full quantile function (b) Right-tail zoom (q95–q99.99) 
+
+Figure 4: Quantile comparison of observed tick returns vs. a Normal with matched moments. The shaded area highlights where Gaussian generation under-represents extreme price moves.    
+
+> (a) Regime distribution (b) OFI alignment by regime
+
+Figure 5: Left: volatility regime distribution (high-volatility ticks are extremely rare). Right: OFI-to-direction alignment rate by regime; predictive signal degrades in stressed markets. 
+
+(vol_5d t+1 > p95 , a stable rare class across folds). This panel therefore isolates a classic daily-frequency setting where the primary dif-ficulty is limited cross-sectional sample size and mild-to-moderate predictability (depend-ing on the target), rather than microstructure dependence. 
+
+Table 2: Daily Equity Panel: feature set. Feature Description 
+
+ret_lag_k (k = 1 , 2, 3, 5, 10 ) Log-return lag k
+
+vol_kd (k = 5 , 10 , 20 ) Realised vol, k-day window 
+
+mom_kd (k = 5 , 20 ) Cumulative return, k days 
+
+vol_norm_20d vol_5d / vol_20d 
+
+high_low_range (Ht − Lt)/ ¯H
+
+close_position (Ct − Lt)/(Ht − Lt)
+
+rsi_14 RSI, 14-day window 
+
+macd_signal MACD signal line 
+
+9Table 3: Summary comparison of the two datasets. Property Tick Tape Daily Equity Panel Rows (clean) ∼141.5 M ∼4,920 Date range 2021–2026 2020–2024 Frequency Tick-by-tick Daily Instrument SPY options 5 equities Features 8 numeric 15 numeric Task type Classification Clf / Reg / Rare Target sign (rt+1: t+3 ) 1{rt+1 > 0} / vol_5d t+1 / 1{vol_5d t+1 > p95 }  
+
+> Dependence Strong temporal microstructure Moderate time-series dependence
+
+Table 3 highlights the key structural contrast. The tick tape is “large-n” in row count yet dominated by rare regimes and strong sequen-tial dependence; the daily panel is “small-n”with comparatively stable dynamics but lim-ited cross-sectional breadth. This distinction is central for interpreting augmentation results: in the tick setting, gains (if any) must come from better coverage of rare, informative se-quences ; in the daily panel, gains are more plausibly driven by variance reduction and im-proved learning of smooth daily relationships (especially for volatility-related targets). 
+
+Implications for Synthetic Augmenta-tion 
+
+The distributional properties above imply two qualitatively different augmentation problems. 
+
+Tick-by-tick tape (rare regimes + de-pendence constraints). Despite the massive sample size, the tape is dominated by near-zero returns and calm-market conditions, while stressed regimes and large-move sequences are sparse (Figure 5). Moreover, the most salient “signal” variables (trade sign autocor-relation, volatility clustering, intraday season-ality, order fragmentation) are inherently se-quential. As a result, i.i.d. augmentation that matches only marginals (or even static cross-moments) is structurally mis-specified: it will destroy dependence and under-represent ex-tremes (Figure 4). Effective augmentation in this setting must be sequence-aware and 
+
+regime-conditioned , explicitly targeting the under-covered stressed segments while preserv-ing joint dynamics of price, size, and order flow. 
+
+Daily equity panel (small sample + task-dependent signal). The daily panel is small in row count and contains engineered features designed to be robust out-of-sample (Table 2). Here, augmentation is primarily a variance-reduction lever: adding plausible synthetic days can stabilize estimation, especially for the rare-event volatility-spike task where positive examples are scarce by construction. How-ever, because daily returns are close to un-predictable, naive augmentation can easily be-come bias-dominant for directional classifica-tion if the synthetic generator injects spurious predictability. In contrast, volatility targets are typically more persistent, so carefully cali-brated augmentation has more room to help without distorting the conditional structure. Across both datasets, the key failure mode is 
+
+mismatch between the synthetic data generating mechanism and the dependence/rarity struc-ture of the real task . This motivates evaluating augmentation methods not only on marginal realism, but on downstream performance un-der time-respecting splits and stress-regime diagnostics, as developed in the subsequent sections. 
+
+# 4 Experimental Design 
+
+The objective of the experimental design is to systematically characterize the conditions under which synthetic augmentation improves or deteriorates out-of-sample performance in financial prediction tasks. We conduct our empirical analysis on two distinct data envi-10 ronments: a daily equity panel dataset and a high-frequency tick-by-tick options trade tape. These two settings differ substantially in frequency, sample size, signal-to-noise ratio, regime imbalance, and temporal dependence structure. This contrast allows us to evaluate whether the effectiveness of synthetic augmen-tation depends on the structural properties of the underlying learning problem rather than on dataset size alone. All experiments respect strict time ordering. For the daily equity panel, we employ a non-overlapping expanding walk-forward scheme with K = 5 folds. The training window ex-pands sequentially while the test window re-mains fixed in length, ensuring that each eval-uation is fully out-of-sample and free of look-ahead bias. For the tick-by-tick dataset, we use chronological splits with strict separation between training and test blocks. No overlap between train and test periods is allowed in any configuration, and all preprocessing steps are computed within the training window only. We vary the augmentation ratio α = mm+n ,where n denotes the number of real train-ing observations and m the number of syn-thetic samples. The ratio α is evaluated over 
+
+{0.25 , 0.50 , 0.75 , 1.0}, allowing us to trace how performance evolves as the mixed training dis-tribution 
+
+Pα = (1 − α)Preal + αP synth 
+
+moves progressively away from the empirical distribution. This grid permits us to observe when additional synthetic mass reduces esti-mation variance and when it instead induces distributional distortions. We compare multiple synthetic generators spanning increasing modeling flexibility. These include the stationary block bootstrap, Gaus-sian and Student-t copulas, variational autoen-coders (VAE), denoising diffusion probabilistic models (DDPM), and TimeGAN. The boot-strap serves as a non-parametric benchmark that expands sample size without extrapolat-ing beyond the empirical support. Copula-based methods preserve marginal distributions while modeling cross-sectional rank depen-dence. Deep generative models introduce la-tent representations capable of interpolation and limited extrapolation beyond observed samples. For generators that operate on static feature vectors (copula, VAE, DDPM), tempo-ral flattening is applied to encode intra-window dynamics prior to generation, and synthetic windows are subsequently unflattened and ag-gregated to reconstruct time-series structure. For classification tasks, synthetic targets are generated as continuous outputs and subse-quently mapped back to discrete labels using quantile matching so that the empirical class proportions are preserved exactly. This avoids artificial rebalancing effects that would oth-erwise confound the evaluation of generator quality. A central component of the design is the null-augmentation control. In addition to the base-line model trained on real data only and the synthetic-augmented model, we train a null model on real data plus a size-matched per-turbation that preserves marginal structure but destroys predictive alignment, for example through label permutation or temporal shuf-fling. This construction isolates informational contribution from the mechanical effect of in-creasing sample size. Performance compar-isons are therefore conducted both relative to the real-only baseline and relative to the null control. We evaluate augmentation across multiple pre-dictive model classes in order to study inter-action with model capacity and regularization. The model grid includes regularized linear clas-sifiers (logistic regression with L1 and L2 penal-ties, Ridge classifier) and tree-based ensembles (random forest). Hyperparameters are selected within each training fold only. Because the learning algorithm is held fixed when compar-ing real, null, and synthetic training sets, any performance difference reflects the interaction between generator structure, model capacity, and the training distribution. In settings with pronounced regime imbalance, particularly in the tick dataset, where high-11 volatility observations are extremely rare, we additionally evaluate performance conditional on stressed states. By restricting the loss differ-ential to rare regimes, we can detect localized improvements that may be masked in global averages. Statistical significance for all comparisons is assessed using the block permutation test intro-duced in Section 2. Permutation is conducted at the block level to preserve weak temporal de-pendence in the test set. For the walk-forward experiments, we report both fold-level signifi-cance and the proportion of folds rejecting the null hypothesis at the 5% level. This ensures that conclusions about the usefulness of syn-thetic augmentation are not driven by isolated sample fluctuations. The design is therefore comparative and structural rather than benchmark-specific. By systematically varying generator type, augmentation ratio, and model capacity across two fundamentally different financial environments-one near-efficient daily panel and one highly non-Gaussian, regime-imbalanced high-frequency tape-we obtain a disciplined assessment of when synthetic augmentation provides incremental predictive information and when it fails. In addition to the empirical applications, the same experimental framework is applied in a fully controlled toy environment. There, the data-generating process is explicitly specified through a two-state Markov-switching model, allowing the true population distribution to be known. This setting permits a clean sepa-ration between variance reduction and distri-butional shift effects, since synthetic samples can be drawn either from the true DGP or from deliberately misspecified generators. By varying the augmentation ratio and the degree of structural mismatch, we obtain a transpar-ent benchmark for interpreting the empirical findings in the real-data environments. 
+
+# 5 Controlled Environment 
+
+This section provides the first empirical vali-dation of the framework in a fully controlled environment. The objective is not realism, but structural transparency: since the data-generating process (DGP) is fully known, we can cleanly separate variance reduction from population shift effects. We consider a two-state Markov-switching re-turn process. Let St ∈ { 0, 1} denote the latent regime. Conditional on St = s,
+
+rt | St = s ∼ N (μs, σ 2 
+
+> s
+
+). (30) The transition matrix is parameterized by 
+
+(p00 , p 11 ), which implies a stationary rare-state probability π. Labels are defined using a for-ward return threshold: 
+
+Yt = 1{rt+1 < τ }. (31) Features are noisy signals of the next-period return: 
+
+Xt = βr t+1 + σxεt, εt ∼ N (0 , 1) . (32) This construction yields a fully specified joint distribution (Xt, Y t, S t). We consider several synthetic generators: 
+
+• Oracle : new samples drawn from the exact same DGP. 
+
+• Oracle-Jitter : small perturbations of structural parameters. 
+
+• Signal Mismatch : inversion of β.
+
+• Regime Mismatch : distortion of the rare-state probability. 
+
+• Volatility Mismatch : modification of 
+
+σ1.These generators induce controlled distri-butional shifts, allowing us to study bias-dominant regimes. We then vary: 
+
+• the mixture weight α = nm+n ,
+
+• the rare-state probability π,
+
+• the type of synthetic generator. For each configuration, we repeat the experi-ment R times and compute the median perfor-mance differential ˆδ, along with empirical rejec-tion frequency. We also compute a rare-regime restricted statistic conditioning on St = 1 .
+
+Results 
+
+Oracle augmentation. When synthetic data is drawn from the true DGP, performance improves monotonically in α. This behavior 12 is consistent with pure variance reduction: as the effective sample size increases, estimation error decreases without inducing population shift. 
+
+Bias-dominant regimes. When structural mismatches are introduced (e.g., sign-flipped signal), performance deteriorates sharply for large α. This confirms the bias–variance de-composition: as α increases, the population objective shifts toward Psynth , and asymptotic bias dominates variance reduction. 
+
+Rare-regime effects. For regime-frequency distortions, global performance may remain stable, while rare-regime performance exhibits strong effects. This highlights that synthetic augmentation can selectively improve or de-grade performance in low-probability regions. These controlled experiments validate the the-oretical framework. We now turn to more real-istic settings, where the true DGP is unknown and synthetic generators must be estimated from finite data. Table 4 highlights the central mechanism re-vealed by the heatmaps in Figure 6. When the synthetic generator is correctly specified (Oracle), augmentation improves performance both globally and within the rare regime. In contrast, a signal-level misspecification (sign flip in β) leads to a clear bias-dominant regime where performance deteriorates as α increases. Finally, regime-frequency and volatility mis-matches primarily affect the rare regime, gen-erating large local effects and high rejection power in rare-state tests. 
+
+# 6 Synthetic Data Generators 
+
+The choice of generative mechanism is cen-tral to the analysis. Each generator defines a distinct Psynth and therefore a distinct mix-ture distribution Pα = (1 − α)Preal + αP synth .The bias–variance decomposition of ∆R(m, n )
+
+from Section 2 makes clear that the alignment of Psynth with Ptest determines whether aug-mentation is beneficial. We select five genera-tors that span a wide range along three axes: capacity to extrapolate beyond observed sup-port, ability to model temporal dependence, and computational cost. Table 5 provides an overview; the subsections below give the intu-ition and key equations for each. 
+
+Block Bootstrap 
+
+Intuition. The stationary block bootstrap of [Künsch, 1989b] is the foundational non-parametric baseline. It introduces no distri-butional assumption and cannot produce ob-servations outside the support of the training data: supp (Psynth ) ⊆ supp (Preal ) by construc-tion. Any gain in ˆδ therefore reflects pure variance reduction from sample-size expansion, not distributional extrapolation. This makes it the natural benchmark against which learned generators are compared. 
+
+Mechanism. A random start index i ∼U{ 1, . . . , T } is drawn and a block of consecu-tive observations of geometrically distributed length 
+
+L ∼ Geom(1 /¯b), ¯b = ⌈n1/3⌉,
+
+is appended to the synthetic series. The ge-ometric distribution on block length, rather than a fixed length, is the key device of [Kün-sch, 1989b]: it ensures the resampled series is itself strictly stationary at block seams. This is repeated until n synthetic rows are assem-bled. For static data the method reduces to standard i.i.d. resampling with replacement. 
+
+TimeGAN 
+
+Intuition. TimeGAN [Yoon et al., 2019] is the only generator in our suite designed end-to-end for time series. Its key contribution is con-ducting adversarial training in a latent space first shaped by a supervised reconstruction objective, preventing the discriminator from exploiting superficial spatial patterns while ig-noring temporal dynamics, a known failure mode of vanilla GANs on sequential data. 
+
+Mechanism. Five GRU networks are trained in three sequential phases. Let x1: S be a training sequence of length S.
+
+Phase 1 - Embedding (50% of epochs): an 13 Synthetic Design Median ˆδ Power (5%) Median ˆδrare Rare Power (5%) Oracle 0.00132 0.20 0.00277 0.70 Signal mismatch ( β flip) -0.00448 0.00 -0.00189 0.00 Regime-frequency mismatch ( π high) 0.00150 0.15 0.00414 0.90 Volatility mismatch ( σ1 low) 0.00152 0.15 0.00363 0.80 
+
+Table 4: Representative controlled-environment results at α = 0 .5 and πrare = 0 .10 . Global and rare-regime performance differentials are reported alongside empirical rejection frequencies of the block-permutation test (5% level). See Figure 6 for the full grid. 0.10    
+
+> 0.20
+> 0.30
+> 0.50
+> 0.70
+> =n/( m+n)
+> 0.030
+> 0.050
+> 0.100
+> rare
+
+oracle_true median (null synth) 
+
+> 0.003
+> 0.002
+> 0.001
+> 0.000
+> 0.001
+> 0.002
+> 0.003
+
+(a) Oracle (global) - median ˆδ.0.10    
+
+> 0.20
+> 0.30
+> 0.50
+> 0.70
+> =n/( m+n)
+> 0.030
+> 0.050
+> 0.100
+> rare
+
+mismatch_beta_flip median (null synth)  
+
+> 0.0075
+> 0.0050
+> 0.0025
+> 0.0000
+> 0.0025
+> 0.0050
+> 0.0075
+
+(b) Signal mismatch (global) - median ˆδ.0.10    
+
+> 0.20
+> 0.30
+> 0.50
+> 0.70
+> =n/( m+n)
+> 0.030
+> 0.050
+> 0.100
+> rare
+
+mismatch_pi_high median rare (null synth) 
+
+> 0.004
+> 0.003
+> 0.002
+> 0.001
+> 0.000
+> 0.001
+> 0.002
+> 0.003
+> 0.004
+
+(c) Regime mismatch (rare) - median ˆδrare (St = 1 ). 0.10    
+
+> 0.20
+> 0.30
+> 0.50
+> 0.70
+> =n/( m+n)
+> 0.030
+> 0.050
+> 0.100
+> rare
+
+mismatch_pi_high rare power (p rare 0.05)  
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+
+(d) Regime mismatch (rare) - power (block permuta-tion). 
+
+Figure 6: Controlled MS2 study. Heatmaps over (α, π rare ) comparing oracle augmentation, signal mismatch, and regime mismatch with rare-regime evaluation. 
+
+embedder E and recovery R are trained on reconstruction, Lrec = ∑
+
+t ∥xt − R (E(xt)) ∥2, so the latent space mirrors data geometry before adversarial training begins. 
+
+Phase 2 - Supervised temporal (25% of epochs): a generator G : z 7 → ˜h and supervisor S :˜ht 7 → ˜ht+1 are trained to reproduce step-to-step autoregressive dynamics in latent space: 
+
+Lsup = ∑
+
+t ∥ht+1 − S (˜ht)∥2.
+
+Phase 3 - Joint adversarial (25% of epochs): a discriminator D distinguishes real from fake latents under the standard GAN objective, augmented by a moment-matching penalty 
+
+Lmom = ∥μh − μ˜h∥2 + ∥σh − σ˜h∥2. At genera-tion time, noise z ∼ N (0, I) is passed through 
+
+G → S → R to produce synthetic sequences 14 in the original space. 
+
+Denoising Diffusion Probabilistic Model 
+
+Intuition. DDPM [Ho et al., 2020] defines 
+
+Psynth through a learned denoising operator rather than an encoder–decoder or a discrimi-nator. Its training objective is a simple mean-squared noise prediction, which avoids the mode collapse and saddle-point dynamics of GAN training - a meaningful stability advan-tage in the heavy-tailed, finite-sample envi-ronments of our datasets. Critically, the re-verse diffusion process can generate samples outside the convex hull of the training data, giving DDPM an extrapolation capacity that the bootstrap lacks. 
+
+Mechanism. A forward Markov chain cor-rupts a real sample x0 over T steps with a lin-ear variance schedule β1 = 10 −4 → βT = 0 .02 :
+
+xt = √¯αt x0 + √1 − ¯αt ε, ε ∼ N (0, I),
+
+where ¯αt = ∏ts=1 (1 − βs). An MLP εθ(xt, t ) is trained to predict ε via the simplified ELBO, 
+
+L = E∥ε − εθ(xt, t )∥2. Sampling starts from 
+
+xT ∼ N (0, I) and applies the learned reverse step iteratively: 
+
+xt−1 = 1
+
+√αt
+
+> (
+
+xt − βt
+
+√1 − ¯αt
+
+εθ(xt, t )
+
+> )
+
++ √βt z,
+
+z ∼ N (0, I).
+
+DDPM is deployed as a static generator on flattened-window inputs (Section 6). 
+
+Gaussian Copula 
+
+Intuition. The Gaussian copula [Embrechts et al., 1999] is the only generator that sepa-rates marginal distributions from the depen-dence structure by construction, via Sklar’s theorem. This is well suited to financial data, where marginals are strongly non-Gaussian (Section 3) while dependence can often be cap-tured by a flexible correlation model. Requir-ing no gradient-based training, it is immune to the instabilities affecting deep models in small-sample or heavy-tailed settings and serves as an interpretable parametric reference point. 
+
+Mechanism. By Sklar’s theorem, the joint distribution factors as F (x1, . . . , x d) =
+
+C(F1(x1), . . . , F d(xd)) , where C is a unique copula. Each column is first mapped to its empirical uniform margin uj = ˆFj (xj ). For the Gaussian family the copula is estimated by fitting a rank correlation matrix ˆΣ on the normal-score transforms Φ−1(uj ). New uni-forms are sampled as 
+
+Unew = Φ  
+
+> (
+
+ˆΣ1/2ξ
+
+> )
+
+, ξ ∼ N (0, I),
+
+then each column is back-transformed via the empirical quantile function ˆF −1 
+
+> j
+
+, guaranteeing exact marginal replication. The Student-t cop-ula variant introduces symmetric tail depen-dence via its degrees-of-freedom parameter ν,relevant for joint crash dynamics in the option datasets. 
+
+Variational Autoencoder 
+
+Intuition. The VAE [Kingma and Welling, 2013] learns a smooth, compressed latent rep-resentation of Preal , regularised by a KL diver-gence toward a standard Gaussian prior. This regularised latent space enables interpolation and mild extrapolation between observed data points - qualitatively different from the boot-strap (resampling only) and the copula (no latent compression). Operating in a bottle-neck of dimension d ≪ D × W , the VAE also implicitly regularises generation in the high-dimensional flattened feature space, which is particularly beneficial for the Volatility Surface dataset. 
+
+Mechanism. An encoder maps x to the pa-rameters of a Gaussian posterior, qϕ(z|x) = 
+
+N (μz , diag (σ2 
+
+> z
+
+)) ; a decoder reconstructs 
+
+pθ(x|z). Training maximises the ELBO: 
+
+LVAE = Eqϕ
+
+> [
+
+log pθ(x|z)]−β KL (qϕ(z|x) ∥ N (0, I)).
+
+The reparameterisation trick z = μz + σz ⊙ ε,
+
+ε ∼ N (0, I), makes sampling differentiable. At generation time, z ∼ N (0, I) is passed through the decoder only. The KL weight β ≥ 1 (β-VAE) allows trading reconstruction fidelity for latent disentanglement. 15 Temporal Flattening for Static Gen-erators 
+
+The VAE, DDPM, and Copula treat every row as an independent draw: temporal order-ing is invisible to them. Temporal flattening encodes intra-window dynamics as ordinary cross-feature correlation, allowing any static generator to be applied to time series without modification. 
+
+Flattening. A time series of T rows and D
+
+columns is sliced into windows of length W
+
+with stride s ≤ W , yielding 
+
+nw = 
+
+> ⌊
+
+T − Ws
+
+> ⌋
+
++ 1 
+
+windows. Each window is concatenated into a single row of D × W features: 
+
+> 
+
+x(1) 0 · · · x(D)0
+
+... ...
+
+x(1)   
+
+> W−1
+
+· · · x(D) 
+
+> W−1
+> 
+
+−→ [x(1) 0 , . . . , x (D)0 , . . . , x (1)  
+
+> W−1
+
+, . . . , x (D) 
+
+> W−1
+> ]
+
+.
+
+The static generator thus captures the full intra-window second-order structure through a single joint covariance matrix over D × W
+
+features. 
+
+Stride and reconstruction. Setting s < W 
+
+introduces overlapping windows, growing nw
+
+by a factor ≈ W/s at the cost of inducing cor-relation between consecutive training samples— useful when real data is scarce. After gener-ation, N synthetic windows are unflattened into a series of Tout = ( N − 1) s + W rows. In the overlapping case each time step τ is cov-ered by cτ independent windows; the default aggregation is their mean, 
+
+˜xτ = 1
+
+cτ 
+
+> ∑
+> k:ks ≤τ <ks +W
+
+˜x(k) 
+
+> τ−ks
+
+,
+
+which reduces per-step variance by a factor cτ
+
+(a median option is also available for robust-ness). Only intra-window dependence is cap-tured; dynamics spanning more than W lags and inter-window continuity are not modelled-for those, TimeGAN or the block bootstrap are preferable. 
+
+Classification Post-Processing 
+
+All generators produce continuous outputs, in-cluding the target column. For classification tasks (directional labels {− 1, 0, +1 } on the tick tape) these must be mapped to discrete classes. Naive rounding fails whenever the generator shifts or rescales the target marginal, distort-ing the class balance of Pα and introducing a non-vanishing population shift in the ∆R
+
+decomposition. 
+
+Quantile matching. Let pk = #{yi =
+
+ck}/N be the empirical class proportion in the real data. Each synthetic target value is mapped to a uniform quantile qi = ( rank (i) + 0.5) /N s, then assigned label ck if 
+
+qi ∈
+
+> [∑
+> j<k
+
+pj , ∑
+
+> j≤k
+
+pj
+
+> )
+
+.
+
+The synthetic class distribution is thereby ex-actly equal to the real one by construction, the rank ordering of generated values is preserved, and the procedure extends to any number of classes in O(Ns log Ns).
+
+Generator Selection Summary 
+
+The five generators span the space from no learned structure (bootstrap) to full sequence learning (TimeGAN). The three static gener-ators (Copula, VAE, DDPM) are made time-series-aware through temporal flattening, cap-turing intra-window dynamics as cross-feature correlation. This design allows us to disentan-gle, in the subsequent experiments, the contri-butions of (i) pure sample-size expansion, (ii) distributional extrapolation, and (iii) temporal representation learning to the risk differential 
+
+∆R.16 Table 5: Comparison of the five synthetic data generators along dimensions relevant to the bias–variance decomposition of ∆R. Population shift risk reflects whether the generator can introduce systematic misspecification ( Psynth ̸ = Preal ). Variance reduction mechanism indicates how the generator reduces estimation error. Rare-regime coverage indicates whether the generator can oversample the tail region 
+
+A. Temporal structure reflects the depth of sequential dependence modelled. Small-n stability assesses reliability when real training data is scarce. 
+
+Generator Population shift risk Variance reduc-tion mechanism Rare-regime coverage Temporal structure Small-n sta-bility 
+
+Block Boot-strap None by construction (Psynth ⊆ Preal )Sample-size expan-sion only No, inherits scarcity of real data Block-wise auto-correlation (up to 
+
+¯b lags) Very high TimeGAN Moderate, GAN training can mis-specify dynamics Latent-space interpolation + se-quence generation Partial, can generate unseen sequences but not extrapolate marginals Full sequence via GRU (autoregres-sive latent dy-namics) Low, unsta-ble on small datasets DDPM Low, stable train-ing, smooth re-verse diffusion Learned data man-ifold + diffusion noise injection Yes, reverse process gener-ates samples beyond training support Intra-window via flattening ( ≤ W
+
+lags) Moderate, needs suffi-cient epochs Copula Low, marginals exactly preserved by construction Exact marginal replication +flexible rank de-pendence Partial, tail ex-trapolation via quantile inver-sion Intra-window via flattening ( ≤ W
+
+lags) Very high, no gradient opti-misation VAE Low to moderate, KL regularisa-tion may smooth tails Latent interpola-tion in compressed bottleneck Partial, smooth latent prior may under-represent extremes Intra-window via flattening ( ≤ W
+
+lags) Moderate, sensitive to latent dim choice 
+
+# 7 Empirical Results: Daily Equity Panel 
+
+Experimental setup. We use a non-overlapping walk-forward scheme with K = 5 
+
+folds: training windows expand from 820 to 4,100 observations while the test window is fixed at 820 observations, preserving temporal ordering throughout. Twelve synthetic gener-ators are evaluated: iid bootstrap, stationary block bootstrap, Gaussian copula, Student-
+
+t copula ( ν = 4), Gumbel copula, tempo-rally flattened copula variants, VAE, DDPM and TimeGAN, at augmentation ratios α ∈{0.25 , 0.5, 0.75 , 1.0}. All comparisons use the size-matched null augmentation and block per-mutation test described in Section 2. Each heatmap shows the best performance differen-tial ˆδ per (generator, model) pair, optimised over α, with cells marked if p < 0.05 in the majority of folds. 
+
+Classification Task 
+
+The directional classification task is the most challenging. The baseline achieves AUC ≈
+
+0.518 and accuracy ≈ 51% , barely above ran-dom, consistent with near-efficiency of large-cap U.S. equities at daily frequency. 
+
+Augmentation hurts more than it helps. 
+
+Figure 8 (left) provides the clearest summary: averaged over all augmentation ratios, every generator produces a negative mean differen-tial for classification. The least harmful are the copula families (Copula Student-t: −0.6×10 −3;Copula Gaussian: −0.9 × 10 −3), while deep generative models are the most destructive (TimeGAN: −12 .5 × 10 −3; VAE: −8.2 × 10 −3). Even in the best-case view of Figure 7 (values 17 optimised over ratios), magnitudes remain on the order of 10 −3. Only the Copula Student-
+
+t row is consistently non-negative (LogReg: 
+
++0 .0020 , Ridge: +0 .0010 , RF: +0 .0012 ); all other generators either break even or degrade performance. Statistical significance is nearly absent: the maximum rejection rate is 27% (Copula Student-t at α = 0 .25 ), with every other cell at 0%. 
+
+Ratio effect. Figure 9 (left) traces the ratio sweep for Copula Student-t. The differential is marginally positive for LogReg at α = 0 .25 ,then all models fall into negative territory from 
+
+α = 0 .50 onward. The near-zero baseline signal leaves almost no room for variance reduction: any misspecification of Psynth shifts the popu-lation objective away from Preal and degrades the predictor. Synthetic augmentation pro-vides no reliable benefit for directional equity prediction at daily frequency.     
+
+> Figure 7: Classification: best ˆδper (generator, model) pair , optimised over augmentation ratios. Values are on the order of 10 −3; only the Copula Student-trow is consistently non-negative. TimeGAN and VAE are the worst performers. Significance markers appear in very few cells, reflecting near-zero statistical power across the board.
+
+18 Figure 8: Generator ranking: directional classification (left) vs. volatility forecasting (right) ,averaged over all models and ratios. Every generator is net negative for classification (all bars red) and strongly positive for volatility forecasting (all bars green), with magnitudes 50–100 × larger. The contrast illustrates how baseline signal strength governs whether augmentation can be beneficial. 
+
+Volatility Forecasting Task 
+
+The regression task is one-step-ahead forecast-ing of realized volatility ( vol_5d t+1 ), substan-tially more predictable than returns due to volatility clustering. The baseline RF achieves 
+
+R2 = 0 .721 ; Ridge/Linear reach R2 = 0 .638 .
+
+Augmentation effect. Figure 10 presents a sharp contrast with the classification heatmap: 
+
+every cell is dark green and triple-significant (p < 0.001 ), regardless of generator or model. Top ˆδ values reach +0 .135 for copula families paired with linear models, and +0 .108 –+0 .127 
+
+for RF. The one exception is DDPM (flat), markedly weaker ( +0 .040 –+0 .056 ), likely be-cause temporal flattening distorts the local persistence structure of volatility. Figure 9 (right) confirms that ˆδ increases monotonically with α across all model types, the mirror image of the classification panel. The practically relevant gain, comparing synthetic-augmented to unaugmented training, is more modest: ∆R2 ≈ +0 .011 for Copula Gaussian + Ridge (Table 6), and essentially zero for RF. Synthetic data adds signal for linear models by smoothing the dependence structure, but offers little to models that al-ready exploit nonlinear volatility dynamics. 
+
+Table 6: Volatility forecasting: top configurations ( α = 1 .0, 5-fold mean). ˆδ: loss differential vs. null; 
+
+∆R2: gain vs. unaugmented baseline. Generator Model ˆδ p R2 
+
+> base
+
+∆R2
+
+Copula t4 Linear +0 .137 <0.001 0.638 +0 .011 
+
+Copula Gauss Linear +0 .137 <0.001 0.638 +0 .011 
+
+Copula t4 Ridge +0 .137 <0.001 0.638 +0 .011 
+
+Copula Gauss Ridge +0 .137 <0.001 0.638 +0 .011 
+
+Boot. stat. RF +0 .140 <0.001 0.721 −0.001 
+
+DDPM (flat) Linear +0 .040 <0.001 0.638 +0 .001 
+
+19 Figure 9: Augmentation ratio effect for Copula Student-t, averaged over models. Left (clas-sification): starts marginally positive at α = 0 .25 , then all models drop into negative territory from 
+
+α = 0 .50 onward (pink background dominates). Right (volatility forecasting): positive across all models and increases monotonically with ratio (entirely green background). 
+
+Figure 10: Volatility forecasting: best ˆδ per (generator, model) pair. Every cell is positive and triple-significant ( p < 0.001 ), in stark contrast to the classification heatmap. Copula Student-t and Gaussian achieve ˆδ = +0 .135 for linear models; DDPM (flat) is the weakest ( +0 .040 –+0 .056 ). 
+
+20 Rare Volatility-Spike Prediction 
+
+A volatility spike is defined as vol_5d t+1 ex-ceeding the in-sample 95th percentile (z-scored threshold ≈ 1.925 ), yielding a stable 5%/95% imbalance across all folds (Figure 11). Average Precision (AP) is the primary metric. We eval-uate GBM, XGBoost, balanced RF (RF bal ), and balanced logistic regression (LogReg bal ), under two augmentation strategies: vanilla 
+
+(unconditional, preserves 5% spike frequency) and targeted (oversamples the spike regime ex-clusively, in the spirit of SMOTE applied to a generative model).             
+
+> Figure 11: Rare events EDA. Left: vol_5d distribution with the p95 spike threshold (dashed at
+> z≈1.925 ). Centre: spike rate per walk-forward fold, stable at ≈5% .Right: overall class balance confirming the 5%/95% imbalance.
+
+Permutation test p-values. Figure 12 shows mean p-values per (generator, model) pair under vanilla (left) and targeted (right) augmentation. A clear pattern emerges: 
+
+LogReg bal dominates in statistical significance ,with p-values at or near zero for most gener-ators under both strategies, and even more pronounced under targeting. GBM and XGB remain moderately significant ( p ≈ 0.03 –0.5); RF bal is intermediate. 
+
+Permutation test vs. AP: a structural di-vergence. The most statistically significant model is not the best at improving rare-event detection, a structural divergence. DDPM (flat) + XGB achieves the largest targeted AP gain ( +0 .125 ) and TimeGAN + XGB fol-lows ( +0 .108 ), yet both carry only moderate p-values. LogReg bal , dominant in significance, yields no AP improvement. The explanation is structural: LogReg bal min-imises a class-reweighted log-loss that already artificially up-weights minority examples; any augmentation, even a label-permuted null, strongly disturbs this calibration, producing a large, easily significant ˆδ that is irrelevant to spike-detection accuracy. GBM and XGB are genuinely helped by targeted oversampling for AP, but the permutation benchmark penalises the distributional shift that makes targeting effective, suppressing their significance. Figure 13 maps pvanilla − ptargeted across all pairs. The predominantly orange heatmap confirms that targeting a rare regime systemat-ically raises permutation-test p-values relative to unconditional augmentation, even when it improves the domain metric. For rare-event tasks under class imbalance, p-values alone are insufficient: they must be paired with AP or F1 to avoid actively misleading conclusions. 21 Figure 12: Mean permutation-test p-value by generator × model (volatility spike ≥ p95). Left (vanilla): LogReg bal achieves the lowest p-values (dark green); GBM and XGB are much less significant. 
+
+Right (targeted): LogReg bal dominates even more strongly, while GBM and XGB remain moderately significant. Despite low p-values, LogReg bal configurations yield no AP improvement; configurations with genuine AP gains (DDPM flat + XGB, TimeGAN + XGB) appear mid-range here. 
+
+Figure 13: P-value difference: pvanilla −ptargeted . Orange = vanilla more significant; purple = targeted more significant. The predominantly orange map confirms that targeted augmentation raises permutation p-values relative to vanilla, even for configurations with the best AP gains. DDPM (flat) + LogReg bal is the extreme case ( ∆p = −0.964 ). 
+
+Summary. Three structural findings emerge from the daily equity panel. Classification is immune to augmentation : no generator im-proves directional prediction on average: the near-zero baseline leaves no room for vari-ance reduction to dominate distributional bias. 
+
+Volatility forecasting responds strongly : all gen-erators are uniformly significant and ˆδ grows monotonically with ratio, with copula families providing the best R2 gains for linear models. 
+
+Targeted augmentation is necessary but not sufficient for rare events : targeted deep gen-erative models (DDPM flat, TimeGAN) with tree-based classifiers (XGB) achieve meaning-22 ful AP gains, but the permutation framework, designed for unconditional augmentation, sys-tematically penalises the distributional shift that makes targeting effective. These results underscore that evaluation metrics must be chosen to match the economic objective of the task. 
+
+# 8 Empirical Results: Tick Tape 
+
+We now turn to the high-frequency tick-by-tick options trade tape. This environment is struc-turally distinct from the daily equity panel: although the dataset is extremely large in row count, the prediction target is dominated by near-zero returns, exhibits extreme leptokurto-sis, and displays severe regime imbalance, with stressed volatility states representing a negligi-ble fraction of observations. Directional predic-tion at the tick horizon is therefore intrinsically low signal-to-noise, making it a stringent test of whether synthetic augmentation provides incremental predictive information. The number of synthetic samples is set to 
+
+mextra = round (mratio × ntrain ), with augmen-tation ratios of 0.25 and 0.5. The combined real-plus-synthetic dataset is used to train the “synth” model, while the real-only dataset is used to train the “base” model. To separate the effect of informative synthetic structure from the mechanical effect of increas-ing sample size, we construct a null augmenta-tion of identical size. The null dataset appends perturbed observations to the real training set, for example by permuting labels or shuffling features, thereby preserving marginal structure while destroying predictive alignment. The model trained on real-plus-null data serves as the null benchmark. For each split, training size, augmentation ra-tio, and generator, we evaluate three classifier families: logistic regression (L1 and L2 penal-ties across multiple regularization strengths), Ridge classifier (multiple α values), and ran-dom forest (varying depth and minimum leaf size, with a fixed number of trees). All evalua-tion is strictly out-of-sample on the held-out test window. Predictive performance is mea-sured using log loss, computed per test observa-tion and averaged to obtain loss base , loss synth ,and loss null .Statistical significance is assessed using the paired block permutation test described in Sec-tion 2. Under the null hypothesis that the corresponding risk differential is zero, block-wise sign-flipping preserves temporal depen-dence while generating an exact finite-sample reference distribution. For each configura-tion we compute pbase and pnet . Low p-values (e.g., < 0.05 ) indicate statistically signif-icant improvement. When appropriate, Ben-jamini–Hochberg false discovery rate correc-tion is applied across multiple tests. Results are aggregated across splits and con-figurations by computing the mean p-value for each generator, comparison type (base or net), and classifier family. Figure 14 summarizes these results in a single heatmap, where darker cells correspond to lower mean p-values and therefore stronger statistical evidence of im-provement. The left panel of Figure 14 shows that logistic regression does not benefit materially from synthetic augmentation. Across generators and augmentation ratios, both pbase and pnet 
+
+remain well above conventional significance thresholds. The absence of dark cells indicates that low-capacity linear classifiers are unable to extract incremental predictive information from the synthetic distribution in this high-noise setting. The middle panel presents analogous results for the Ridge classifier. With the exception of isolated configurations under the Gaussian copula at smaller training sizes, mean p-values remain high and statistical rejection is rare. Overall, regularized linear models exhibit lim-ited sensitivity to synthetic augmentation on the tick tape. In contrast, the right panel reveals a markedly different pattern for the random forest. While synth-versus-real comparisons ( pbase ) are gen-erally not significant, synth-versus-null com-parisons ( pnet ) are consistently highly signifi-cant across generators and augmentation ratios. The dominance of dark cells for pnet indicates 23 Figure 14: Mean block-permutation p-values for the tick-by-tick option direction prediction task. Rows correspond to synthetic generators (Bootstrap, Gaussian Copula, VAE) and comparison type (base: synth vs real; net: synth vs null). Columns correspond to training size and augmentation ratio configurations. Panels show Logistic Regression (left), Ridge (center), and Random Forest (right). Darker cells indicate lower mean p-values and stronger statistical evidence that synthetic augmentation reduces out-of-sample log loss. 
+
+robust rejection of the null hypothesis that syn-thetic augmentation provides no incremental benefit relative to size-matched perturbations. This pattern holds for Bootstrap, Copula, and VAE generators. The divergence between linear models and ran-dom forests suggests that the usefulness of synthetic augmentation in the tick-tape envi-ronment is strongly model-capacity dependent. The high-frequency setting features nonlinear interactions among microstructure variables, volatility clustering, and order-flow dynam-ics. Tree-based ensembles, with their ability to capture local heterogeneity and higher-order interactions, appear capable of leveraging the additional diversity introduced by structured synthetic sampling. In contrast, linear deci-sion boundaries, despite regularization, can-not translate this additional variation into im-proved generalization. Taken together, the tick-tape results indicate that synthetic augmentation does not uni-formly improve predictive performance. Its effectiveness depends critically on the interac-tion between generator structure and model capacity. In this regime-imbalanced, heavy-tailed environment, gains are detectable pri-marily when synthetic structure is evaluated relative to a null control and when the pre-dictive model possesses sufficient flexibility to exploit nonlinear features of the augmented distribution. 
+
+# 9 Conclusion 
+
+This paper develops a structural framework for evaluating synthetic augmentation in finan-cial machine learning by comparing synthetic training sets to a size-matched null augmen-tation and testing the resulting out-of-sample risk differential with a finite-sample permuta-tion procedure. Across all experiments, the evidence shows that synthetic data is not gener-ically beneficial: its value depends on task pre-dictability, model capacity, regime rarity, and the fidelity of the generator. The daily equity results illustrate this hetero-geneity sharply. For directional prediction, augmentation is essentially ineffective: the best risk differential is only +0 .0020 (Cop-ula Student-t + LogReg), the maximum re-jection rate is just 27% , and all generator av-erages are non-positive overall. By contrast, volatility forecasting benefits strongly and uni-formly: all 33 generator–model pairs are pos-itive with p < 0.001 , the best null-relative gain reaches ˆδ = +0 .137 , and the economically relevant gain versus the unaugmented base-line is about ∆R2 = +0 .011 for copula-based augmentation with linear and ridge models (from a baseline R2 = 0 .638 ). For random 24 forests, baseline performance is already high (R2 = 0 .721 ), and augmentation adds little in direct R2 terms despite remaining statistically significant. In the rare-event volatility-spike task, spikes represent only 5% of observations (threshold z ≈ 1.925 ). There, targeted aug-mentation improves the domain metric most for DDPM (flat) + XGBoost ( +0 .125 AP) and TimeGAN + XGBoost ( +0 .108 AP), even though balanced logistic regression delivers the lowest permutation p-values with little or no AP improvement; the largest targeted-versus-vanilla p-value gap reaches ∆p = −0.964 ,showing that unconditional permutation sig-nificance can penalize the very distributional shift that makes targeted oversampling useful. The high-frequency tick-tape results reinforce the same message. Synthetic augmentation does not help low-capacity linear models: lo-gistic regression and most ridge configurations remain non-significant, with mean p-values typ-ically between about 0.15 and 1.00 . In con-trast, random forests show strong incremental gains relative to the null benchmark, with net p-values between 0.000 and 0.019 across boot-strap, copula, and VAE generators, while the corresponding synth-versus-real comparisons are mostly not significant. Overall, synthetic data should therefore be viewed not as a uni-versal remedy for limited data, but as a condi-tional tool: it is most useful when the underly-ing task contains persistent structure that can be smoothed or densified by the generator and when the predictive model is flexible enough to exploit it. In low-signal directional tasks, augmentation is largely neutral or harmful; in rare-event settings, evaluation must be aligned with the economic objective rather than relying on unconditional significance alone. Synthetic data is not a shortcut to predictive power; it is a stress test of whether the signal was there to begin with. 25 References 
+
+Sebastian Bell, Ali Kakhbod, Martin Lettau, and Abdolreza Nazemi. Glass box machine learning and corporate bond returns. Nber working paper, National Bureau of Economic Research, 2024. SSRN 5047456. Sebastian Bell, Ali Kakhbod, Richard H. Stanton, and Nancy E. Wallace. Fairness by design: Machine learning and interpretable mortgage lending. Available at SSRN , 2025. doi: 10.2139/ ssrn.6053914. SSRN 6053914. Nitesh V. Chawla, Kevin W. Bowyer, Lawrence O. Hall, and W. Philip Kegelmeyer. Smote: Synthetic minority over-sampling technique. Journal of Artificial Intelligence Research , 16: 321–357, 2002. doi: 10.1613/jair.953. Christian M. Dahl and Emil N. Sørensen. Time series (re)sampling using generative adversarial networks. Neural Networks , 156:95–107, 2022. doi: 10.1016/j.neunet.2022.09.010. Tri Dao, Albert Gu, Alexander Ratner, Christopher Re, and Christopher. A kernel theory of modern data augmentation. In International Conference on Machine Learning , 2019. Mihai Dogariu, Liviu-Daniel Stefan, Bogdan Andrei Boteanu, Claudiu Lamba, Bomi Kim, and Bogdan Ionescu. Generation of realistic synthetic financial time-series. ACM Transactions on Multimedia Computing, Communications, and Applications , 18(4):96:1–96:27, 2022. doi: 10.1145/3501305. URL https://doi.org/10.1145/3501305. Bradley Efron. Bootstrap methods: Another look at the jackknife. The Annals of Statistics , 7 (1):1–26, 1979. Paul Embrechts, Alexander McNeil, and Daniel Straumann. Correlation and dependence in risk management: Properties and pitfalls. Risk Management: Value at Risk and Beyond , pages 176–223, 1999. Edited by M. A. H. Dempster. Anastassia Fedyk, Ali Kakhbod, Peiyao Li, and Ulrike Malmendier. Ai and perception biases in investments: An experimental study. Available at SSRN , 2024. doi: 10.2139/ssrn.4787249. SSRN 4787249. Shihao Gu, Bryan Kelly, and Dacheng Xiu. Empirical asset pricing via machine learning. The Review of Financial Studies , 33(5):2223–2273, 2020. doi: 10.1093/rfs/hhaa009. Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. In 
+
+Advances in Neural Information Processing Systems , volume 33, pages 6840–6851. Curran Associates, Inc., 2020. Yael V. Hochberg, Ali Kakhbod, Peiyao Li, and Kunal Sachdeva. Inventor gender and patent undercitation: Evidence from causal text estimation. National Bureau of Economic Research ,2023. doi: 10.2139/ssrn.4269703. NBER Working Paper 31592; SSRN 4269703. Ali Kakhbod, Leonid Kogan, Peiyao Li, and Dimitris Papanikolaou. Measuring creative destruc-tion. MIT Sloan Research Paper , 2024. doi: 10.2139/ssrn.5008685. SSRN 5008685. Ali Kakhbod, Amir Kermani, and Bernardo Maciel. In the fed’s mind. Available at SSRN , 2025. doi: 10.2139/ssrn.5423614. SSRN 5423614. Diederik Kingma and Max Welling. Auto-encoding variational bayes. arXiv preprint arXiv:1312.6114 , 2013. 26 Hans R. Künsch. The jackknife and the bootstrap for general stationary observations. The Annals of Statistics , 17(3):1217–1241, 1989a. doi: 10.1214/aos/1176347265. Hans Rudolf Künsch. The jackknife and the bootstrap for general stationary observations. The Annals of Statistics , 17(3):1217–1241, 1989b. doi: 10.1214/aos/1176347265. Dimitris N. Politis and Joseph P. Romano. The stationary bootstrap. Journal of the American Statistical Association , 89(428):1303–1313, 1994. doi: 10.1080/01621459.1994.10476870. Kashif Rasul, Calvin Seward, Ingmar Schuster, and Roland Vollgraf. Autoregressive denoising diffusion models for multivariate probabilistic time series forecasting. In Proceedings of the 38th International Conference on Machine Learning , volume 139 of Proceedings of Machine Learning Research , pages 8857–8868, 2021. Tomonori Takahashi and Takayuki Mizuno. Generation of synthetic financial time series by diffusion models. arXiv preprint arXiv:2410.18897 , 2024. Magnus Wiese, Robert Knobloch, Ralf Korn, and Peter Kretschmer. Quant gans: Deep generation of financial time series. Quantitative Finance , 20(9):1419–1440, 2020. doi: 10.1080/14697688. 2020.1730426. Jinsung Yoon, Daniel Jarrett, and Mihaela van der Schaar. Time-series generative adversar-ial networks. In Advances in Neural Information Processing Systems , volume 32. Curran Associates, Inc., 2019. 27

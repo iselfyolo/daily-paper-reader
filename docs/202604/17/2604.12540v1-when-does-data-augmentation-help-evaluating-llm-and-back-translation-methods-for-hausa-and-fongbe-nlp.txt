@@ -1,0 +1,290 @@
+Title: When Does Data Augmentation Help? Evaluating LLM and Back-Translation Methods for Hausa and Fongbe NLP
+
+URL Source: https://arxiv.org/pdf/2604.12540v1
+
+Published Time: Wed, 15 Apr 2026 00:52:30 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# When Does Data Augmentation Help? Evaluating LLM and Back-Translation Methods for Hausa and Fongbe NLP 
+
+Mahounan Pericles Adjovi 1 Roald Eiselen 2 Prasenjit Mitra 11Carnegie Mellon University Africa, Kigali, Rwanda 
+
+> 2
+
+Centre for Text Technology, North-West University, Potchefstroom, South Africa 
+
+madjovi@andrew.cmu.edu Roald.Eiselen@nwu.ac.za prasenjm@andrew.cmu.edu 
+
+Abstract 
+
+Data scarcity limits NLP development for low-resource African lan-guages. Across the MasakhaNER 2.0 and MasakhaPOS benchmarks, available training data ranges from a few hundred to several thousand sentences per language, making augmentation strategies an attractive remedy. We evaluate two data augmentation methods—LLM-based generation (Gemini 2.5 Flash) and back-translation (NLLB-200)—for Hausa and Fongbe, two West African languages that differ substantially in LLM generation quality as established by prior evaluations [Robin-son et al., 2023, Hendy et al., 2023]. We assess augmentation on named entity recognition (NER) and part-of-speech (POS) tagging using MasakhaNER 2.0 and MasakhaPOS benchmarks. Our results reveal that augmentation effectiveness depends on task type rather than language or LLM quality alone. For NER, neither method improves over baseline for either language; specifically, LLM augmentation reduces Hausa NER by 0.24% F1 and Fongbe NER by 1.81% F1. For POS tagging, LLM augmentation improves Fongbe by 0.33% accuracy while back-translation improves Hausa by 0.17%; back-translation reduces Fongbe POS by 0.35% and has negligible effect on Hausa POS. Strikingly, the same LLM-generated synthetic data produces opposite effects across tasks for Fongbe—hurting NER while helping POS—suggesting task structure governs augmentation outcomes more than synthetic data quality. Human inspection of generated examples, discussed in Section 5, reveals systematic label-quality differences across tasks that explain this divergence. These findings challenge the assumption that LLM generation quality predicts augmentation success. Practitioners should evaluate augmen-tation impact per task rather than assuming benefits transfer across tasks. Beyond African NLP, our findings provide actionable guidance: data augmentation should be treated as a task-specific intervention rather than a universally beneficial preprocessing step. 
+
+1
+
+> arXiv:2604.12540v1 [cs.CL] 14 Apr 2026
+
+# 1 Introduction 
+
+Natural language processing for low-resource African languages faces a persis-tent data scarcity challenge [Nekoto et al., 2020, Joshi et al., 2020]. Limited training data constrains the performance of sequence-labeling models, reduces generalization, and makes it difficult to build reliable NLP pipelines for tasks such as named entity recognition (NER) and part-of-speech (POS) tagging. Across the Masakhane benchmarks, available training data varies widely: MasakhaNER 2.0 ranges from roughly 1,000 to 8,000 sentences across 20 African languages [Adelani et al., 2022], while MasakhaPOS covers fewer than 1,000 sentences for many languages [Dione et al., 2023]. This scarcity is not merely a technical inconvenience—it systematically disadvantages speakers of under-resourced languages by limiting the quality of downstream NLP tools. In this work we focus on Hausa (MasakhaNER: 5,716 training sentences; MasakhaPOS: 753 sentences) and Fongbe (MasakhaNER: 4,343 sentences; MasakhaPOS: 810 sentences) as concrete, benchmark-supported case studies spanning different language families and resource levels. Data augmentation offers a potential remedy. Two approaches are widely used: (1) LLM-based generation , where large language models create synthetic labeled training examples [Schick & Schütze, 2021, Dai & Adel, 2020, Ding et al., 2020], and (2) back-translation , where source-language sentences are translated to a pivot language and back to produce paraphrases, a technique applied to sequence labeling in low-resource settings by Edunov et al. [2018] and Xie et al. [2020]. Recent work shows LLMs can generate useful train-ing data [Schick & Schütze, 2021], and there is evidence that the quality of LLM-generated output varies substantially across languages [Robinson et al., 2023, Hendy et al., 2023]—with lower-resource languages receiving systematically degraded generation—which may in turn affect the useful-ness of LLM-generated training data for those languages. Prior evaluation of LLM translation for African languages found substantial quality varia-tion, with some languages achieving acceptable quality while others remain challenging [Robinson et al., 2023, Hendy et al., 2023]. This quality gap motivates our central question: does generation quality— whether from LLMs or back-translation models—predict augmentation effec-tiveness for downstream NLP tasks? 
+
+We evaluate augmentation methods for Hausa (Afroasiatic, ∼58 mil-lion speakers) and Fongbe (Niger-Congo, ∼2.3 million speakers). These languages differ substantially in LLM generation quality: Robinson et al. [2023] found that ChatGPT performs considerably better on Hausa than on Fongbe for translation, and Hendy et al. [2023] observed similar patterns for GPT models more broadly—Hausa benefits from greater web presence and multilingual training coverage whereas Fongbe’s tonal orthography and low web presence lead to systematic degradation. Both languages appear in established benchmarks, enabling a controlled comparison of augmentation 2outcomes. 
+
+1.1 Research Questions 
+
+RQ1: Does data augmentation improve NER and POS performance for Hausa and Fongbe? 
+
+RQ2: How does LLM-based augmentation compare to back-translation? 
+
+RQ3: Does augmentation effectiveness correlate with generation quality (LLM or translation model)? 
+
+1.2 Hypotheses 
+
+Based on observed differences in LLM and translation model quality across the two languages [Robinson et al., 2023, Hendy et al., 2023], we state four hypotheses: 
+
+H1: For Hausa (higher LLM quality), LLM-based augmentation improves downstream performance. 
+
+H2: For Fongbe (lower LLM quality), LLM-based augmentation provides less benefit or harms performance. 
+
+H3: For Hausa (higher translation quality), back-translation improves down-stream performance. 
+
+H4: For Fongbe (lower translation quality), back-translation provides less benefit or harms performance. 
+
+1.3 Contributions 
+
+1. Augmentation evaluation. We systematically evaluate LLM-based and back-translation augmentation for NER and POS on two typologi-cally distinct African languages using community benchmarks. 2. Task-dependent findings. We show that augmentation effects differ by task even when the synthetic data is identical: for Fongbe, the same LLM-generated data hurts NER ( −1.81% F1) but helps POS ( +0 .33% 
+
+accuracy); for Hausa, neither augmentation method yields meaningful gains on either task. 3. Qualitative analysis. We provide human inspection of generated examples to explain why task structure—not generation quality alone— drives augmentation outcomes. 4. Practical guidance. We give evidence-based recommendations for practitioners evaluating augmentation as a task-specific intervention. 32 Related Work 
+
+2.1 Data Augmentation Techniques 
+
+Data augmentation techniques for NLP have been categorized in various ways. Feng et al. [2021] organize them along axes of paraphrase generation ,
+
+noise injection , and sample interpolation , while Bayer et al. [2022] distinguish 
+
+lexical , syntactic , and model-based approaches. For clarity, we discuss three practically relevant families below. 
+
+Rule-based augmentation. Easy Data Augmentation (EDA) [Wei & Zou, 2019] applies simple operations—synonym replacement, random insertion, random swap, and random deletion—to create augmented examples. These methods are computationally cheap and require no additional models, but produce limited lexical diversity and may not preserve semantic meaning for complex sentences. For sequence labeling tasks, rule-based methods face additional challenges in maintaining label alignment after text modifications. 
+
+Back-translation. Back-translation [Sennrich et al., 2016, Edunov et al., 2018] creates paraphrases by translating text to a pivot language (typically English) and back to the source language. This method preserves semantic content while introducing lexical and syntactic variation. Back-translation has proven effective for machine translation and text classification [Xie et al., 2020], and scales well with available translation models. For sequence labeling in low-resource settings, it has been applied with label projection heuristics [Edunov et al., 2018]. However, for low-resource languages, translation quality may be poor, potentially introducing errors that propagate to augmented data. 
+
+LLM-based generation. Recent work has explored using large lan-guage models to generate synthetic training data directly [Schick & Schütze, 2021]. LLM-based augmentation can produce more diverse and contextually appropriate examples compared to rule-based methods, and can generate complete new examples rather than just paraphrases. However, LLM quality varies substantially across languages [Robinson et al., 2023, Hendy et al., 2023], with lower-resource languages often receiving degraded output. For sequence labeling tasks, LLMs must generate both text and corresponding labels, introducing opportunities for label errors—a risk we examine through qualitative analysis of generated examples in Section 5. 
+
+2.2 Task-Specific Augmentation Effects 
+
+Data augmentation does not uniformly benefit all NLP tasks. Prior work shows effectiveness varies across tasks even with identical synthetic data. Dai & Adel [2020] conducted a systematic analysis of augmentation for NER, finding that effectiveness depends heavily on the augmentation method and original dataset size, with diminishing returns when baseline performance is already strong—directly relevant to our Hausa experiments. Ding et 4al. [2020] proposed DAGA, using language models with entity-preserving constraints to generate NER training data while maintaining label consistency. Xie et al. [2020] demonstrated with Unsupervised Data Augmentation (UDA) that the same augmentation strategy produces different gains across text classification, question answering, and sequence labeling. Kumar et al. [2020] surveyed data augmentation for low-resource NLP and highlighted that sequence labeling tasks (NER, POS) are particularly sensitive to label noise introduced by augmentation, as errors propagate at the token level. Whitehouse et al. [2023] extended LLM augmentation to low-resource lan-guages, finding mixed results depending on language and task—improvements for some language-task pairs but degradation for others. These findings mo-tivate our investigation of whether LLM-generated data exhibits similar task-dependent effects for African languages. 
+
+2.3 African Language NLP Resources 
+
+The Masakhane initiative has catalyzed African NLP research through community-driven dataset creation and model development [Nekoto et al., 2020]. MasakhaNER 2.0 [Adelani et al., 2022] provides NER annotations for 20 African languages using four entity types (PER, ORG, LOC, DATE), with training set sizes ranging from approximately 1,000 to 8,000 sentences. MasakhaPOS [Dione et al., 2023] provides POS tagging annotations using Universal Dependencies tags for typologically diverse African languages; most training sets contain fewer than 1,000 sentences, making POS a compelling target for augmentation. 
+
+African-centric language models. AfroXLMR [Alabi et al., 2022] adapts XLM-RoBERTa for African languages through multilingual adaptive fine-tuning on African language data, achieving state-of-the-art performance on African sequence labeling tasks and serving as our base model. AfriB-ERTa [Ogueji et al., 2021] demonstrates that smaller models pretrained specif-ically on African language data can achieve competitive performance. Two further relevant models are AfroLM [Dossou et al., 2022] and Serengeti [Ade-bara et al., 2023], both of which include Hausa and Fongbe in their training data and have shown strong results on African sequence-labeling benchmarks. 
+
+2.4 LLM Quality and Downstream Robustness in Low-Resource Languages 
+
+LLM performance varies substantially across languages, with implications for data augmentation. Robinson et al. [2023] evaluated ChatGPT trans-lation quality for African languages, finding that performance correlates with language resource availability—Hausa achieves reasonable quality while lower-resource languages such as Fongbe show significant degradation. Hendy et al. [2023] observed systematic quality drops for languages with limited 5Table 1: Dataset statistics (training sentences). Task Dataset Hausa Fongbe NER MasakhaNER 2.0 5,716 4,343 POS MasakhaPOS 753 810 web presence. A key open question is whether this generation quality gap predicts the robustness of downstream applications built on LLM outputs. Our work addresses this gap by comparing augmentation outcomes for Hausa and Fongbe across two tasks, testing whether quality differences predict augmentation success. 
+
+# 3 Methodology 
+
+This section describes the two languages studied, the tasks and datasets used, the augmentation methods applied, and the experimental setup. We compare three conditions—baseline (no augmentation), LLM augmentation, and back-translation—across NER and POS for both languages, using a single consistent base model throughout. 
+
+3.1 Languages 
+
+Hausa is an Afroasiatic language with approximately 58 million speakers across Nigeria, Niger, and neighboring countries. Hausa features gram-matical gender, rich morphology including pluractional verbs, and complex tense-aspect-mood marking [Newman, 2000]. Prior evaluations indicate substantially higher LLM generation quality for Hausa compared to most other African languages, likely due to greater web presence and inclusion in multilingual model training data [Robinson et al., 2023, Hendy et al., 2023]. 
+
+Fongbe is a Niger-Congo language with approximately 2.3 million speak-ers, primarily in Benin. Fongbe features serial verb constructions (multiple verbs sharing a subject without conjunction) and a three-tone system with obligatory diacritic marking in standard orthography [Lefebvre & Brousseau, 2002]. The tonal system distinguishes lexical meaning—for example, kO´
+
+(high tone) means “harvest,” kO` (low tone) means “build,” and kOˆ (falling tone) means “neck.” Prior evaluations indicate substantially lower LLM generation quality for Fongbe, with models frequently producing incorrect diacritics or omitting them entirely [Robinson et al., 2023, Hendy et al., 2023]. 63.2 Tasks and Datasets 
+
+NER : MasakhaNER 2.0 [Adelani et al., 2022] with entity types PER, ORG, LOC, DATE. Evaluation metric: entity-level F1 score (i.e., a prediction is correct only when the complete entity span and type match the gold annotation). 
+
+POS : MasakhaPOS [Dione et al., 2023] with Universal Dependencies tags (17 categories). Evaluation metric: token-level accuracy. 
+
+3.3 Augmentation Methods 
+
+3.3.1 LLM-Based Augmentation 
+
+We use Gemini 2.5 Flash for synthetic data generation, selected based on preliminary experiments showing it produces more coherent output for both languages compared to alternatives evaluated. The generation process is: 1. Sample 5 examples from the original training data as few-shot context. 2. Construct a prompt requesting new labeled examples in the same format, specifying the annotation scheme (BIO tagging for NER; UD POS tags for POS) and providing explicit format instructions with the few-shot examples. For NER, prompts include sentences with BIO-tagged entities; for POS, sentences with Universal Dependencies tags. An example NER prompt template is provided in Appendix A. 3. Generate synthetic examples with token-level annotations. 4. Parse and validate generated examples; malformed outputs are dis-carded. 
+
+3.3.2 Back-Translation 
+
+We use NLLB-200 [NLLB Team, 2022] for back-translation via the following pipeline: 1. Translate the original sentence to English (pivot language). 2. Translate the English sentence back to the source language. 3. Project labels using heuristic position alignment between original and back-translated token sequences. While heuristic position-based projection may introduce minor alignment noise, it is applied consistently across languages and tasks, ensuring a fair comparison between augmentation conditions. We assess the quality of projected labels through human inspection, discussed in Section 5. 7Table 2: Training data sizes by condition (sentences). Task Condition Hausa Fongbe NER Baseline 5,716 4,343 BackTrans 5,718 4,843 LLM 5,718 4,835 POS Baseline 753 810 BackTrans 1,253 1,310 LLM 1,243 1,309 
+
+3.4 Experimental Setup 
+
+Base Model. We use AfroXLMR-base [Alabi et al., 2022] for all experi-ments. AfroXLMR adapts XLM-RoBERTa through multilingual adaptive fine-tuning on African language data, achieving state-of-the-art results on African sequence labeling benchmarks. Using a consistent base model across all conditions ensures that observed differences are attributable to augmenta-tion rather than model variation. 
+
+Training Configuration. We add a task-specific classification head on top of the frozen AfroXLMR encoder; the pretrained language model weights are not updated during training, which mitigates overfitting given the small training sets. We train only the classification head with the AdamW optimizer (weight decay 0.01), learning rate 2e-5 with linear warmup, and batch size 32 for up to 80 epochs with early stopping based on validation loss (patience 10 epochs). For NER we use BIO tagging with entity-level F1 as the evaluation metric; for POS we use token-level accuracy. 
+
+Random Seeds. Each experimental condition is run with two random seeds (42 and 123) to measure stability. We report mean ± standard deviation across seeds. 
+
+Experimental Conditions. 
+
+• Baseline : Original training data only (no augmentation). 
+
+• LLM : Original data + Gemini-generated synthetic examples. 
+
+• BackTrans : Original data + NLLB-200 back-translated paraphrases. All conditions use identical validation and test splits from the original benchmarks. 
+
+3.5 Data Sizes 
+
+For POS, augmentation approximately doubles the training data. For NER, augmentation adds ∼500 examples to Fongbe, but only ∼2 to Hausa due to 8Table 3: NER results (entity-level F1, %). Best per language in bold .Condition Hausa Fongbe Baseline 85.05 ± 0.35 84.17 ± 0.20 
+
+BackTrans 84.98 ± 0.48 84.18 ± 0.01 LLM 84.81 ± 0.26 82.36 ± 0.19 Table 4: POS results (token-level accuracy, %). Best per language in bold .Condition Hausa Fongbe Baseline 91.86 ± 0.04 85.42 ± 0.02 BackTrans 92.03 ± 0.20 85.07 ± 0.43 LLM 91.81 ± 0.07 85.75 ± 0.01 
+
+LLM generation failures. The near-complete failure of LLM augmentation for Hausa NER means the LLM and baseline Hausa NER conditions are essen-tially identical; Hausa NER results under LLM augmentation should therefore be interpreted with caution and are included for completeness only. Future work should re-run Hausa NER augmentation with a generation strategy that reliably produces examples. We also note that approximately doubling the POS training set means that noise in augmented data could potentially override signal from the original human-annotated data; experiments varying augmentation quantity would help disentangle size effects from quality effects. 
+
+# 4 Results 
+
+4.1 NER Results 
+
+Finding 1: Neither augmentation method improves NER for either language. 
+
+For Hausa, BackTrans yields −0.07% F1 (no meaningful change) and LLM yields −0.24% (no meaningful change; note that only ∼2 synthetic examples were added, so this comparison is near-equivalent to baseline). For Fongbe, BackTrans yields +0 .01% (no change) and LLM causes a consistent, substantial degradation of −1.81 % F1 across both random seeds—a finding we analyze in depth in Section 5. 9Table 5: Augmentation effects (change from baseline, percentage points). Language Task LLM BackTrans Hausa NER −0.24 −0.07 
+
+Hausa POS −0.05 +0 .17 
+
+Fongbe NER −1.81 +0 .01 
+
+Fongbe POS +0.33 −0.35 
+
+Table 6: Hypothesis evaluation. Hypothesis Expected Result H1: Hausa LLM improves Improvement Not supported 
+
+H2: Fongbe LLM hurts Harm/neutral Partially supported 
+
+H3: Hausa BackTrans improves Improvement Partially supported 
+
+H4: Fongbe BackTrans hurts Harm/neutral Partially supported 
+
+4.2 POS Results 
+
+Finding 2: POS shows different patterns from NER. 
+
+For Hausa, BackTrans provides a modest gain of +0 .17% accuracy while LLM shows no meaningful change ( −0.05% ). For Fongbe, LLM improves performance by +0 .33% accuracy while BackTrans decreases it by −0.35% .The modest magnitude of these POS changes, relative to the 1.81% NER degradation, nevertheless represents consistent effects across seeds. 
+
+4.3 Summary of Effects 
+
+The most striking observation is that the same LLM-generated data for Fongbe produces opposite effects across tasks: −1.81% for NER but +0 .33% 
+
+for POS. This task-dependent divergence is the central empirical finding of this paper. 
+
+4.4 Hypothesis Evaluation 
+
+H1 is not supported—Hausa shows no improvement from LLM augmentation despite higher generation quality. H2 is partially supported—Fongbe LLM augmentation hurts NER substantially but unexpectedly helps POS. H3 is partially supported— back-translation improves Hausa POS but not NER. H4 is partially supported—back-translation hurts Fongbe POS but is neutral for NER. 10 Statistical note. Given standard deviations consistently below 0.5% ,differences greater than 0.3% are unlikely to be explained by random initializa-tion alone. The Fongbe NER degradation of 1.81% under LLM augmentation is consistent across both seeds and represents a substantive, reliable effect. 
+
+# 5 Discussion 
+
+Our results reveal unexpected patterns that challenge common assumptions about data augmentation for low-resource languages. 
+
+5.1 Why Does LLM Augmentation Hurt NER but Help POS? 
+
+The opposite effects of LLM augmentation on Fongbe NER ( −1.81% ) ver-sus POS ( +0 .33% ) represent our most striking finding. We propose three complementary explanations, grounded in qualitative inspection of generated examples. 
+
+Task sensitivity to label noise. Named entity recognition requires precise identification of entity boundaries—where entities begin and end— using BIO conventions. If LLM-generated text contains boundary errors (e.g., splitting “President Macron” into separate tokens with inconsistent B-/I- tags, or merging adjacent entities), these propagate as label noise that directly degrades model performance. In contrast, part-of-speech tagging assigns categories to individual words, and even if an LLM generates a slightly incorrect word form, the POS tag may still be correct (a noun remains a noun regardless of minor spelling variations). This differential sensitivity to generation errors explains why the same synthetic data can hurt one task while helping another, consistent with Kumar et al. [2020]’s finding that sequence labeling tasks are particularly vulnerable to augmentation-induced label noise. 
+
+Qualitative validation of generated examples. We manually in-spected a random sample of 50 LLM-generated Fongbe NER examples and 50 POS examples. In the NER sample, we identified three recurring error types: (1) entity-boundary inconsistencies with BIO conventions (e.g., “I-LOC” following “O” without a preceding “B-LOC”), present in approximately 30% of inspected examples; (2) missing or misplaced tonal diacritics on entity tokens, present in approximately 60% of examples; and (3) generated names that do not follow Fongbe naming conventions, in approximately 25% of examples. These errors directly corrupt the supervision signal for entity-boundary learning. In the POS sample, tonal diacritic errors were similarly frequent ( ∼55%), but POS-tag correctness was substantially higher: even with orthographic errors, syntactic categories were largely consistent with the surrounding context ( >80% of tags judged plausible by a Fongbe-familiar annotator). This asymmetry directly explains the divergent task outcomes. For back-translation, alignment noise from position-based label projection 11 appeared in ∼15% of back-translated NER examples and ∼10% of POS exam-ples; the higher NER noise level is consistent with NER’s greater sensitivity to precise span boundaries. 
+
+Fongbe’s tonal complexity. Fongbe uses obligatory diacritics to mark lexical tone, distinguishing word meaning. LLMs frequently fail to generate correct diacritics for Fongbe. For NER, incorrect diacritics may alter entity boundaries or create spurious entity mentions when models learn from cor-rupted examples. For POS tagging, syntactic categories are less affected by tonal errors—a noun with incorrect diacritics is still recognizable as a noun based on its syntactic position and context. 
+
+5.2 Why No Improvement for Hausa Despite Higher LLM Quality? 
+
+Our hypothesis H1 predicted that Hausa would benefit from LLM augmenta-tion. This was not supported. Two factors likely explain this: 
+
+Ceiling effects from strong baselines. Hausa NER achieves 85.05% F1 and POS achieves 91.86% accuracy at baseline. These strong results leave limited headroom for improvement. Prior work by Dai & Adel [2020] similarly found augmentation provides diminishing returns when baseline performance is high. With adequate original data, the model may already capture the necessary patterns. 
+
+Augmentation scale limitations for NER. For Hausa NER, only 
+
+∼2 synthetic examples were successfully generated due to LLM generation failures. This is insufficient to affect model performance regardless of data quality; Hausa NER LLM results should be treated as equivalent to baseline. 
+
+5.3 Back-Translation: Safe but Limited 
+
+Back-translation showed minimal effects across all conditions ( −0.35% to 
+
++0 .17% ), neither consistently helping nor hurting. Unlike LLM augmentation, which degraded Fongbe NER by 1.81% , back-translation caused no substantial harm in any condition. Back-translation generates paraphrases of existing examples rather than genuinely new ones, which may explain its limited impact—the synthetic data covers similar linguistic patterns as the original, providing less novel signal for model learning. For practitioners uncertain about augmentation effects, back-translation offers a conservative, lower-risk option. 
+
+5.4 Implications for Practitioners 
+
+Evaluate augmentation per task. Do not assume augmentation benefits transfer across tasks. Our results show the same synthetic data can help one task while harming another. 12 Consider baseline strength. Augmentation is most likely to help when baseline performance is weak due to severely limited training data. When baselines are already strong (as with Hausa), augmentation may provide no benefit regardless of data quality. 
+
+LLM quality alone is insufficient. Higher generation quality does not guarantee augmentation success. Task characteristics, baseline performance, and original data quantity matter equally. 
+
+Inspect generated labels before training. When using LLM augmen-tation for sequence labeling, carefully inspect generated examples for label consistency—particularly entity boundaries and orthographic correctness for tonal languages. Consider quality-based filtering strategies. 
+
+Prefer back-translation when risk tolerance is low. While benefits may be limited, the risk of performance degradation is lower than for LLM augmentation. 
+
+5.5 Limitations 
+
+Two languages only. Results may not generalize to other African languages with different typological characteristics, orthographic conventions, or LLM coverage. 
+
+Limited augmentation scale. Adding ∼500 synthetic examples for most conditions may not represent the full potential of augmentation. Larger-scale augmentation or experiments varying augmentation quantity remain as future work. 
+
+Single LLM evaluated. We used Gemini 2.5 Flash. Other LLMs (GPT-4, Claude, open-source models) may produce qualitatively different outputs with different downstream effects. 
+
+Single augmentation strategy. We used few-shot prompting. Other strategies—fine-tuned generation, chain-of-thought prompting, or iterative refinement—may yield different results. 
+
+No quality-based filtering. We used all generated synthetic data with-out filtering. Quality-based filtering may improve augmentation effectiveness. 
+
+Hausa NER LLM condition. Only ∼2 examples were generated for Hausa NER; this condition cannot be interpreted as a meaningful augmenta-tion experiment and should be rerun. 
+
+# 6 Conclusion 
+
+We evaluated LLM-based and back-translation data augmentation for Hausa and Fongbe NER and POS tagging, testing whether generation quality predicts augmentation effectiveness. Our findings challenge common assump-tions: 
+
+Finding 1: Augmentation effects are task-dependent. The same LLM-generated data produces opposite effects across tasks for Fongbe— 13 hurting NER ( −1.81% F1) while helping POS ( +0 .33% accuracy). Human inspection reveals that NER is more vulnerable to the label-level errors introduced by LLM generation, particularly entity-boundary violations and tonal diacritic errors, while POS is more robust because syntactic categories remain recognizable even with orthographic noise. 
+
+Finding 2: LLM quality does not predict augmentation success. 
+
+Hausa, with substantially higher generation quality, showed no benefit from augmentation for either task. 
+
+Finding 3: Strong baselines limit augmentation benefits. With 85%+ F1 for NER and 91%+ accuracy for POS, additional synthetic data provides diminishing returns for Hausa regardless of quality. 
+
+Finding 4: Back-translation is safe but limited. Effects range from 
+
+−0.35% to +0 .17% across all conditions—a lower-risk alternative to LLM augmentation. 
+
+Practical recommendations. (1) Evaluate augmentation impact per task; (2) consider baseline strength before investing in augmentation; (3) use back-translation when risk tolerance is low; (4) carefully inspect LLM-generated examples for label consistency, especially for tonal languages. 
+
+# 7 Future Work 
+
+Extended task coverage. We plan to evaluate sentiment analysis using AfriSenti [Muhammad et al., 2023] for Hausa. Sentiment analysis operates at the document level, and comparing its augmentation sensitivity to sequence labeling would further illuminate task-dependent patterns. 
+
+Multi-model comparison. Future work should compare multiple LLMs (GPT-4, Claude, Llama, Mistral) to determine whether augmentation effects are model-specific. 
+
+Quality-based filtering. Future work should explore filtering strategies that retain only high-quality generated examples, such as confidence-based filtering or round-trip translation consistency checks. 
+
+Language family expansion. Extending evaluation to additional African languages across Bantu, Cushitic, and Nilotic families would test generalizability. 
+
+Augmentation quantity analysis. Systematically varying the ratio of synthetic to original data (e.g., 100, 200, 300 synthetic sentences for Fongbe POS) would disentangle quantity effects from quality effects and provide practical guidance on augmentation investment. 
+
+# Acknowledgments 
+
+We thank the Masakhane community for providing benchmark datasets. This publication was developed as part of the Center for Inclusive Digital 14 Transformation of Africa (CIDTA) and the Afretec Network, which is managed by Carnegie Mellon University Africa and receives financial support from the Mastercard Foundation. The views expressed in this document are solely those of the authors and do not necessarily reflect those of Carnegie Mellon University or the Mastercard Foundation. 
+
+# Reproducibility 
+
+All code and experiment configurations will be released publicly. The ex-perimental pipeline covers data acquisition, augmentation, training, and evaluation across all reported conditions. Prompt templates used for LLM augmentation are provided in Appendix A. 
+
+# References 
+
+David Ifeoluwa Adelani et al. 2022. MasakhaNER 2.0: Africa-centric Transfer Learning for Named Entity Recognition. In EMNLP .Intisaar Adebara et al. 2023. Serengeti: Massively Multilingual Language Models for Africa. In Findings of ACL .Jesujoba Alabi et al. 2022. Adapting Pre-trained Language Models to African Languages via Multilingual Adaptive Fine-Tuning. In COLING .Markus Bayer et al. 2022. A Survey on Data Augmentation for Text Classifi-cation. ACM Computing Surveys , 55(7). Xiang Dai and Heike Adel. 2020. An Analysis of Simple Data Augmentation for Named Entity Recognition. In COLING .Bosheng Ding et al. 2020. DAGA: Data Augmentation with a Generation Approach for Low-resource Tagging Tasks. In EMNLP .Cheikh M Bamba Dione et al. 2023. MasakhaPOS: Part-of-Speech Tagging for Typologically Diverse African Languages. In ACL .Bonaventure F. P. Dossou et al. 2022. AfroLM: A Self-Active Pre-trained Language Model for 10 African Languages. In SustaiNLP Workshop at EMNLP .Sergey Edunov et al. 2018. Understanding Back-Translation at Scale. In 
+
+EMNLP .Steven Y. Feng et al. 2021. A Survey of Data Augmentation Approaches for NLP. In Findings of ACL .15 Amr Hendy et al. 2023. How Good Are GPT Models at Machine Translation? A Comprehensive Evaluation. arXiv:2302.09210 .Pratik Joshi et al. 2020. The State and Fate of Linguistic Diversity and Inclusion in the NLP World. In ACL .Varun Kumar et al. 2020. Data Augmentation using Pre-trained Transformer Models. In ACL Workshop on NLP for Similar Languages, Varieties and Dialects .Claire Lefebvre and Anne-Marie Brousseau. 2002. A Grammar of Fongbe .Mouton de Gruyter. Shamsuddeen Hassan Muhammad et al. 2023. AfriSenti: A Twitter Sentiment Analysis Benchmark for African Languages. In EMNLP .Wilhelmina Nekoto et al. 2020. Participatory Research for Low-resourced Machine Translation: A Case Study in African Languages. In EMNLP Findings .Paul Newman. 2000. The Hausa Language: An Encyclopedic Reference Gram-mar . Yale University Press. NLLB Team. 2022. No Language Left Behind: Scaling Human-Centered Machine Translation. arXiv:2207.04672 .Kelechi Ogueji et al. 2021. Small Data? No Problem! Exploring the Viability of Pretrained Multilingual Language Models for Low-resourced Languages. In RepL4NLP Workshop .Nathaniel Robinson et al. 2023. ChatGPT MT: Competitive for High- (but not Low-) Resource Languages. In WMT .Timo Schick and Hinrich Schütze. 2021. Generating Datasets with Pretrained Language Models. In EMNLP .Rico Sennrich et al. 2016. Improving Neural Machine Translation Models with Monolingual Data. In ACL .Jason Wei and Kai Zou. 2019. EDA: Easy Data Augmentation Techniques for Boosting Performance on Text Classification Tasks. In EMNLP .Chenxi Whitehouse et al. 2023. LLM-powered Data Augmentation for En-hanced Cross-lingual Performance. In EMNLP .Qizhe Xie et al. 2020. Unsupervised Data Augmentation for Consistency Training. In NeurIPS .16 A Prompt Templates for LLM Augmentation 
+
+Below we provide the prompt template used for NER augmentation. The POS prompt follows the same structure, substituting BIO-tagged entities with Universal Dependencies POS tags. 
+
+NER Prompt Template (Fongbe example): 
+
+You are a linguist creating training data for a named entity recognition (NER) system for Fongbe, a Beninese language. You will generate new sentences with the same BIO annotation format shown in the examples. Rules: - Each line contains: TOKEN LABEL - Labels: B-PER, I-PER, B-ORG, I-ORG, B-LOC, I-LOC, B-DATE, I-DATE, O - Preserve all diacritics exactly as they appear in the examples - Generate complete sentences with at least one named entity - Separate sentences with a blank line Examples: [5 randomly sampled training sentences in TOKEN LABEL format] Generate 5 new labeled sentences in the same format: 
+
+The same template is used for Hausa, replacing “Fongbe, a Beninese language” with “Hausa, a West African language.” 
+
+# B Experimental Pipeline Structure 
+
+The pipeline is organized into modular components separating data handling, augmentation, training, and evaluation. 
+
+augmentation_tasks_fon_ha/ |-- configs/ | ‘-- experiment_config.yaml |-- data/ | |-- raw/ | | |-- masakhaner2_hau/ | | |-- masakhaner2_fon/ | | |-- masakhane_pos_hau/ | | ‘-- masakhane_pos_fon/ | ‘-- synthetic/ | |-- llm/ | ‘-- backtrans/ |-- src/ 
+
+17 | |-- augment_llm.py | |-- augment_backtrans.py | |-- train_ner.py | |-- train_pos.py | ‘-- evaluate.py |-- experiments/ | |-- run_all.sh | |-- run_ner.sh | ‘-- run_pos.sh |-- results/ | |-- ner/{lang}_{cond}_seed{N}/ | ‘-- pos/{lang}_{cond}_seed{N}/ |-- requirements.txt ‘-- README.md 
+
+Running bash experiments/run_all.sh executes the complete pipeline: data download, augmentation generation, model training across all conditions and seeds, and results aggregation. 18
