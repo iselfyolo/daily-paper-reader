@@ -6,85 +6,88 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-18
-- 运行时间：2026-04-18 19:59:14 UTC
+- 最新运行日期：2026-04-19
+- 运行时间：2026-04-19 19:30:28 UTC
 - 运行状态：成功
-- 本次总论文数：21
-- 精读区：8
+- 本次总论文数：22
+- 精读区：9
 - 速读区：13
 
 ### 今日简报（AI）
-今日速递 21 篇 AI 论文，深度解析小语言模型在生产环境的持续进化与智能体强化学习新范式。
-重点推荐通过可验证数据合成优化工具调用，以及实现 SLM 性能闭环的 Pioneer Agent 框架。
-建议关注智能体在复杂任务中主动“求助”的评估标准，以及从噪声图像中生成高质量内容的最新算法。
-- 详情：[/202604/18/README](/202604/18/README)
+今日精选 22 篇前沿成果，重点突破大模型长文本上下文自主管理与主动信息引导技术。
+高分论文 MEMENTO 实现了 LLM 对自身记忆的精准调控，而 YIELD 框架则为交互式智能体提供了全新的大规模评测基准。
+建议优先关注长对话优化与法律等垂直领域的智能体应用，探索 AI 从被动响应向主动咨询的跨越。
+- 详情：[/202604/19/README](/202604/19/README)
 
 ### 精读区论文标签
-1. [Pioneer Agent: Continual Improvement of Small Language Models in Production](/202604/18/2604.09791v1-pioneer-agent-continual-improvement-of-small-language-models-in-production)  
+1. [MEMENTO: Teaching LLMs to Manage Their Own Context](/202604/19/2604.09852v1-memento-teaching-llms-to-manage-their-own-context)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：自动化数据策展和评估集构建
-2. [Controllable and Verifiable Tool-Use Data Synthesis for Agentic Reinforcement Learning](/202604/18/2604.09813v1-controllable-and-verifiable-tool-use-data-synthesis-for-agentic-reinforcement-learning)  
+   evidence：发布OpenMementos，一个包含22.8万条推理轨迹的公共数据集
+2. [YIELD: A Large-Scale Dataset and Evaluation Framework for Information Elicitation Agents](/202604/19/2604.10968v1-yield-a-large-scale-dataset-and-evaluation-framework-for-information-elicitation-agents)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于工具使用数据自演化合成的两阶段流水线
-3. [FlowPalm: Optical Flow Driven Non-Rigid Deformation for Geometrically Diverse Palmprint Generation](/202604/18/2604.09989v1-flowpalm-optical-flow-driven-non-rigid-deformation-for-geometrically-diverse-palmprint-generation)  
+   evidence：构建一个新的大规模对话数据集
+3. [ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval](/202604/19/2604.11092v1-arhn-answer-centric-relabeling-of-hard-negatives-with-open-source-llms-for-dense-retrieval)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于训练识别模型的合成数据生成
-4. [Make it Simple, Make it Dance: Dance Motion Simplification to Support Novices' Dance Learning](/202604/18/2604.10490v1-make-it-simple-make-it-dance-dance-motion-simplification-to-support-novices-dance-learning)  
+   evidence：使用大模型对检索器训练数据进行重新标注和优化的框架
+4. [A sequential explanatory mixed-methods study on the acceptance of a social robot for EFL speaking practice among Chinese primary school students: Insights from the Computers Are Social Actors (CASA) paradigm](/202604/19/2604.12789v1-a-sequential-explanatory-mixed-methods-study-on-the-acceptance-of-a-social-robot-for-efl-speaking-practice-among-chinese-primary-school-students-insights-from-the-computers-are-social-actors-casa-paradigm)  
    标签：评分：9.0/10、query:edu-llm
-   evidence：舞蹈动作简化以支持初学者学习
-5. [How memory can affect collective and cooperative behaviors in an LLM-Based Social Particle Swarm](/202604/18/2604.12250v1-how-memory-can-affect-collective-and-cooperative-behaviors-in-an-llm-based-social-particle-swarm)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：基于大模型的社会粒子群集体与协作行为
-6. [Does the TalkMoves Codebook Generalize to One-on-One Tutoring and Multimodal Interaction?](/202604/18/2604.13380v1-does-the-talkmoves-codebook-generalize-to-one-on-one-tutoring-and-multimodal-interaction)  
-   标签：评分：9.0/10、query:q21
-   evidence：将TalkMoves推广到一对一辅导和多模态交互中
-7. [Discovering Novel LLM Experts via Task-Capability Coevolution](/202604/18/2604.14969v1-discovering-novel-llm-experts-via-task-capability-coevolution)  
+   evidence：小学生对用于英语口语练习的社交机器人的接受度
+5. [Comprehension Debt in GenAI-Assisted Software Engineering Projects](/202604/19/2604.13277v1-comprehension-debt-in-genai-assisted-software-engineering-projects)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：生成式人工智能对学生学习成果和理解力的影响
+6. [Who Decides in AI-Mediated Learning? The Agency Allocation Framework](/202604/19/2604.13534v1-who-decides-in-ai-mediated-learning-the-agency-allocation-framework)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：AI介导的学习系统与学习者代理分配
+7. [$π$-Play: Multi-Agent Self-Play via Privileged Self-Distillation without External Data](/202604/19/2604.14054v1--play-multi-agent-self-play-via-privileged-self-distillation-without-external-data)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：通过合成数据生成来演化自然语言任务
-8. [From Reactive to Proactive: Assessing the Proactivity of Voice Agents via ProVoice-Bench](/202604/18/2604.15037v1-from-reactive-to-proactive-assessing-the-proactivity-of-voice-agents-via-provoice-bench)  
+   evidence：无需外部数据的多智能体自我博弈任务生成
+8. [CoPA: Benchmarking Personalized Question Answering with Data-Informed Cognitive Factors](/202604/19/2604.14773v1-copa-benchmarking-personalized-question-answering-with-data-informed-cognitive-factors)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于策划高质量样本的多阶段数据合成流水线
+   evidence：构建个性化问答的新基准数据集
+9. [Prompt-to-Gesture: Measuring the Capabilities of Image-to-Video Deictic Gesture Generation](/202604/19/2604.14953v1-prompt-to-gesture-measuring-the-capabilities-of-image-to-video-deictic-gesture-generation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：利用视频生成式AI创建低成本合成数据
 
 ### 速读区论文标签
-1. [Towards Generalizable Representations of Mathematical Strategies](/202604/18/2604.08693v1-towards-generalizable-representations-of-mathematical-strategies)  
+1. [Attention-Guided Dual-Stream Learning for Group Engagement Recognition: Fusing Transformer-Encoded Motion Dynamics with Scene Context via Adaptive Gating](/202604/19/2604.10078v1-attention-guided-dual-stream-learning-for-group-engagement-recognition-fusing-transformer-encoded-motion-dynamics-with-scene-context-via-adaptive-gating)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：捕捉学生数学解题路径的策略
-2. [HiL-Bench (Human-in-Loop Benchmark): Do Agents Know When to Ask for Help?](/202604/18/2604.09408v2-hil-bench-human-in-loop-benchmark-do-agents-know-when-to-ask-for-help)  
+   evidence：课堂视频中的学生参与度识别
+2. [ODUTQA-MDC: A Task for Open-Domain Underspecified Tabular QA with Multi-turn Dialogue-based Clarification](/202604/19/2604.10159v1-odutqa-mdc-a-task-for-open-domain-underspecified-tabular-qa-with-multi-turn-dialogue-based-clarification)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：构建用于智能体评估的新研究数据集和基准
-3. [SCoRe: Clean Image Generation from Diffusion Models Trained on Noisy Images](/202604/18/2604.09436v1-score-clean-image-generation-from-diffusion-models-trained-on-noisy-images)  
+   evidence：构建大规模开放领域表格问答数据集
+3. [From Query to Counsel: Structured Reasoning with a Multi-Agent Framework and Dataset for Legal Consultation](/202604/19/2604.10470v1-from-query-to-counsel-structured-reasoning-with-a-multi-agent-framework-and-dataset-for-legal-consultation)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：利用扩散模型从噪声训练数据中生成清晰图像
-4. [Vector Field Synthesis with Sparse Streamlines Using Diffusion Model](/202604/18/2604.09838v1-vector-field-synthesis-with-sparse-streamlines-using-diffusion-model)  
+   evidence：构建大规模真实法律咨询数据集
+4. [Tracing the Roots: A Multi-Agent Framework for Uncovering Data Lineage in Post-Training LLMs](/202604/19/2604.10480v1-tracing-the-roots-a-multi-agent-framework-for-uncovering-data-lineage-in-post-training-llms)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：基于扩散模型的二维向量场合成框架
-5. [Toward using Speech to Sense Student Emotion in Remote Learning Environments](/202604/18/2604.09881v1-toward-using-speech-to-sense-student-emotion-in-remote-learning-environments)  
+   evidence：用于重建数据集开发演化图的多智能体框架
+5. [Failure Ontology: A Lifelong Learning Framework for Blind Spot Detection and Resilience Design](/202604/19/2604.10549v1-failure-ontology-a-lifelong-learning-framework-for-blind-spot-detection-and-resilience-design)  
    标签：评分：8.0/10、query:edu-llm
-   evidence：在远程学习环境中感知学生情绪
-6. [TeamLLM: Exploring the Capabilities of LLMs for Multimodal Group Interaction Prediction](/202604/18/2604.08771v1-teamllm-exploring-the-capabilities-of-llms-for-multimodal-group-interaction-prediction)  
-   标签：评分：7.0/10、query:q20
-   evidence：大语言模型用于预测协作任务中的团队协调与交互
-7. [Multi-Agent Decision-Focused Learning via Value-Aware Sequential Communication](/202604/18/2604.08944v1-multi-agent-decision-focused-learning-via-value-aware-sequential-communication)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：多智能体协作与顺序通信以提升任务性能
-8. [Aligned Agents, Biased Swarm: Measuring Bias Amplification in Multi-Agent Systems](/202604/18/2604.08963v1-aligned-agents-biased-swarm-measuring-bias-amplification-in-multi-agent-systems)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：衡量多智能体系统和结构化工作流中的偏见放大
-9. [Aligned Agents, Biased Swarm: Measuring Bias Amplification in Multi-Agent Systems](/202604/18/2604.08963v2-aligned-agents-biased-swarm-measuring-bias-amplification-in-multi-agent-systems)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：衡量多智能体系统及拓扑结构中的偏见放大
-10. [Discrete Meanflow Training Curriculum](/202604/18/2604.08837v1-discrete-meanflow-training-curriculum)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：基于流的图像生成模型用于高质量样本生成
-11. [Strips as Tokens: Artist Mesh Generation with Native UV Segmentation](/202604/18/2604.09132v1-strips-as-tokens-artist-mesh-generation-with-native-uv-segmentation)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：使用自回归Transformer生成艺术家级网格数据
-12. [Strategic Algorithmic Monoculture:Experimental Evidence from Coordination Games](/202604/18/2604.09502v1-strategic-algorithmic-monocultureexperimental-evidence-from-coordination-games)  
+   evidence：个性化学习系统与终身学习框架
+6. [Evolutionary Token-Level Prompt Optimization for Diffusion Models](/202604/19/2604.09861v1-evolutionary-token-level-prompt-optimization-for-diffusion-models)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：扩散模型的自动提示词优化
+7. [BLPR: Robust License Plate Recognition under Viewpoint and Illumination Variations via Confidence-Driven VLM Fallback](/202604/19/2604.09927v1-blpr-robust-license-plate-recognition-under-viewpoint-and-illumination-variations-via-confidence-driven-vlm-fallback)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：在Blender生成的合成数据上进行预训练
+8. [Agent^2 RL-Bench: Can LLM Agents Engineer Agentic RL Post-Training?](/202604/19/2604.10547v1-agent2-rl-bench-can-llm-agents-engineer-agentic-rl-post-training)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：自主设计并实现强化学习流水线
+9. [The Blind Spot of Agent Safety: How Benign User Instructions Expose Critical Vulnerabilities in Computer-Use Agents](/202604/19/2604.10577v1-the-blind-spot-of-agent-safety-how-benign-user-instructions-expose-critical-vulnerabilities-in-computer-use-agents)  
+   标签：评分：7.0/10、query:ds-gen
+   evidence：构建评估计算机使用智能体的基准数据集
+10. [Toward Explanatory Equilibrium: Verifiable Reasoning as a Coordination Mechanism under Asymmetric Information](/202604/19/2604.09917v1-toward-explanatory-equilibrium-verifiable-reasoning-as-a-coordination-mechanism-under-asymmetric-information)  
    标签：评分：6.0/10、query:profile-3
-   evidence：多智能体环境与协作博弈中的AI代理
-13. [MPAC: A Multi-Principal Agent Coordination Protocol for Interoperable Multi-Agent Collaboration](/202604/18/2604.09744v1-mpac-a-multi-principal-agent-coordination-protocol-for-interoperable-multi-agent-collaboration)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：多主体智能体协调与协作协议
+   evidence：多智能体系统中的协调机制
+11. [A Tale of Two Temperatures: Simple, Efficient, and Diverse Sampling from Diffusion Language Models](/202604/19/2604.09921v1-a-tale-of-two-temperatures-simple-efficient-and-diverse-sampling-from-diffusion-language-models)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：扩散语言模型的采样方法以实现多样化生成
+12. [Radiology Report Generation for Low-Quality X-Ray Images](/202604/19/2604.10188v1-radiology-report-generation-for-low-quality-x-ray-images)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：建立低质量放射报告生成（LRRG）基准数据集
+13. [From Searchable to Non-Searchable: Generative AI and Information Diversity in Online Information Seeking](/202604/19/2604.10258v1-from-searchable-to-non-searchable-generative-ai-and-information-diversity-in-online-information-seeking)  
+   标签：评分：6.0/10、query:edu-llm
+   evidence：生成式人工智能改变知识工作与学习
 
 
 <div class="dpr-home-promo-card">

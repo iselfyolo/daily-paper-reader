@@ -1,0 +1,553 @@
+Title: ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval
+
+URL Source: https://arxiv.org/pdf/2604.11092v1
+
+Published Time: Tue, 14 Apr 2026 01:50:26 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval 
+
+## Hyewon Choi 
+
+hyewon.choi@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## Jooyoung Choi 
+
+jooyoung.choi@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## Hansol Jang 
+
+hansol.jang@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## Hyun Kim 
+
+hyun101.kim@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## Chulmin Yun 
+
+chulmin.yun@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## ChangWook Jun 
+
+cwjun@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+## Stanley Jungkyu Choi 
+
+stanleyjk.choi@lgresearch.ai LG AI Research Seoul, Republic of Korea 
+
+Abstract 
+
+Neural retrievers are often trained on large-scale triplet data com-prising a query, a positive passage, and a set of hard negatives. In practice, hard-negative mining can introduce false negatives and other ambiguous negatives, including passages that are relevant or contain partial answers to the query. Such label noise yields inconsistent supervision and can degrade retrieval effectiveness. We propose ARHN (Answer-centric Relabeling of Hard Nega-tives), a two-stage framework that leverages open-source LLMs to refine hard negative samples using answer-centric relevance signals. In the first stage, for each query–passage pair, ARHN prompts the LLM to generate a passage-grounded answer snippet or to indicate that the passage does not support an answer. In the second stage, ARHN applies an LLM-based listwise ranking over the candidate set to order passages by direct answerability to the query. Passages ranked above the original positive are relabeled to additional posi-tives. Among passages ranked below the positive, ARHN exclude any that contain an answer snippet from the negative set to avoid ambiguous supervision. We evaluated ARHN on the BEIR benchmark under three con-figurations: relabeling only, filtering only, and their combination. Across datasets, the combined strategy consistently improves over either step in isolation, indicating that jointly relabeling false neg-atives and filtering ambiguous negatives yields cleaner supervi-sion for training neural retrieval models. By relying strictly on open-source models, ARHN establishes a cost-effective and scalable refinement pipeline suitable for large-scale training. 
+
+CCS Concepts 
+
+• Information systems → Retrieval models and ranking ; •
+
+Computing methodologies → Natural language processing ; Ma-chine learning. 
+
+Keywords 
+
+neural retrieval, hard negative mining, false negatives, large lan-guage models, information retrieval Before ARHN    
+
+> Query
+> Positive
+> Negative
+> Negative
+> Negative
+> Query
+> Positive
+> Positive
+> (Relabeled as positive)
+> Negative
+> Negative
+> (Filtered out from negative set)
+> After ARHN
+
+Figure 1: Intuition of ARHN. (Left) Conventional hard-negative mining can include answer-bearing documents as negatives, introducing false negatives . (Right) Using extracted 
+
+answer snippets , ARHN relabels answer-bearing negatives as positives and filters ambiguous negatives to refine supervi-sion. 
+
+1 Introduction 
+
+In recent Information Retrieval (IR), dense retrieval has become a core component of various downstream tasks—including open-domain QA, RAG, and document retrieval—by mapping queries and documents into a shared embedding space and retrieving relevant documents based on similarity [ 15 , 30 , 33 ]. Dense retrievers are typ-ically trained with contrastive objectives that pull query–positive pairs together and push query–negative pairs apart, yielding a representation space where nearest-neighbor search recovers rele-vant documents. In RAG pipelines, this ranking determines which documents are provided to the generator as evidence. As a result, retrieval quality directly bounds answer quality: missing or mis-ranked evidence can immediately degrade the generated response [ 6, 24 , 28 , 32 ]. To produce reliable rankings that support down-stream grounding, dense retrievers depend heavily on large-scale training data, and large query–passage pair datasets serve as a 
+
+> arXiv:2604.11092v1 [cs.IR] 13 Apr 2026 Choi et al.
+
+crucial foundation for stably shaping the representation space of contrastive-learning-based dense retrievers [13, 17, 20, 21, 27, 31]. To improve dense retrieval performance, substantial effort has been devoted to extracting and leveraging hard negatives. In con-trastive training, negatives are typically sampled from documents that are not annotated as relevant to the query. Hard negatives are a subset of these negatives that are lexically or semantically similar to the query. Hard negatives are widely used because they yield a more informative discriminative signal during training [ 2 , 12 , 21 , 29 ]. However, hard-negative pools used in large-scale datasets often include false negatives , documents that are in fact relevant or con-tain answer evidence but are treated as negatives due to missing annotations. Such contamination corrupts the contrastive objective and can substantially degrade retrieval performance [ 21 , 23 , 26 , 27 ]. This problem is exacerbated in open-domain IR, where exhaus-tive relevance labeling is infeasible and unlabeled documents are routinely used as negatives by default [5, 19]. Conventional hard-negative mining can introduce false nega-tives because it emphasizes difficulty without explicitly checking answer relevance. In practice, negatives are often mined from the top-ranked results returned by the retriever being trained, or from high-scoring candidates produced by BM25 or a re-ranker. However, these pipelines typically do not verify whether a mined candidate contains the answer or provides sufficient evidence to support it. Consequently, the negative pool may include passages that directly state the answer or allow the answer to be inferred from partial evi-dence. Training on such false negatives forces the model to repel se-mantically similar documents, including genuinely answer-bearing passages, which distort the embedding geometry and can destabilize contrastive learning. Therefore, constructing hard-negative data should consider not only negative difficulty but also the likelihood that a candidate is answer-bearing or relevant. In this paper, we argue that hard-negative pools often contain false negatives because documents are mined and ranked without verifying whether they contain an answer to the query. To address this problem, we propose ARHN (Answer-Centric Relabeling of Hard Negatives), a data reconstruction framework that uses open-source LLMs to assess answer support among mined hard negatives and revise their labels. Concretely, ARHN (1) extracts an answer snippet from the document text for each query–document pair, (2) re-ranks candidates in a listwise manner based on how directly the extracted snippet answers the query, and (3) either promotes (relabels) hard negatives to positives or removes (filters) them from the negative pool according to their ranking positions. Figure 1 illustrates the behavior of ARHN. Before applying ARHN, the standard hard negative mining process may include negative samples that answer the query more directly than the positive document, and incorporating them into training can induce super-vision that pushes false negatives away as negatives. After applying ARHN, based on in-document evidence (answer snippets), ARHN (i) promotes hard negatives that provide more direct answers to the query to positives (relabeling) and (ii) removes ambiguous nega-tives that contain partial answer cues and thus are overly similar to positives from the negative set (filtering), thereby constructing a training signal centered on true negatives. We evaluate dense retrievers fine-tuned on ARHN-refined data on the BEIR benchmark, and compare three settings: (i) relabeling only, (ii) filtering only, and (iii) their combination [ 22 ]. Empirically, combining the two strategies consistently outperforms either single strategy and achieves competitive performance relative to prior methods. Moreover, by relying on open-source LLMs rather than commercial APIs, ARHN provides a cost-effective and scalable data refinement pipeline. The contributions of this paper are as follows: 
+
+• We propose ARHN, a framework that leverages open-source LLMs to combine answer snippet extraction with listwise re-ranking, and present a data refinement strategy that in-tegrates false-negative promotion (relabeling) with filtering 
+
+of borderline samples. 
+
+• Using open-source LLMs of varying scales, we systemati-cally analyze the reconstruction process itself, and quanti-tatively characterize how changes in the promotion/filtering rates and agreement with human judgments across model scales affect ARHN’s behavior and performance. 
+
+• On the BEIR benchmark, we show that dense retrievers fine-tuned on ARHN-refined data achieve the best performance among data-relabeling methods. 
+
+2 Related Work 2.1 False Negatives in Retrieval Task 
+
+False negatives—passages that are relevant but treated as negatives due to incomplete annotations and pooling bias—are a persistent source of noise in dense retrieval. When repeatedly sampled during contrastive training, such mislabeled negatives can yield conflicting gradients, pushing representations away from genuinely relevant content and degrading both effectiveness and training stability. Prior work has proposed several complementary remedies. A teacher-guided approach uses cross-encoder relevance signals to refine bi-encoder supervision, alleviating the adverse impact of false negatives arising from hard negative mining and weak labels [ 20 ]. Another line improves robustness at the objective level by introducing confidence-aware regularization, reducing sensitivity to potentially corrupted negative sets without requiring explicit relabeling or perfectly curated data [26]. Finally, mining-oriented methods address false negatives by im-proving negative selection itself. Positive-aware mining and system-atic filtering of overly hard negatives reduce the chance of sampling passages that are semantically close to positives, leading to more reliable hard negative sets and improved retriever training [17]. Overall, existing studies treat false negatives as a key bottle-neck in retrieval-style learning and mitigate their impact through teacher-based supervision [ 20 ], confidence-robust objectives [ 26 ], uncertainty-aware supervision modeling [ 18 ], and improved min-ing and filtering strategies [17]. 
+
+2.2 LLM-Assisted Relabeling and Data Curation for Dense Retrieval 
+
+Recent work has increasingly leveraged large language models (LLMs) and strong teacher models to improve dense retrieval train-ing data, motivated by the observation that large-scale collections often contain noisy supervision—most notably false negatives pro-duced by imperfect relevance labels and aggressive hard-negative ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval Question  
+
+> Positive
+> Hard Negatives
+
+A
+
+> Stage 1: Answer Snippet Generation
+
+A    
+
+> B
+> C
+> D
+> Answer_snippet (A)
+> Answer_snippet (B)
+> Answer_snippet (C)
+> NO_ANWER (D)
+
+LLM LLM  
+
+> Positive
+> Hard Negatives
+
+A
+
+> D
+
+A    
+
+> C
+> D
+> Answer_snippet (A)
+> B
+> Answer_snippet (B)
+> Answer_snippet (C)
+> NO_ANWER (D)
+
+# 🥇 Rank 1 
+
+# 🥈 Rank 2 
+
+# 🥉 Rank 3 
+
+# 🏅 Rank 4         
+
+> Question
+> Ranking :B>A>C>D
+> BDC
+> Stage 2: Answer -Centric Reranking and Relabeling
+
+B  
+
+> Relabeled Pos
+> C
+> Filtered Negative
+
+Figure 2: Overview of the two-stage ARHN pipeline. Given a query 𝑞 , the original training instance consists of a positive document 𝐴 and hard negative documents {𝐵, 𝐶, 𝐷 }. In Stage 1, an open-source LLM extracts an answer snippet for the query from the document text ; if no supporting evidence is found, it outputs NO_ANSWER (e.g., 𝐷 ). In Stage 2, the extracted snippets are compared in a listwise manner to produce an ordering (e.g., 𝐵 > 𝐴 > 𝐶 > 𝐷 ), which is then used to reconstruct labels. 
+
+mining. Instead of treating labels as fixed, these methods use LLMs either to (i) generate new supervision (e.g., synthetic queries or pairs) and build data pipelines, or to (ii) relabel/curate positives and hard negatives by reassessing relevance with stronger semantic judgments. A representative distillation-style pipeline is Gecko, which con-structs synthetic training pairs and then retrieves candidate pas-sages to form positive and hard-negative sets that are subsequently re-labeled using an LLM, producing higher-quality supervision for training text embeddings [ 14 ]. While this approach centers on syn-thetic query generation, its key contribution is an LLM-in-the-loop mechanism for refining positive and hard-negative assignments using teacher-level relevance assessment. Another line of work focuses on LLM-driven data synthesis for task adaptation. Promptagator demonstrates that a dense retriever can be adapted to new tasks with only a handful of examples by prompting an LLM to generate task-specific queries and training pairs, effectively turning few-shot supervision into scalable retrieval training data [ 7 ]. Similarly, InPars uses LLMs as query generators to augment information retrieval datasets, producing synthetic queries paired with passages to expand training signals beyond limited labeled data [ 1]. These methods primarily address data scarcity and domain transfer, but they also indirectly mitigate label incompleteness by increasing coverage of plausible query–passage relationships. Building on synthetic supervision, Noisy self-training with syn-thetic queries explicitly treats LLM-generated data as noisy and designs a self-training/relabeling loop to iteratively refine the re-triever using its own retrieval outputs under a noise-aware regime [ 11 ]. By acknowledging that synthetic labels are imperfect, this di-rection aligns with broader efforts to make retrieval training robust to mislabeled negatives and uncertain supervision. Among prior work on refining large-scale training collections, RLHN (ReLabeling Hard Negatives) shows that false negatives and label noise within mined hard-negative sets are a major source of performance degradation for dense retrievers [ 23 ]. RLHN points out that false negatives and label noise in hard-negative sets can degrade dense retriever training and proposes an LLM-based relabeling framework that re-evaluates mined negatives to correct mislabeled instances. In RLHN, GPT-4o-mini and GPT-4o are used as the LLMs for the relabeling pipeline. Overall, these studies illustrate a shift toward LLM-assisted su-pervision in dense retrieval: from generating synthetic data pipelines for adaptation [ 1 , 7 ], to iterative refinement under noise [ 11 ], and to explicit relabeling/curation of hard negatives and false negatives using LLM-based relevance judgments [14, 23]. 
+
+3 Method 
+
+In this section, we describe the detailed architecture of the proposed ARHN (Answer-Centric Relabeling of Hard Negatives) framework. Figure 2 provides an overview of the entire ARHN pipeline. 
+
+3.1 Stage 1: Answer Snippet Generation 
+
+The first stage of ARHN determines whether each query–document pair (𝑞, 𝑑 ) actually contains answer information for the query . To this end, we use a large language model (LLM) to extract an answer snippet from the document that corresponds to the query. 
+
+3.1.1 LLM Input Construction. For each training instance, the input to the LLM consists of a single query 𝑞 and a total of 𝑁 + 1 doc-uments associated with the query. Specifically, the input includes the following three components. 
+
+• Query 𝑞 
+
+• Positive document set: D+ = {𝑑 + }• Hard negative document set: D− = {𝑑 − 
+
+> 1
+
+, 𝑑 − 
+
+> 2
+
+, . . . , 𝑑 − 
+
+> 𝑁
+
+}
+
+That is, for a given query 𝑞 , we simultaneously consider a total of 
+
+𝑁 + 1 candidate documents, consisting of the positive document 𝑑 +
+
+and 𝑁 hard negative documents, and prompt the LLM to indepen-dently judge whether each document contains an answer. Formally, the set of input documents to the LLM is defined as: 
+
+D ( 𝑞 ) = D+ ∪ D −, |D ( 𝑞 )| = 𝑁 + 1. (1) Let D ( 𝑞 ) denote the candidate document set for each query 𝑞 .For every 𝑑 ∈ D ( 𝑞 ), the LLM extracts an answer snippet from the document as follows: 
+
+∀𝑑 ∈ D ( 𝑞 ), 𝑎 = 𝑓 LLM (𝑞, 𝑑 ). (2) Choi et al. [Stage 1 : Answer snippet generation]                             
+
+> You will be given (1) a question and (2) N documents (doc1..docN).
+> For each document, extract one answer snippet.
+> ## Rules
+> -The question is identical across all documents.
+> -The answer snippet MUST be copied VERBATIM from the corresponding document text.
+> -Do NOT paraphrase, rewrite, add new words, fix typos, or change casing/punctuation.
+> -The snippet must be a single contiguous span from the document (1 –3 sentences is
+> recommended).
+> -The snippet may be a partial answer or supporting evidence, as long as it is relevant to the
+> question.
+> -Output exactly NO_ANSWER only if the document contains no span that is relevant to answering
+> the question.
+> ## CRITICAL OUTPUT FORMAT (do not use JSON)
+> Output exactly N blocks in the following structure, and nothing else:
+> [[[doc1]]]
+> <answer snippet for doc1>
+> [[[/doc1]]]
+> [[[doc2]]]
+> <answer snippet for doc2>
+> [[[/doc2]]]
+> ...
+> [[[ docN ]]]
+> <answer snippet for docN >
+> [[[/ docN ]]]
+> Do not add any extra text before/after the blocks.
+> [Stage 2 : Answer -Centric Reranking]
+> You are RankLLM , a strict answer -snippet reranking engine.
+> You are given a question and several answer_snippets extracted from different documents.
+> Your primary task is to rank the answer snippets based on how well they ( i) directly answer
+> the question or (ii) provide supporting evidence for answering the question.
+> To guide your judgment:
+> -First, internally infer the most likely correct answer to the question using your own
+> knowledge.
+> This inferred answer is ONLY a reference anchor to help assess correctness.
+> -Then, evaluate each answer_snippet based on whether it explicitly, correctly, and
+> sufficiently answers the question.
+> Ranking criteria (in order of importance):
+> 1. Snippets that directly and explicitly state the correct answer to the question should be
+> ranked highest.
+> 2. Among answer -providing snippets, prefer those that are factually correct and consistent
+> with the inferred answer.
+> 3. Snippets that are partially correct, incomplete, vague, or require inference should be
+> ranked lower.
+> 4. Snippets that are topically related but do NOT answer the question should be ranked below
+> answer -providing snippets.
+> 5. Snippets that contradict the inferred correct answer should be ranked lower than incomplete
+> or ambiguous ones.
+> 6. If an answer_snippet is exactly "NO_ANSWER", it must be placed at the very end.
+> Critical consistency constraint:
+> -In particular, if a snippet is ranked above snippet [1], its answer MUST be semantically
+> consistent with the answer expressed in snippet [1], differing only in completeness, clarity,
+> or explicitness.
+> -Any answer_snippet whose answer is semantically different from the answer expressed in
+> snippet [1] MUST be ranked below snippet [1], regardless of its level of detail, confidence,
+> or apparent correctness.
+> Rules:
+> -All answer_snippets must be included exactly once.
+> -Rank from most helpful answer_snippet to least helpful.
+> -Output ONLY the final ranking in the format: [id] > [id] > [id] ...
+> -Do NOT output explanations, analysis, or the inferred answer.
+
+Figure 3: Stage 1–2 prompts of ARHN. In Stage 1, the LLM ex-tracts an answer snippet from each query–document pair as a verbatim contiguous span (or outputs NO_ANSWER when no rel-evant evidence exists) to verify whether a candidate contains answer-supporting evidence. In Stage 2, the LLM performs answer-centric listwise reranking over the extracted snippets by producing a total order based on how well each snippet answers or supports the query; snippet[1] corresponds to the positive document’s an answer snippet .
+
+Here, 𝑎 denotes an answer snippet , which must be a sentence or phrase explicitly contained in document 𝑑 in response to query 
+
+𝑞 . Importantly, rather than generating a new answer, the LLM is constrained to extract. an answer snippet from the document that corresponds to the query. This design restricts answer generation, thereby minimizing hallucinations and encouraging the model to focus on determining whether an answer to query 𝑞 exists within 
+
+document 𝑑 . Conversely, if the document contains no answer to the query, the LLM outputs a special token indicating the absence of an answer: 
+
+𝑎 = NO_ANSWER . (3) Therefore, the output of Stage 1 for each document is restricted to either an answer snippet or NO_ANSWER . This output serves as a key input signal in Stage 2 for listwise reranking by comparing answer snippet candidates and for identifying false negatives. In particular, when a hard negative document yields 𝑎 ≠ NO_ANSWER ,the document is regarded as a potential false-negative candidate because it may contain answer evidence. When the number of hard negatives is 𝑁 , the output of Stage 1 consists of (𝑁 +1) tuples: 
+
+(𝑞, 𝑑 +, 𝑎 +), (𝑞, 𝑑 −
+
+1 , 𝑎 −
+
+1 ), . . . , (𝑞, 𝑑 −
+
+𝑁 , 𝑎 −
+
+𝑁 ) . (4) Here, 𝑎 + denotes the answer snippet extracted from the positive document, and each 𝑎 −
+
+𝑖 is either the answer snippet extracted from a hard-negative document or NO_ANSWER . This output serves as input to the subsequent answer-centric ranking and label reconstruction steps in Stage 2. 
+
+3.2 Stage 2: Answer-Centric Reranking and Relabeling 
+
+The second stage of ARHN takes as input the answer snippets ex-tracted in Stage 1, reranks candidate documents according to their 
+
+relative answer correctness with respect to the query 𝑞 , and incor-porates the reranking outcomes into label reconstruction through an answer-centric reranking and relabeling procedure. The key idea is not to detect false negatives hidden among hard negatives via absolute score-based grading, but instead to directly obtain from an LLM and leverage a total order (ordering) among answer snippets .
+
+3.2.1 Listwise Reranking via LLM Prompting. Given a query 𝑞 and a snippet set A ( 𝑞 ), the LLM outputs a ranking string that sorts answer snippets in descending order of answer correctness: 
+
+[𝑟 1] > [𝑟 2] > · · · > [𝑟 𝑁 +1], (5) Here, 𝑟 1 denotes the identifier (id) of the snippet that provides the most direct and explicit answer to 𝑞 . We can define this procedure functionally as follows. 
+
+𝑓 LLM (𝑞, A ( 𝑞 )) = [𝑟 1, 𝑟 2, . . . , 𝑟 𝑁 +1], (6) 
+
+𝑟 𝑡 indicates the snippet id at rank position 𝑡 . We further define the rank of a particular snippet id 𝑖 as follows. 
+
+rank 𝑞 (𝑖 ) ≜ 𝑡 s.t. 𝑟 𝑡 = 𝑖, (7) That is, a smaller rank 𝑞 (𝑖 ) indicates that the snippet provides a more explicit answer to the query. 
+
+3.2.2 Rank-Based Answer-Centric Relabeling. ARHN uses the orig-inal positive document 𝑑 + as an anchor to recalibrate the labels of hard-negative documents. Let 𝑖 + denote the id of the positive snip-pet. For each hard-negative document 𝑑 −
+
+𝑖 , we apply the following rules. 
+
+• Positive Relabeling 
+
+rank 𝑞 (𝑖 ) < rank 𝑞 (𝑖 +) ⇒ 𝑑 −
+
+𝑖 is promoted to D+. (8) If the snippet from a hard negative is ranked above the positive snippet, we regard the document as a false negative that provides ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval 
+
+more direct or comparable answer evidence for the query, and thus promote it to the positive set. 
+
+rank 𝑞 (𝑖 ) > rank 𝑞 (𝑖 +) ∧ 𝑎 − 
+
+> 𝑖
+
+≠ NO_ANSWER 
+
+⇒ 𝑑 − 
+
+> 𝑖
+
+is removed from D− . (9) Candidates ranked below the positive yet still containing an answer snippet are treated as borderline samples: they may be par-tially relevant, but their answer correctness is difficult to ascertain. Forcing them to be negatives risks suppressing useful signals, while treating them as positives may increase label noise; therefore, we exclude them from the training dataset. 
+
+• True Hard Negative Retention 
+
+𝑎 − 
+
+> 𝑖
+
+= NO_ANSWER ⇒ 𝑑 − 
+
+> 𝑖
+
+is kept in D− . (10) Hard negatives for which Stage 1 fails to extract an answer snippet 
+
+provide no content that directly answers the query or supports an answer; therefore, we retain them as true hard negatives (true negatives) and use them for contrastive learning. 
+
+4 Experimental Setting 4.1 Training Data and Refinement Setup 
+
+We apply ARHN to refine the original BGE training collection [ 16 ]. The BGE collection includes multi-task training data gathered from diverse tasks, including retrieval, clustering , and classification. Although BGE contains a large number of query–passage pairs (approximately 1.6M) collected from various sources, the RLHN study [ 23 ] reports that some datasets can negatively affect model effectiveness and that pruning parts of the BGE collection can improve overall performance. In particular, [ 23 ] shows that training on a specific subset of seven datasets (MS MARCO, HotpotQA, NQ, FEVER, SciDocsRR, FiQA-2018, and ArguAna) yields better overall performance than using the full corpus. Following [ 23 ], we keep the same seven-dataset configuration and apply ARHN to improve the quality of hard negatives. For the LLMs used in Stage 1 and Stage 2, we conduct experi-ments with Qwen3-8B, Qwen3-14B, and Qwen3-32B, and report the final results using Qwen3-32B. Each prompt includes one positive document and up to 𝑁 = 10 hard negatives per query. We ran LLM inference for both stages on 16 NVIDIA A100 GPUs. 
+
+4.2 Base Retriever Models 
+
+We evaluate ARHN using two dense retrieval models. As a BERT-based bi-encoder backbone [ 8], we use E5-base [ 25 ], which has approximately 110M parameters, uses a 12-layer Transformer with 768-dimensional embeddings, and produces sentence representa-tions via mean pooling. To further assess whether ARHN generalizes to LLM-based embedding models, we also include LG-ANNA-Embedding [ 4], a Mistral-7B-based general-purpose text embedder [ 3]. LG-ANNA-Embedding adopts an instruction-following framework that com-bines context-aware prompting, soft labeling, and adaptive-margin hard-negative mining, and it achieves strong performance on MTEB (English, v2) according to the Borda score [4]. 
+
+4.3 Training Details 
+
+All models used in our experiments are optimized with the InfoNCE loss [ 10 ]. For each query, a training instance consists of one positive passage and seven hard negatives, and we also leverage in-batch negatives. The global batch size is set to 128. We run each experiment with multiple random seeds and report the mean performance across runs. We fine-tune E5-base for five epochs with a learning rate of 2 × 10 −5. For LG-ANNA-Embedding, we adopt parameter-efficient fine-tuning with Low-Rank Adapta-tion (LoRA) [ 9] and fine-tune the model for two epochs with a learning rate of 1 × 10 −4. Both E5-base and the Mistral-7B-based model were fine-tuned on NVIDIA A100 GPUs. 
+
+4.4 Evaluation Datasets and Metrics 
+
+We evaluate models fine-tuned on ARHN-reconstructed data on the BEIR benchmark [ 22 ]. We use nDCG@10 as the standard retrieval metric. To ensure comparability with prior work, we report results on 16 of the 18 BEIR datasets, excluding Quora and CQADupStack. 
+
+4.5 Comparison Methods and ARHN Variants 
+
+To quantitatively assess the effect of ARHN on hard-negative refine-ment, we compare (i) a baseline trained on the default training set, (ii) a data-refinement strategy from prior work, and (iii) ARHN vari-ants that ablate individual components. Here, the default training set is constructed by retaining retrieval data from the BGE training collection and then pruning it to the seven datasets that contribute most to performance, yielding approximately 680K query–passage pairs. 
+
+(0) No Refinement. The model is fine-tuned on the default train-ing set without any additional refinement. This serves as the pri-mary reference point, measuring the performance attainable with-out data reconstruction and enabling us to quantify data-level im-provements from subsequent methods. 
+
+(1) TopK-PercPos. This baseline follows the hard-negative mining procedure proposed in NV-Retriever [ 17 ]. Specifically, for each query, we score negative candidates using the bge-reranker-v2-gemma reranker and then apply TopK-PercPos (top-95%) sampling to construct the hard-negative set used for training. 
+
+(2) RLHN (ReLabeling Hard Negatives). RLHN points out that false negatives and label noise in hard-negative sets can degrade dense retriever training and proposes an LLM-based relabeling framework that re-evaluates mined negatives to correct mislabeled instances. In RLHN, GPT-4o-mini and GPT-4o are used as the LLMs for the relabeling pipeline. 
+
+(3) ARHN (Filter / Relabel / R+F). ARHN extracts answer evidence (answer snippets) from each document and then reconstructs the training data by re-evaluating hard negatives in a listwise manner based on the extracted evidence. This process mitigates the impact of false negatives in hard-negative sets. We compare two compo-nent variants and their combined setting: (i) ARHN(Filter) filters out negatives whose answer snippets are ranked lower than the pos-itive document’s answer snippet in the listwise ranking, even when 
+
+an answer snippet is produced for the negative. (ii) ARHN(Relabel) Choi et al. 
+
+Table 1: nDCG@10 on 16 BEIR datasets for E5-base and LG-ANNA-Embedding (Mistral-7B), comparing No Refinement, baselines from prior work, and ARHN variants (Filter/Relabel/R+F). Datasets marked with *correspond to the 7 out-of-domain (OOD) datasets not seen during training; we report the average over all 16 datasets (Avg. 16) and over the 7 OOD datasets (Avg. 7) at the bottom. Best results for each encoder are in bold.                                                                                                                                                                                                
+
+> BEIR Dataset E5 (base) LG-ANNA-Embedding (Mistral-7B) No Refinement TopK-PercPos RLHN ARHN(Filter) ARHN(Relabel) ARHN(R+F) No Refinement ARHN(Filter) ARHN(Relabel) ARHN(R+F)
+> BioASQ *0.378 0.375 0.394 0.381 0.385 0.401 0.413 0.420 0.422 0.409 Robust04 *0.442 0.451 0.497 0.453 0.452 0.479 0.475 0.474 0.482 0.493 Signal-1M (RT) *0.275 0.272 0.274 0.279 0.275 0.281 0.296 0.301 0.313 0.324 TREC-NEWS *0.465 0.466 0.484 0.469 0.466 0.473 0.489 0.483 0.483 0.491 Touché-2020 *0.256 0.286 0.266 0.251 0.271 0.308 0.304 0.291 0.295 0.302 TREC-COVID *0.783 0.789 0.809 0.785 0.793 0.798 0.881 0.885 0.891 0.894 NFCorpus *0.378 0.377 0.390 0.374 0.380 0.381 0.393 0.402 0.401 0.414 NQ 0.595 0.601 0.591 0.592 0.592 0.612 0.641 0.643 0.638 0.641 HotpotQA 0.737 0.734 0.735 0.740 0.736 0.739 0.761 0.764 0.759 0.763 FiQA-2018 0.439 0.434 0.448 0.441 0.440 0.434 0.571 0.573 0.586 0.595 ArguAna 0.701 0.697 0.692 0.700 0.706 0.719 0.724 0.729 0.721 0.719 DBPedia 0.438 0.444 0.447 0.439 0.437 0.442 0.494 0.511 0.504 0.514 SCIDOCS 0.242 0.243 0.242 0.243 0.243 0.252 0.252 0.241 0.243 0.240 FEVER 0.878 0.878 0.871 0.880 0.876 0.879 0.881 0.879 0.881 0.883 Climate-FEVER 0.391 0.386 0.367 0.393 0.385 0.391 0.395 0.397 0.421 0.419 SciFact 0.735 0.735 0.740 0.739 0.731 0.741 0.769 0.763 0.771 0.769 Avg. 16 (All) 0.508 0.511 0.515 0.510 0.511 0.521 0.546 0.547 0.551 0.554
+> Avg. 7 (OOD) 0.425 0.431 0.445 0.427 0.432 0.446 0.464 0.465 0.470 0.475
+
+promotes a negative to a positive (relabeling) when its answer snip-pet is ranked higher than the positive document’s answer snippet in the listwise ranking. (iii) ARHN(R+F) applies both relabeling and filtering and serves as the final variant. 
+
+5 Experimental Results 5.1 Results on the BEIR Benchmark 
+
+Table 1 reports nDCG@10 on 16 BEIR datasets and compares (i) training without refinement (No Refinement), (ii) baselines from prior work (TopK-PercPos, RLHN), and (iii) three variants of the pro-posed ARHN (Filter/Relabel/Relabel+Filter). The table also presents results for two retriever models, E5-base and LG-ANNA-Embedding (Mistral-7B), to examine whether the same refinement strategy gen-eralizes across different retrieval models. 
+
+5.1.1 Overall improvements: consistent gains from ARHN(R+F). With the E5-base backbone, ARHN(R+F) achieves an Avg. 16 (All) score of 0.521, improving over No Refinement (0.508) by 1.3 nDCG@10 points. ARHN(R+F) also outperforms TopK-PercPos (0.511) and RLHN (0.515), indicating that the proposed relabeling and filtering operations more effectively mitigate false negatives and label noise in the hard-negative set. With LG-ANNA-Embedding (Mistral-7B), ARHN(R+F) attains the best Avg. 16 (All) score of 0.554, improving over No Refinement (0.546) by 0.8 points. These results indicate that ARHN does not de-pend on a specific backbone and tends to improve different retrieval models by enhancing training data quality. 
+
+5.1.2 OOD generalization: benefits of mitigating label noise. On the seven OOD datasets marked with * (i.e., domains unseen during training), E5-base improves from 0.425 to 0.446 on Avg. 7 (OOD), a gain of 2.1 points. The larger improvement on Avg. 7 (OOD) than on 0.5 
+
+0.51 
+
+0.52 
+
+0.53    
+
+> No Refinement Qwen3 8B Qwen3 14B Qwen3 32B
+
+BEIR (Avg 16) 
+
+No Refinement Qwen3 8B 
+
+Qwen3 14B Qwen3 32B 
+
+> 0.508
+> 0.501
+> 0.509
+> 0.521
+> nDCG@10
+
+Figure 4: Effect of LLM scale used in ARHN labeling (Stage 1– 2) on retrieval performance. The plot reports nDCG@10 on BEIR (Avg. 16) for an E5-base retriever fine-tuned on ARHN(R+F)-refined data, comparing No Refinement with Qwen3-8B/14B/32B. Performance improves with larger LLMs, and Qwen3-32B achieves the best nDCG@10. 
+
+Avg. 16 suggests that relabeling and filtering false negatives are es-pecially beneficial for OOD generalization. LG-ANNA-Embedding (Mistral-7B) shows a similar pattern: Avg. 7 (OOD) increases from 0.464 to 0.475 (1.1 points), supporting the conclusion that ARHN strengthens OOD generalization across different retrieval models. ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval 
+
+Table 2: nDCG@10 comparison between PRHN and ARHN on 16 BEIR datasets, using an E5-base retriever fine-tuned on the corresponding refined training data. PRHN performs the Stage 2 listwise ranking directly on the original passages, whereas ARHN first generates an answer snippet for each passage in Stage 1 and then conducts Stage 2 ranking condi-tioned on the extracted snippets. Dataset PRHN    
+
+> Passage-Centric Relabeling of Hard Negatives
+
+ARHN    
+
+> Answer-Centric Relabeling of Hard Negatives
+
+BioASQ* 0.391 0.401 
+
+Robust04* 0.452 0.479 
+
+Signal-1M (RT)* 0.285 0.281 
+
+TREC-NEWS* 0.464 0.473 
+
+Touche2020* 0.311 0.308 
+
+TREC-COVID* 0.801 0.798 
+
+NFCorpus* 0.379 0.381 
+
+NQ 0.611 0.612 
+
+HotpotQA 0.736 0.739 
+
+FiQA-2018 0.432 0.434 
+
+ArguAna 0.721 0.719 
+
+DBPedia 0.439 0.442 
+
+SCIDOCS 0.242 0.252 
+
+FEVER 0.863 0.879 
+
+Climate-FEVER 0.381 0.391 
+
+SciFact 0.747 0.741 
+
+Avg. 16 (All) 0.516 0.521 
+
+Avg. 7 (OOD) 0.440 0.446 
+
+5.1.3 Relabeling vs. filtering: complementarity and synergy. A com-parison of ARHN variants shows that combining filtering and rela-beling yields larger gains than applying either operation alone. With E5-base, ARHN(Filter) reaches 0.510 and ARHN(Relabel) reaches 0.511, which are only modest improvements over No Refinement (0.508), whereas ARHN(R+F) increases performance to 0.521. This pattern suggests that relabeling and filtering are complementary: relabeling corrects mislabeled hard negatives, while filtering re-moves ambiguous negatives. Applying both yields a synergistic effect. (1) Relabeling promotes false negatives—hard negatives that actually contain an answer snippet —to positives. This correction strengthens the supervision signal and increases the diversity of positive examples used for training. Relabeling can also reduce the impact of false positives in the orig-inal training data (i.e., documents labeled as positives but lacking a sufficient answer snippet), because newly identified high-quality positives can compensate for weak or noisy supervision. In addition, in our two-stage LLM labeling pipeline, the model extracts an answer snippet after truncating each input document to the retriever’s max_seq_len . If the answer snippet in an original positive lies beyond max_seq_len , the retriever cannot observe it during training, whereas some hard negatives may contain an 
+
+Table 3: Cohen’s 𝜅 between LLM labels and human judgments on 500 query–negative pairs.       
+
+> Metric Qwen3-8B Qwen3-14B Qwen3-32B
+> Cohen’s Kappa ( 𝜅 )0.312 0.341 0.373
+
+Table 4: Refinement statistics of ARHN(R+F) across LLM scales. For each LLM (Qwen3-8B/14B/32B) with 𝑁 =10 hard negatives per query, we report the average number of nega-tives relabeled as positives (Relabeled Pos.) and the average number of negatives removed (Filtered Neg.) per query.             
+
+> LLM 𝑁 Relabeled Pos. Filtered Neg.
+> Qwen3 8B 10 3.1 3.9 Qwen3 14B 10 2.3 3.4 Qwen3 32B 10 1.6 2.2
+
+explicit answer snippet within max_seq_len . Promoting such neg-atives to positives makes an observable answer snippet available within max_seq_len and thus provides a stronger and more direct learning signal. (2) Filtering removes borderline negatives, such as partially rel-evant documents whose extracted answer snippet provides only incomplete evidence, thereby reducing the risk of training the model to aggressively push away partially relevant documents. 
+
+5.1.4 Comparison with RLHN: API-based refinement vs. open-source-LLM refinement. RLHN uses proprietary LLMs accessed via an API (GPT-4o-mini and GPT-4o) to refine hard negatives, whereas ARHN performs labeling—answer snippet extraction and listwise reranking—using an open-source LLM such as Qwen3-32B. Table 1 shows that ARHN(R+F) achieves 0.521 with E5-base, outperforming RLHN (0.515), and yields a higher OOD average. These results suggest that a sufficiently capable open-source LLM can improve training data quality and deliver gains comparable to, or larger than, those obtained with API-based refinement. Open-source refinement also offers practical benefits in terms of cost and reproducibility. 
+
+5.2 PRHN vs. ARHN: Passage-Centric vs. Answer-Centric Relabeling 
+
+Table 2 compares PRHN, which performs Stage 2 listwise ranking directly on the original passages, with ARHN, which first extracts 
+
+an answer snippet from each passage in Stage 1 and then performs Stage 2 listwise ranking conditioned on the extracted snippets. Both methods apply relabeling and filtering to hard negatives, but they differ in the input granularity used for decision-making: PRHN evaluates candidates at the passage level, whereas ARHN bases its ranking on extracted answer snippets .ARHN achieves higher overall performance than PRHN. On Avg. 16 (All), ARHN improves nDCG@10 from 0.516 to 0.521 (+0.005). ARHN also improves Avg. 7 (OOD) from 0.440 to 0.446, suggesting that answer-centric signals can benefit out-of-domain generaliza-tion. Choi et al. 
+
+Table 5: Examples of label noise in retrieval training (FiQA-2018, NQ, MS MARCO). Highlighted text denotes an answer snippet .We contrast labeled positives with answer-bearing negatives, illustrating complementary evidence, more specific answers, true-answer false negatives, and contaminated negatives with overlapping answer snippets. 
+
+Data Query Positive Passages Relabeled Positive (False Negatives) FIQA-2018 
+
+How to Deduct Family Health Care Premiums Under Side Business 
+
+Positive1 : [. . . ] You received wages in 2011 from an S corporation in which you were a more-than-2% shareholder. Health insurance premiums paid or reimbursed by the S corporation are shown as wages on Form W-2. The insurance plan must be established under your business. Your personal services must have been a material income-producing factor in the business. If you are filing Schedule C, C-EZ, or F, the policy can be either in your name or in the name of the business. 
+
+Negative1 : [. . . ] So the self-employed person has to pay both the employer’s share as well as the employee’s share of Social Security and Medicare taxes on that money. Health insurance premiums can be deducted on Line 29 of Form 1040 but only for those months during which the Schedule C filer is neither covered nor eligible to be covered by a subsidized health insurance plan maintained by an employer of the self-employed person (whose self-employment might be a sideline) or the self-employed person’s spouse. [. . . ] 
+
+NQ when was the united states pledge of allegiance adopted 
+
+Positive1 : [. . . ] The form of the pledge used today was largely devised by Francis Bellamy in 1892, and formally adopted by Congress as the pledge in 1942. The official name of "The Pledge of Allegiance" was adopted in 1945. 
+
+Negative1 : [. . . ] Congress officially recognized the Pledge for the first time, in the following form, on June 22, 1942: Louis Albert Bowman, an attorney from Illinois, was the first to suggest the addition of "under God" to the pledge [. . . ] 
+
+Data Query Positive Passages Filtered Negative MS marco 
+
+meds that can cause irregular heartbeat 
+
+Positive1 : [. . . ] Always advise your doctor of any medications or treatments you are using, including prescription, over-the-counter, supplements, herbal or alternative treatments. 1 Aldazine. 2 Amphetamine Sulfate. 3 Anatensol. 
+
+Negative1 : Cardiac Side Effects of Lithium Lithium may cause arrhythmias, or irregular heartbeat, throughout the course of therapy. If the patient experiences heart palpitations or uneven heart beat, he should seek medical care right away. 
+
+MS marco 
+
+what are normal numbers for glaucoma 
+
+Positive1 : Glaucoma and Eye Pressure: Q&A A: Normal pressure in the eye is between 12 and 21mm Hg. Some patients are fortunate in that their optic nerves can tolerate pressures outside this range.[. . . ] 
+
+Negative1 : [. . . ] Eye pressure, called intraocular pressure (IOP), is measured in millimeters of mercury (mm Hg).Normal eye pressure ranges from 10-21 mm Hg[. . . ] 
+
+Negative2 : What Is the Normal Range for Eye Pressure? Glaucoma is an eye condition that is caused by increased intraocular pressure. Normal range for eye pressure is between 10- to 21-mm HG. [. . . ] 
+
+This gap is consistent with the difficulty of Stage 2 ranking. In Stage 2, the model ranks candidates based on both how well they support the query and whether they provide a correct answer, yet positives and hard negatives often share similar lexical and con-textual cues, making passage-level comparison challenging. ARHN reduces this ambiguity by ranking an answer snippet rather than the full passage, which removes shared background context and focuses the comparison on an answer snippet . In addition, Stage 1 emits a special token, NO_ANSWER , for passages that lack an answer snippet , which helps Stage 2 more efficiently separate non-evidence candidates. 
+
+5.3 Effect of LLM Scale on ARHN Refinement 
+
+Figure 4 examines how the LLM scale used for ARHN(R+F) labeling (Qwen3-8B/14B/32B) affects final retrieval performance (nDCG@10). We observe a positive trend with increasing LLM scale: Qwen3-32B improves Avg. 16 (All) from 0.508 to 0.521. This trend is consistent with larger LLMs identifying an answer snippet more reliably in Stage 1 and applying relabeling and filtering more consistently in Stage 2, resulting in higher retrieval performance. 
+
+Small LLMs can hurt. Small LLMs can degrade the quality of refined training data when used for refinement, potentially intro-ducing additional label noise. Qwen3-8B reduced Avg. 16 (All) from 0.508 to 0.501. These drops are consistent with refinement errors from weaker LLMs, such as extracting an answer snippet from passages without answer evidence, promoting partially relevant passages to positives, or filtering out informative hard negatives. These results show that ARHN does not guarantee improvements; it benefits from refinement only when the labeling model is suffi-ciently accurate. In practice, ARHN(R+F) yields consistent gains with a strong refinement model such as Qwen3-32B, whereas a ARHN: Answer-Centric Relabeling of Hard Negatives with Open-Source LLMs for Dense Retrieval 
+
+smaller model can introduce additional label noise and reduce av-erage performance. 
+
+5.4 Agreement with Human Judgments 
+
+Table 3 summarizes our human validation setup for assessing the reliability of LLM-based labeling. We briefed two human assessors on the false-negative identification task and asked them to inde-pendently annotate 500 query–hard-negative pairs. We randomly sampled hard negatives from the training set and constructed the validation set such that each query’s hard-negative set contained at least one hard negative that the LLM relabeled as a false nega-tive; we then asked the assessors to identify which hard negatives were false negatives. The assessors did not observe the LLM predic-tions during annotation. When the two assessors disagreed, they discussed the case and produced a single adjudicated label. Table 3 reports Cohen’s 𝜅 between each LLM’s predicted labels (Qwen3-8B/14B/32B) and the adjudicated human labels. Agreement increases with model scale: Qwen3-8B achieves 𝜅 =0.312 , Qwen3-14B achieves 𝜅 =0.341 , and Qwen3-32B achieves 𝜅 =0.373 . These re-sults indicate non-trivial agreement with human judgments even on query–hard-negative pairs for which false-negative identification is difficult, and they suggest that larger models more consistently capture cues corresponding to an answer snippet .
+
+5.5 How LLM Scale Shapes Relabeling and Filtering Behavior 
+
+Table 4 helps explain why smaller LLMs can degrade the quality of refined training data. As the LLM size decreases, ARHN(R+F) applies relabeling and filtering more aggressively: Qwen3-8B relabels 3.1 negatives as positives and filters 3.9 negatives per query on average, whereas Qwen3-32B relabels 1.6 and filters 2.2. This pattern is consistent with weaker LLMs making more labeling mistakes, such as extracting an answer snippet from passages without answer evidence, promoting partially relevant passages to positives, or filtering out informative hard negatives. 
+
+6 Analysis 
+
+Table 5 illustrates several labeling failure modes that can materially affect retrieval training. In particular, it shows that (i) multiple passages can be legitimately relevant to the same query, and (ii) some passages labeled as negatives actually contain correct answers (false negatives) or even near-duplicate answer spans (negative contamination). (1) Benefit of diverse positives (complementary evidence). 
+
+In the FiQA-2018 example (“How to Deduct Family Health Care Premiums Under Side Business”), the original positive focuses on one subset of requirements (e.g., how the plan is established under the business), whereas the relabeled-positive passage (initially treated as a negative) provides a different but crucial constraint (e.g., eligibility conditions for the Line 29 deduction). These passages are comple-mentary rather than redundant. Allowing multiple posi-tives helps prevent under-specification : the model learns a broader notion of what constitutes answer-bearing evi-dence and can retrieve support that covers multiple sub-conditions. (2) Benefit of higher specificity and clarity (1942” → June 22, 1942”). In the NQ example (when was the United States Pledge of Allegiance adopted”), one passage provides a coarse, year-level answer, whereas another provides a more precise date (June 22, 1942”). If the more specific passage is mislabeled as a negative, training explicitly penalizes retrieval of better evidence. Relabeling these passages as positives teaches the model to favor passages that give an exact date rather than a vague year, which matters most for date/time questions. (3) False negatives that are valid answers in practice (the Lithium case). In the MS MARCO example (“meds that can cause irregular heartbeat”), a filtered negative states that 
+
+Lithium may cause arrhythmias/irregular heartbeat . Even if the dataset’s chosen positive mentions different medica-tions, Lithium remains a valid real-world answer. Treating Lithium-containing passages as negatives teaches the model to suppress legitimate evidence, which can reduce recall of clinically relevant options when the model is deployed in a real-world service and lead to incomplete or misleading outputs. (4) Severe negative contamination: negatives contain (near-)identical answer spans. In the MS MARCO example (“what are normal numbers for glaucoma”), the positive passage gives a normal intraocular pressure range, while multiple negatives include essentially the same range (with minor numeric variations such as 10–21 vs. 12–21 vs. 12– 22 mmHg). This creates contradictory supervision, which can ultimately degrade both retrieval quality and training stability. 
+
+7 Conclusion 
+
+Hard-negative mining is essential for training dense retrievers, but mined negatives often contain false negatives —answer-bearing passages incorrectly labeled as negatives—which can introduce contradictory supervision and hurt robustness. In this work, we propose ARHN , an answer-centric refinement pipeline that uses an open-source LLM to extract an answer snippet (or NO_ANSWER )for each query–document pair and then ranks candidates by direct answerability. Experiments on the BEIR benchmark show that jointly applying relabeling and filtering yields the most consistent improvements across retriever models, with particularly strong gains on out-of-domain datasets, indicating that mitigating label noise is crucial for generalization. We also find that open-source LLMs can provide effective and reproducible refinement and that larger models fur-ther improve refinement quality. Overall, ARHN offers a practical, scalable approach to cleaning hard-negative supervision and train-ing more robust dense retrieval models by centering decisions on explicit answer evidence. 
+
+References     
+
+> [1] Luiz Bonifacio, Hugo Abonizio, Marzieh Fadaee, and Rodrigo Nogueira. 2022. Inpars: Data augmentation for information retrieval using large language models.
+> arXiv preprint arXiv:2202.05144 (2022). [2] Yinqiong Cai, Jiafeng Guo, Yixing Fan, Qingyao Ai, Ruqing Zhang, and Xueqi Cheng. 2022. Hard negatives or false negatives: Correcting pooling bias in
+
+Choi et al. 
+
+training neural ranking models. In Proceedings of the 31st ACM International Conference on Information & Knowledge Management . 118–127. [3] Devendra Singh Chaplot. 2023. Albert q. jiang, alexandre sablayrolles, arthur men-sch, chris bamford, devendra singh chaplot, diego de las casas, florian bressand, gianna lengyel, guillaume lample, lucile saulnier, lélio renard lavaud, marie-anne lachaux, pierre stock, teven le scao, thibaut lavril, thomas wang, timothée lacroix, william el sayed. arXiv preprint arXiv:2310.06825 3 (2023). [4] Jooyoung Choi, Hyun Kim, Hansol Jang, Changwook Jun, Kyunghoon Bae, Hyewon Choi, Stanley Jungkyu Choi, Honglak Lee, and Chulmin Yun. 2025. LG-ANNA-Embedding technical report. arXiv preprint arXiv:2506.07438 (2025). [5] Nachshon Cohen, Hedda Cohen-Indelman, Yaron Fairstein, and Guy Kushilevitz. 2024. Indi: Informative and diverse sampling for dense retrieval. In European Conference on Information Retrieval . Springer, 243–258. [6] Florin Cuconasu, Giovanni Trappolini, Federico Siciliano, Simone Filice, Cesare Campagnano, Yoelle Maarek, Nicola Tonellotto, and Fabrizio Silvestri. 2024. The power of noise: Redefining retrieval for rag systems. In Proceedings of the 47th International ACM SIGIR Conference on Research and Development in Information Retrieval . 719–729. [7] Zhuyun Dai, Vincent Y Zhao, Ji Ma, Yi Luan, Jianmo Ni, Jing Lu, Anton Bakalov, Kelvin Guu, Keith B Hall, and Ming-Wei Chang. 2022. Promptagator: Few-shot dense retrieval from 8 examples. arXiv preprint arXiv:2209.11755 (2022). [8] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. Bert: Pre-training of deep bidirectional transformers for language understanding. In 
+
+Proceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers) . 4171–4186. [9] Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, et al . 2022. Lora: Low-rank adaptation of large language models. ICLR 1, 2 (2022), 3. [10] Gautier Izacard, Mathilde Caron, Lucas Hosseini, Sebastian Riedel, Piotr Bo-janowski, Armand Joulin, and Edouard Grave. 2021. Unsupervised dense in-formation retrieval with contrastive learning. arXiv preprint arXiv:2112.09118 
+
+(2021). [11] Fan Jiang, Tom Drummond, and Trevor Cohn. 2023. Noisy self-training with synthetic queries for dense retrieval. arXiv preprint arXiv:2311.15563 (2023). [12] Yannis Kalantidis, Mert Bulent Sariyildiz, Noe Pion, Philippe Weinzaepfel, and Diane Larlus. 2020. Hard negative mixing for contrastive learning. Advances in neural information processing systems 33 (2020), 21798–21809. [13] Vladimir Karpukhin, Barlas Oguz, Sewon Min, Patrick SH Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. 2020. Dense Passage Retrieval for Open-Domain Question Answering.. In EMNLP (1) . 6769–6781. [14] Jinhyuk Lee, Zhuyun Dai, Xiaoqi Ren, Blair Chen, Daniel Cer, Jeremy R Cole, Kai Hui, Michael Boratko, Rajvi Kapadia, Wen Ding, et al . 2024. Gecko: Versatile text embeddings distilled from large language models. arXiv preprint arXiv:2403.20327 
+
+(2024). [15] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen-tau Yih, Tim Rock-täschel, et al . 2020. Retrieval-augmented generation for knowledge-intensive nlp tasks. Advances in neural information processing systems 33 (2020), 9459–9474. [16] Chaofan Li, MingHao Qin, Shitao Xiao, Jianlyu Chen, Kun Luo, Yingxia Shao, Defu Lian, and Zheng Liu. 2024. Making text embedders few-shot learners. arXiv preprint arXiv:2409.15700 (2024). [17] Gabriel de Souza P Moreira, Radek Osmulski, Mengyao Xu, Ronay Ak, Benedikt Schifferer, and Even Oldridge. 2024. NV-Retriever: Improving text embedding models with effective hard-negative mining. arXiv preprint arXiv:2407.15831 
+
+(2024). [18] Ansong Ni, Matt Gardner, and Pradeep Dasigi. 2021. Mitigating false-negative contexts in multi-document question answering with retrieval marginalization. 
+
+arXiv preprint arXiv:2103.12235 (2021). [19] Jingwei Ni, Tobias Schimanski, Meihong Lin, Mrinmaya Sachan, Elliott Ash, and Markus Leippold. 2025. DIRAS: Efficient LLM annotation of document relevance for retrieval augmented generation. In Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) . 5238–5258. [20] Yingqi Qu, Yuchen Ding, Jing Liu, Kai Liu, Ruiyang Ren, Wayne Xin Zhao, Daxi-ang Dong, Hua Wu, and Haifeng Wang. 2021. RocketQA: An optimized training approach to dense passage retrieval for open-domain question answering. In 
+
+Proceedings of the 2021 conference of the North American chapter of the association for computational linguistics: human language technologies . 5835–5847. [21] Thilina Chaturanga Rajapakse, Andrew Yates, and Maarten de Rijke. 2024. Nega-tive Sampling Techniques for Dense Passage Retrieval in a Multilingual Setting. In Proceedings of the 47th International ACM SIGIR Conference on Research and Development in Information Retrieval . 575–584. [22] Nandan Thakur, Nils Reimers, Andreas Rücklé, Abhishek Srivastava, and Iryna Gurevych. 2021. Beir: A heterogenous benchmark for zero-shot evaluation of information retrieval models. arXiv preprint arXiv:2104.08663 (2021). [23] Nandan Thakur, Crystina Zhang, and Xueguang Ma Jimmy Lin. 2025. Hard Neg-atives, Hard Lessons: Revisiting Training Data Quality for Robust Information Retrieval with LLMs. In Findings of the Association for Computational Linguistics: EMNLP 2025 . 9064–9083. [24] Fei Wang, Xingchen Wan, Ruoxi Sun, Jiefeng Chen, and Sercan O Arik. 2025. Astute rag: Overcoming imperfect retrieval augmentation and knowledge con-flicts for large language models. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 30553–30571. [25] Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu Wei. 2024. Improving text embeddings with large language models. In 
+
+Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) . 11897–11916. [26] Shiqi Wang, Yeqin Zhang, and Cam-Tu Nguyen. 2024. Mitigating the impact of false negative in dense retrieval with contrastive confidence regularization. In 
+
+Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38. 19171–19179. [27] Lee Xiong, Chenyan Xiong, Ye Li, Kwok-Fung Tang, Jialin Liu, Paul Bennett, Junaid Ahmed, and Arnold Overwijk. 2020. Approximate nearest neighbor nega-tive contrastive learning for dense text retrieval. arXiv preprint arXiv:2007.00808 
+
+(2020). [28] Shi-Qi Yan, Jia-Chen Gu, Yun Zhu, and Zhen-Hua Ling. 2024. Corrective retrieval augmented generation. (2024). [29] Zhen Yang, Zhou Shao, Yuxiao Dong, and Jie Tang. 2024. Trisampler: A bet-ter negative sampling principle for dense retrieval. In Proceedings of the AAAI Conference on Artificial Intelligence , Vol. 38. 9269–9277. [30] Qiuhai Zeng, Zimeng Qiu, Dae Yon Hwang, Xin He, and William M Campbell. 2024. Unsupervised text representation learning via instruction-tuning for zero-shot dense retrieval. arXiv preprint arXiv:2409.16497 (2024). [31] Jingtao Zhan, Jiaxin Mao, Yiqun Liu, Jiafeng Guo, Min Zhang, and Shaoping Ma. 2021. Optimizing dense retrieval model training with hard negatives. In Proceed-ings of the 44th international ACM SIGIR conference on research and development in information retrieval . 1503–1512. [32] Shengming Zhao, Yuheng Huang, Jiayang Song, Zhijie Wang, Chengcheng Wan, and Lei Ma. 2024. Towards understanding retrieval accuracy and prompt quality in rag systems. arXiv preprint arXiv:2411.19463 (2024). [33] Wayne Xin Zhao, Jing Liu, Ruiyang Ren, and Ji-Rong Wen. 2024. Dense text retrieval based on pretrained language models: A survey. ACM Transactions on Information Systems 42, 4 (2024), 1–60.
