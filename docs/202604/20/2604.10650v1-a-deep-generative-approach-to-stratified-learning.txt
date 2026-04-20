@@ -1,0 +1,12235 @@
+Title: A Deep Generative Approach to Stratified Learning
+
+URL Source: https://arxiv.org/pdf/2604.10650v1
+
+Published Time: Tue, 14 Apr 2026 01:17:03 GMT
+
+Number of Pages: 79
+
+Markdown Content:
+# A Deep Generative Approach to Stratified Learning 
+
+Randy Martinez randym@umd.edu 
+
+Department of Mathematics University of Maryland College Park, MD 20742, USA 
+
+Rong Tang martang@ust.hk 
+
+Department of Mathematics Hong Kong University of Science and Technology Clear Water Bay, Kowloon, Hong Kong 
+
+Lizhen Lin lizhen01@umd.edu 
+
+Department of Mathematics University of Maryland College Park, MD 20742, USA 
+
+Editor: 
+
+Abstract 
+
+While the manifold hypothesis is widely adopted in modern machine learning, complex data is often better modeled as stratified spaces —unions of manifolds (strata) of varying dimensions. Stratified learning is challenging due to varying dimensionality, intersection singularities, and lack of efficient models in learning the underlying distributions. We pro-vide a deep generative approach to stratified learning by developing two generative frame-works for learning distributions on stratified spaces. The first is a sieve maximum likelihood approach realized via a dimension-aware mixture of variational autoencoders. The second is a diffusion-based framework that explores the score field structure of a mixture. We establish the convergence rates for learning both the ambient and intrinsic distributions, which are shown to be dependent on the intrinsic dimensions and smoothness of the un-derlying strata. Utilizing the geometry of the score field, we also establish consistency for estimating the intrinsic dimension of each stratum and propose an algorithm that con-sistently estimates both the number of strata and their dimensions. Theoretical results for both frameworks provide fundamental insights into the interplay of the underlying ge-ometry, the ambient noise level, and deep generative models. Extensive simulations and real dataset applications, such as molecular dynamics, demonstrate the effectiveness of our methods. 
+
+Keywords: deep generative models, stratified spaces, singular distribution estimation, intrinsic dimension estimation, geometric learning 
+
+1 Introduction 
+
+Deep neural networks have achieved remarkable success across a wide range of domains, including computer vision, natural language processing, and recommendation systems (Le-Cun et al., 2015; Krizhevsky et al., 2012; Vaswani et al., 2017; Cheng et al., 2016). Deep generative models, in particular, lie at the heart of many of these applications, where neural networks are trained to implicitly learn the underlying distribution of the data from samples 1
+
+> arXiv:2604.10650v1 [stat.ML] 12 Apr 2026
+
+alone. Real-world datasets, such as images, molecular, and medical data tend to be very high-dimensional, where classical statistical models often suffer from the curse of dimen-sionality . Nevertheless, a growing body of empirical evidence and theory suggests that deep generative models can perform very well in such high-dimensional settings and and seem to be able to circumvent the curse of dimensionality (Barron, 2002; Pope et al., 2021; Chen et al., 2023; Potaptchik et al., 2024). A widely adopted assumption in modern machine learning is the manifold hypothe-sis , which assumes that high-dimensional data is frequently supported on or near a low-dimensional manifold. This principle influenced research in many areas such as dimension-ality reduction, manifold regularization, and representation learning (Bengio et al., 2013; Belkin and Niyogi, 2003; Belkin et al., 2006). Recent works have illustrated that neural net-works can adapt to lower-dimensional structures and approximate functions on manifolds, which partially explains their effectiveness in high-dimensional learning problems (Nakada and Imaizumi, 2020; Schmidt-Hieber, 2019). Convergence rates of learning distributions with generative models have also been shown to adapt to the geometric properties of the manifold. For instance, Chae et al. (2023) develop a likelihood-based approach to under-standing singular distributions and demonstrate that convergence rates depend on intrinsic dimension and smoothness. Similarly, an increasing body of work has demonstrated the adaptivity of diffusion models to distributions supported on manifolds (Tang and Yang, 2024; Azangulov et al., 2024; Tang et al., 2025). These developments suggest that gen-erative models are not only effective in modeling low-dimensional structures embedded in high-dimensional ambient spaces, but are also capable of adapting to the geometry of the data. Although the manifold assumption has been used extensively for studying distributions on low-dimensional structures, this has often shown to be a restrictive assumption for com-plex data. For example, Robinson et al. (2025) show that token embeddings in large lan-guage models violate the manifold hypothesis, and Li and Sarwate (2025) identify a stratified manifold structure, that is, a union of manifolds, in the embedding space. Many real-world datasets, including natural images (Brown et al., 2022) and molecular dynamics data (Sule et al., 2025), exhibit more complicated geometric organization, with multiple components of different dimensions that may intersect. Such spaces form the broad class of stratified spaces .While classical manifold learning techniques and generative modeling results on manifolds provide powerful tools for studying stratified spaces, the regularity conditions typically im-posed in the manifold setting, such as smoothness and positive reach, are commonly violated in stratified spaces. This motivates the central goal of this paper: developing a generative approach to stratified learning , which combines a richer set of geometric objects with the adaptive power of generative models to learn distributions supported on or near a stratified space. Previous work in learning stratified spaces have mostly followed either classical geometric or statistical approaches. Building upon the principles of the Levina-Bickel MLE (Levina and Bickel, 2004), Haro et al. (2006) propose a Poisson mixture model that utilizes Expectation-Maximization to simultaneously estimate local intrinsic dimensions, mixture weights, and densities. From a topological perspective, Bendich et al. (2012) leverage persistent homology to cluster points into strata, providing probabilistic inference theorems for their framework. Similarly, Aamari and Berenfeld (2024) introduce a geometric "Slabeling" algorithm to 2cluster by dimension via data-derived slabs, yielding convergence rates for strata, dimension, and tangent space estimators. Wu et al. (2022) use a discriminative deep learning model to perform clustering of a stratified space by preserving geometric structure in the latent space with knowledge of the number of strata. While fundamental, these approaches encounter numerous challenges: they can be sensitive to noise and do not provide a mechanism for learning the underlying distribution of the data centering or lying on the stratified spaces. In addition, the existing approaches are certainly not generative, i.e. they do not provide a mechanism to synthesize new samples. Stratified learning via generative modeling introduces novel challenges that elude the standard manifold learning theory: specifically, it requires jointly learning a support con-sisting of varying intrinsic dimensions and smoothness while approximating hierarchical mix-tures. Mixture-of-experts models are commonly used to model (hierarchical) mixture distri-butions (Jacobs et al., 1991; Jordan and Jacobs, 1994; Ye and Bors, 2020), and methods such as partitioning data to resemble charts of a manifold have been employed in autoencoder-based models to learn distributions on manifold structures (Tang and Yang, 2023a; Alberti et al., 2024). These architectures, however, struggle to naturally cluster data according to distinct geometries in an unsupervised setting. Conversely, diffusion models have illustrated the ability to locally capture the local geometry of the data. The score function at small time scales is approximately normal to the data manifold, and approaches involving Monte Carlo approximations of the normal space or the Fokker-Planck equation have been success-fully used for local intrinsic dimension estimation (Stanczuk et al., 2024; Horvat and Pfister, 2024; Kamkari et al., 2024; Leung et al., 2025). While these diffusion-based estimators nat-urally extend to disjoint unions of manifolds given sufficient separation, they fundamentally struggle with stratified spaces, where the presence of intersections violates standard local manifold assumptions. To our knowledge, this is the first attempt to introduce a theoretical generative model-ing framework designed to learn distributions and geometric structures on stratified spaces. We first develop a likelihood approach to learning a distribution via a sieve MLE. The key difficulty in this extension from the manifold case is the singularity around intersections, where smoothness and reach conditions that are commonly assumed in the manifold setting are violated. This is addressed by partitioning the space into regions that exhibit positive reach and an intersection portion that can be controlled. We then give a diffusion-based framework and derive rates of convergence of the score approximation and Wasserstein dis-tance between the estimator and the target distribution. Furthermore, we prove consistency of the proposed diffusion-based local intrinsic dimension estimator as well as the number of strata. The theory developed for these two generative frameworks makes it possible to dissect the ability of deep generative models to perform stratified learning and to understand the roles of singularity, geometry, and ambient noise, as well as the distinctive features of the two generative frameworks. For example, they are suitable for different regimes. The sieve-MLE approach is most appropriate when the noise level is moderate and providing a direct estimator for both the ambient and intrinsic distribution, while likelihood-based methods become unstable in near-singular settings. By contrast, the diffusion-based frame-work remains well posed even without noise due to its built-in Gaussian smoothing in the forward process. Thus, diffusion models are especially well suited for learning on singular or nearly singular stratified spaces. In addition, the local geometric information of the score 3field at small diffusion time can be utilized for learning the structural information of the stratified space. The paper is organized as follows: Section 2 provides the setup, definitions and assump-tions that will be used throughout the paper. In Section 3, we develop a likelihood approach for stratified learning. Section 4, is devoted to a diffusion-based framework and convergences of the score and target distribution. Section 5 focus on the consistency of the local intrinsic dimension (LID) and number of strata estimator. In Section 6, we provide extensive numer-ical examples that illustrate our methods. Lastly, Section 7 contains concluding remarks. For presentation purposes, we provide proofs to all theorems in the supplementary material. 
+
+2 Stratified Spaces and Deep Generative Models 
+
+In this section, we formalize the geometric and probabilistic frameworks for learning distri-butions on stratified spaces. 
+
+2.1 Geometric Setup 
+
+We assume that our data is generated from a distribution that centers around a stratified space S ⊂ RD, which is defined as a union of compact embedded manifolds (without bound-ary) M1, ..., M K ⊂ RD of intrinsic dimensions 1 ≤ dk < D . Each component is also called a 
+
+stratum of S. The subset of singularities is denoted by Ssing = S 
+
+> k̸=ℓ
+
+(Mk ∩ Mℓ), and points 
+
+x ∈ Ssing are referred to as singular , and regular otherwise. For a closed set C ⊂ RD and r > 0, the reach of C is defined as the supremum of r
+
+such that C ⊕ Br(0 D) has unique Euclidean projection onto C, where ⊕ denotes Minkowski summation. Stratified spaces allow for intersections between strata, so unique projection may not hold in general for any r > 0. In this case, we say reach( S) = 0 and the positive-reach assumption is violated. We therefore impose the following regularity conditions on each stratum and subset of singularities of S:
+
+Assumption 1 (Regularity of Strata) Each stratum Mk is an embedded βk-Hölder smooth manifold for some βk ≥ 2 and with positive reach rk > 0 when considered as a standalone manifold. We refer to Giné and Nickl (2021) for details about Hölder smoothness. 
+
+Assumption 2 (Intersections) The intersections between strata are non-degenerate in the sense that for any k, ℓ , Mk ∩ Mℓ is a submanifold of co-dimension at least one of both 
+
+Mk and Mℓ, and the intersections are transversal (non-tangential). 
+
+The co-dimension condition implies that the singular intersection set Ssing has strictly lower intrinsic dimension, and hence has measure zero. The transversality assumption en-sures that the strata cross at a positive angle, preventing them from aligning tangentially. This implies that the distance between strata diverges at a linear rate when moving away from a singular region, which is important in our asymptotic analysis. Compactness of the strata also provides a margin between non-intersecting strata, preventing disjoint strata from becoming arbitrarily close. 42.2 Probabilistic Setup 
+
+We first define a distribution Q∗, the intrinsic distribution , that’s assumed to be supported on a stratified space S and can be written as a mixture of distributions supported on the individual manifolds: 
+
+Q∗ =
+
+> K
+
+X
+
+> k=1
+
+ωkQk
+
+where Qk is a probability measure on Mk that is absolutely continuous with respect to the volume measure vol Mk , ωk ∈ (0 , 1) , and P 
+
+> k
+
+ωk = 1 .Real-world data may be noisy and generally need not lie exactly on a stratified space. We suppose that we have i.i.d. samples X1, ..., X n ∈ RD from a distribution P∗, which we model as a convolution of a distribution on S and Gaussian noise: 
+
+X = Y + ϵ
+
+where Y ∼ Q∗ with distribution Q∗ is the intrinsic distribution that’s supported exactly on the stratified space S and ϵ ∼ N (0 D, σ 2 
+
+> ∗
+
+ID) with Y and ϵ being independent. In some cases, we may assume that σ∗ = σn → 0 as n → ∞ , which we specify separately in both the likelihood and diffusion approaches. We note that when σ∗ > 0, P∗ is absolutely continuous with respect to the Lebesgue measure, and hence has a density p∗. This also allows us to view P∗ as: 
+
+P∗ =
+
+ KX
+
+> k=1
+
+ωkQk
+
+
+
+∗ N (0 D, σ 2 
+
+> ∗
+
+ID) = 
+
+> K
+
+X
+
+> k=1
+
+ωk(Qk ∗ N (0 D, σ 2 
+
+> ∗
+
+ID)) .
+
+In particular, we see that the convolution with Gaussian noise happens on each component of the mixture. 
+
+Remark 1 We assume one noise level σ∗ across all strata. While one could consider stratum-dependent noise levels σk to model heterogeneous measurement errors (e.g., different physical constraints), this can cause issues at intersections and complicates the analysis in diffusion models, which inherently use isotropic Gaussian noise. Furthermore, a single noise level ensures that the local variance is attributed to intrinsic geometry as opposed to variable noise magnitudes. 
+
+Assumption 3 (Density Smoothness) For each k, the density qk of Qk with respect to 
+
+vol Mk is αk-Hölder smooth for some αk ∈ [0 , β k − 1] and is bounded from above and below on Mk.
+
+Assumption 4 There exists a constant ωmin > 0 such that ωk ≥ ωmin for all k, and ωk
+
+remains constant (independent of samples size). 
+
+Remark 2 The conditions in Assumption 4 imply that for a sample size of n, the average sample size nk for stratum Mk is E[nk] = ωkn ≍ n for all k and that each component can locally be recovered asymptotically. These assumptions align with standard frameworks such as in Aamari and Berenfeld (2024) and are necessary for identifying strata against noise. While one may consider the cases where ωk can be arbitrarily small or the number of strata 
+
+K grows as n → ∞ (non-parametric mixtures), such settings require additional detection analysis and are left for future work. 
+
+52.3 Neural Network Sieve 
+
+In both settings, we will use a class of ReLU neural networks to approximate the target function: in the likelihood regime, the network parametrizes the generator (or pushforward map), while in the diffusion regime, it parametrizes the score vector field. 
+
+Definition (Neural network class): For each m ≥ 1, ReLU : Rm → Rm denotes the coordinate-wise map ReLU( x1, ..., x m) = (max {0, x 1}, ..., max {0, x m}). For each i = 0 , ..., L ,define the affine map Ti(x) = A(i)x + b(i), where A(i) ∈ RWi+1 ×Wi are the weight matrices, 
+
+b(i) ∈ RWi+1 are the bias vectors. The standard feedforward neural network with depth L is defined as 
+
+fθ = TL ◦ ReLU ◦TL−1 ◦ ReLU ◦ · · · ◦ ReLU ◦T0
+
+where θ = {A(0) , . . . , A (L), b (0) , . . . , b (L)} and ◦ denotes function composition. A class of neural networks with depth L, width vector W = ( W0, W 1, . . . , W L+1 ), sparsity R, param-eter bound B, and function norm bound V is defined as 
+
+Φ( L, W, R, B, V ) = {fθ(·) : 
+
+> L
+
+X
+
+> i=0
+
+(∥A(i)∥0+∥b(i)∥0) ≤ R; max  
+
+> i
+
+∥A(i)∥∞∨∥ b(i)∥∞ ≤ B; ∥f ∥∞ ≤ V .
+
+3 Sieve MLE: a likelihood-based approach 
+
+In the setting of generative modeling, variational autoencoders are trained to maximize a variational lower bound of the log likelihood function. This motivates the exploration of distributions supported on stratified spaces through a likelihood lens. A central difficulty in discussing maximum likelihood estimators in the context of manifolds and stratified spaces is that distributions supported on lower-dimensional structures are singular with respect to Lebesgue measure; that is, they are concentrated on sets of Lebesgue measure zero. Convolving that distribution with an isotropic Gaussian creates a distribution with a positive ambient density. Thus, the addition of noise is a theoretical necessity for a likelihood-based approach. However, this introduces an inherent trade-off on the noise variance. If the noise level is too large, the intrinsic geometry of the data is obscured, making recovery of the distribution on the stratified space difficult, while too little noise makes the likelihood more sharply concentrated, leading to singularity which can cause inconsistency in the ambient distribution estimator. Chae et al. (2023) analyze a sieve MLE for distributions P∗ with smooth and lower-dimensional manifold structure and derive Wasserstein-1 rates for recovering the intrinsic distribution Q∗ from noisy samples. We build on this framework by considering a mixture-of-experts sieve of neural networks and show that Q∗ can be approximated by a latent pushforward of a function in this sieve. We define a class P of distributions Pf,σ inspired by the mixture-of-experts model and show that the density p∗ of P∗ can be approximated in Hellinger distance by a sieve MLE ˆp = p ˆf , ˆσ ∈ P . With a careful partition of the am-bient space and suitable noise level, it can be shown that the pushforward distribution Q ˆf
+
+converges to the intrinsic distribution Q∗ in Wasserstein distance. 63.1 Hellinger Convergence of a Sieve MLE for p∗
+
+We parametrize the singular distribution Q∗ on S via a latent pushforward model. Let Z
+
+be a random variable on a latent space Z with a simple distribution PZ (e.g., Gaussian or uniform), and f : Z → S ⊂ RD be a measurable map parametrized by a deep neural network. This induces a distribution on S through the pushforward Qf = f#PZ . We model the data-generating process as 
+
+X = f (Z) + ϵ
+
+where ϵ ∼ N (0 , σ 2 
+
+> ∗
+
+ID), and ϵ and Z are independent. Consider an interval [σmin , σ max ]
+
+of possible noise levels for the data. For our purposes we will consider the regime where 
+
+σ∗ = σ∗,n → 0 as n → ∞ , which is common in the manifold learning literature. Thus, σmax 
+
+can remain constant, but σmin can be treated as a sequence tending to zero. Let Pf,σ be the distribution of X = f (Z) + ϵ, and define the class of distributions of this form as 
+
+P = {Pf,σ | f ∈ F , σ ∈ [σmin , σ max ]}.
+
+Note that if σ > 0, then Pf,σ has a Lebesgue density given by 
+
+pf,σ (x) = 
+
+Z
+
+ϕσ(x − f (z)) dP Z (z).
+
+For a class of functions F, an interval of possible noise levels [σmin , σ max ], and any sequence 
+
+ηn → 0, one can define a Sieve MLE as ˆp = p ˆf , ˆσ, where ( ˆf , ˆσ) ∈ F × [σmin , σ max ] are such that nX
+
+> i=1
+
+log p ˆf , ˆσ(Xi) ≥ sup 
+
+> (f,σ )∈F× [σmin ,σ max ]
+> n
+
+X
+
+> i=1
+
+log pf,σ (Xi) − ηn.
+
+The benefit of a sieve MLE is that it allows us to discuss finite sample performance of the estimator at any sample size n as well as asymptotically. While establishing optimization guarantees of such an estimator in the realm of deep learning is a challenging task, in this paper we focus purely on the theoretical statistical convergence. 
+
+Generator Construction. It is important to note that a manifold is not globally pa-rameterizable in general, so one must work at the level of local charts and glue these local functions together via a partition of unity. A distribution on a stratified space has a natural hierarchical structure: we first select a stratum, then a chart within that stratum, and finally samples points from a local function on that chart. The target distribution Q∗ can be realized by a pushforward measure of a generating function f : Z → S ⊂ RD as follows. Suppose S = SKk=1 Mk and Q∗ = PKk=1 ωkQk, where 
+
+dim Mk = dk and Qk is a distribution supported on Mk. Let Z = (0 , 1) × ˜Z, where ˜Z
+
+is a dmax -dimensional latent space (with dmax = max k dk), say (0 , 1) dmax , equipped with a uniform distribution. We then represent a latent sample as (w, z ), where w ∼ Uniform (0 , 1) 
+
+is a routing variable selecting the stratum and chart, and z ∈ ˜Z represents its intrinsic coordinates. To construct the local maps, suppose we have an αk-Hölder smooth density qk with respect to the volume measure on a compact βk-Hölder smooth manifold Mk with αk ∈
+
+[0 , β k − 1] . One can construct an (αk + 1) -Hölder smooth transport map f : Zk → Uk, where 7Zk is dk-dimensional unit cube equipped with the uniform distribution and Uk is a chart on Mk (see Lemma 10 in Chae et al. (2023) and the following remark, and Lemma 12.50 in Villani et al. (2008)). To extend this to stratified space, recall that Q∗ = PKk=1 ωkQk. Let I1 = (0 , ω 1) and Ik =[Pk−1 
+
+> ℓ=1
+
+ωℓ, Pkℓ=1 ωℓ) for k = 2 , ..., K be disjoint intervals of lengths ω1, ..., ω K , respectively, partitioning (0 , 1) . Now for each fixed k, following Chae et al. (2023), suppose we cover Mk
+
+with Jk charts {Uj }Jk 
+
+> j=1
+
+and define a partition of unity {τj (·)}Jk 
+
+> j=1
+
+subordinate to that cover. Let Qk,j be the normalized measure on Uj with corresponding Hausdorff density qk,j and define ˜qk,j (y) = cj τj (y)qk,j (y), where cj = [ R τj (y)dQ k,j (y)] −1. Then the Hausdorff density 
+
+qk of Qk can be written as a mixture qk(y) = PJk 
+
+> j=1
+
+πk,j ˜qk,j (y), where πk,j = Qk,j (Uj )/c j for 
+
+j = 1 , ..., J k and each component ˜qk,j (y) is representable as a pushforward measure fk,j #P eZ .Hence, further partition each of the intervals as I1,1 = (0 , ω 1π1,1), and for all other (k, j ),define 
+
+Ik,j =
+
+"k−1X
+
+> ℓ=1
+
+ωℓ + ωkj−1X
+
+> i=1
+
+πk,i ,
+
+> k−1
+
+X
+
+> ℓ=1
+
+ωℓ + ωkjX
+
+> i=1
+
+πk,i 
+
+!
+
+.
+
+Let hk,j be the indicator function for Ik,j . For (w, z ) ∈ Z = (0 , 1) × ˜Z, define f ∗ as 
+
+f ∗(w, z ) = 
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+hk,j (w)fk,j (z1: dk ), (3.1) where z1: dk denotes projection onto the first dk variables of ˜Z. Then one can show that by construction, we have that Q∗ = Qf ∗ = f ∗
+
+> #
+
+PZ where PZ = Uniform(0 , 1) ⊗ P eZ .
+
+Mixture-of-Experts Sieve. To define the sieve, we fix an integer K ≥ 1 and a bound 
+
+V > 0. For each k = 1 , ..., K , we consider the class 
+
+F(k) = Φ( L(k), W (k), R (k), 1, V (k))
+
+consisting of neural networks of depth L(k), widths W (k), sparsity R(k), weights bounded by 1, and output bound ∥f ∥∞ ≤ V (k). Also, let H = Φ( eL, fW , eR, 1, 1) consist of ReLU networks bounded by 1. For a positive integer K ≥ 1 and K-sequence J = ( J1, ..., J K ) with Jk ≥ 1
+
+for all k = 1 , ..., K , define the Mixture-of-Experts sieve to be 
+
+GK, J =
+
+f (w, z ) = 
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+hk,j (w)fk,j (z) : hk,j ∈ H , f k,j ∈ F (k), ∥f ∥∞ ≤ V
+
+ .
+
+The architecture for each component of the sieve may be different for theoretical purposes, but in practice one may take them all to be the same, i.e. F(k) = F for all k = 1 , ..., K . Our results will depend on the sample size n, and hence one can consider a sequence {G K, J 
+
+> n
+
+}∞
+
+> n=1
+
+.
+
+Remark 3 Mixture-of-Experts models traditionally use a softmax routing mechanism as a means of creating a distribution over the experts, so one could consider a class H of ReLU neural networks with softmax output over all hk,j ’s. However, ReLU routing has been considered to be a promising alternative for sparse MoE architectures (Wang et al., 2024). 
+
+8Also, note that our sieve relaxes the probability simplex constraint on the gating functions (i.e., P hk,j = 1) that is generally imposed by Mixture-of-Experts models. This relaxation allows us to approximate the true indicator routing functions that partition the domain with more tractability. One could also consider a (equivalent) hierarchical mixture architecture by partitioning (0 , 1) into the mixture weights for the strata followed by another partition of 
+
+(0 , 1) for charts. 
+
+The following lemma shows that any function f ∗ of the form (3.1) can be approximated arbitrarily well by functions in GK, J.
+
+Lemma 4 Suppose f ∗(w, z ) = PKk=1 
+
+PJk 
+
+> j=1
+
+h∗ 
+
+> k,j
+
+(w)f ∗ 
+
+> k,j
+
+(z) is of the form (3.1) over Z =(0 , 1) dmax +1 , where f ∗ 
+
+> k,j
+
+are (αk + 1) -Hölder smooth with ∥f ∗ 
+
+> k,j
+
+∥∞ ≤ V and h∗ 
+
+> k,j
+
+are indicator functions for all k = 1 , ..., K and j = 1 , ..., J k. Then, for every δ > 0, there exists an approximation f (w, z ) = PKk=1 
+
+PJk 
+
+> j=1
+
+hk,j (w)fk,j (z) consisting of: 1. Routing networks hk,j ∈ H with eL = O(log δ−1), ∥fW ∥∞ = O(1) , and eR = O(log δ−1),2. Expert networks fk,j ∈ F (k) with L(k) = O(log δ−1), ∥W (k)∥∞ = O(δ−dk /(αk +1) ),
+
+R(k) = O(δ−dk /(αk +1) log δ−1), and V (k) = V ∨ 1,such that ∥f − f ∗∥2 ≤ δ.
+
+Remark 5 Unlike the L∞ approximation required in Chae et al. (2023), Lemma 4 relaxes this to an L2 approximation of f ∗. This is a necessity since indicator functions jump from 0 to 1, making such approximation by (continuous) ReLU functions impossible in L∞. This does not cause issues with their proof of Theorem 3 for Hellinger distance since it only requires an L2-approximation error to give an upper bound on the KL divergence between the true density p∗ and the model density pf,σ ∗ .
+
+Lemma 4 shows that our mixture-of-experts sieve is rich enough to approximate the true generative map, effectively controlling the approximation error. The stochastic error of the estimator can be analyzed via the bracketing entropy. Let N[] (δ, P, d H ) denote the minimum number of δ-brackets in the Hellinger metric dH to cover the density class P. Based on the structure of a function f ∈ G K, J, the complexity of f is governed by the complexities of the routing class H and the expert classes F(k). Together, these yield an upper bound on the bracketing entropy via the standard covering numbers N (ϵ, F, ∥ · ∥ ∞) with respect to the supremum norm: 
+
+Lemma 6 Let GK, J be the Mixture-of-Experts sieve with ∥f ∥∞ ≤ V , and let M = PKk=1 Jk.Then there exist constants c, c ′, c ′′ depending only on D, V, M, σ max and δ∗ = δ∗(D) such that for every δ ∈ (0 , δ ∗],
+
+log N[] (δ, P, d H ) ≤ M log N
+
+
+
+cσ D+3 min δ4, H, ∥ · ∥ ∞
+
+
+
++
+
+> K
+
+X
+
+> k=1
+
+Jk log N
+
+
+
+c′σD+3 min δ4, F(k), ∥ · ∥ ∞
+
+
+
++ log 
+
+ c′′ 
+
+σD+2 min δ4
+
+
+
+.
+
+9The approximation and entropy established from Lemma 4 and Lemma 6 lead to the fol-lowing theorem on the convergence in Hellinger distance of the sieve MLE ˆp of p∗. The convergence rate of dH (ˆ p, p ∗) is effectively determined by the worst-rate stratum: 
+
+Theorem 7 Let n ≥ 1 and γ > 0. Suppose Assumptions 1-4 hold and assume σ∗ ∈
+
+[σmin , σ max ] with σmin ≤ 1. Define j∗ = arg max k dk  
+
+> αk+1
+
+and 
+
+δapp := 
+
+ σ2
+
+> ∗
+
+n
+
+(αj∗ +1) /(2( αj∗ +1)+ dj∗ )
+
+.
+
+Then there exists H and {F k}Kk=1 that defines the Mixture-of-Experts sieve GK, J so that 1. log N (δ, H, ∥ · ∥ ∞) ≤ eR(A + 1 ∨ log δ−1) and log N (δ, F(k), ∥ · ∥ ∞) ≤ R(k)(A + 1 ∨
+
+log δ−1) for k = 1 , ..., K , where ˜R = O(log δ−1
+
+> app
+
+) is the routing sparsity, R(k) =
+
+O(δ−dk /(αk +1)  
+
+> app
+
+log δ−1
+
+> app
+
+) is the expert sparsity, and A = O((log n)2).2. There exists f ∈ G K, J such that ∥f − f ∗∥2 ≤ δapp .3. Let δ∗ be given as in Lemma 6. Then there exist some constants C1, C 2, C so that the sieve MLE ˆp satisfies 
+
+P∗(dH (ˆ p, p ∗) > ϵ ∗
+
+> n
+
+) ≤ 5e−C1nϵ ∗2 
+
+> n
+
++ C2
+
+n ,
+
+where 
+
+ϵ∗ 
+
+> n
+
+= C
+
+s
+
+( eR + P 
+
+> k
+
+JkR(k))( A + log( n/σ min )) 
+
+n ∨ δapp 
+
+σ∗
+
+ .
+
+provided that ηn ≤ ϵ∗2 
+
+> n
+
+/6 and ϵ∗ 
+
+> n
+
+≤ √2δ∗.
+
+In the case that σ∗ = n−γ and σmin = n−ζ for some ζ ≥ γ ≥ 0, then the choice of δapp 
+
+optimizes ϵ∗ 
+
+> n
+
+in Theorem 7, which implies that 
+
+ϵ∗ 
+
+> n
+
+= Cn − (αj∗ +1) −dj∗ γ  
+
+> 2( αj∗+1)+ dj∗
+
+(log n)3/2.
+
+Observe that if αj∗ + 1 − dj∗ γ ≤ 0, then distributional convergence is not guaranteed. This is in particular the case when γ is relatively large, so that the noise becomes too small quickly. In that regime the target distribution becomes nearly singular, which can lead to extremely large likelihood values and makes MLE-based methods unstable. Hence, we require that the noise does not decrease too fast for Theorem 7 and the following section. 
+
+3.2 Convergence of Sieve MLE for Q∗
+
+The sieve MLE framework is easily adapted for estimating the intrinsic distribution Q∗ on 
+
+S. A sieve MLE P ˆf , ˆσ for P∗ naturally defines an estimator Q ˆf for Q∗. One of the standard methods of recovering an intrinsic distribution on a manifold from an ambient noisy one involves utilizing its reach to project onto the manifold as a form of deconvolution. The reach of the stratified space is 0 if two or more strata intersect, so a tubular neighborhood 10 where projection is unique cannot exist. To circumvent this, we perform excision to partition 
+
+S into regular and singular regions. The regular regions in particular will have positive reach, making standard projection-based results such as Theorem 7 in Chae et al. (2023) applicable. Formally, for a ρ > 0 (which we chose to be vanishing with σ∗) and for each k = 1 , ..., K , let 
+
+Ak =
+
+x ∈ Mk dist 
+
+
+
+x, [
+
+> ℓ̸=k
+
+Mℓ
+
+
+
+> 2ρ
+
+ , A =
+
+> K
+
+[
+
+> k=1
+
+Ak, and Ising = S \ [
+
+> k
+
+Ak.
+
+Then each Ak is now a closed subset with positive reach, and I contains points in intersections and points 2ρ-close to two or more manifolds that contributes an error on the order of ρ.This is formalized in the following theorem: 
+
+Theorem 8 Let S = SKk=1 Mk be the closure of f ∗(Z). Suppose that || f ∗|| ∞ ≤ V for some constant V . Assume that S does not have an interior point in RD and reach (Mk) = rk for some constants rk > 0 when considered as standalone manifold. Further assume that there exist constants c > 0 and ρ1 > 0 such that when ρ ≤ ρ1, Q∗(A) > c . If dH (pf,σ , p ∗) ≤ ϵ ≤ 1
+
+and ∥f ∥∞ ≤ V , then 
+
+W1(Qf , Q ∗) ≤ C(ϵ + σ∗
+
+plog ϵ−1)
+
+for some constant C depending on c, D, K, V .
+
+Remark 9 Although the bound in Theorem 8 is of the same order as the one in Theorem 7 in Chae et al. (2023), the constant is potentially much larger depending on the separation of the strata. While we do not assume that the stratified space has positive reach, our proof handles the singularity by removing a neighborhood around it, and this excision introduces additional dependence on the true noise level σ∗.
+
+We again emphasize the delicacy of the true noise level σ∗. If σ∗ is too large, the geometric information from the stratified structure can become obscured, which degrades the statistical recovery of Q∗. Conversely, if σ∗ is too small, the density p∗ becomes sharply concentrated and the Hellinger distance dH (ˆ p, p ∗) may not converge, as discussed following Theorem 7. In the small-noise regime, one can apply noise injection (data perturbation) as in Chae et al. (2023) to regularize the density. The process involves fixing a perturbation level ˜σ > 0 and constructing perturbed observations ˜Xi = Xi + ˜ ϵi, where ˜ϵi ∼ N (0 , ˜σ2ID).The perturbed data remain i.i.d. with respect to the regularized distribution ˜P∗ = Pf∗,˜σ∗ ,where ˜σ2 
+
+> ∗
+
+= σ2 
+
+> ∗
+
++ ˜ σ2. By applying Theorem 7 and Theorem 8 to ˜X1, ..., ˜Xn, we obtain a sieve MLE ˆPper = P ˆfper ,ˆσper for the ambient distribution and hence a sieve MLE ˆQper = ˆQ ˆfper for 
+
+Q∗.Furthermore, suppose that σ∗ = n−γ and σmin = n−ζ . Let ˜σ = n−(αj∗ +1) /2( αj∗ +1+ dj∗ ).By applying Theorem 8 on the perturbed distribution and adapting the argument in the proof of Theorem 9 in Chae et al. (2023), we obtain 
+
+P∗
+
+
+
+W1( ˆQper , Q ∗) > C 3
+
+
+
+ϵ∗ 
+
+> n
+
++ σ∗
+
+p− log ϵ∗
+
+> n
+
+ 
+
+≤ 5e−C1nϵ ∗2 
+
+> n
+
++ C2
+
+n ,
+
+where 
+
+ϵ∗ 
+
+> n
+
+≍
+
+
+
+n− αj∗ +1 −dj∗ γ  
+
+> 2( αj∗+1)+ dj∗
+
+(log n)3/2 if γ < (αj∗ + 1) /(2( αj∗ + 1 + dj∗ )) ,n− αj∗ +1 2( αj∗ +1+ dj∗ ) (log n)3/2 otherwise. 11 Data perturbation thus stabilizes the distribution and improves the rate of convergence when 
+
+γ ≥ (αj∗ + 1) /(2( αj∗ + 1 + dj∗ )) , and thus provides convergence guarantees in the small noise regime where the unperturbed estimator would fail. 
+
+4 Diffusion Model for Stratified Learning 
+
+Section 3 demonstrated the necessity of ambient noise to stabilize the likelihood of a singular distribution. That is, adding noise to the data helps prevent inconsistency when the noise-level is too low. However, selecting an optimal noise level can be practically rigid. Diffusion models naturally avoid this rigidity by constructing a time-dependent forward process to incrementally inject noise into the data rather than applying a single perturbation. In addition, diffusion models also exhibit a backward process that allows for easy sampling from a standard Gaussian. One can write the forward and backward processes in terms of stochastic differential equations Song et al. (2020), and it has been shown in previous works (Oko et al. (2023); Tang and Yang (2024)) that diffusion models are minimax-optimal and can adapt to manifold structures. The main objectives in the setting of stratified learning are learning the structure (i.e., the number of manifolds and their dimensions) and the underlying distributions on the stratified space, both of which are not addressed in other contexts. To this end, we show that the score of distributions supported near a stratified space can be approximated by a score network and derive the convergences of both score estimation as well as the underlying distribution estimator. Note that unlike in the existing literature where the data is assumed to lie exactly on a submanifold embedded in a high-dimensional ambient space, we consider there a general setting where the data might admit some noise. In generalizing the theory of diffusion models to the setting of stratified learning, it requires overcoming some substantial technical challenges and yield interesting results as discussed in Remark 11. 
+
+4.1 Forward-Backward Diffusion Models 
+
+We focus on a common class of diffusion models: the forward-backward diffusion models. This class consists of a forward process used to corrupt data and construct a score function, and a dual backward process generate new samples. For the forward process, we define the following Ornstein-Uhlenbeck process: 
+
+d−→
+
+X t = −βt
+
+−→
+
+X tdt + p2βtdW t, −→
+
+X 0 ∼ p∗
+
+where βt is a drift coefficient and {Wt : t ≥ 0} denotes standard Brownian motion in RD.Solutions to this SDE are of the form Xt = mtX0 + R t
+
+> 0
+> mt
+> ms
+
+√2βsdW s, yielding the conditional marginals pt(·| X0) = N (mtX0, σ 2 
+
+> t
+
+ID), where mt = exp 
+
+
+
+− R t 
+
+> 0
+
+βs ds 
+
+
+
+and σ2 
+
+> t
+
+= 1 − m2 
+
+> t
+
+.The forward process converges to a standard Gaussian distribution under the total variation metric exponentially fast as t → ∞ . In practice, one truncates the process at a finite time horizon T .Under mild regularity conditions (Song et al., 2020; Haussmann and Pardoux, 1986) the backward process is modeled by an SDE that simulates the forward process in reverse time: 
+
+d←−
+
+Y t =
+
+h
+
+βT −t
+
+←−
+
+Y t + 2 βT −t∇ log pT −t(←−
+
+Y t)
+
+i
+
+dt + p2βT −tdW t
+
+12 The distribution of ←−
+
+Y t is pT −t, so we can sample from p∗ by initializing the backward process with ←−
+
+Y 0 ∼ N (0 , I D) as a proxy for pT and numerically solving the reverse SDE. The reverse process requires access to the time-dependent score vector field ∇ log pt(x), which is generally intractable. Standard score-matching (Hyvärinen and Dayan, 2005) is used to approximate the score ∇ log pt(x) with a neural network ˆSθ(x) by minimizing the objective 
+
+L(θ) = Ex∼p[|| Sθ(x) − ∇ log p(x)|| 2],
+
+where Sθ : RD → RD is a deep neural network parametrized by θ.To model the time-dependent score ∇ log pt, we must optimize this objective over the entire trajectory. To perform a tractable optimization problem that does not require access to the intractable ∇ log pt(x), one typically minimizes the following denoising score-matching objective (Vincent, 2011), which is equivalent up to a constant: 
+
+L(θ) = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+Z T
+
+> 0
+
+Ext∼pt(·| xi)[|| Sθ(xt, t ) − ∇ log pt(xt|xi)|| 2]λ(t) dt, 
+
+where Sθ : RD × [0 , T ] → RD is a neural network parametrized by θ, and λ(t) is a positive weighting function. A fundamental challenge in the stratified learning setting is that the distribution Q∗
+
+is supported on a singular subset of Lebesgue measure zero. If σ∗ > 0, then the ambient distribution P∗ has a Lebesgue density, which avoids this issue. On the other hand, if 
+
+σ∗ = 0 , then the forward process naturally regularizes the distribution through convolution with an isotropic Gaussian, making the marginals pt smooth and non-singular for any t > 0.Note that the underlying geometry of the stratified space is most pronounced for small t
+
+as the convolved measure remains tightly concentrated. However, this tight concentration leads to an optimization issue: the score ∇ log pt(x) explodes as t → 0+ (Pidstrigach, 2022; De Bortoli, 2022), leading to numerical instability. Consequently, our analysis in Theorem 10 relies on rigorously controlling the approximation error from t = T into the singular regime as t → 0.
+
+4.2 Score Approximation and W1 Convergence 
+
+Recall that we consider a distribution Q∗ = PKk=1 ωkQk supported on a stratified space 
+
+S. Assuming the data-generating process admits ambient noise ϵ ∼ N (0 , σ 2 
+
+> ∗
+
+ID) for some 
+
+σ∗ > 0, the true ambient distribution takes the form 
+
+P∗ =
+
+ KX
+
+> k=1
+
+ωkQk
+
+
+
+∗ N (0 , σ 2 
+
+> ∗
+
+ID) = 
+
+> K
+
+X
+
+> k=1
+
+ωk(Qk ∗ N (0 , σ 2 
+
+> ∗
+
+ID)) ,
+
+which admits a density with respect to the Lebesgue measure given by p∗(x) = PKk=1 ωkpk(x),where 
+
+pk(x) = 
+
+Z
+
+ϕσ∗ (x − y)dQ k(y).
+
+Under the forward process, the transition kernel from an observation x0 ∼ P∗ to state x at time t is pt(x|x0) = N (x; mtx0, σ 2 
+
+> t
+
+ID). Hence, the marginal distribution at time t is given 13 by 
+
+pt(x) = 
+
+Z
+
+pt(x|x0)p∗(x0)dx 0.
+
+Substituting our mixture form p∗(x0) = PKk=1 ωkpk(x0) yields 
+
+pt(x) = 
+
+Z
+
+pt(x|x0)
+
+> K
+
+X
+
+> k=1
+
+ωkpk(x0)dx 0 =
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+Z
+
+pt(x|x0)pk(x0)dx 0 =
+
+> K
+
+X
+
+> k=1
+
+ωkpk,t (x).
+
+Thus, the marginal density at each time t preserves the mixture structure. This also induces the following decomposition of the score function: 
+
+∇ log pt(x) = ∇pt(x)
+
+pt(x) =
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+∇pk,t (x)
+
+pt(x) =
+
+> K
+
+X
+
+> k=1
+
+ωkpk,t (x)
+
+pt(x) ∇ log pk,t (x). (4.1) Equation 4.1 reveals that the global score function is a convex combination of the com-ponent score vector fields ∇ log pk,t (x), whose weights are given by the Bayesian posterior probability that a diffused point x at time t originates from stratum k. This yields a the-oretical advantage to analyzing the score approximation error by independently controlling the error on each stratum Mk.
+
+Theorem Setup We perform denoising score-matching to obtain a neural network es-timator ˆS. For simplicity, we assume the weighting function λ(t) ≡ 1. The estimator is obtained by solving: 
+
+bS = arg min S∈S N N 
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+Z T
+
+> 0
+
+Ext∼pt(· | Xi)
+
+∥S(xt, t ) − ∇ log pt(xt | Xi)∥2 dt, (4.2) To generate samples, we use the learned score network ˆS in the backward SDE: 
+
+d←−
+
+Y t = βT −t
+
+←−
+
+Y t + 2 βT −t bS(←−
+
+Y t, T − t) dt + p2βT −t dWt, ←−
+
+Y 0 ∼ N (0 , I D). (4.3) We define a truncated estimator bp for P∗ as the distribution of ←−
+
+Y T −τ · 1(∥←−
+
+Y T −τ ∥∞ ≤ L),where τ is the early-stopping time and L is a sufficiently large constant. Then consider SN N 
+
+realized by piecewise ReLU neural network 
+
+SN N = S(x, t ) = 
+
+> L−1
+
+X
+
+> l=0
+
+Sl(x, t ) · 1 tl ≤ t < t l+1 
+
+ Sl ∈ Φ( Ll, W l, R l, B l, V l), l ∈ [L] ,
+
+where τ = t0 < t 1 < · · · < t L = T , L = ⌊log 2 Tτ ⌋ + 1 , and tl+1  
+
+> tl
+
+= 2 for any 0 ≤ l ≤ L − 2. We use eO(an) to be of order an up to logarithmic term, i.e., bn = eO(an) iff there exist constants 
+
+c, C so that bn ≤ C a n(log n)c for n ≥ 2.
+
+Theorem 10 (Forward-backward diffusion) Suppose Assumptions 1,3,4 are satisfied, and the drift coefficient βt is infinitely differentiable and uniformly bounded from above and below in t. There exists a constant C1 so that if T = C1 log n and 
+
+τ = c1 log n ·
+
+
+
+n−c, σ∗ > n − min kαk +1 2αk +dk
+
+√log nn− min k   
+
+> 2αk+2 2αk+dk
+
+, σ∗ ≤ n− min kαk +1 2αk +dk
+
+√log n, 
+
+14 where c is any constant with c ≥ 1 and c1 is a sufficiently large positive constant. Then there exist suitable choices of {(Ll, W l, R l, B l, V l)}l∈[L] so that 1. For any l ∈ [L],
+
+EX1: n∼P ⊗n
+
+> ∗
+
+ Z tl+1 
+
+> tl
+
+Z
+
+> RD
+
+∥ bS(x, t ) − ∇ log pt(x)∥2pt(x) d xdt
+
+
+
+= eO
+
+ KX
+
+> k=1
+
+min 
+
+ (σ∗ + √1 ∧ tl)− max {dk ,2}
+
+n , n − 2αk  
+
+> 2αk+dk
+
++ n− 2βk 
+
+> 2αk+dk
+
+σ2 
+
+> ∗
+
++ tl
+
+
+
+.
+
+2. It holds that 
+
+EX1: n∼P ⊗n 
+
+> ∗
+
+[W1(bp, P ∗)] = eO
+
+ 1
+
+√n +
+
+> K
+
+X
+
+> k=1
+
+min 
+
+ σ− dk 
+
+> 2+1
+> ∗
+
+√n , n − αk +1 2αk +dk
+
+
+
+.
+
+In the case σ∗ > n − min kαk +1 2αk +dk
+
+√log n, the early stopping time τ is introduced mainly for technical convenience, and it suffices that τ decays polynomially in n.
+
+Remark 11 The main technical challenges arise from three sources. First, unlike Tang and Yang (2024); Oko et al. (2023), we allow Gaussian noise with level σ∗ ∈ [0 , ∞), so the distribution need not lie exactly on a submanifold. An interesting consequence of Theorem 10 is that σ∗ actually has a positive effect on the Wasserstein bound for distribution learning. In particular, when σ∗ is of constant order, we achieve the parametric root-n rate eO(1 /√n).This improvement stems from two facts: (1) The Gaussian noise has a smoothing effect on the intrinsic distribution supported on the stratified space, so the noised distribution has an infinitely smooth density with respect to Lebesgue measure when σ∗ is of constant order, making the problem intrinsically easier. (2) The structure of the diffusion model estimator is well suited to handle such noise. Convolution with Gaussian noise resembles the forward process that injects Gaussian noise; on the reverse side, this can be viewed as an automatic early stopping in the backward diffusion process, which stabilizes the score approximation. Second, the stratified-space structure itself poses substantial challenges. In particular, when σ∗ = 0 , the data support is no longer a smooth submanifold with positive reach, a standard assumption in the literature on submanifold estimation or distribution estimation on submanifolds (Tang and Yang, 2024, 2023b; Aamari and Levrard, 2019). Our key in-sight is that the evaluation metric is the Wasserstein distance, which is relatively insensitive to exact support recovery (Tang and Yang, 2023b). Therefore, even if the stratified space cannot be accurately estimated near its intersections, this is less consequential when the goal is distribution recovery under Wasserstein distance. To address the stratified-space setting, we carefully exploit the additive structure of the score function in (4.1) and construct neu-ral network approximations to control the resulting approximation error. Lastly, we allow different components of the stratified space to have different manifold smoothness βk and density smoothness αk. This requires us to carefully choose the resolution and grid size in our approximation theory so as to adapt to the varying smoothness levels. 
+
+15 Remark 12 Both the diffusion-model and sieve-MLE approaches fit naturally into our stratified-space framework, but they address different aspects of the learning problem. On the one hand, diffusion-based learning is particularly well suited to the singular regime arising when 
+
+σ∗ = 0 or when σ∗ decays rapidly. Because score-based diffusion models are trained through denoising with Gaussian perturbations, the method remains well posed even for noiseless ob-servations, and we can obtain consistency results in W1 distance without imposing a lower bound on the decay rate of σ∗ or artificially injecting noise into the data as in the likelihood based method. Moreover, the learned score field bS(x, t ) contains local geometric information; as discussed in Section 5, its behavior as t → 0 can be leveraged to construct estimators of intrinsic dimension. On the other hand, the sieve MLE procedure is explicitly likelihood-based for an ambient-density model and is therefore less suitable when the target distribution is near singular or no ambient noise is present. However, when the data-generating mech-anism includes Gaussian noise, our sieve model class, consisting of mixtures of generative models convolved with Gaussian noise, admits a natural deconvolution interpretation. In particular, fitting Pf,σ yields not only an estimator of the observed ambient distribution P0,but also an immediate estimator Q bf of the underlying noiseless distribution Q∗. This con-trasts with diffusion models, which by default target the observed distribution rather than its deconvolved counterpart. Finally, the explicit mixture structure in the sieve model provides additional interpretability by enabling stratum-wise generation. 
+
+5 Estimating Number of Strata and Dimensions 
+
+The theoretical results in Sections 3 and 4 establish that the likelihood and diffusion models implicitly adapt to the structure of a stratified space with the convergence rates ultimately depending on the intrinsic dimensions and smoothness of strata. However, in many prac-tical settings, the underlying topological structure, such as the number of strata and the dimension of the each stratum is unavailable. In this section, we now address the inverse problem: given a learned score network, can we recover the number of strata and their intrinsic dimensions? As observed previously, the score function of a distribution supported on a lower-dimensional submanifold explodes as t → 0+, which requires early stopping to prevent instability when training. Nevertheless, given a point x, the score varies minimally along tangent direc-tions while its magnitude is dominant in normal directions. Recent works have leveraged this behavior of diffusion models to estimate local intrinsic dimension of a manifold via the Fokker-Planck equation, gauges, and Monte Carlo methods (Stanczuk et al., 2024; Kamkari et al., 2024; Horvat and Pfister, 2024; Leung et al., 2025). More specifically, Stanczuk et al. (2024) show that the score vector of the marginal density pt for points sufficiently close to the data manifold aligns with the normal space as t → 0+. They then propose a local intrin-sic dimension estimator by approximating the normal space at a given data point through sampling score vectors of locally diffused points at small time scales. We extend this method to stratified spaces by showing that, at small time scales, the score is approximately normal to a single stratum around regular points. Near singularities where multiple strata intersect, the score becomes a combination of competing normal directions that is ultimately domi-nated by the normal space corresponding to the lowest-dimensional participating stratum in the limit. 16 5.1 Geometry of the Score 
+
+Equation 4.1 illustrated that the score function for the marginal distribution at time t can be written as a convex combination of the component scores for each manifold: 
+
+∇ log pt(x) = 
+
+> K
+
+X
+
+> k=1
+
+ωkpk,t (x)
+
+pt(x) ∇ log pk,t (x),
+
+where ωk pk,t (x) 
+
+> pt(x)
+
+are the posterior mixture weights. For regular points x ∈ Mk \ S 
+
+> ℓ̸=k
+
+Mℓ
+
+outside of a small neighborhood of the intersection region, the posterior weight ωk pk,t (x) 
+
+> pt(x)
+
+will tend to 1 as t → 0 as the relative density contributions from other strata become exponen-tially negligible. However, for points near a singularity, the score is a convex combination of the individual scores of the intersecting strata, with each score component being approxi-mately normal to its respective stratum. To formalize this geometrically, we apply Laplace’s method to analyze the interaction of the marginal densities pk,t and their gradients ∇pk,t 
+
+as t → 0+. As we exhibit in the following theorem, the local density contribution from each stratum scales differently based on its intrinsic dimension dk. The relative volume scales proportionally to σdk −dℓ , so the contributions from higher-dimensional strata vanish as t → 0+. Thus, the limiting behavior of the score near a singularity is dominated by the normal space of the lowest-dimensional nearby stratum. 
+
+Theorem 13 Suppose that the distribution P∗ is supported on a compact stratified space 
+
+S = SKk=1 Mk ⊂ RD and let pt be the marginal density at time t > 0. Let 
+
+L(x) = {k ∈ { 1, ..., K } : dist( x, M k) = dist( x, S)}.
+
+Suppose that Assumptions 1, 3, and 4 hold. Fix x / ∈ S sufficiently close to S so that, for every k ∈ L(x), x lies in a tubular neighborhood of Mk making the projection map πk onto 
+
+Mk uniquely defined. Let k∗ ∈ L(x) satisfy dk∗ < d k for all k ∈ L(x) \ { k∗}. Then 
+
+∇ log pt(x)
+
+∥∇ log pt(x)∥ → πk∗ (x) − x
+
+∥πk∗ (x) − x∥ .
+
+Remark 14 Theorem 13 assumes that the distribution is supported on a stratified space. When noise is small and tends to zero (as in our assumption), this will still be sufficiently close to S. More explicitly, at any t > 0, the conditional marginal densities are Gaussian with variance σ2 
+
+> t
+
++ m2 
+
+> t
+
+σ2 
+
+> ∗
+
+, which goes to 0 if both t → 0 and σ∗ → 0. We show empirically that the dimension estimation is robust to small noise in Section 6. Furthermore, the unique minimal dimension stratum assumption can be lifted, resulting in the asymptotic direction being governed by the lowest-dimensional strata. This leads to a convex combination of normal vectors along with an o(1) remainder. 
+
+5.2 Local Intrinsic Dimension (LID) Estimation 
+
+Theorem 13 characterizes the limiting behavior of the score function for points sufficiently close to S. By simulating the forward process starting at a data point x0 over a sufficiently 17 Algorithm 1 Dimension Estimator 
+
+Input: Ambient dim D; Sampling interval [tstart , t end ]; Number of score vectors N ; Thresh-old α > 0.
+
+Definitions: Let mt = exp( − R t 
+
+> 0
+
+β(s)ds ) be the mean coefficient. 
+
+Data: X = {xi}ni=1  
+
+> 1:
+
+Set Dk = {} for k = 1 , ..., D − 1 
+
+> 2:
+
+for x0 ∈ X do  
+
+> 3:
+
+Set S = [ ]  
+
+> 4:
+
+for i = 1 , ..., N do  
+
+> 5:
+
+Sample t ∼ Unif (tstart , t end ) 
+
+> 6:
+
+Sample x(i) 
+
+> t
+
+∼ N (mtx0, (1 − m2 
+
+> t
+
+)ID) 
+
+> 7:
+
+Append sθ(x(i) 
+
+> t
+
+, t ) to S. 
+
+> 8:
+
+end for  
+
+> 9:
+
+Compute the singular values λ1 ≥ · · · ≥ λD of S. 
+
+> 10:
+
+Let ˆk = D − arg max i=1 ,...,D −1(λi − λi+1 ) 
+
+> 11:
+
+Append x0 to Dˆk. 
+
+> 12:
+
+end for  
+
+> 13:
+
+Discard sets Dk where |D k | 
+
+> n
+
+< α . 
+
+> 14:
+
+return Estimated number of strata ˆK = |{ k : Dk̸ = ∅}| and their intrinsic dimensions 
+
+{k : Dk̸ = ∅} .small time interval, we can sample vectors that roughly span the normal space of the corre-sponding stratum (mixture if near a singularity). Utilizing this geometric property, we adapt the local intrinsic dimension estimation framework in (Stanczuk et al., 2024) to construct estimators for the number of strata and their intrinsic dimension. Given a sample of size 
+
+n, we can compute a local intrinsic dimension estimate for each data point and aggregate them into a histogram. The number of modes of this histogram provides an estimator ˆK
+
+for true number of strata K with the locations of the modes yielding corresponding intrinsic dimension estimates ˆd1, ..., ˆd ˆK .In practice, the theoretical limit t → 0+ is inaccessible given a finite sample. The score-matching objective must be restricted to the temporal window [τ, T ] for some early stopping time τ to maintain stability during training, which places a lower bound on the noise level 
+
+στ > 0. Near the singular region of S, this results in competing forces between surrounding strata influenced by local geometry and densities. This can result in spurious dimension estimates. Fortunately, the singular regions occupy a vanishingly small volume relative to regular points of S, and hence representing a low-probability event in the data-generating process. We can thus impose a minimal mass threshold to filter out these the dimension estimates that lack sufficient statistical support. The construction of the estimators based on these observations is summarized in Algo-rithm 1. Recall that the singular values of a matrix A are the square roots of the eigenvalues of AA ⊤, so we consider second-moment matrices in the following. To establish consistency of these estimators at a regular point x0 ∈ S , we first demonstrate that the second-moment matrix of the marginal score exhibits a spectral gap over a sufficiently small temporal win-18 dow. For simplicity, we consider the case of a single manifold as the behavior of the score for regular points of S follows analogously. 
+
+Lemma 15 Let x0 be an element of a d-dimensional manifold Y ⊂ RD and let 0 < t start <tend . For t ∼ Uniform [tstart , t end ] and X ∼ N (mtx0, σ 2 
+
+> t
+
+ID), define the second-moment matrix of the score at x0 as 
+
+Σ( x0) = Et,X [∇ log pt(X)( ∇ log pt(X)) ⊤],
+
+Then the eigenvalues μ1 ≥ · · · ≥ μD of Σ( x0) satisfy: 1. For k ≤ D − d, μk = E[1 /σ 2 
+
+> t
+
+] + O(E[σ−1 
+
+> t
+
+]) .2. For k > D − d, μk = O(E[σ−1 
+
+> t
+
+]) .Consequently, for sufficiently small tend , the eigenvalues exhibit their largest spectral gap between indices D − d and D − d + 1 .
+
+While Theorem 13 and Lemma 15 motivate the use of diffusion models in local intrinsic dimension estimation, these geometric properties assume access to the intractable marginal scores. By utilizing the fact that score approximation rates converge to 0 as n → ∞ in Theorem 10, we theoretically establish that our estimators of the number of strata and their intrinsic dimensions are statistically consistent. We define the local intrinsic dimension estimator as follows. First, take a sufficiently trained diffusion model sθ(x, t ) and a data point x0. Then sample N ≥ D pairs ti ∼ [tstart , t end ] and Xi ∼ N (mtx0), form the D × N
+
+matrix S = [ sθ(X1, t 1), ...., s θ(XN , t N )] , and take the SVD of S. Let λ1 ≥ · · · ≥ λD be the singular values of S, and define 
+
+ˆd(x) = D − argmax i(λi − λi+1 ).
+
+The optimal early stopping times and convergence rates in Theorem 10 fundamentally de-pend on intrinsic dimensions of the strata, since these dimensions determine the neural-network sizes required to attain the optimal score-approximation rate. Because Theorem 16 aims to estimate these dimensions from data, we cannot assume this information beforehand, nor take t arbitrarily close to zero without a sufficiently large sample sizes. To decouple the consistency estimation from the dimension-dependent rate of score approximation, we im-pose the following high-level assumption: 
+
+Assumption 5 For each n ≥ 1, there exist sequences of times 0 < t (n)1 , t (n)2 ≤ T and a score network ˆSn(x, t ) with ∥ ˆSn(x, t )∥∞ ≤ Vn and 
+
+EX1: n∼P ⊗n
+
+> ∗
+
+"
+
+1
+
+t(n)2 − t(n)1
+
+Z t(n)2
+
+> t(n)1
+
+Z
+
+> RD
+
+∥ ˆSn(x, t ) − ∇ log pt(x)∥2pt(x)d xdt
+
+#
+
+≤ ϵn,
+
+with ϵn → 0 as n → ∞ .
+
+Theorem 16 Suppose Assumptions 1-5 hold for a distribution P∗ supported on a stratified space S = SKk=1 Mk and sequences of times {t(n)1 , t (n)2 }∞
+
+> n=1
+
+, and let ∆n = t(n)2 − t(n)1 . Further assume Vn and σ−1
+
+> t(n)1
+
+grow at most polynomially in n. Fix ℓ ∈ { 1, ..., K } and x0 ∈ Mℓ
+
+19 with dist( x0, Ssing ) ≥ δ > 0, where Ssing = S 
+
+> i̸=j
+
+(Mi ∩ Mj ). Also suppose t(n)2 → 0. Let 
+
+{ ˆSn(x, t )}∞ 
+
+> n=1
+
+be a sequence of score estimators satisfying the score approximation error ϵn
+
+on the intervals [t(n)1 , t (n)2 ] with ϵn → 0. Sample Nn i.i.d. pairs ti ∼ U nif orm (t(n)1 , t (n)2 ) and 
+
+xi ∼ N (mti x0, σ 2 
+
+> ti
+
+ID). If Nn → ∞ and nησ−dℓ
+
+> t(n)1
+
+ϵn → 0 as n → ∞ for some η > 0, then the intrinsic dimension estimate ˆdn(x0) is consistent, i.e. 
+
+P( ˆdn(x0) = dℓ) → 1 as n → ∞ .
+
+Remark 17 Although Lemma 15 and Theorem 16 are stated for the noiseless setting, the same argument extends to noisy observations Y0 = X0 + Z, Z ∈ N (0 , σ 2 
+
+> ∗
+
+ID), provided the noise level decreases with n and satisfies σ∗,n ≤ Cσ t(n)1
+
+. Indeed, the conditional density at the latent X = x0 has the form N (mtx0, ˜σ2 
+
+> t
+
+ID), where ˜σ2 
+
+> t
+
+= m2 
+
+> t
+
+σ2 
+
+> ∗
+
++ σ2 
+
+> t
+
+, so the proofs carry through by replacing σt with ˜σ. The constraint on σ∗ implies that ˜σt ≍ σt on [t(n)1 , t (n)2 ], so the spectral gap is of order E[˜ σ−2 
+
+> t
+
+], the density ratio exponent remains dℓ, and the conclusions remain unchanged. 
+
+In Theorem 16 we required a decreasing sequence of time values, which also decreases the respective noise levels. The distance δ from the singular region could also be allowed to decrease with n. Consequently, the δ-neighborhood of Ssing shrinks, allowing the score network to identify the dimensions of regular points arbitrarily close to the singular region. As the singular region has a strictly smaller intrinsic dimension than the component strata, 
+
+Ssing forms a set of measure zero under P∗. Thus, asymptotically, almost all points are regular, and one can expect the collection of the local dimension estimates to recover the distinct strata dimensions. This observation is summarized in the following corollary: 
+
+Corollary 18 Suppose that the true intrinsic dimensions d1, ..., d K are distinct. Assume the conclusion of Theorem 16 holds uniformly over regular points at distance at least δn for some sequence δn → 0. Let Dn be the set of thresholded dimension estimates obtained from the modes of the histogram in Algorithm 1 over all n points. Then 
+
+P(Dn = {dk}Kk=1 ) → 1 as n → ∞ .
+
+Hence, the number of estimated strata satisfies P( ˆK = K) → 1.
+
+In the single-manifold setting, the local intrinsic dimension estimator in Stanczuk et al. (2024) is motivated by the asymptotic normal alignment of the score as t → 0+; however, they do not provide statistical guarantees. To the best of our knowledge, our analysis provides the first establishment of statistical consistency of diffusion-based local intrinsic dimension estimation in the single-manifold and stratified settings. 
+
+6 Simulation study and real data analysis 
+
+In this section, we empirically demonstrate the effectiveness of the Algorithm 1 as a local intrinsic dimension estimator and compare it to standard baselines such as the Levina-Bickel MLE and Local PCA. For a sufficiently trained diffusion model, this will give a stratification 
+
+20 of the space into its components. We also exhibit the ability for a Mixture-of-VAE model to learn the stratified structure and learn generators for each manifold. In addition, we evaluate the error of the distribution estimator in W1 distance and compare the performance of the two methods. 
+
+6.1 Diffusion-based Dimension Estimation 
+
+Two standard approaches to estimating local intrinsic dimension are Local Principal Com-ponent Analysis (Local PCA) and the Levina-Bickel Maximum Likelihood estimator (LB-MLE). While both of these methods base their estimators off a k-nearest neighbors ap-proach, Algorithm 1 samples score vectors diffused points originating from a single data point. Although the process of training a diffusion model and performing singular-value decomposition (SVD) on a potentially large matrix can be computationally expensive, Al-gorithm 1 is inherently more robust to noise and also demonstrates competitive results to standard baselines in the noiseless setting. Lemma 15 provided evidence that such a spectral gap is expected from Algorithm 1 between the D − d and D − d + 1 eigenvalues for points on a d-dimensional manifold. Performing this procedure illustrated promising results in our synthetic datasets, but it was sensitive to the choice of time intervals. A natural substitute that we found to be more effective and robust was the ratio λi
+
+max {λi+1 , ϵ } ,
+
+where ϵ is a floor used for numerical stability. Part of this discrepancy can possibly be attributed to using a time window instead of one particular time t0, which fluctuates the magnitude of the score vectors. We empirically observed that the ratio is more stable across time windows and agrees on windows where they are both accurate. Hence, the experiments below will use the ratio rather than the difference of singular values to estimate the local intrinsic dimension of points. We implement denoising diffusion probabilistic models (DDPM) (Ho et al., 2020) to train a neural network ϵθ = E[ϵ|xt] that estimates the noise ϵ in the equation 
+
+xt = mtx0 + σtϵ, ϵ ∼ N (0 , I D).
+
+Since pt(xt|x0) = N (mtx0, σ 2 
+
+> t
+
+ID), we have that 
+
+∇ log pt(xt|x0) = − xt − mtx0
+
+σ2
+
+> t
+
+= − σtϵσ2
+
+> t
+
+= − ϵσt
+
+Using Tweedie’s formula, we can express the score as 
+
+∇ log pt(xt) = E[∇ log pt(xt|x0) | xt] = − 1
+
+σt
+
+E[ϵ|xt].
+
+Therefore, by using ϵθ ≈ E[ϵ|xt], we get that 
+
+∇ log pt(xt) ≈ − ϵθ(xt, t )
+
+σt
+
+.
+
+21 6.1.1 Synthetic Datasets 
+
+We consider two synthetic datasets that consist of low-dimensional manifold structures em-bedded in R50 . We use a ReLU neural network with widths (114 , 512 , 512 , 512 , 50) . The 114 consists of 50 for the ambient dimension and 64 dimensions for the time embedding, which is another ReLU MLP with width vector (1 , 64 , 64) . We take N = 500 score vectors in Algorithm 1. 
+
+Circle and Sphere The first consists of a circle and sphere, which can be expressed as 
+
+M1 = {(x, y, z ) ∈ R3 : ( x − 0.5) 2 + y2 = 1 .22, z = 0 }
+
+M2 = {(x, y, z ) ∈ R3 : x2 + y2 + z2 = 1 }
+
+We consider the uniform distribution Q1 on the circle and uniform distribution Q2 on the sphere, the mixture 
+
+Q∗ = 0 .4 · Q1 + 0 .6 · Q2
+
+as well as the convolved distribution 
+
+P∗ = Q∗ + ϵ, 
+
+where ϵ ∼ N (0 , σ 2 
+
+> ∗
+
+ID). We take the values σ∗ = 0 , 0.02 , 0.05 in our experiments. The two manifolds intersect at two points, leaving an arc within the sphere and the rest of the circle on the outside. The data is simulated in R3 and then embedded into 
+
+R50 , where ambient noise is added. The Levina-Bickel MLE and Local PCA estimate a large portion correctly in the case of no noise, but the accuracy quickly descends to zero once noise is included. These are visualized in Figure 1, where these methods capture the lower-dimensional for σ∗ = 0 , but fail to identify any points of the strata as one-, two-, or even three-dimensional when σ∗ = 0 .05 . Figure 2 illustrates the results from Algorithm 1 applied to every point, and Tables 1, 2, and 3 provide the dimension counts and accuracies. The diffusion-based method is stable across many time windows and provides the correct dimensions at various small noise levels.      
+
+> (a) σ∗= 0 (b) σ∗= 0 .05
+
+Figure 1: Points Labeled as 1D (blue), 2D (orange), 3D (pink), and 4D+ (gray) by Levina-Bickel MLE (left) and Local PCA (right). 22 Figure 2: Points Labeled as 1D (blue), 2D (orange), and 3D (pink) by Algorithm 1 over time intervals with σ∗ = 0 (top row), σ∗ = 0 .02 (middle row), and σ∗ = 0 .05 (bottom row). 
+
+[0 .005 , 0.006] [0 .010 , 0.011] [0 .030 , 0.031] [0 .050 , 0.051] [0 .070 , 0.071] [0 .100 , 0.101] [0 .150 , 0.151] LB L-PCA Dim 1 43.5 44.8 44.7 49.2 44.3 45.8 65.9 43.5 39.9 Dim 2 51.9 54.0 55.0 50.6 55.5 54.2 33.0 45.9 59.6 Dim 3 4.5 1.2 0.3 0.2 0.2 0.1 1.1 7.8 0.5 Dim 4+ 0.0 0.0 0.0 0.0 0.0 0.0 0.0 1.0 0Accuracy 91.92 93.96 95.04 90.64 84.97 80.90 67.17 83.76 99.40 
+
+Table 1: Algorithm 1 dimension estimates (in percentages) for the union of circle and sphere with n = 10000 sample and no ambient noise ( σ∗ = 0) , along with Levina-Bickel (LB) and Local PCA (L-PCA) estimates. 
+
+[0 .005 , 0.006] [0 .010 , 0.011] [0 .030 , 0.031] [0 .050 , 0.051] [0 .070 , 0.071] [0 .100 , 0.101] [0 .150 , 0.151] 
+
+Dim 1 48.6 48.4 46.5 48.0 43.8 44.7 66.3 Dim 2 50.1 50.8 53.1 51.8 55.5 55.3 32.8 Dim 3 1.3 0.9 0.4 0.2 0.7 0.0 0.9 Dim 4+ 0.0 0.0 0.0 0.0 0.0 0.0 0.0 Accuracy 89.66 90.65 93.10 91.81 85.53 80.81 70.01 
+
+Table 2: Algorithm 1 dimension estimates (in percentages) for the union of circle and sphere with n = 10000 sample and noise level σ∗ = 0 .02 
+
+23 [0 .005 , 0.006] [0 .010 , 0.011] [0 .030 , 0.031] [0 .050 , 0.051] [0 .070 , 0.071] [0 .100 , 0.101] [0 .150 , 0.151]                                        
+
+> Dim 148.6 47.5 49.6 50.8 43.8 44.8 67.8 Dim 250.9 52.0 50.3 49.2 55.9 55.0 31.4 Dim 30.5 0.5 0.1 0.0 0.2 0.2 0.9 Dim 4+ 0.0 0.0 0.0 0.0 0.0 0.0 0.0 Accuracy 88.59 90.52 90.29 89.16 83.19 81.09 70.83
+
+Table 3: Algorithm 1 dimension estimates (in percentages) for the union of circle and sphere with n = 10000 sample and noise level σ∗ = 0 .05 
+
+Union of Four Manifolds We consider a disjoint union of a 1-dimensional helix, a 2-dimensional torus, a 4-dimensional sphere, and a 7-dimensional sphere embedded in R50 .Explicitly, embed the following manifolds: 
+
+M1 = {(cos t, sin t, 0.1t) ∈ R3 : 0 ≤ t ≤ 4π}
+
+M2 = {((2 + 0 .5 cos θ) cos ϕ, (2 + 0 .5 cos θ) sin ϕ, r sin θ) : 0 ≤ θ, ϕ ≤ 2π}
+
+M3 = {x ∈ R5 : ∥x∥2 = 1 }
+
+M4 = {x ∈ R8 : ∥x∥2 = 1 }
+
+We then apply a translation to each manifold so that they are disjoint in the ambient space. We equip each manifold with the uniform distribution Qk and define the mixture 
+
+Q∗ = 0 .15 · Q1 + 0 .2 · Q2 + 0 .25 · Q3 + 0 .4 · Q4.
+
+We provide the confusion matrix for the best result of Algorithm 1 over our chosen time intervals in Table 4.                                                                                  
+
+> Predicted dim True dim 1247Other 1 (0.15) 00001500 2 (0.20) 00002000 4 (0.25) 002499 017 (0.40) 00080 3920 Overall Acc: 25 .79% (Local PCA) Predicted dim True dim 1247Other 1 (0.15) 00001500 2 (0.20) 000245 1755 4 (0.25) 00933 92 1475 7 (0.40) 0076 1024 2900 Overall Acc: 19 .57% (LB) Predicted dim True dim 1247Other 1 (0.15) 1338 136 0026 2 (0.20) 254 867 00879 4 (0.25) 102449 050 7 (0.40) 0003920 80 Overall Acc: 85 .74% (Algorithm 1)
+
+Table 4: Comparison of confusion matrices for baseline estimators (Local PCA, Levina-Bickel) and Algorithm 1 on the 4-manifold mixture with noise σ∗ = 0 .05 . Algorithm 1 results reflect the time interval with best accuracy, t ∈ [0 .020 , 0.021] .
+
+6.1.2 Real-World Datasets 
+
+To illustrate the diffusion-based dimension estimation method on real-world datasets we apply Algorithm 1 to molecular dynamics data, which is a common application in manifold learning. We perform the analysis on butane, which is a small molecule consisting of four atoms, and the standard alanine dipeptide molecule. 24 Butane Butane consists of four atoms and can be represented as a 12-dimensional vector, and Sule et al. (2025) show that the dynamics can be represented as 1- and 2-dimensional structures based on the dihedral angles. Table 5 shows that the classical estimators predict dimensions being between 6-8, which is well-above the two dimensions established. Estimator N Mean dim Median dim IQR Mode dim Local PCA (k=20, 95% var) 2000 7.928 8.000 [8.000, 8.000] 8Levina–Bickel MLE (k=20) 2000 7.043 6.761 [5.598, 8.198] 6Table 5: Classical intrinsic dimension estimates for butane dynamics. For our diffusion-based estimator, we consider a range of t values and deduce the es-timated dimensions in Table 6. The estimated dimensions are much higher around 0.01, which is expected as the score is more difficult to approximate. The time values from 0.05-0.3 show a majority of 1-dimensional and 2-dimensional classifications. This matches what is expected, except that around 0.3 there is an influx in 1-dimensional counts and almost no points classified as 3-dimensional or higher. We suspect this is a result of oversmoothing, but it still aligns with our presumed knowledge of dimensions. 
+
+Alanine Dipeptide The dynamics of alanine dipeptide is frequently used as a baseline dataset for local intrinsic dimension estimators. It is typically better to restrict to the use of heavy atoms since the hydrogen atoms may contribute high-frequency motion and hence increase the intrinsic dimension estimate. Dimension-reduction techniques support the hypothesis that alanine dipeptide has the intrinsic structure of a two-dimensional torus (Hashemian et al., 2013), and this is usually accepted in practice. From Table 7, we observe that Algorithm 1 assigns over half of the points to dimension 2 when the time is not too small, with the rest being classified as mostly dimension 1 or 3. 
+
+6.2 Distribution Estimation via Mixture-of-VAEs and Diffusion Models 
+
+6.2.1 Mixture-of-VAEs 
+
+Variational autoencoders (VAEs) (Kingma and Welling, 2013) are trained by maximizing a tractable variational lower bound on the marginal log-likelihood, commonly referred to as the evidence lower bound (ELBO): 
+
+L(x) = log pθ(x) − KL (qϕ(z|x)∥pθ(z|x)) .
+
+To bridge our theoretical setting with practical implementation, we approximate the distribution on a stratified space as a mixture model f = PKk=1 hkfk (simplified to Jk = 1 ), where hk acts as an indicator function on stratum k. The log-likelihood then takes the form 
+
+log p(x) = log 
+
+Z
+
+ϕσ(x − f (z)) dP Z (z) = log 
+
+> K
+
+X
+
+> k=1
+
+Z 
+
+> {hk=1 }
+
+ϕσ(x − fk(z)) dP Z (z)
+
+Let Ak = {z : hk(z) = 1 }, define the prior weights ωk = P (z ∈ Ak), and let the conditional prior be Pk(z) = PZ (z|z ∈ Ak). Introduce the categorical latent variable C ∼
+
+25 Time Dim 1 Dim 2 Dim 3 Dim 11 Mean 
+
+[0 .01 , 0.011] 153 (30.6%) 47 (9.4%) 0 (0.0%) 300 (60.0%) 7.10 
+
+[0 .03 , 0.031] 290 (58.0%) 131 (26.2%) 4 (0.8%) 75 (15.0%) 2.78 
+
+[0 .05 , 0.051] 322 (64.4%) 149 (29.8%) 13 (2.6%) 16 (3.2%) 1.67 
+
+[0 .07 , 0.071] 312 (62.4%) 166 (33.2%) 18 (3.6%) 4 (0.8%) 1.48 
+
+[0 .10 , 0.101] 251 (50.2%) 241 (48.2%) 8 (1.6%) 0 (0.0%) 1.51 
+
+[0 .15 , 0.151] 183 (36.6%) 314 (62.8%) 3 (0.6%) 0 (0.0%) 1.64 
+
+[0 .20 , 0.201] 224 (44.8%) 274 (54.8%) 1 (0.2%) 1 (0.2%) 1.57 
+
+Table 6: Intrinsic dimension estimates for Butane dynamics over 500 samples. 
+
+Time Dim 1 Dim 2 Dim 3 Dim 4 Dim 5 Dim 29 Mean 
+
+[0 .01 , 0.011] 7 (1.4%) 31 (6.2%) 96 (19.2%) 72 (14.4%) 84 (16.8%) 156 (31.2%) 12.62 
+
+[0 .03 , 0.031] 14 (2.8%) 90 (18.0%) 240 (48.0%) 28 (5.6%) 22 (4.4%) 104 (20.8%) 6.55 
+
+[0 .05 , 0.051] 26 (5.2%) 185 (37.0%) 247 (49.4%) 8 (1.6%) 2 (0.4%) 32 (6.4%) 4.10 
+
+[0 .07 , 0.071] 46 (9.2%) 243 (48.6%) 201 (40.2%) 1 (0.2%) 0 (0.0%) 9 (1.8%) 3.04 
+
+[0 .10 , 0.101] 92 (18.4%) 265 (53.0%) 141 (28.2%) 0 (0.0%) 0 (0.0%) 2 (0.4%) 2.51 
+
+[0 .15 , 0.151] 141 (28.2%) 285 (57.0%) 74 (14.8%) 0 (0.0%) 0 (0.0%) 0 (0.0%) 1.87 
+
+[0 .20 , 0.201] 177 (35.4%) 294 (58.8%) 28 (5.6%) 0 (0.0%) 0 (0.0%) 1 (0.2%) 1.75 
+
+Table 7: Alanine dipeptide (heavy atoms) dimension estimates across time windows using 500 samples. For brevity, only the most frequent dimensions are shown. Cat (ω1, ..., ω k). Then the last expression can be framed as an expectation, and we can apply Jensen’s inequality to derive our ELBO: 
+
+log 
+
+> K
+
+X
+
+> k=1
+
+wk
+
+Z
+
+ϕσ(x − fk(z)) dP k(z) = log 
+
+> K
+
+X
+
+> k=1
+
+Z
+
+p(x, z, c = k)dz 
+
+= log Eq(c,z |x)
+
+p(x, z, c )
+
+q(z, c |x)
+
+≥ Eq(c,z |x) log p(x, z, c )
+
+q(z, c |x)= Eq(c,z |x)[log p(x, z, c ) − log q(z, c |x)] =: LELBO 
+
+Factorizing q(c, z |x) = q(c|x)q(z|c, x ) and parametrizing the routing network as q(c|x) = 
+
+softmax (gθ(x)) =: ˆhk(x), the final decomposition becomes 
+
+LELBO =
+
+> K
+
+X
+
+> k=1
+
+ˆhk(x)[ Eq(z|x,k ) log ϕσ(x − fk(z)) − KL (q(z|x, k )|| pk(z)) + log wk − log ˆhk(x)] .
+
+To effectively capture general manifolds that are not globally parametrizable, one would typically need to construct an atlas of Jk charts for each manifold k. While mixtures of generative models have been used to perform this task on single manifolds (Tang and Yang, 2023a), these approaches generally require knowledge of the intrinsic dimension and a pre-computed clustering of the data. Mixture-of-expert models naturally circumvent these requirements, making them more theoretically appealing. However, they are notoriously 26 difficult to train in the unsupervised setting; frequently suffering from issues such as mode or posterior collapse. Furthermore, to learn the topological structure of a stratified space, the model must also separate the data by dimension. Assuming that the strata have distinct intrinsic dimensions makes this sufficient to identify the distinct submanifolds. A d-dimensional manifold is locally homeomorphic to Rd, so a VAE trained on a local neighborhood should learn a mapping of rank d. To explicitly incentivize the model to separate these dimensions, we introduce a projection consistency penalty to the objective function. Specifically, we assign each expert k a dimension dk and penalize the loss function if the rank of its autoencoder deviates from dk. Geometrically, an expert of dimension 
+
+dk should have dk singular values close to 1, and D − dk near 0, where D is the ambient dimension. If σ1 ≥ σ2 ≥ · · · ≥ σD are the singular values, then the penalization term we impose for expert k is 
+
+Pk(x) = 1
+
+d
+
+> k
+
+X
+
+> i=1
+
+(σi − 1) 2 + 1
+
+D − d
+
+> D
+
+X
+
+> i=k+1
+
+σ2 
+
+> i
+
+.
+
+Algorithm 2 Stratified Mixture of VAEs 
+
+Input: Ambient dim D; number of experts K, dimensions dk for k = 1 , ..., K , hyperparam-eters β, β g, γ > 0;
+
+Data: X = {xi}ni=1  
+
+> 1:
+
+Assign each expert Lk a target dimension dk for each k ∈ [K] 
+
+> 2:
+
+Initialize encoders {qϕk }, decoders {pθk }, gate logits gψ(·), and mixture logits π 
+
+> 3:
+
+repeat  
+
+> 4:
+
+Sample mini-batch B = {xb}Bb=1 ⊂ X . 
+
+> 5:
+
+Set global weights w ← softmax( π) 
+
+> 6:
+
+for x ∈ B do  
+
+> 7:
+
+ˆh(x) ← softmax( gψ(x))  
+
+> 8:
+
+for k = 1 to K do  
+
+> 9:
+
+zk ∼ qϕk (z | x) 
+
+> 10:
+
+ˆxk ← E[x | zk; θk] 
+
+> 11:
+
+Compute decoder Jacobian Jk(x) and penalty Pk(x). 
+
+> 12:
+
+ℓk(x) ← ∥ x−ˆxk∥22+β·KL  qϕk (z | x) ∥ N (0 , I )−βg(log wk−log ˆhk(x))+ γ P k(x) 
+
+> 13:
+
+end for  
+
+> 14:
+
+end for  
+
+> 15:
+
+L(B) ← 1
+
+> B
+
+P
+
+> x∈B
+
+PKk=1 ˆhk(x) ℓk(x) 
+
+> 16:
+
+Update (ϕ, θ, ψ ) with one Adam step on L(B). 
+
+> 17:
+
+until convergence Our training procedure is summarized in Algorithm 2. By integrating this dimension-aware regularizer, our architecture forces the routing network to distinguish between di-mensions, which is a mechanism that is absent in standard Mixture-of-VAEs. However, successfully training such a model requires carefully balancing weights of the objective func-tion to avoid collapse. For instance, while standard β-VAE formulations employ a KL penalty greater than 1 to encourage disentanglement (Burgess et al., 2018), we operate in 27 Figure 3: Ground truth (left), classified points (middle), reconstructions (right) for the union of a circle and 2-dimensional plane with n = 3000 samples. the regime where β ≪ 1 to focus on separation of strata and lock in the mixture weights, and one can anneal β back to 0.5 or 1 to enforce generative regularization. We also have a 
+
+βg hyperparameter for the gate KL weight, which we leave at 0.01 for experiments. These aims to decouple potentially conflicting objectives. We also emphasize the effect of γ on the training process: if γ is too low, there will not be enough geometric signal, while too high γ degrades reconstruction fidelity and hence prevents accurate dimension estimation. Recall that for a > 0, LeakyReLU( x) = max {0, x } + a min {0, x }). We consider a latent dimension of 4, and 2 hidden layers of width 256 for each encoder and decoder equipped with Leaky ReLU activation with a = 0 .2. The gate is also a Leaky ReLU network with architecture (3 , 128 , 2) as we have only 2 experts for the output. To stabilize training early on, we perform Gumbel-softmax temperature annealing from τ = 2 .0 to τ = 0 .1.
+
+Circle and Plane The first stratified space we consider is the union of a circle and a 2-dimensional plane: 
+
+M1 = {(cos θ, 0, sin θ) : θ ∈ [0 , 2π)}
+
+M2 =
+
+
+
+(x, y, 0) : x, y ∈
+
+
+
+− 32 , 32
+
+ 
+
+.
+
+We let Qi be the uniform distribution on Mi and set the mixture weights as ω1 = ω2 = 0 .5.This space is exhibited in Figure 3, where the mixture of VAEs successfully routes the points to the correct experts apart from a small neighborhood around the singularities. 
+
+Helix and Swiss Roll We also consider the 1-dimensional helix and 2-dimensional Swiss roll: 
+
+M1 =
+
+
+
+(cos t − 52 , sin t, t
+
+2 − π) : t ∈ [0 , 4π]
+
+
+
+M2 =
+
+ t cos t
+
+5 + 52 , h
+
+5 , t sin t
+
+5
+
+
+
+: t ∈
+
+ 3π
+
+2 , 9π
+
+2
+
+
+
+, h ∈
+
+
+
+− 52 , 52
+
+ 
+
+,
+
+with the mixture distribution Q∗ = 13 Q1 + 23 Q2, where Qi is the uniform distribution on Mi.The space is displayed in Figure 4. 
+
+6.2.2 Distribution Estimation 
+
+As discussed in Remark 12, the sieve model class in the likelihood-based approach admits a natural deconvolution interpretation when ambient noise is present, while diffusion models target the observed distribution. Consequently, diffusion models perform extremely well in 28 Figure 4: Ground truth (left), classified points (middle), reconstructions (right) for the union of a curve and Swiss roll with n = 3000 samples. 
+
+Figure 5: Comparison of the (Sliced) Wasserstein-1 distance between learned distribution and the intrinsic distribution via diffusion models and Mixture of VAEs at n = 1000 and 
+
+n = 3000 samples. estimating the intrinsic distribution in the case of no noise or small noise levels, but struggle to recover the intrinsic distribution for moderate to high noise levels. On the other hand, VAEs provide better estimation of the intrinsic distribution as long as the noise level is not too small. To illustrate these behaviors, we consider the 1-dimensional helix and 2-dimensional Swiss roll from Figure 4, but embedded in R15 with mixture weights ω1 = ω2 = 0 .5 and Leaky ReLU networks with a = 0 .2 with 4 hidden layers of width 512. We run standard DDPM, while the mixture of VAEs was trained with β = 0 .01 for the first 2000 epochs, then 2000 more with frozen routing while annealing β to 0.5. The (sliced) Wasserstein-1 distance over various noise levels is portrayed in Figure 5 at n = 1000 and n = 3000 samples. We see that the mixture of VAEs attains small error at both of these sample sizes for noise levels up to around σ∗ = 0 .2, but the gap is most pronounced at σ = 0 .5, where W1 drops substantially as n increases from n = 1000 to n = 3000 . Also, the diffusion model is more accurate at low noise but eventually becomes worse than VAE as σ∗ grows. The curves cross around σ∗ = 0 .15 when n = 3000 , and at even small σ∗ when n = 1000 , after which the diffusion model’s sliced Wasserstein-1 distance increases steadily. This behavior is consistent with the fact that diffusion model learn the smoothed, noised-corrupted distribution rather than the underlying intrinsic one. Furthermore, while the VAE’s error naturally grows at extreme noise levels ( σ∗ = 0 .5), this gap shrinks significantly as the sample size increases. 29 7 Discussion 
+
+This paper develops a generative framework for stratified learning . Going beyond the clas-sical manifold setting, we study distributions supported on or near unions of manifolds of different dimensions, possibly with singular intersections. Our results show that deep generative models can adapt not only to low-dimensional geometry, but also to more gen-eral stratified structures. In particular, the paper provides two generative approaches: alikelihood-based framework through a sieve MLE and a diffusion-based framework through score estimation. Together, these approaches elucidate how geometry, singularity, and am-bient noise interact in determining the statistical theory of stratified learning. A main message of the paper is that the two frameworks are suited to different regimes. The sieve-MLE approach provides a natural likelihood-based model for the ambient distribu-tion and yields a direct estimator of the intrinsic distribution through the learned generator. This makes it particularly appealing when the data are generated with non-negligible Gaus-sian noise (when the noise delays to zero at a moderate rate) and one wishes to interpret the problem as deconvolution. At the same time, the analysis also reveals the inherent disad-vantages of likelihood-based methods in the near-singular regime: when the noise level is too small, the ambient density becomes sharply concentrated near the stratified support, which makes maximum-likelihood estimation unstable. In contrast, the diffusion-based framework remains well posed even in the noiseless setting, since the forward process itself regular-izes the distribution through Gaussian smoothing. This makes diffusion models especially attractive for learning distributions on highly singular or nearly singular stratified spaces. Another important insight from our analysis is that ambient noise does not play a purely detrimental role. In the likelihood framework, too much noise obscures the underlying geometry, while too little noise creates instability through singularity. For near-singular case, the injected noise in a data perturbation approach becomes a blessing. In the diffusion framework, moderate noise can have a favorable effect by smoothing the target distribution and stabilizing score estimation. In particular, when the noise level is of constant order, the Wasserstein bound attains the parametric root-n rate up to logarithmic factors for the ambient distribution estimation. Overall, these results highlight a subtle geometry-noise interaction: ambient noise may either regularize or obscure the problem depending on the learning framework and the noise regime under consideration. Beyond distribution estimation, our work also shows that diffusion models provide a principled route to learning the geometric information of the structures. By exploiting the local behavior of the score field at small diffusion times, we establish consistency for esti-mating local intrinsic dimension and, consistency for estimating the number of strata. This connects generative modeling with geometric structure learning in a way that is not done by classical manifold-learning approaches. At the same time, our analysis highlights that di-mension estimation is most reliable at regular points, while points near singular intersections remain intrinsically more delicate due to the competition between nearby strata. There are several interesting directions for future research. These include extending the analysis to stratified spaces under more general geometric assumptions, as well as develop-ing more flexible noise models that allow for varying and anisotropic noise across strata. It would also be of interest to study more general mixture distributions that permit small mix-ing weights, and to characterize the corresponding minimax rates under suitable beta-min 30 conditions on the mixing weights and separation conditions on the mixture components. Beyond the development of statistical theory, it is also important to investigate the compu-tational and optimization aspects of the proposed models. 
+
+References 
+
+Eddie Aamari and Clément Berenfeld. A theory of stratification learning. arXiv preprint arXiv:2405.20066 , 2024. Eddie Aamari and Clément Levrard. Nonasymptotic rates for manifold, tangent space and curvature estimation. The Annals of Statistics , 47(1):177 – 204, 2019. doi: 10.1214/ 18-AOS1685. URL https://doi.org/10.1214/18-AOS1685 .Giovanni S Alberti, Johannes Hertrich, Matteo Santacesaria, and Silvia Sciutto. Manifold learning by mixture models of vaes for inverse problems. Journal of Machine Learning Research , 25(202):1–35, 2024. Iskander Azangulov, George Deligiannidis, and Judith Rousseau. Convergence of dif-fusion models under the manifold hypothesis in high-dimensions. arXiv preprint arXiv:2409.18804 , 2024. Andrew R Barron. Universal approximation bounds for superpositions of a sigmoidal func-tion. IEEE Transactions on Information theory , 39(3):930–945, 2002. Mikhail Belkin and Partha Niyogi. Laplacian eigenmaps for dimensionality reduction and data representation. Neural computation , 15(6):1373–1396, 2003. Mikhail Belkin, Partha Niyogi, and Vikas Sindhwani. Manifold regularization: A geometric framework for learning from labeled and unlabeled examples. Journal of machine learning research , 7(11), 2006. Paul Bendich, Bei Wang, and Sayan Mukherjee. Local homology transfer and stratification learning. In Proceedings of the twenty-third annual ACM-SIAM symposium on Discrete Algorithms , pages 1355–1370. SIAM, 2012. Yoshua Bengio, Aaron Courville, and Pascal Vincent. Representation learning: A review and new perspectives. IEEE transactions on pattern analysis and machine intelligence ,35(8):1798–1828, 2013. Bradley CA Brown, Anthony L Caterini, Brendan Leigh Ross, Jesse C Cresswell, and Gabriel Loaiza-Ganem. Verifying the union of manifolds hypothesis for image data. arXiv preprint arXiv:2207.02862 , 2022. Christopher P Burgess, Irina Higgins, Arka Pal, Loic Matthey, Nick Watters, Guillaume Desjardins, and Alexander Lerchner. Understanding disentangling in β-vae. arXiv preprint arXiv:1804.03599 , 2018. Minwoo Chae, Dongha Kim, Yondai Kim, and Lizhen Lin. A likelihood approach to non-parametric estimation of a singular distribution using deep generative models. Journal of Machine Learning Research , 24(77):1–42, 2023. 31 Minshuo Chen, Kaixuan Huang, Tuo Zhao, and Mengdi Wang. Score approximation, esti-mation and distribution recovery of diffusion models on low-dimensional data. In Inter-national Conference on Machine Learning , pages 4672–4712. PMLR, 2023. Heng-Tze Cheng, Levent Koc, Jeremiah Harmsen, Tal Shaked, Tushar Chandra, Hrishi Aradhye, Glen Anderson, Greg Corrado, Wei Chai, Mustafa Ispir, et al. Wide & deep learning for recommender systems. In Proceedings of the 1st workshop on deep learning for recommender systems , pages 7–10, 2016. Valentin De Bortoli. Convergence of denoising diffusion models under the manifold hypoth-esis. arXiv preprint arXiv:2208.05314 , 2022. Herbert Federer. Curvature measures. Transactions of the American Mathematical Society ,93(3):418–491, 1959. Subhashis Ghosal and Aad W Van der Vaart. Fundamentals of nonparametric Bayesian inference , volume 44. Cambridge University Press, 2017. Evarist Giné and Richard Nickl. Mathematical foundations of infinite-dimensional statistical models . Cambridge university press, 2021. Gloria Haro, Gregory Randall, and Guillermo Sapiro. Stratification learning: Detecting mixed density and dimensionality in high dimensional point clouds. Advances in Neural Information Processing Systems , 19, 2006. Behrooz Hashemian, Daniel Millán, and Marino Arroyo. Modeling and enhanced sampling of molecular systems with smooth and nonlinear data-driven collective variables. The Journal of chemical physics , 139(21), 2013. Ulrich G Haussmann and Etienne Pardoux. Time reversal of diffusions. The Annals of Probability , pages 1188–1205, 1986. Jonathan Ho, Ajay Jain, and Pieter Abbeel. Denoising diffusion probabilistic models. Ad-vances in neural information processing systems , 33:6840–6851, 2020. Christian Horvat and Jean-Pascal Pfister. On gauge freedom, conservativity and intrinsic dimensionality estimation in diffusion models. arXiv preprint arXiv:2402.03845 , 2024. Aapo Hyvärinen and Peter Dayan. Estimation of non-normalized statistical models by score matching. Journal of Machine Learning Research , 6(4), 2005. Robert A Jacobs, Michael I Jordan, Steven J Nowlan, and Geoffrey E Hinton. Adaptive mixtures of local experts. Neural computation , 3(1):79–87, 1991. Michael I Jordan and Robert A Jacobs. Hierarchical mixtures of experts and the em algo-rithm. Neural computation , 6(2):181–214, 1994. Hamidreza Kamkari, Brendan L Ross, Rasa Hosseinzadeh, Jesse C Cresswell, and Gabriel Loaiza-Ganem. A geometric view of data complexity: Efficient local intrinsic dimension estimation with diffusion models. Advances in Neural Information Processing Systems ,37:38307–38354, 2024. 32 Diederik P Kingma and Max Welling. Auto-encoding variational bayes. arXiv preprint arXiv:1312.6114 , 2013. Alex Krizhevsky, Ilya Sutskever, and Geoffrey E Hinton. Imagenet classification with deep convolutional neural networks. Advances in neural information processing systems , 25, 2012. Alexander Y Kruger, D Russell Luke, and Nguyen H Thao. Set regularities and feasibility problems. Mathematical Programming , 168(1):279–311, 2018. Yann LeCun, Yoshua Bengio, and Geoffrey Hinton. Deep learning. nature , 521(7553):436– 444, 2015. Kin Kwan Leung, Rasa Hosseinzadeh, and Gabriel Loaiza-Ganem. On convolutions, intrinsic dimension, and diffusion models. arXiv preprint arXiv:2506.20705 , 2025. Elizaveta Levina and Peter Bickel. Maximum likelihood estimation of intrinsic dimension. 
+
+Advances in neural information processing systems , 17, 2004. Xin Li and Anand Sarwate. Unraveling the localized latents: Learning stratified mani-fold structures in llm embedding space with sparse mixture-of-experts. arXiv preprint arXiv:2502.13577 , 2025. Zichen Liu, Wei Zhang, and Tiejun Li. Improving the euclidean diffusion generation of manifold data by mitigating score function singularity. arXiv preprint arXiv:2505.09922 ,2025. Ryumei Nakada and Masaaki Imaizumi. Adaptive approximation and generalization of deep neural network with intrinsic dimensionality. Journal of Machine Learning Research , 21 (174):1–38, 2020. Kazusato Oko, Shunta Akiyama, and Taiji Suzuki. Diffusion models are minimax optimal distribution estimators. In International Conference on Machine Learning , pages 26517– 26582. PMLR, 2023. Jakiw Pidstrigach. Score-based generative models detect manifolds. Advances in Neural Information Processing Systems , 35:35852–35865, 2022. Phillip Pope, Chen Zhu, Ahmed Abdelkader, Micah Goldblum, and Tom Goldstein. The intrinsic dimension of images and its impact on learning. arXiv preprint arXiv:2104.08894 ,2021. Peter Potaptchik, Iskander Azangulov, and George Deligiannidis. Linear convergence of diffusion models under the manifold hypothesis. arXiv preprint arXiv:2410.09046 , 2024. Michael Robinson, Sourya Dey, and Tony Chiang. Token embeddings violate the manifold hypothesis. arXiv preprint arXiv:2504.01002 , 2025. Johannes Schmidt-Hieber. Deep relu network approximation of functions on a manifold. 
+
+arXiv preprint arXiv:1908.00695 , 2019. 33 Yang Song, Jascha Sohl-Dickstein, Diederik P Kingma, Abhishek Kumar, Stefano Ermon, and Ben Poole. Score-based generative modeling through stochastic differential equations. 
+
+arXiv preprint arXiv:2011.13456 , 2020. Jan Pawel Stanczuk, Georgios Batzolis, Teo Deveney, and Carola-Bibiane Schönlieb. Diffu-sion models encode the intrinsic dimension of data manifolds. In Forty-first International Conference on Machine Learning , 2024. Shashank Sule, Arnav Mehta, and Maria K Cameron. Learning collective variables that preserve transition rates. arXiv preprint arXiv:2506.01222 , 2025. Rong Tang and Yun Yang. Estimating distributions with low-dimensional structures using mixtures of generative models. arXiv preprint arXiv:2301.00890 , 2023a. Rong Tang and Yun Yang. Minimax rate of distribution estimation on unknown submani-folds under adversarial losses. The Annals of Statistics , 51(3):1282–1308, 2023b. Rong Tang and Yun Yang. Adaptivity of diffusion models to manifold structures. In In-ternational Conference on Artificial Intelligence and Statistics , pages 1648–1656. PMLR, 2024. Rong Tang, Lizhen Lin, and Yun Yang. Conditional diffusion models are minimax-optimal and manifold-adaptive for conditional distribution estimation. In International Conference on Learning Representations , 2025. Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N Gomez, Łukasz Kaiser, and Illia Polosukhin. Attention is all you need. Advances in neural infor-mation processing systems , 30, 2017. Cédric Villani et al. Optimal transport: old and new , volume 338. Springer, 2008. Pascal Vincent. A connection between score matching and denoising autoencoders. Neural computation , 23(7):1661–1674, 2011. Ziteng Wang, Jun Zhu, and Jianfei Chen. Remoe: Fully differentiable mixture-of-experts with relu routing. arXiv preprint arXiv:2412.14711 , 2024. Wing Hung Wong and Xiaotong Shen. Probability inequalities for likelihood ratios and convergence rates of sieve mles. The Annals of Statistics , pages 339–362, 1995. Lirong Wu, Zicheng Liu, Jun Xia, Zelin Zang, Siyuan Li, and Stan Z Li. Generalized clus-tering and multi-manifold learning with geometric structure preservation. In Proceedings of the IEEE/CVF winter conference on applications of computer vision , pages 139–147, 2022. Fei Ye and Adrian G Bors. Mixtures of variational autoencoders. In 2020 Tenth International Conference on Image Processing Theory, Tools and Applications (IPTA) , pages 1–6. IEEE, 2020. 34 Appendix A. Proofs for Section 3 
+
+A.1 Proof of Lemma 4 
+
+Suppose ∥f ∗∥∞ ≤ V and takes the form 
+
+f ∗(w, z ) = 
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+h∗ 
+
+> k,j
+
+(w)f ∗ 
+
+> k,j
+
+(z).
+
+For each k ∈ { 1, ..., K } and j = 1 , ..., J k, Lemma 5 in Chae et al. (2023) implies there exists a neural network fk,j ∈ F (k) = Φ( L(k), W (k), R (k), 1, V (k)) with L(k) = O(log δ−1),
+
+∥W (k)∥∞ = O(δ−dk /(αk +1) ), R(k) = O(δ−dk /(αk +1) log δ−1) satisfying ∥fk,j − f ∗ 
+
+> k,j
+
+∥∞ ≤ δ 
+
+> 2KJ k
+
+.Although one can approximate 1[a,b ) with a shallow ReLU network with bounded parameters, it would require a large width and sparsity to create a steep slope, which dominates order of the overall error. However, we can use depth in order to stay within bounded weights: 
+
+Lemma 19 Fix 0 ≤ a < b ≤ 1, 1 ≤ p < ∞ and 0 < ξ < 1. Then there exists h ∈
+
+Φ( L, W, R, 1, 1) with L = O(log ξ−1), ∥W ∥∞ = O(1) and R = O(log ξ−1) such that 1. h(x) = 1 for x ∈ [a, b ]
+
+2. h(x) = 0 for x ≤ a − ξ and x ≥ b + ξ.3. ∥h − 1[a,b ]∥Lp ≤ (2 ξ)1/p 
+
+From Lemma 19 with ξ ≍ δ2, for each k = 1 , ..., K and j = 1 , ..., J k, there exists hk,j 
+
+with eL = O(log δ−1), ∥fW ∥∞ = O(1) and eR = O(log δ−1) such that ∥hk,j − h∗ 
+
+> k,j
+
+∥2 ≤ δ 
+
+> 2V KJ k
+
+.
+
+Let f (w, z ) = PKk=1 
+
+PJk 
+
+> j=1
+
+hk,j (w)fk,j (z). Note that h∗ 
+
+> k,j
+
+have mutually disjoint support for each k, j , and so ∥f ∗ 
+
+> k,j
+
+∥∞ ≤ V . It then follows that 
+
+∥f − f ∗∥2 ≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+∥hk,j fk,j − h∗ 
+
+> k,j
+
+f ∗ 
+
+> k,j
+
+∥2
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+∥hk,j fk,j − hk,j f ∗ 
+
+> k,j
+
++ hk,j f ∗ 
+
+> k,j
+
+− h∗ 
+
+> k,j
+
+f ∗ 
+
+> k,j
+
+∥2
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+ ∥hk,j ∥∞∥fk,j − f ∗ 
+
+> k,j
+
+∥2 + ∥f ∗ 
+
+> k,j
+
+∥∞∥hk,j − h∗ 
+
+> k,j
+
+∥2
+
+
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+ 1 · ∥ fk,j − f ∗ 
+
+> k,j
+
+∥∞ + ∥f ∗ 
+
+> k,j
+
+∥∞∥hk,j − h∗ 
+
+> k,j
+
+∥2
+
+
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+ δ
+
+2KJ k
+
++ V δ
+
+2V KJ k
+
+
+
+= δ. 
+
+□
+
+35 A.2 Proof of Lemma 6 
+
+Recall the following Lemma from Chae et. al: 
+
+Lemma 20 Let F be a class of functions from Z to RD such that ∥f ∥∞ ≤ V for every 
+
+f ∈ F . Let P = {Pf,σ : f ∈ F , σ ∈ [σmin , σ max ]} with σmin ≤ 1. There, there exists constants c = c(D, V, σ max ), c′ = c′(D, V, σ max ) and δ∗ = δ∗(D) such that 
+
+log N[] (δ, P, d H ) ≤ log N (cσ D+3  
+
+> min
+
+δ4, F, ∥ · ∥ ∞) + log 
+
+ c′
+
+σD+2  
+
+> min
+
+δ4
+
+
+
+for every δ ∈ (0 , δ ∗].
+
+Note that this lemma holds for any class of bounded functions F from Z → RD.Given a stratified space consisting of K manifolds and a decomposition of each manifold into Jk charts, a function f in the mixture-of-experts sieve GK, J is of the form f (w, z ) = PKk=1 
+
+PJk 
+
+> j=1
+
+hk,j (w)fk,j (z), where hk,j ∈ H and fk,j ∈ F (k) for each k = 1 , ..., K and j =1, ..., J k. Since ∥hk,j ∥∞ ≤ 1 and ∥fk,j ∥∞ ≤ V , for any ˜f (w, z ) = PKk=1 
+
+PJk 
+
+> j=1
+
+˜hk,j (w) ˜fk,j (z) ∈GK, J,
+
+∥f − ˜f ∥∞ =
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+(hk,j fk,j − ˜hk,j ˜fk,j )
+
+> ∞
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+∥hk,j ∥∞∥fk,j − ˜fk,j ∥∞ + ∥ ˜fk,j ∥∞∥hk,j − ˜hk,j ∥∞
+
+≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+∥fk,j − ˜fk,j ∥∞ + V ∥hk,j − ˜hk,j ∥∞
+
+Let M = PKk=1 Jk. Taking an ϵ 
+
+> 2M
+
+-cover of F(k) and ϵ 
+
+> 2V M
+
+-cover of H for each k = 1 , ..., K 
+
+and j = 1 , ..., J k gives us an ϵ-cover for GK, J, and hence 
+
+log N (ϵ, GK, J, ∥ · ∥ ∞) ≤
+
+> K
+
+X
+
+> k=1
+> Jk
+
+X
+
+> j=1
+
+log N
+
+ ϵ
+
+2M , F(k), ∥ · ∥ ∞
+
+
+
++ M log N
+
+ ϵ
+
+2V M , H, ∥ · ∥ ∞
+
+
+
+=
+
+> K
+
+X
+
+> k=1
+
+Jk log N
+
+ ϵ
+
+2M , F(k), ∥ · ∥ ∞
+
+
+
++ M log N
+
+ ϵ
+
+2V M , H, ∥ · ∥ ∞
+
+
+
+Applying Lemma 20 and setting ϵ = cσ D+3 min δ4 gives the claim after absorbing constants. □
+
+A.3 Proof of Theorem 7 
+
+(1) Follows from Lemma 6 and (2) follows from Lemma 4 with δ = δapp .For (3), we follow the idea in the proofs of Theorem 3 and Corollary 6 in Chae et al. (2023) and provide their proofs for completeness. To this end, choose constants c1, c 2, c 3, c 4
+
+36 with c1 = 1 /3 and c3 > 2 as in Theorem 1 in Wong and Shen (1995) and constants c, c ′ in their Lemma 1. Let ˆR = eR + PKk=1 JkR(k) be the total sparsity. For δ ∈ (0 , c 3δ∗],
+
+log N[] 
+
+ δc3
+
+, P, d H
+
+
+
+≤ 4( ˆR + 1) log δ−1 + ˆRA + ( D + 3)( ˆR + 1) log σ−1min + c5 ˆR
+
+for some c5 = c5(c, c ′, c 3) by (1). Thus, for all ϵ ≤ √2δ∗ ≤ c3δ∗/√2,
+
+Z √2ϵϵ2/28
+
+q
+
+log N[] (δ/c 3, P, d H ) dδ 
+
+≤ √2ϵ
+
+q
+
+ˆRA + ( D + 3)( ˆR + 1) log σ−1min + c5 ˆR + √2ϵ
+
+q
+
+4( ˆR + 1) 
+
+r
+
+log 28
+
+ϵ2
+
+This can be bounded by c4n1/2ϵ2
+
+> n
+
+, where we take ϵ = ϵn = c6
+
+q
+
+n−1 ˆR(A + log( n/σ min )) ,for a large enough constant c6 = c6(c4, c 5, D ). Then by Example B.12 in Ghosal and Van der Vaart (2017), KL (p∗, p f,σ ∗ ) ≤
+
+Z
+
+KL (N (f ∗(z), σ 2 
+
+> ∗
+
+), N (f (z), σ 2 
+
+> ∗
+
+)) dP Z (z)=
+
+Z ∥f ∗(z) − f (z)∥22
+
+2σ2
+
+> ∗
+
+dP Z (z) ≤ δ2
+
+> app
+
+2σ2
+
+> ∗
+
+.
+
+We also have that 
+
+Z 
+
+log ϕσ(x)
+
+ϕσ(x − y)
+
+2
+
+ϕσ(x)dx =
+
+Z ∥y∥42 + 4 |xT y|2
+
+4σ2 ϕσ(x)dx ≤ ∥y∥42
+
+4σ2 + ∥y∥22
+
+Z ∥x∥2
+
+σ2 ϕσ(x)dx. 
+
+Thus, by Example B.12, (B.17) and Exercise B.8 in Ghosal and Van der Vaart (2017), 
+
+Z 
+
+log p∗(x)
+
+pf,σ ∗ (x)
+
+2
+
+dP ∗(x) ≤
+
+Z Z 
+
+log ϕσ∗ (x − f∗(z)
+
+ϕσ∗ (x − f (z)) 
+
+2
+
+ϕσ(x − f∗(z)) dxdP z + 4 KL (p∗, p f,σ ∗ )
+
+≤ δ4
+
+> app
+
+4σ2
+
+> ∗
+
++ δ2
+
+> app
+
+Z ∥x∥22
+
+σ2
+
+> ∗
+
+ϕσ∗ (x)dx + 2δ2
+
+> app
+
+σ2
+
+> ∗
+
+≤ c7
+
+δ2
+
+> app
+
+σ2
+
+> ∗
+
+,
+
+for some constant c7. Let δn = δ2
+
+> app
+> 2σ2
+> ∗
+
+and τn = c7
+
+> δ2
+> app
+> σ2
+> ∗
+
+. Then by Theorem 4 in Wong and Shen (1995) with ϵ∗ 
+
+> n
+
+= ϵn ∨ √12 δn,
+
+P∗(dH (ˆ p, p ∗) > ϵ ∗
+
+> n
+
+) ≤ 5e−c2nϵ ∗2 
+
+> n
+
++ 12 τn
+
+nϵ ∗2
+
+> n
+
+≤ 5e−c2nϵ ∗2 
+
+> n
+
++ τn
+
+nδ n
+
+= 5 e−c2nϵ ∗2 
+
+> n
+
++ 2c7
+
+n .
+
+The Theorem follows after redefining constants. □
+
+37 A.4 Proof of Theorem 8 
+
+We will make use of the following lemma to separate the contributions from the partitioned space: 
+
+Lemma 21 Let Y ⊆ RD be a compact set, let R = diam (Y ), and let PKk=1 bkQk be a mixture distribution on Y . Then for any mixture distribution PKk=1 ak ˜Qk that is also supported on 
+
+Y ,
+
+W1(
+
+> K
+
+X
+
+> k=1
+
+ak ˜Qk,
+
+> K
+
+X
+
+> k=1
+
+bkQk) ≤
+
+> K
+
+X
+
+> k=1
+
+bkW1( ˜Qk, Q k) + R
+
+2
+
+> K
+
+X
+
+> k=1
+
+|ak − bk|.
+
+We proceed to assume that ϵ and σ∗
+
+plog ϵ−1 are sufficiently small; otherwise we just need a suitably large enough constant C so that the inequality will hold. Recall from the proof of Theorem 7 in Chae et al. (2023) that for the choice t∗ = (2 Dσ 2 
+
+> ∗
+
+log( D/ϵ )) 1/2, we have that Z
+
+> ∥x∥2≥t∗
+
+ϕσ∗ (x)dx ≤ ϵ. 
+
+Throughout the proof, we fix the following parameters: 
+
+η1 = 2 t∗, η0 = 4 t∗, ρ = 8 t∗,
+
+and assume that ρ < min {r∗, 1, ρ 1}. Suppose σ ≤ C0σ∗
+
+plog( D/ϵ ) for some constant C0.This implies for Z ∼ N (0 , σ 2ID), Z ∗ ∼ N (0 , σ 2 
+
+> ∗
+
+ID) that there exists a constant c0 > 0 such that 
+
+P(∥Z∥ < t ∗) ≥ c0, P(∥Z∗∥ ≥ t∗) ≤ ϵ. 
+
+To handle intersections, we define for each manifold Mk:
+
+Ak =
+
+x ∈ Mk | dist 
+
+x, [
+
+> ℓ̸=k
+
+Mℓ
+
+ ≥ 2ρ
+
+ , A =
+
+> K
+
+[
+
+> k=1
+
+Ak, Ising = S \ A. 
+
+Remark 22 If two manifolds are sufficiently close without intersection, this excision would remove part of the manifold away from the intersections. However, we will assume enough of a margin and let ρ be sufficiently small so that this excision only occurs at around singu-larities. 
+
+Recall that we assume each stratum is compact with regularity assumptions along with intersections being transversal in Assumptions 1 and 2. This implies the local metric inequal-ity dist (x, M k ∩ (S 
+
+> ℓ̸=k
+
+Mℓ)) ≲ dist (x, S 
+
+> ℓ̸=k
+
+Mℓ) (see Theorem 1 in (Kruger et al., 2018)). By compactness, this local bound holds globally. We also have the reverse bound induced by the inclusion Mk ∩ (S 
+
+> ℓ̸=k
+
+Mℓ) ⊂ S 
+
+> ℓ̸=k
+
+Mℓ, which implies dist (x, M k ∩ (S 
+
+> ℓ̸=k
+
+Mℓ)) ≍
+
+dist (x, S 
+
+> ℓ̸=k
+
+Mℓ). Hence, Ak is (up to a constant depending on the angle θ0 between strata at intersections) the complement of a 2ρ-tubular neighborhood of the singularity Ssing in 
+
+Mk. Combining this with reach (Mk) = rk > ρ and standard properties of sets with positive reach (Federer, 1959), we have that reach (Ak) ≥ ρ. Since the sets Ak are separated by ρ,we conclude that reach (A) ≥ min 
+
+
+
+min  
+
+> k
+
+reach (Ak), ρ 
+
+
+
+≥ ρ. 
+
+38 Since f (Z) need not lie entirely in S, we partition RD as follows. Let 
+
+U = {x ∈ RD : dist( x, A ) < η 0}, U c = RD \ U. 
+
+Also, let 
+
+a1 = Qf (U ), a2 = Qf (U c), b1 = Q∗(A), b2 = Q∗(Ising ),
+
+and the normalized restrictions 
+
+Q(1)  
+
+> f
+
+= 1
+
+a1
+
+Qf |U , Q(2)  
+
+> f
+
+= 1
+
+a2
+
+Qf |U c , Q(1)  
+
+> ∗
+
+= 1
+
+b1
+
+Q∗|A, Q(2)  
+
+> ∗
+
+= 1
+
+b2
+
+Q∗|Ising .
+
+This implies that a1 + a2 = Qf (RD) = 1 and b1 + b2 = Q∗(S) = 1 . Since ∥f ∥∞, ∥f ∗∥∞ ≤ V ,all measures are supported in Y = B(0 , V ). So by Lemma 21 with R = diam( Y ) ≤ 2V , we have that 
+
+W1 (Qf , Q ∗) ≤
+
+> 2
+
+X
+
+> i=1
+
+biW1(Q(i) 
+
+> f
+
+, Q (i) 
+
+> ∗
+
+) + R
+
+2
+
+> 2
+
+X
+
+> i=1
+
+|ai − bi|.
+
+Bounding b2 and b2W1(Q(2)  
+
+> f
+
+, Q (2)  
+
+> ∗
+
+). Recall that the densities on each manifold are bounded from above and that intersections have positive codimension. Since the set Ising is essentially a union of geodesic tubes of radius ρ around lower-dimensional subsets, its volume within 
+
+Mk is O(ρd) for some d ≥ 1. Thus, there exists a constant c such that 
+
+b2 =
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+Z
+
+> Ising ∩Mk
+
+qk dvol Mk (x) ≤ c
+
+> K
+
+X
+
+> k=1
+
+vol Mk (Ising ∩ Mk) ≲ ρ
+
+As Q(2)  
+
+> f
+
+and Q(2)  
+
+> ∗
+
+are supported in Y , we have W1(Q(2)  
+
+> f
+
+, Q (2)  
+
+> ∗
+
+) ≤ 2V , and so 
+
+b2W1(Q(2)  
+
+> f
+
+, Q (2)  
+
+> ∗
+
+) ≤ 2V b 2 ≲ 2V · ρ ≲ σ∗
+
+plog ϵ−1.
+
+Bounding a2. Let Sη1 = {x ∈ RD : dist( x, S) < η 1} and consider the splitting 
+
+a2 = Qf (U c ∩ S η1 )
+
+| {z }
+
+> ˜a2
+
++ Qf (RD \ S η1 )
+
+| {z }
+
+> ˆa2
+
+,
+
+where ˜a2 is the proportion of points closer to S, and ˆa2 is the proportion farther away. If X ∈ RD \ Sη1 and ∥Z∥ < t ∗, we have dist( X + Z, S) ≥ dist( X, S) − ∥ Z∥ > t ∗ = η1/2,so X + Z̸ ∈ S η1/2. Hence 
+
+Pf,σ (RD \ S η1/2) ≥
+
+Z 
+
+> RD\S η1
+
+P(∥Z∥ < t ∗)Qf (dx ) = ˆ a2P(∥Z∥ < t ∗).
+
+Conversely, since Q∗ is supported on S,
+
+P∗(RD \ S η1/2) = 
+
+Z
+
+> S
+
+P(X + Z∗ /∈ S η1/2)Q∗(dx ) ≤ P(∥Z∗∥ ≥ t∗) ≤ ϵ. 
+
+With our bound on Hellinger distance, we have that |Pf,σ (·) − P∗(·)| ≤ dT V (Pf,σ , P ∗) ≤ √2ϵ,which implies that 
+
+ˆa2P(∥Z∥ < t ∗) ≤ ϵ + √2ϵ. 
+
+39 As P(∥Z∥ < t ∗) ≥ c0 > 0, we have 
+
+ˆa2 ≲ ϵ. 
+
+Now for the mass near S, we define the set 
+
+V = {x ∈ RD : dist( x, I sing ) < 3t∗}.
+
+Consider y ∈ U c ∩ S η1 and let x ∈ S be such that ∥x − y∥ < η 1. If x ∈ A, then dist( x, A ) ≤∥x − y∥ < η 1 < η 0, so y̸ ∈ U c, a contradiction. Hence x ∈ Ising and dist( y, I sing ) < 2t∗, so that y ∈ V . For any X ∈ U c ∩ S η1 and any Z, we hence have 
+
+∥Z∥ < t ∗ =⇒ dist( X + Z, I sing ) ≤ dist( X, I sing ) + ∥Z∥ < 3t∗,
+
+which implies that X + Z ∈ V . Therefore, 
+
+Pf,σ (V ) ≥
+
+Z 
+
+> Uc∩S η1
+
+P(∥Z∥ < t ∗)Qf (dx ) = ˜ a2P(∥Z∥ < t ∗).
+
+Define the intrinsic set 
+
+I = {x ∈ S : dist( x, I sing ) < 4t∗}
+
+and note that I is a O(ρ)-tubular neighborhood of Ising in S, and hence the same volume argument from the bound on b2 applies, i.e. Q∗(I) ≲ ρ. If we take X ∼ Q∗ and X + Z∗ ∈ V
+
+with ∥Z∗∥ < t ∗, then dist( X, I sing ) ≤ dist( X + Z∗, I sing ) + ∥Z∗∥ < 4t∗, which means that 
+
+X ∈ I. Hence 
+
+P∗(V ) = 
+
+Z
+
+> I
+
+P(X+Z∗ ∈ V )Q∗(dx )+ 
+
+Z
+
+> S\ I
+
+P(X+Z∗ ∈ V )Q∗(dx ) ≤ Q∗(I)+ P(∥Z∗∥ ≥ t∗) ≲ ρ+ϵ. 
+
+With the Hellinger bound, we have that Pf,σ (V ) ≤ P∗(V ) + √2ϵ, and so 
+
+˜a2P(∥Z∥ < t ∗) ≲ ρ + ϵ, 
+
+and P(∥Z∥ < t ∗) ≥ 1/2 yields ˜a2 ≲ ρ + ϵ. Hence 
+
+a2 = ˜ a2 + ˆ a2 ≲ ρ + ϵ ≲ σ∗
+
+plog ϵ−1 + ϵ. 
+
+Bounding |a1 − b1| and |a2 − b2|. Note that a1 + a2 = b1 + b2 = 1 , so 
+
+|a1 − b1| = |a2 − b2| ≤ a2 + b2 ≲ ρ + ϵ. 
+
+Hence 
+
+R
+
+2 (|a1 − b1| + |a2 − b2|) ≲ ϵ + σ∗
+
+plog ϵ−1.
+
+40 Bounding W1(Q(1)  
+
+> f
+
+, Q (1)  
+
+> ∗
+
+). The assumption that ρ ≤ ρ1 implies that b1 ≥ c, and so 
+
+a1 ≥ b1 − | a1 − b1| ≥ c − C0(ϵ + σ∗
+
+plog ϵ−1) ≥ c/ 2
+
+for some constant C0 > 0 as σ∗
+
+plog ϵ−1 is small. This allows us to control the L1 distance on the restricted densities. Let p(1)  
+
+> f,σ
+
+= Q(1)  
+
+> f
+
+∗ ϕσ and p(1)  
+
+> ∗
+
+= Q(1)  
+
+> ∗
+
+∗ ϕσ∗ so that 
+
+pf,σ = a1p(1)  
+
+> f,σ
+
++ a2(Q(2)  
+
+> f
+
+∗ ϕσ), p∗ = b1p(1)  
+
+> ∗
+
++ b2(Q(2)  
+
+> ∗
+
+∗ ϕσ∗ ).
+
+Rearranging gives us that 
+
+a1p(1)  
+
+> f,σ
+
+− b1p(1)  
+
+> ∗
+
+= ( pf,σ − p∗) − (a2Q(2)  
+
+> f
+
+∗ ϕσ − b2Q(2)  
+
+> ∗
+
+∗ ϕσ∗ ).
+
+Then 
+
+∥a1p(1)  
+
+> f,σ
+
+− b1p(1)  
+
+> ∗
+
+∥1 ≤ ∥ pf,σ − p∗∥1 + a2 + b2.
+
+Using the relation p(1)  
+
+> f,σ
+
+− p(1)  
+
+> ∗
+
+= 1 
+
+> a1
+
+(a1p(1)  
+
+> f,σ
+
+− b1p(1)  
+
+> ∗
+
+) + b1−a1 
+
+> a1
+
+p(1)  
+
+> ∗
+
+implies that 
+
+∥p(1)  
+
+> f,σ
+
+−p(1)  
+
+> ∗
+
+∥1 ≤ 1
+
+a1
+
+(∥pf,σ −p∗∥1 +a2 +b2 +|a1 −b1|) ≤ 2
+
+c (2 √2dH (pf,σ , p ∗)+ a2 +b2 +|a1 −b1|).
+
+By our assumption on the Hellinger distance and bounds in the previous steps, we have that each of the terms is ≲ ϵ + σ∗
+
+plog ϵ−1. Since Q(1)  
+
+> ∗
+
+is supported on the set A with 
+
+reach( A) ≥ 4t∗, we can apply the argument in Theorem 7 in Chae et al. (2023) to get 
+
+σ ≤ 2t∗ and 
+
+W1(Q(1)  
+
+> f
+
+, Q (1)  
+
+> ∗
+
+) ≲ σ + ∥p(1)  
+
+> f,σ
+
+− p(1)  
+
+> ∗
+
+∥1 + σ∗
+
+≲ t∗ + ∥p(1)  
+
+> f,σ
+
+− p(1)  
+
+> ∗
+
+∥1 ≲ ϵ + σ∗
+
+plog ϵ−1.
+
+Thus b1W1(Q(1)  
+
+> f
+
+, Q (1)  
+
+> ∗
+
+) ≲ ϵ + σ∗
+
+plog ϵ−1.Putting all bounds together gives us that 
+
+W1(Qf , Q ∗) ≲ ϵ + σ∗
+
+plog ϵ−1.
+
+□
+
+A.5 Proof of Lemma 19 
+
+Let m = ⌈log 2 2ξ−p⌉ and η = 2 −m. Consider the function 
+
+gc,η (x) = ReLU( x − c) − ReLU( x − c − η),
+
+and define D(u, v ) = (ReLU( u + v), ReLU( u + v)) . In particular, for u = v ≥ 0, this gives 
+
+D(u, v ) = (2 u, 2u). Set (u0, v 0) = ( gc,η (x), g c,η (x)) and 
+
+(ui, v i) = D(ui−1, v i−1).
+
+Then um = vm = 2 mgc,η (x). Let fc,η (x) = um = 2 mgc,η (x) = 1 
+
+> η
+
+gc,η (x). Then 
+
+fc,η (x) = 
+
+
+
+0, x ≤ c; 
+
+> x−cη
+
+, c < x < c + η;1, x ≥ c + η. 
+
+Set Φ( x) = fa−η,η (x) − fb,η (x). Then properties 1, 2, and 3 of the lemma are satisfied with the specified layers, width and sparsity. □
+
+41 A.6 Proof of Lemma 21 
+
+By the triangle inequality, 
+
+W1(
+
+> K
+
+X
+
+> k=1
+
+ak ˜Qk,
+
+> K
+
+X
+
+> k=1
+
+bkQk) ≤ W1(
+
+> K
+
+X
+
+> k=1
+
+ak ˜Qk,
+
+> K
+
+X
+
+> k=1
+
+bk ˜Qk) + W1(
+
+> K
+
+X
+
+> k=1
+
+bk ˜Qk,
+
+> K
+
+X
+
+> k=1
+
+bkQk).
+
+The second term on the right captures the error in the distribution estimation and can be bounded as follows. Take an optimal coupling of ˜Qk and Qk for each k, say γk. Define a new measure γ = PKk=1 bkγk. This gives us marginals of PKk=1 bk ˜Qk and PKk=1 bkQk, so this is a coupling of the two mixtures. Thus, an optimal coupling would satisfy 
+
+W1(X
+
+> k
+
+bk ˜Qk, X
+
+> k
+
+bkQk) ≤
+
+Z
+
+|x − y|dγ (x, y ) = X
+
+> k
+
+bk
+
+Z
+
+|x − y|dγ k(x, y ) = X
+
+> k
+
+bkW1( ˜Qk, Q k).
+
+The first term on the right of the beginning inequality captures the error in the estimation of the mixture weights. By (Villani et al. (2008) Theorem 6.15), W1(μ, ν ) ≤ R|| μ − ν|| T V ,where R = diam (Y∗) and || PKk=1 ak ˜Qk − PKk=1 bk ˜Qk|| T V ≤ 12
+
+PKk=1 |ak − bk|. Thus 
+
+W1(
+
+> K
+
+X
+
+> k=1
+
+ak ˜Qk,
+
+> K
+
+X
+
+> k=1
+
+bk ˜Qk) ≤ R
+
+2
+
+> K
+
+X
+
+> k=1
+
+|ak − bk|
+
+Adding these bounds together gives the claim. □
+
+Appendix B. Proofs for Section 4 
+
+For the sake of simplicity and without loss of generality, in the following analysis, we assume 
+
+M = ∪Kk=1 Mk ⊂ B1(0 D). Recall that σt =
+
+q
+
+1 − exp( −2 R t 
+
+> 0
+
+βs ds) and mt = p1 − σ2 
+
+> t
+
+.Then there exists a constant C so that 1
+
+> c
+
+√t ∧ 1 ≤ σt ≤ c√t ∧ 1 and 1 
+
+> c
+
+(t ∧ 1) ≤ 1 − mt ≤
+
+c(t ∧ 1) . For any x ∈ RD, we have 
+
+pt(x) ∝ Ey∼P∗
+
+h
+
+exp   − ∥x − mty∥2
+
+2σ2
+
+> t
+
+i
+
+∝
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h Z
+
+> RD
+
+exp   − ∥x − mtz∥2
+
+2σ2
+
+> t
+
+ exp   − ∥y − z∥2
+
+2σ2
+
+> ∗
+
+ dz
+
+i
+
+∝
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+" Z
+
+> RD
+
+exp 
+
+
+
+−
+
+ m2
+
+> t
+
+2σ2
+
+> t
+
++ 12σ2
+
+> ∗
+
+
+
+z −
+
+> mt
+> σ2
+> t
+
+x + yσ2
+
+> ∗
+> m2
+> t
+> σ2
+> t
+
++ 1
+
+> σ2
+> ∗
+> 2
+
+
+
+dz · exp 
+
+
+
+− ∥x − mty∥2
+
+2( m2 
+
+> t
+
+σ2 
+
+> ∗
+
++ σ2 
+
+> t
+
+)
+
+#
+
+∝
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+"
+
+exp 
+
+
+
+− ∥x − mty∥2
+
+2( m2 
+
+> t
+
+σ2 
+
+> ∗
+
++ σ2 
+
+> t
+
+)
+
+#
+
+.
+
+So let eσt = pm2 
+
+> t
+
+σ2 
+
+> ∗
+
++ σ2 
+
+> t
+
+, we can write 
+
+pt(x) = 1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+"
+
+exp 
+
+
+
+− ∥x − mty∥2
+
+2eσ2
+
+> t
+
+#
+
+,
+
+42 and 
+
+∇ log pt(x) = ∇pt(x)
+
+pt(x) =
+
+PKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+ ·
+
+
+
+− x−mty
+
+> eσ2
+> t
+
+i PKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+i .
+
+We first use Lemma B.2 in Tang and Yang (2024) to relate the generalization error of the score function ∇ log pt(Xt) to the generalization error of the distribution P∗ under the W1
+
+metric 
+
+Lemma 23 (Lemma B.2 of Tang and Yang (2024)) Suppose bS(x, t ) ≲  
+
+> √log nσt
+
+, then 
+
+W1 (bp, P ∗) ≲ 1
+
+n + τ 12 +
+
+> L−1
+
+X
+
+> i=0
+
+s (ti log n) ∧ 1 Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d x dt. 
+
+Moreover, when S(xt, t ) ≲
+
+q log nt∧1 , we have for any l ∈ { 0, 1, · · · , L − 1},
+
+Z tl+1 
+
+> tl
+
+Z
+
+> RD
+
+∥S(xt, t ) − ∇ log pt(xt|x)∥2pt(xt|x) d xtdt
+
+≤
+
+Z tl+1 
+
+> tl
+
+Z
+
+2 · ∥ S(xt, t )∥2pt(xt|x) d xtdt +
+
+Z tl+1 
+
+> tl
+
+Z
+
+2 · ∥∇ log pt(xt|x)∥2pt(xt|x) d xtdt ≲ log 2 n. 
+
+Then by Theorem 4.3 of Oko et al. (2023), for any l ∈ { 0, 1, · · · , L − 1}, it holds that 
+
+E
+
+Z tl+1 
+
+> tl
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+≲ inf 
+
+> S∈Φ( Ll,W l,R l,B l,V l)
+
+Z tl+1 
+
+> tl
+
+Z
+
+> RD
+
+∥S(x, t ) − ∇ log pt(x)∥2 pt(x) d xdt + (log n)2
+
+n RlLl log ( nL l ∥Wl∥∞ Bl) .
+
+We will choose Rl, L l, ∥Wl∥∞ and Bl so that the approximation error satisfies 
+
+inf 
+
+> S∈Φ( Ll,W l,R l,B l,V l)
+
+Z tl+1 
+
+> tl
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt = eO
+
+ KX
+
+> k=1
+
+min 
+
+ (σ∗ + √1 ∧ tl)−dk
+
+n , n − 2αk 
+
+> 2αk+dk
+
+
+
+.
+
+We first introduce the following lemma, which states that it is sufficient to approximate the score function ∇ log pt(x) only for values of x that are in close proximity to M = ∪Kk=1 Mk.
+
+Lemma 24 If sup 
+
+> x∈RD
+
+sup  
+
+> t∈[τ,T ]
+
+[∥S(x, t )∥∞eσt] ≤ c√log n. Then, there exist constants (c0, c 1, c 2, c 3)
+
+so that for any i ∈ { 0, 1, · · · , L − 1} and t ∈ [ti, t i+1 ] with 1 < ti+1  
+
+> ti
+
+≤ 2,1. Denote dist( x, M) as the distance of point x ∈ RD to M. Then 
+
+Z
+
+∥∇ log pt(x) − S(x, t )∥2 pt(x) d x
+
+≤
+
+Z
+
+∥∇ log pt(x) − S(x, t )∥2 pt(x) · 1
+
+
+
+dist( x, M) ≤ c0eσti
+
+plog n
+
+
+
+dx + (1 + c2) · c1
+
+1
+
+n2 .
+
+43 2. For any x ∈ RD satisfying dist( x, M) ≤ c0eσti
+
+√log n, we have (a) ∥∇ log pt(x)∥∞ ≤ c2 
+
+> √log n
+> eσti
+
+.(b) (2 πeσ2 
+
+> t
+
+) D 
+
+> 2
+
+pt(x) ≥ n−c3 .
+
+Furthermore, we will use Lemma C.2 of Tang and Yang (2024) to bound the covering number of Mk.
+
+Lemma 25 (Lemma C.2 of Tang and Yang (2024)) For any k ∈ [K] and any ϵ > 0, there exists an ϵ-cover Nk,ϵ of Mk so that Nk,ϵ ⊂ M k and |Nk,ϵ | ≲ (ϵ ∧ 1) −dk , moreover, for any 
+
+x0 ∈ M k and r ≥ ϵ, we have 
+
+{x ∈ Nk,ϵ : ∥x − x0∥ ≤ r} ≲   r ∧ 1
+
+ϵ ∧ 1
+
+dk .
+
+Let us fix an i ∈ { 0, 1, · · · , L − 1} and time interval t ∈ [ti, t i+1 ] where 1 < ti+1  
+
+> ti
+
+≤ 2, ti ≥ τ
+
+and ti+1 ≤ T . Using Lemma 24, we only need to control 
+
+inf 
+
+> S∈Φ( Ll,W l,R l,B l,V l)
+
+Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+∥S(x, t ) − ∇ log pt(x)∥2 pt(x) · 1
+
+
+
+dist( x, M) ≤ c0eσti
+
+plog n
+
+
+
+dxdt
+
+≤ (ti+1 − ti) · inf  
+
+> S∈Φ( Li,W i,R i,B i,V i)
+
+sup 
+
+> t∈[ti,t i+1 ]
+
+sup    
+
+> x: dist( x, M)≤c0eσti
+> √log n
+
+∥S(x, t ) − ∇ log pt(x)∥2 .
+
+Depending on the value of ti and σ∗, we will control the above term using different methods. 
+
+B.1 Case 1: for any k ∈ [K], eσti ≥ n− 12αk +dk 
+
+> √log n
+
+For any k ∈ [K], let Nk,ϵ ∗ be an ϵ∗-cover of Mk with ϵ∗ = eσti
+
+√log n so that statements in Lemma 25 are satisfied. Then the cardinality of Nk,ϵ ∗ , denoted by |Nk,ϵ ∗ |, satisfies |Nk,ϵ ∗ | =
+
+O 1 ∨ (ϵ∗)−dk
+
+. Denote Jk = |Nk,ϵ ∗ | and write Nk,ϵ ∗ = {x∗
+
+> k, 1
+
+, x ∗
+
+> k, 2
+
+, · · · , x ∗ 
+
+> k,J k
+
+}. For ease of notation, we denote 
+
+(A) = 
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+and 
+
+(B) = 
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+i
+
+,
+
+so that ∇ log pt(x) = (A)(B) . Then using Lemma 24, we have for any x ∈ RD satisfying 
+
+dist( x, M) ≤ c0eσti
+
+√log n, it holds that (B) ≥ n−c3 and ∥ (A)(B) ∥ ≤ c2 
+
+> √log n
+> eσti
+
+. Define the follow-ing partition function 
+
+ρ(x) = 
+
+
+
+1 |x| < 10 |x| > 22 − | x| 1 < |x| ≤ 2.
+
+44 Let c4 be a large enough constant, we approximate (A) by 
+
+(A′) = 
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+PJk 
+
+> j=1
+
+·Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+ ·
+
+
+
+− x−mty
+
+> eσ2
+> t
+
+i 
+
+· ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+
+
+max 
+
+
+
+1, PJk 
+
+> j=1
+
+ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+ ,
+
+and approximate (B) by 
+
+(B′) = max 
+
+
+
+n−c3 ,
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+PJk 
+
+> j=1
+
+·Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+i
+
+· ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+
+
+max 
+
+
+
+1, PJk 
+
+> j=1
+
+ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+
+
+.
+
+Then with sufficiently large c4, for any t ∈ [ti, t i+1 ] and x ∈ RD with dist( x, M) ≤
+
+c0eσti
+
+√log n,
+
+∥(A) − (A′)∥
+
+=
+
+> K
+
+X
+
+> k=1
+
+ωk · 1
+
+ JkX
+
+> j=1
+
+ρ( |x − x∗ 
+
+> kj
+
+|
+
+c4eσti
+
+√log n ) < 1
+
+
+
+·
+
+ PJk 
+
+> j=1
+
+ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+
+
+max 
+
+
+
+1, PJk 
+
+> j=1
+
+ρ  |x−x∗   
+
+> kj |
+> c4eσti
+> √log n
+
+ − 1
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤
+
+> K
+
+X
+
+> k=1
+
+ωk · 1
+
+
+
+∀j, ∥x − x∗ 
+
+> kj
+
+∥ ≥ c4eσti
+
+√log n
+
+√D
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤
+
+> K
+
+X
+
+> k=1
+
+ωk · 1
+
+
+
+dist( x, Mk) ≥   c4
+
+√D − 1eσti
+
+plog n
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤ n−c3−1,
+
+and similarly 
+
+√log n
+
+eσti
+
+|(B) − (B′)|≤√log n
+
+eσti
+
+> K
+
+X
+
+> k=1
+
+ωk · 1
+
+
+
+dist( x, Mk) ≥   c4
+
+√D − 1eσti
+
+plog n
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+i
+
+≤ n−c3−1.
+
+Combined with (B) ≥ n−c3 and , we have 
+
+∇ log pt(x) − (A′)(B′) = (A)(B) − (A′)(B′) ≤ (A)(B) · |(B) − (B′)||(B′)| + ∥(A) − (A′)∥|B′| ≲ n−1.
+
+Then for any k ∈ [K], j ∈ [Jk], and x ∈ RD with ∥x − x∗ 
+
+> kj
+
+∥ ≤ 2c4eσti
+
+√log n, we have 
+
+{y ∈ M k : ∥x − y∥ ≤ c5eσti
+
+plog n} ⊂ { y ∈ M k : ∥y − x∗ 
+
+> kj
+
+∥ ≤ (2 c4 + c5)eσti
+
+plog n}.
+
+45 Let c6 = 2 c4 + c5, we further approximate (A′) by 
+
+(A′′ 
+
+) = 
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+) exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x−mty
+
+eσ2
+
+> t
+
+
+
+qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+ ,
+
+and approximate (B′) by 
+
+(B′′ 
+
+) = max 
+
+
+
+n−c3 ,
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+) exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+.
+
+When c5 is sufficiently large, we have 
+
+∥(A′) − (A′′ 
+
+)∥
+
+=
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk \Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+) exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x−mty
+
+eσ2
+
+> t
+
+
+
+qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+≤
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk \Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+) exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+ · x−mty
+
+eσ2
+
+> t
+
+· qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+≤
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk \Bc5 eσti 
+
+> √log n
+
+(x) exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+ · x−mty
+
+eσ2
+
+> t
+
+· qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+≤
+
+KX
+
+k=1 
+
+ωk
+
+Z
+
+Mk \Bc5 eσti 
+
+> √log n
+
+(x)
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · x − mty
+
+eσ2
+
+t
+
+· qk(y) dvol Mk (y)
+
+≤ n−c3−1,
+
+and similarly, 
+
+√log n
+
+eσti
+
+|(B′) − (B′′ 
+
+)|≤√log n
+
+eσti
+
+·
+
+KX
+
+k=1 
+
+ωk
+
+Z
+
+Mk \Bc5 eσti 
+
+> √log n
+
+(x)
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · qk(y) dvol Mk (y)
+
+≤ n−c3−1.
+
+Therefore, combined with (B′′ ) ≥ (B) − 2n−c3−1 eσti√log n ≥ n−c3
+
+2 and ∥ (A′)(B′) ∥ ≤ ∥ (A)(B) ∥ + n−1 ≤
+
+2c2
+
+√log n
+
+eσti
+
+, we have 
+
+(A′)(B′) − (A′′ 
+
+)(B′′ ) ≤ (A′)(B′) · |(B′) − (B′′ 
+
+)||(B′′ )| + ∥(A′) − (A′′ 
+
+)∥|B′′ | ≲ n−1.
+
+46 Then let L = c7 log n with a sufficiently large c7 and consider 
+
+(A′′′ 
+
+) = 
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+)
+
+PL
+
+l=0 (−1) l ∥x−mty∥2l
+
+l!2 l eσ2lt
+
+  − x−mty
+
+eσ2
+
+> t
+
+qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+=
+
+KX
+
+k=1 
+
+PJk
+
+j=1 
+
+PL
+
+l=0 
+
+P
+
+0≤s1≤2l+1 
+
+P
+
+s2∈ND 
+
+> 0
+
+,|s2|≤ 2l+1 ωk( 1
+
+eσt )2l+2 · ms1
+
+t · xs2 · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+ · ak,j,l,s 1,s 2
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+ ,
+
+where for s2 = ( s21 , s 22 , · · · , s 2D), we denote xs2 = QDj=1 xs2j
+
+j , and ak,j,l,s 1,s 2 ’s are D-dimensional coefficients that satisfy ( 1
+
+eσt )2l+2 ∥ak,j,l,s 1,s 2 ∥ = exp( O(log 2 n)) . Similarly, we define 
+
+(B′′′ 
+
+) = max 
+
+
+
+n−c3 ,
+
+KX
+
+k=1 
+
+ωk
+
+PJk
+
+j=1 
+
+R
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+)
+
+PL
+
+l=0 (−1) l ∥x−mty∥2l
+
+l!2 l eσ2lt
+
+qk(y) dvol Mk (y) · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+= max 
+
+
+
+n−c3 ,
+
+KX
+
+k=1 
+
+PJk
+
+j=1 
+
+PL
+
+l=0 
+
+P
+
+0≤s1≤2l
+
+P
+
+s2∈ND 
+
+> 0
+
+,|s2|≤ 2l ωk( 1
+
+eσt )2l · ms1
+
+t · xs2 · ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+ · bk,j,l,s 1,s 2
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+,
+
+where bk,j,l,s 1,s 2 ’s are 1-dimensional coefficients that satisfy ( 1
+
+eσt )2l|bk,j,l,s 1,s 2 | = exp( O(log 2 n)) .Using the fact that for any x ≥ 0, it holds that | exp( −x) − PL
+
+l=0 (−1) l x l
+
+l! | ≤ |x|L +1 
+
+(L +1)! ≤
+
+47 ( |x|e
+
+(L +1) )L +1 . When L = c7 log n with a sufficiently large c7, we have 
+
+∥(A′′ 
+
+) − (A′′′ 
+
+)∥≤
+
+KX
+
+k=1 
+
+ωk
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+·
+
+JkX
+
+j=1 
+
+Z
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+)
+
+exp( − ∥x − mty∥2
+
+2eσ2
+
+t
+
+) −
+
+LX
+
+l=0 
+
+(−1) l ∥x − mty∥2l
+
+l!2 l eσ2lt
+
+· x − mty
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y)
+
+· ρ  |x − x∗
+
+kj |
+
+c4eσti
+
+√log n
+
+!
+
+≤
+
+KX
+
+k=1 
+
+ωk
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+·
+
+JkX
+
+j=1 
+
+Z
+
+Mk ∩B(c6+2 c4)eσti 
+
+> √log n
+
+(x)
+
+exp( − ∥x − mty∥2
+
+2eσ2
+
+t
+
+) −
+
+LX
+
+l=0 
+
+(−1) l ∥x − mty∥2l
+
+l!2 l eσ2lt
+
+· x − mty
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y)
+
+· ρ  |x − x∗
+
+kj |
+
+c4eσti
+
+√log n
+
+!
+
+≲
+
+√log n
+
+eσti
+
+sup 
+
+k∈[K]
+
+sup 
+
+y∈M k ∩B(c6+2 c4)eσti 
+
+> √log n
+
+(x)
+
+exp( − ∥x − mty∥2
+
+2eσ2
+
+t
+
+) −
+
+LX
+
+l=0 
+
+(−1) l ∥x − mty∥2l
+
+l!2 l eσ2lt
+
+(eσti
+
+plog n)) dk
+
+≲
+
+√log n
+
+eσti
+
+sup 
+
+k∈[K]
+
+(eσti
+
+plog n)) dk · sup 
+
+0≤z≤(c6+2 c4)2 log n+1 
+
+exp( −z) −
+
+LX
+
+l=0 
+
+(−z)l
+
+l!
+
+≲
+
+√log n
+
+eσti
+
+sup 
+
+k∈[K]
+
+(eσti
+
+plog n)) dk ·  e (c6 + 2 c4)2 log n + 1 
+
+c7 log n + 1 
+
+c7 log n+1 ≲ n−c3−1,
+
+and similarly, 
+
+√log n
+
+eσti
+
+|(B′′ 
+
+) − (B′′′ 
+
+)|≤√log n
+
+eσti
+
+KX
+
+k=1 
+
+ωk
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4 eσti
+
+√log n
+
+
+
+·
+
+JkX
+
+j=1 
+
+Z
+
+Mk ∩Bc6 eσti 
+
+> √log n
+
+(x∗ 
+
+> kj
+
+)
+
+exp( − ∥x − mty∥2
+
+2eσ2
+
+t
+
+) −
+
+LX
+
+l=0 
+
+(−1) l ∥x − mty∥2l
+
+l!2 l eσ2lt
+
+qk(y) dvol Mk (y) · ρ  |x − x∗
+
+kj |
+
+c4eσti
+
+√log n
+
+!
+
+≲
+
+√log n
+
+eσti
+
+sup 
+
+k∈[K]
+
+(eσti
+
+plog n)) dk ·  e (c6 + 2 c4)2 log n + 1 
+
+c7 log n + 1 
+
+c7 log n+1 ≲ n−c3−1.
+
+So we have 
+
+(A′′ 
+
+)(B′′ ) − (A′′′ 
+
+)(B′′′ ) ≲ n−1.
+
+48 Now we will construct neural network to approximate (A′′′ )(B′′′ ) . We consider the following lemmas in Oko et al. (2023) for the approximation of mt, σt, monomial and reciprocal function. In what follows, we write Φ( L, W, R, B ) = Φ( L, W, R, B, ∞).
+
+Lemma 26 (Lemma 3.3 in Oko et al. (2023)) There exist neural networks ϕm(t), ϕ σ(t) ∈
+
+Φ( L, W, B, R ) that approximates mt and σt up to ε for all t ≥ 0, where L = O  log 2  ε−1 ,∥W ∥∞ =
+
+O  log 3  ε−1 , R = O  log 4  ε−1 , and B = exp  O  log 2  ε−1 .
+
+Lemma 27 (Lemma F.6 in Oko et al. (2023)) Let d ≥ 2, C ≥ 1, 0 < ε error ≤ 1. For any ε > 0, there exists a neural network ϕmult (x1, x 2, · · · , x d) ∈ Φ( L, W, R, B ) with L =
+
+O  log d  log ε−1 + d log C , ∥W ∥∞ = 48 d, R = O  d log ε−1 + d log C , B = Cd such that for all x ∈ [−C, C ]d and x′ ∈ R with ∥x − x′∥∞ ≤ εerror ,
+
+ϕmult 
+
+ x′
+
+> 1
+
+, x ′
+
+> 2
+
+, · · · , x ′
+
+> d
+
+ −
+
+> d
+
+Y
+
+> d′=1
+
+xd′ ≤ ε + dC d−1εerror ,
+
+and for all x ∈ [−C, C ], |ϕmult (x)| ≤ Cd Note that some of xi, x j (i̸ = j) can be shared. For QIi=1 xωi 
+
+> i
+
+with ωi ∈ Z+(i = 1 , 2, · · · , I ) and PIi=1 ωi = d, there exists a neural network satisfying the same bounds as above, and the network is denoted by ϕmult (x; ω).
+
+Lemma 28 (Lemma F.7 in Oko et al. (2023)) For any 0 < ε < 1, there exists ϕrec ∈
+
+Φ( L, W, R, B ) with L ≤ O  log 2 ε−1 , ∥W ∥∞ = O  log 3 ε−1 , R = O  log 4 ε−1, and B =
+
+O  ε−2 such that 
+
+ϕrec 
+
+ x′ − 1
+
+x ≤ ε + |x′ − x|
+
+ε2 , for all x ∈ ε, ε −1 and x′ ∈ R.
+
+Therefore, using Lemmas 26, 30, 27 and 28, we 1. Approximate mt by ϕm(t) ∈ Φ( L′
+
+> 1
+
+, W ′
+
+> 1
+
+, R ′
+
+> 1
+
+, B ′
+
+> 1
+
+) with L′ 
+
+> 1
+
+= Θ(log 4 n), ∥W ′
+
+> 1
+
+∥∞ =Θ(log 6 n), R′ 
+
+> 1
+
+= Θ(log 8 n) and B1 = exp(Θ(log 4 n)) .2. Approximate σt by ϕσ(t) ∈ Φ( L′
+
+> 2
+
+, W ′
+
+> 2
+
+, R ′
+
+> 2
+
+, B ′
+
+> 2
+
+) with L′ 
+
+> 2
+
+= Θ(log 4 n), ∥W ′
+
+> 2
+
+∥∞ = Θ(log 6 n),
+
+R′ 
+
+> 2
+
+= Θ(log 8 n) and B′ 
+
+> 2
+
+= exp(Θ(log 4 n)) .3. Approximate 1 
+
+> x
+
+by ϕrec (x) ∈ Φ( L′
+
+> 3
+
+, W ′
+
+> 3
+
+, R ′
+
+> 3
+
+, B ′
+
+> 3
+
+) with L′ 
+
+> 3
+
+= Θ(log 4 n), ∥W ′
+
+> 3
+
+∥∞ =Θ(log 6 n), R′ 
+
+> 3
+
+= Θ(log 8 n) and B′ 
+
+> 3
+
+= exp(Θ(log 4 n)) .4. For vector x ∈ RD and s ∈ ND, approximate xs by ϕ[D]
+
+> vpower
+
+(x; s) ∈ Φ( L′
+
+> 4
+
+, W ′
+
+> 4
+
+, R ′
+
+> 4
+
+, B ′
+
+> 4
+
+)
+
+with L′ 
+
+> 4
+
+= Θ(log 2 n · log log n), ∥W ′
+
+> 4
+
+∥∞ = Θ(log n), R′ 
+
+> 4
+
+= Θ(log 3 n) and B′ 
+
+> 4
+
+=exp(Θ(log n · log log n)) .5. For x ∈ R, Approximate xa by ϕpower (x; a) ∈ Φ( L′
+
+> 5
+
+, W ′
+
+> 5
+
+, R ′
+
+> 5
+
+, B ′
+
+> 5
+
+) with L′ 
+
+> 5
+
+= Θ(log 2 n ·
+
+log log n), ∥W ′
+
+> 5
+
+∥∞ = Θ(log n), R′ 
+
+> 5
+
+= Θ(log 3 n) and B′ 
+
+> 5
+
+= exp(Θ(log n · log log n)) .6. For x, y ∈ R, Approximate x · y by ϕmult (x, y ) ∈ Φ( L′
+
+> 6
+
+, W ′
+
+> 6
+
+, R ′
+
+> 6
+
+, B ′
+
+> 6
+
+) with L′ 
+
+> 6
+
+=Θ(log 2 n), ∥W ′
+
+> 6
+
+∥∞ = Θ(1) , R′ 
+
+> 6
+
+= Θ(log 2 n) and B′ 
+
+> 6
+
+= exp(Θ(log 2 n)) . For x ∈ R,
+
+y ∈ RD, we denote ϕmult (x, y ) = ( ϕmult (x, y 1), ϕ mult (x, y 2), · · · , ϕ mult (x, y D)) .49 Then we denote ϕ 1 
+
+> eσ2
+
+(t) = ϕrec (σ2 
+
+> ∗
+
+· ϕpower (ϕm(t), 2) + ϕpower (ϕσ(t), 2)) and ϕρ(x; x∗, a ) = 
+
+ρ  |x−x∗|
+
+> a
+
+. Using the fact that ρ(x) = ReLU(2 − | x|) − ReLU(1 − | x|) and |x| = ReLU( x) + ReLU( −x), ϕρ(x; x∗, a ) can be realized exactly by ReLU neural network. We construct 
+
+ϕ∗
+
+> (A)
+
+(x, t ) = 
+
+> K
+
+X
+
+> k=1
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+> Jk
+
+X
+
+> j=1
+
+ϕρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+> Jk
+
+X
+
+> j=1
+> L
+
+X
+
+> l=0
+
+X
+
+> 0≤s1≤2l+1
+
+X 
+
+> s2∈ND
+> 0,|s2|≤ 2l+1
+
+ωk · ak,j,l,s 1,s 2 · ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l + 1) ,ϕpower (ϕm(t), s 1), ϕ [D]
+
+> vpower
+
+(x; s2)
+
+
+
+, ϕ ρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+!
+
+,
+
+and 
+
+ϕ∗
+
+> (B)
+
+(x, t ) = max n−c3 ,
+
+> K
+
+X
+
+> k=1
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+> Jk
+
+X
+
+> j=1
+
+ϕρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+> Jk
+
+X
+
+> j=1
+> L
+
+X
+
+> l=0
+
+X
+
+> 0≤s1≤2l
+
+X 
+
+> s2∈ND
+> 0,|s2|≤ 2l
+
+ωk · bk,j,l,s 1,s 2 · ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l ),ϕpower (ϕm(t), s 1), ϕ [D]
+
+> vpower
+
+(x; s2)
+
+
+
+, ϕ ρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+!! 
+
+.
+
+Then using Lemmas 26, 27 and 28, we can get 
+
+∥ϕ∗
+
+> (A)
+
+(x, t ) − (A′′′ 
+
+)∥ ≲ n−c3−1,
+
+and √log n
+
+eσti
+
+|ϕ∗
+
+> (B)
+
+(x, t ) − (B′′′ 
+
+)| ≲ n−c3−1.
+
+So 
+
+ϕ∗
+
+> (A)
+
+(x, t )
+
+ϕ∗
+
+> (B)
+
+(x, t ) − ∇ log pt(x)
+
+≤ ϕ∗
+
+> (A)
+
+(x, t )
+
+ϕ∗
+
+> (B)
+
+(x, t ) − (A′′′ 
+
+)(B′′′ ) + (A′′ 
+
+)(B′′ ) − (A′′′ 
+
+)(B′′′ ) + (A′′ 
+
+)(B′′ ) − (A′
+
+)(B′ ) + ∇ log pt(x) − (A′
+
+)(B′ )
+
+≲ n−1.
+
+Define 
+
+ϕ∗(x, t ) = max 
+
+
+
+− c2
+
+√log n
+
+eσti
+
+, min 
+
+
+
+c2
+
+√log n
+
+eσti
+
+, ϕ mult 
+
+
+
+ϕrec 
+
+ ϕ∗
+
+> (B)
+
+(x, t ), ϕ ∗
+
+> (A)
+
+(x, t )
+
+ 
+
+.
+
+50 Since ∥∇ log pt(x)∥ ≤ c2 
+
+> √log n
+> eσti
+
+, it holds for any t ∈ [ti, t i+1 ] and x ∈ RD with dist( x, M) ≤
+
+c0eσti
+
+√log n,
+
+ϕ∗(x, t ) − ∇ log pt(x)
+
+≤ ϕmult 
+
+
+
+ϕrec 
+
+ ϕ∗
+
+> (B)
+
+(x, t ), ϕ ∗
+
+> (A)
+
+(x, t )
+
+
+
+− ϕ∗
+
+> (A)
+
+(x, t )
+
+ϕ∗
+
+> (B)
+
+(x, t ) + ϕ∗
+
+> (A)
+
+(x, t )
+
+ϕ∗
+
+> (B)
+
+(x, t ) − ∇ log pt(x) ≲ n−1.
+
+Furthermore, note that max( x, a ) = ReLU( x−a)+ a and min( x, a ) = − ReLU( −x+a)−a,based on Lemmas F.1-F.3 in Oko et al. (2023) for the concatenation and parallelization of neural networks, there exists Li, W i, R i, B i with Li = Θ(log 4 n), ∥Wi∥∞ = Θ   log 6 n +
+
+PKk=1 Jk(log n)D+2 ), Ri = Θ   log 8 n + PKk=1 Jk(log n)D+4 ), and Bi = exp(Θ(log 4 n)) so that 
+
+ϕ∗ ∈ Φ( Li, W i, R i, B i, c 2 
+
+> √log n
+> eσti
+
+). So we have 
+
+E
+
+Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+≲ inf 
+
+> S∈Φ( Li,W i,R i,B i,V i)
+
+Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+∥S(x, t ) − ∇ log pt(x)∥2 pt(x) d xdt + (log n)2
+
+n RiLi log ( nL i ∥Wi∥∞ Bi)
+
+≲ (ti+1 − ti) · sup 
+
+> t∈[ti,t i+1 ]
+
+sup    
+
+> x: dist( x, M)≤c0eσti
+> √log n
+
+∥ϕ∗(x, t ) − ∇ log pt(x)∥2 + (log n)2
+
+n RiLi log ( nL i ∥Wi∥∞ Bi) + 1
+
+n2
+
+= eO
+
+ KX
+
+> k=1
+
+(eσti )−dk
+
+n
+
+
+
+.
+
+Then note that eσti ≥ max k∈[K] n− 12αk +dk  
+
+> √log n
+
+and 
+
+eσ2 
+
+> ti
+
+= m2 
+
+> ti
+
+σ2 
+
+> ∗
+
++ σ2 
+
+> ti
+
+≥ m2 
+
+> ti
+
+σ2 
+
+> ∗
+
+1(ti < 12 ) + 12 σ2 
+
+> ti
+
+1(ti ≥ 12 ) + 12 σ2 
+
+> ti
+
+≳ σ2 
+
+> ∗
+
++ 1 ∧ ti,
+
+where we have used that σ∗ ≤ 1. Hence, we have 
+
+E
+
+Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+= eO
+
+ KX
+
+> k=1
+
+(eσti )−dk
+
+n
+
+
+
+= eO
+
+ KX
+
+> k=1
+
+min( n− 2αk  
+
+> 2αk+dk
+
+, (σ∗ + √1 ∧ ti)−dk
+
+n )
+
+
+
+,
+
+and 
+
+E
+
+
+
+(( ti log n) ∧ 1) ·
+
+Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+= eO
+
+ KX
+
+> k=1
+
+(eσti )−dk +2 
+
+n
+
+
+
+= eO
+
+ 1
+
+n +
+
+> K
+
+X
+
+> k=1
+
+min( n− 2αk +2 2αk +dk , σ2−dk
+
+> ∗
+
+n )
+
+
+
+.
+
+51 B.2 Case 2: ∃ k ∈ [K], eσti < n− 12αk +dk  
+
+> √log n
+
+.
+
+Consider the sets 
+
+K1 = {k ∈ [K] : eσti ≥ n− 12αk +dk
+
+√log n },
+
+K2 = {k ∈ [K] : eσti < n− 12αk +dk
+
+√log n }.
+
+Then we write 
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+= X
+
+> k∈K 1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i | {z }
+
+> (A1)
+
++ X
+
+> k∈K 2
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i | {z }
+
+> (A2)
+
+,
+
+and 
+
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+i
+
+= X
+
+> k∈K 1
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+i| {z }
+
+> (B1)
+
++ X
+
+> k∈K 2
+
+ωk · Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+i| {z }
+
+> (B2)
+
+Then similar as case 1, we can approximate terms (A1) and (B1) by 
+
+ϕ∗
+
+> (A1)
+
+(x, t ) = X
+
+> k∈K 1
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+> Jk
+
+X
+
+> j=1
+
+ϕρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+> Jk
+
+X
+
+> j=1
+> L
+
+X
+
+> l=0
+
+X
+
+> 0≤s1≤2l+1
+
+X 
+
+> s2∈ND
+> 0,|s2|≤ 2l+1
+
+ωk · ak,j,l,s 1,s 2 · ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l + 1) ,ϕpower (ϕm(t), s 1), ϕ [D]
+
+> vpower
+
+(x; s2)
+
+
+
+, ϕ ρ(x; x∗ 
+
+> kj
+
+, c 4eσti
+
+plog n)
+
+!
+
+,
+
+52 and 
+
+ϕ∗
+
+(B1)(x, t ) = X
+
+k∈K 1
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+JkX
+
+j=1 
+
+ϕρ(x; x∗
+
+kj , c 4eσti
+
+plog n)
+
+JkX
+
+j=1 
+
+LX
+
+l=0 
+
+X
+
+0≤s1≤2l
+
+X
+
+s2∈ND 
+
+> 0
+
+,|s2|≤ 2l
+
+ωk · bk,j,l,s 1,s 2 · ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l ),ϕpower (ϕm(t), s 1), ϕ [D]
+
+vpower (x; s2)
+
+
+
+, ϕ ρ(x; x∗
+
+kj , c 4eσti
+
+plog n)
+
+!
+
+,
+
+respectively. Furthermore, it holds for any t ∈ [ti, t i+1 ] and x ∈ RD with dist( x, M) ≤
+
+c0eσi
+
+√log n that 
+
+∥ϕ∗
+
+(A1)(x, t ) − (A)∥ ≲ n−c3−1,
+
+and 
+
+√log n
+
+eσti
+
+|ϕ∗
+
+(B)(x, t ) − (B)| ≲ n−c3−1.
+
+Then we approximate terms (A2) and (B2). For any k ∈ K 2, let eNk,ϵ ∗ 
+
+> k
+
+be an ϵ∗
+
+k-cover of 
+
+Mk with ϵ∗
+
+k = n− 12αk +dk so that statements in Lemma 25 are satisfied. Then | eNk,ϵ ∗ 
+
+> k
+
+| =
+
+O n 
+
+> dk
+> 2αk+dk
+
+. Denote eJk = | eNk,ϵ ∗ 
+
+> k
+
+| and write eNk,ϵ ∗ 
+
+> k
+
+= {ex∗
+
+k, 1, ex∗
+
+k, 2, · · · , ex∗
+
+k, eJk
+
+}. Then define 
+
+(A′
+
+2) = X
+
+k∈K 2
+
+ωk
+
+P eJk
+
+j=1 Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x−mty
+
+eσ2
+
+> t
+
+i 
+
+· ρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ ,
+
+and 
+
+(B′
+
+2) = X
+
+k∈K 2
+
+ωk
+
+P eJk
+
+j=1 Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+2eσ2
+
+> t
+
+i
+
+· ρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ .
+
+53 With sufficiently large c4, for any t ∈ [ti, t i+1 ] and x ∈ RD with dist( x, M) ≤ c0eσti
+
+√log n,
+
+∥(A2) − (A′
+
+> 2
+
+)∥
+
+= X
+
+> k∈K 2
+
+ωk · 1
+
+ eJkX
+
+> j=1
+
+ρ  |x − ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ ≤ 1
+
+
+
+·
+
+ P eJk 
+
+> j=1
+
+ρ  |x−ex∗   
+
+> kj |
+> c4n−1/(2 αk+dk)
+
+
+
+max 
+
+
+
+1, P eJk 
+
+> j=1
+
+ρ  |x−ex∗   
+
+> kj |
+> c4n−1/(2 αk+dk)
+
+ − 1
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤ X
+
+> k∈K 2
+
+ωk · 1
+
+
+
+∀j, ∥x − ex∗ 
+
+> kj
+
+∥ ≥ c4n−1/(2 αk +dk )
+
+√D
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤ X
+
+> k∈K 2
+
+ωk · 1
+
+
+
+dist( x, Mk) ≥   c4
+
+√D − 1n−1/(2 αk +dk )
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤ X
+
+> k∈K 2
+
+ωk · 1
+
+
+
+dist( x, Mk) ≥   c4
+
+√D − 1eσti
+
+plog n
+
+
+
+· Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+i 
+
+≤ n−c3−1,
+
+and similarly √log n
+
+eσti
+
+|(B2) − (B′
+
+> 2
+
+)| ≤ n−c3−1.
+
+Then since for any k ∈ [K], Mk is βk-smooth, there exists a positive constant r so that for any y∗ ∈ M k,1. The projection function Proj Ty∗ M(x − y∗) is a local diffeomorphism in y∗, with the inverse Ψy∗ defined on Br(0D) ∩ Ty∗ M and is β-smooth. 2. Br(y∗) ∩ M ⊂ Ψy∗ (Br(0D) ∩ Ty∗ M) ⊂ B8r/ 7(y∗) ∩ M .Then for any k ∈ K 2 and j ∈ [ eJk], let Vkj be an arbitrary orthonormal basis for the tangent space Tex∗ 
+
+> kj
+
+Mk at ex∗ 
+
+> kj
+
+. Define a function G∗ 
+
+> kj
+
+with domain Br(0 dk ) so that 
+
+G∗ 
+
+> kj
+
+(z) = Ψ ex∗ 
+
+> kj
+
+(Vkj z) (B.1) Then we can define the local inverse function of G∗
+
+> kj
+
+Q∗ 
+
+> kj
+
+(y) = V Tkj · Proj Tex∗  
+
+> kj Mk
+
+(y − ex∗ 
+
+> kj
+
+) = V Tkj (y − ex∗ 
+
+> kj
+
+). (B.2) For any k ∈ K 2, and j ∈ [ eJk], consider the Taylor expansion of G∗ 
+
+> kj
+
+at 0dk ,
+
+G∗ 
+
+> kj
+
+(z) = Gkj (z) + O(∥z∥βk ),
+
+where 
+
+Gkj (z) = ex∗ 
+
+> kj
+
++ X 
+
+> s∈Nd
+> 01≤| s|≤⌊ βk⌋
+
+G∗ 
+
+> kj (s)
+
+(0 dk ) · zs (B.3) 54 is the polynomial approximation to G∗ 
+
+> kj
+
+. For any z ∈ Br(0 dk ), it holds that ∥G∗ 
+
+> kj
+
+(z) −
+
+Gkj (z)∥ ≲ ∥z∥βk and ∥∇ G∗ 
+
+> kj
+
+(z)−∇ Gkj (z)∥ ≲ ∥z∥βk −1, where ∇G(z) = ( ∇G1(z), ∇G2(z), · · · , ∇GD(z)) T
+
+is the Jacobian matrix of G = ( G1, G 2, · · · , G D). Then we use the following lemma to ap-proximate the projection function Proj Mk (x) for x near x∗ 
+
+> kj
+
+, the proof of which directly follows from Lemma C.8 of Tang and Yang (2024). 
+
+Lemma 29 (Lemma C.8 of Tang and Yang (2024)) For any k ∈ K 2 and j ∈ [ eJk], there exists a neural network ϕpkj (x) ∈ Φ( L′ 
+
+> kj
+
+, W ′ 
+
+> kj
+
+, R ′ 
+
+> kj
+
+, B ′ 
+
+> kj
+
+) with L′ 
+
+> kj
+
+= Θ(log 2 n), ∥W ′ 
+
+> kj
+
+∥∞ =Θ(log 3 n), R′ 
+
+> kj
+
+= Θ(log 4 n) and B′ 
+
+> kj
+
+= exp(Θ(log n)) so that for any x with ∥x − x∗ 
+
+> kj
+
+∥ ≤ 
+
+2c4n− 12αk +dk ,1. ∇Gkj (ϕpjk (x)) , x − Gjk (ϕpkj (x)) ≲ n− 2βk  
+
+> 2αk+dk
+
+.2. ϕpkj (x) − Q∗ 
+
+> kj
+
+(Proj Mk (x)) ≲ n− βk  
+
+> 2αk+dk
+
+.
+
+Then we define 
+
+(A′′  
+
+> 2
+
+) = X
+
+> k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk 
+
+> j=1
+
+ρ  |x−x∗   
+
+> kj |
+> c4n−1/(2 αk+dk)
+
+
+
+·
+
+> eJk
+
+X
+
+> j=1
+
+Z     
+
+> {y=G∗
+> jk (z) : ∥z−ϕpjk (x)∥∞≤c5eσti
+> √log n}
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ ·
+
+
+
+− x − mty
+
+eσ2
+
+> t
+
+
+
+qk(y) dvol Mk (y)
+
+· ρ  |x − ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+,
+
+and 
+
+(B′′  
+
+> 2
+
+) = X
+
+> k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk 
+
+> j=1
+
+ρ  |x−ex∗   
+
+> kj |
+> c4n−1/(2 αk+dk)
+
+
+
+·
+
+> eJk
+
+X
+
+> j=1
+
+Z     
+
+> {y=G∗
+> jk (z) : ∥z−ϕpjk (x)∥∞≤c5eσti
+> √log n}
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+qk(y) dvol Mk (y)
+
+· ρ  |x − ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+.
+
+55 Then 
+
+(A′
+
+2) − (A′′ 
+
+2 )
+
+≤ X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · x − mty
+
+eσ2
+
+t
+
+i
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ · 1 − ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+
+
++ X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, PJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Z
+
+Mk \{ y=G∗ 
+
+> jk
+
+(z) : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · x − mty
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y)
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+
+
+≤ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup          
+
+> x:|x−Gkj (ϕpkj (x)) |≥ c6eσti
+> √log n
+> |x−ex∗
+> kj |≤ 2c4n−1/(2 αk+dk)
+
+Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · x − mty
+
+eσ2
+
+t
+
+i| {z }
+
+(C)
+
++ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup          
+
+> x:|x−Gkj (ϕpkj (x)|≤ 2c6eσti
+> √log n
+> |x−ex∗
+> kj |≤ 2c4n−1/(2 αk+dk)
+
+Z
+
+Mk \{ y=G∗ 
+
+> jk
+
+(z) : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+
+
+· x − mty
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y).
+
+| {z }
+
+(D)
+
+We first bound term (C). Note that by Lemma 29, we have for any x ∈ RD with |x − ex∗
+
+kj | ≤ 
+
+2c4n−1/(2 αk +dk ),
+
+∥ϕpkj (x)∥ ≤ ∥ ϕpkj (x) − Q∗
+
+kj (Proj Mk x)∥ + ∥Proj Mk (x) − ex∗
+
+kj ∥ ≲ n−1/(2 αk +dk ),
+
+and there exist constants C, C 1 so that 
+
+|x − Gkj (ϕpkj (x)) | ≤ | x − Proj Mk (x)| + |G∗
+
+jk (Q∗
+
+jk (Proj Mk (x))) − G∗
+
+jk (ϕpkj (x)) | + |G∗
+
+jk (ϕpkj (x)) − Gjk (ϕpkj (x)) |≤ | x − Proj Mk (x)| + C n − βk 
+
+> 2αk+dk
+
+≤ | x − Proj Mk (x)| + C1 eστ ≤ | x − Proj Mk (x)| + C1 eσti .
+
+56 Hence when c6 is large enough, 
+
+(C) ≤ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup 
+
+x : |x−Proj Mk (x)|≥ (c6−C1)eσti
+
+√log n
+
+Ey∼Qk
+
+h
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ · x − mty
+
+eσ2
+
+t
+
+i
+
+≤ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup 
+
+x : dist( x, Mk )≥ (c6−C1) 
+
+> √D
+
+eσti
+
+√log n
+
+Ey∼Qk
+
+h
+
+2 exp   − ∥x − y∥2
+
+4eσ2
+
+t
+
+ · 1 + x − y
+
+eσ2
+
+t
+
+i
+
+≤ n−c3−1
+
+2 .
+
+Then we bound term (D). For any x ∈ RD with |x − Gkj (ϕpkj (x)| ≤ 2c6eσti
+
+√log n and 
+
+|x − ex∗
+
+kj | ≤ 2c4n−1/(2 αk +dk ), we have 
+
+|x − Proj Mk (x)| ≤ | x − Gkj (ϕpkj (x)) | + |G∗
+
+jk (ϕpkj (x)) − Gjk (ϕpkj (x)) | + |G∗
+
+jk (Q∗
+
+jk (Proj Mk x)) − G∗
+
+jk (ϕpkj (x)) |≤ | x − Gkj (ϕpkj (x)) | + C1eσti
+
+{y ∈ M k : ∥y − x∥ ≤ ceσti
+
+plog n} ⊂ { y ∈ M : ∥y − Proj Mk (x)∥ ≤ (c + 2 c6 + C1)eσti
+
+plog n}⊂ { y = G∗
+
+jk (z) : ∥z − Q∗
+
+jk (Proj Mk (x)) ∥ ≤ (c + 2 c6 + C1)eσti
+
+plog n}
+
+Furthermore, using Lemma 29 and eσti ≥ eστ ≳ √log n · n− min k∈[K]   
+
+> αk+1 2αk+dk
+
+≥ √log n ·
+
+n− min k∈[K]  
+
+> βk
+> 2αk+dk
+
+, we have 
+
+∥z − ϕpjk (x)∥ ≤ ∥ z − Q∗
+
+jk (Proj Mk (x)) ∥ + ∥ϕpjk (x)Q∗
+
+jk (Proj Mk (x)) ∥≤ ∥ z − Q∗(Proj M(x)) ∥ + Cn − βk  
+
+> 2αk+d
+
+≤ ∥ z − Q∗(Proj M(x)) ∥ + C1eσti ,
+
+and thus 
+
+{y ∈ M k : ∥y − x∥ ≤ ceσti
+
+plog n} ⊂ { y = G∗
+
+jk (z) : ∥z − Q∗
+
+jk (Proj Mk (x)) ∥ ≤ (c + 2 c6 + C1)eσti
+
+plog n}⊂ { y = G∗
+
+jk (z) : ∥z − ϕpjk (x)∥ ≤ (c + 2 c6 + 2 C1)eσti
+
+plog n}⊂ { y = G∗
+
+jk (z) : ∥z − ϕpjk (x)∥∞ ≤ (c + 2 c6 + 2 C1)eσti
+
+plog n}.
+
+So when c5 is sufficiently large, we have 
+
+(D) ≤ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup          
+
+> x:|x−Gkj (ϕpkj (x)|≤ 2c6eσti
+> √log n
+> |x−ex∗
+> kj |≤ 2c4n−1/(2 αk+dk)
+
+Z
+
+Mk \B c52 eσti 
+
+> √log n
+
+(x)
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+t
+
+ x − mty
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y)
+
+≤ sup 
+
+k∈K 2
+
+sup 
+
+j∈[ eJk ]
+
+sup          
+
+> x:|x−Gkj (ϕpkj (x)|≤ 2c6eσti
+> √log n
+> |x−ex∗
+> kj |≤ 2c4n−1/(2 αk+dk)
+
+Z
+
+Mk \B c52 eσti 
+
+> √log n
+
+(x)
+
+exp   − ∥x − y∥2
+
+4eσ2
+
+t
+
+ 1 + x − y
+
+eσ2
+
+t
+
+qk(y) dvol Mk (y)
+
+≤ n−c3−1
+
+2 .
+
+57 So ∥(A′
+
+2)−(A′′ 
+
+2 )∥ ≤ n−c3−1. Similarly, we can show that 
+
+√log n
+
+eσti
+
+|(B′
+
+2)−(B′′ 
+
+2 )| ≤ n−c3−1. Then denote v∗
+
+kj (z) = qk(G∗
+
+kj (z)) 
+
+q
+
+det  ∇G∗
+
+kj (z)T ∇G∗
+
+kj (z), we can rewrite term (A′′ 
+
+2 ) as 
+
+(A′′ 
+
+2 ) = X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mtG∗
+
+jk (z)∥2
+
+2eσ2
+
+t
+
+ ·
+
+
+
+− x − mtG∗
+
+jk (z)
+
+eσ2
+
+t
+
+
+
+v∗
+
+kj (z) d z
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+
+
+For any k ∈ K 2, and j ∈ [ eJk], consider the Taylor expansion of v∗
+
+kj at 0dk ,
+
+v∗
+
+kj (z) = vkj (z) + O(∥z∥αk ),
+
+where 
+
+vkj (z) = v∗
+
+kj (0 dk ) + X 
+
+> s∈Nd
+> 01≤| s|≤⌊ αk⌋
+
+v ∗kj (s)(0 dk ) · zs. (B.4) We define 
+
+(A′′′ 
+
+2 ) = X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+ ·
+
+
+
+− x − mtGjk (z)
+
+eσ2
+
+t
+
+
+
+vkj (z) d z
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+
+
+and 
+
+(B′′′ 
+
+2 ) = X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+ · vkj (z) d z
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+.
+
+58 Then we have 
+
+(A′′ 
+
+2 ) − (A′′′ 
+
+2 ) ≤ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+ · (E),
+
+where (E) = 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+
+
+· exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+eσ2
+
+t
+
+ ·
+
+
+
+− x − mtGjk (z)
+
+eσ2
+
+t
+
+
+
+vkj (z) d z
+
+−
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtG∗
+
+jk (z)∥2
+
+2eσ2
+
+t
+
+
+
+· exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtG∗
+
+jk (z)⟩
+
+eσ2
+
+t
+
+ ·
+
+
+
+− x − mtG∗
+
+jk (z)
+
+eσ2
+
+t
+
+
+
+v∗
+
+kj (z) d z .
+
+To bound the term (E), consider an arbitrary k ∈ K 2 and j ∈ [ eJk], we will consider and bound the following terms using Lemma 29 for any x ∈ RD with |x − ex∗
+
+kj | ≤ 2c4n −12αk +dk and 
+
+|x − Gkj (ϕpkj (x)) | ≤ 2c6eσti
+
+√log n, and any z ∈ Rdk satisfying ∥z − ϕpjk (x)∥∞ ≤ c5eσti
+
+√log n:
+
+(i). Gkj (ϕpkj (x)) − mtGjk (z) ≤ |Gkj (ϕpkj (x)) − Gjk (z) + (1 − mt)∥Gjk (z)∥ ≲ eσti
+
+plog n. 
+
+(ii ). 1
+
+eσ2
+
+t
+
+· ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2 − ∥ Gkj (ϕpkj (x)) − mtG∗
+
+jk (z)∥2
+
+≲ eσti
+
+√log n · n− βk 
+
+> 2αk+dk
+
+eσ2
+
+t
+
+≍√log n · n− βk 
+
+> 2αk+dk
+
+eσti
+
+,
+
+where we have used ∥ϕpjk (x)∥ ≲ n− 12αk +dk and ∥z∥ ≤ ∥ z − ϕpjk (x)∥ + ∥ϕpjk (x)∥ ≲ n− 12αk +dk .
+
+(iii ). ∥x − mtGjk (z)∥ ≤ ∥ x − Gkj (ϕpkj (x)) ∥ + ∥Gkj (ϕpkj (x)) − mtGjk (z)∥ ≲ eσti
+
+plog n. 
+
+(iv ). 1
+
+eσ2
+
+t
+
+· x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z) − x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtG∗
+
+jk (z)
+
+≲ eσti
+
+√log n · n− βk 
+
+> 2αk+dk
+
+eσ2
+
+t
+
+≍√log n · n− βk 
+
+> 2αk+dk
+
+eσti
+
+.
+
+(v). ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+≤ ⟨x − Gkj (ϕpkj (x)) , ∇Gkj (ϕpkj (x))( ϕpkj (x) − z)⟩
+
++ ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − Gkj (z) − ∇ Gkj (ϕpkj (x))( ϕpkj (x) − z)⟩
+
++ ⟨x − Gkj (ϕpkj (x)) , G kj (z) − mtGkj (z)⟩
+
+≲ n− 2βk  
+
+> 2αk+dk
+
+eσti
+
+plog n + eσ3
+
+ti (log n) 32 + eσ3
+
+ti
+
+plog n
+
+≲ eσ3
+
+ti (log n) 32 .
+
+(B.5) 59 Combining all the pieces, we can obtain 
+
+(E) ≲
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+ dz
+
+·
+
+ n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+
+
+.
+
+(B.6) We then bound R
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n} exp   − ∥Gkj (ϕpkj (x)) −mtGjk (z)∥2
+
+2eσ2
+
+> t
+
+ dz. Notice that 
+
+∥ϕpjk (x) − z∥ ≤ ∥ G∗
+
+jk (ϕpjk (x)) − G∗
+
+jk (z)∥≤ ∥ Gjk (ϕpjk (x)) − mtG∗
+
+jk (z)∥ + (1 − mt)∥G∗
+
+jk (z)∥ + ∥Gjk (ϕpjk (x)) − G∗
+
+jk (ϕpjk (x)) ∥≤ ∥ Gjk (ϕpjk (x)) − mtG∗
+
+jk (z)∥ + o(eσti ),
+
+we have 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+ dz
+
+≲
+
+Z
+
+Rdk
+
+exp − ∥ϕpjk (x) − z∥2
+
+2eσ2
+
+t
+
+!
+
+dz ≲ eσdk
+
+ti .
+
+So we can get 
+
+(A′′ 
+
+2 ) − (A′′′ 
+
+2 ) ≲ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+· eσdk
+
+ti ·
+
+ n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+
+
+.
+
+Similarly, we can get 
+
+√log n
+
+eσti
+
+(B′′ 
+
+2 ) − (B′′′ 
+
+2 ) ≲ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+· eσdk
+
+ti ·
+
+ n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+
+
+.
+
+60 Then note that 
+
+(B′′′ 
+
+2 ) = X
+
+k∈K 2
+
+ωk
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+
+
+·
+
+eJkX
+
+j=1 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥x − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+vkj (z) d z
+
+· ρ  |x − ex∗
+
+kj |
+
+c4n−1/(2 αk +dk )
+
+ρ  |x − Gkj (ϕpkj (x)) |
+
+c6eσti
+
+√log n
+
+
+
+= X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+·
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+
+
+· exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+eσ2
+
+t
+
+vkj (z) d z. 
+
+Now use the fact that 
+
+∥Gjk (ϕpjk (x)) − mtGjk (z)∥≤ ∥ Gjk (ϕpjk (x)) − Gjk (z)∥ + (1 − mt)∥G∗
+
+jk (z)∥
+
+≲ ∥ϕpjk (x) − z∥ + o(eσti ),
+
+we have 
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+
+
+· exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+eσ2
+
+t
+
+vkj (z) d z
+
+≥
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥≤ eσti }
+
+exp   − ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2
+
+2eσ2
+
+t
+
+
+
+· exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+eσ2
+
+t
+
+vkj (z) d z
+
+≳
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥≤ eσti }
+
+exp   − ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩
+
+eσ2
+
+t
+
+ dz
+
+≳ (eσti )dk .
+
+Hence 
+
+(B′′′ 
+
+2 ) ≳ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+  eσti
+
+dk .
+
+61 So we have 
+
+(B′′ 
+
+2 ) − (B′′′ 
+
+2 )
+
+B′′′ 
+
+2
+
+≲
+
+ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+  eσti
+
+dk
+
+−1
+
+· X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+ · (eσti )dk
+
+·
+
+ n− βk 
+
+> 2αk+dk
+
+√log n
+
+eσti
+
++ n− αk 
+
+> 2αk+d
+
+
+
+≲ sup 
+
+k∈K 2
+
+n− βk 
+
+> 2αk+dk
+
+√log n
+
+eσti
+
++ n− αk  
+
+> 2αk+d
+
+.
+
+So when ti ≥ τ with 
+
+τ = c1
+
+plog n ·
+
+
+
+n−c, σ∗ > c 1n− min kαk +1 2αk +dk
+
+√log nn− min k   
+
+> 2αk+2 2αk+dk
+
+, σ∗ ≤ c1n− min kαk +1 2αk +dk
+
+√log n, 
+
+for a sufficiently large c1, and using βk ≥ αk + 1 , we have (B′′′ 
+
+2 ) ≥ 12 (B′′ 
+
+2 ). Moreover, 
+
+(A′′ 
+
+2 ) − (A′′′ 
+
+2 )
+
+(B′′′ 
+
+2 ) ≲
+
+ X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+  eσti
+
+dk
+
+−1
+
+· X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+ · (eσti )dk
+
+·
+
+ n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+
+
+≲ sup 
+
+k∈K 2
+
+n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+.
+
+Then using (B1) + ( B2) ≥ n−c3 . If (B1) ≥ n−c3
+
+2 ,
+
+ϕ∗
+
+(B1)(x, t ) ≥ (B1) − n−c3−1 ≥ n−c3
+
+4 .
+
+Otherwise, we have (B2) ≥ n−c3
+
+2 ,
+
+(B′′′ 
+
+2 ) ≥ 12 (B′′ 
+
+2 ) ≥ 12 · (( B2) − 2n−c3−1) ≥ n−c3
+
+4 .
+
+62 So ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 ) ≥ n−c3
+
+4 . Then we can bound 
+
+(A1) + ( A2)(B1) + ( B2) − ϕ∗
+
+(A1)(x, t ) + ( A′′′ 
+
+2 )
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 )
+
+≤ (A1) + ( A2)(B1) + ( B2) ·
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 ) − (B1) − (B2)
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 ) +
+
+ϕ∗
+
+(A1)(x, t ) + ( A′′′ 
+
+2 ) − (A1) − (A2)
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 )
+
+≤ n−1 +
+
+√log n
+
+eσti
+
+·
+
+(B′′′ 
+
+2 ) − (B′′ 
+
+2 )
+
+(B′′′ 
+
+2 ) +
+
+(A′′′ 
+
+2 ) − (A′′ 
+
+2 )
+
+(B′′′ 
+
+2 )
+
+≲ sup 
+
+k∈K 2
+
+n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+.
+
+Let L1 = C1 log n and L2 = C2 for sufficiently large constants C1 and C2. Then we define 
+
+(A∗
+
+2) = X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+·
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+L1X
+
+l1=0 
+
+(−1) l1 ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2l1
+
+l1!2 l1 eσ2l1
+
+t
+
+·
+
+L2X
+
+l2=0 
+
+(−1) l2 ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩l2
+
+l2!eσ2l2
+
+t
+
+·
+
+
+
+− x − mtGjk (z)
+
+eσ2
+
+t
+
+
+
+vkj (z) d z. 
+
+and 
+
+(B∗
+
+2 ) = X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+·
+
+Z
+
+{z∈Rdk : ∥z−ϕpjk (x)∥∞≤c5 eσti
+
+√log n}
+
+L1X
+
+l1=0 
+
+(−1) l1 ∥Gkj (ϕpkj (x)) − mtGjk (z)∥2l1
+
+l1!2 l1 eσ2l1
+
+t
+
+·
+
+L2X
+
+l2=0 
+
+(−1) l2 ⟨x − Gkj (ϕpkj (x)) , G kj (ϕpkj (x)) − mtGjk (z)⟩l2
+
+l2!eσ2l2
+
+t
+
+vkj (z) d z. 
+
+Then note that for any k ∈ K 2 and j ∈ [ eJk], it holds that ∥Gkj (ϕpkj (x)) −mtGjk (z)∥2
+
+eσ2
+
+> t
+
+≲ log n
+
+and |⟨ x−Gkj (ϕpkj (x)) ,G kj (ϕpkj (x)) −mtGjk (z)⟩| 
+
+eσ2
+
+> t
+
+≲ eσti (log n) 32 ≲ n− min k∈[K] 12αk +dk ·log n. So using the fact that for any x ≥ 0, it holds that | exp( −x) − PL
+
+l=0 (−1) l x l
+
+l! | ≤ |x|L +1 
+
+(L +1)! ≤ ( |x|e
+
+(L +1) )L +1 , and for any |x| ≤ 1, | exp( −x) − PL
+
+l=0 (−1) l x l
+
+l! | ≤ e |x|L +1 
+
+(L +1)! ≤ e( |x|e
+
+(L +1) )L +1 . When L1 = C1 log n
+
+and L2 = C2 with sufficiently large constants C1 and C2, it holds that 
+
+∥(A∗
+
+2) − (A′′′ 
+
+2 )∥ ≲ n−c3−1,
+
+63 and √log n
+
+eσti
+
+|(B∗
+
+2 ) − (B′′′ 
+
+2 )| ≲ n−c3−1.
+
+Then we approximate ϕ∗
+
+> (A1)
+
+(x,t )+( A∗ 
+
+> 2
+
+)
+
+ϕ∗
+
+> (B1)
+
+(x,t )+( B∗ 
+
+> 2
+
+) using ReLU neural network. Since Gkj (z) and vkj (z)
+
+are polynomials with degree at most ⌊βk⌋ and ⌊αk⌋ respectively, we can rewrite (A∗
+
+2) and 
+
+(B∗
+
+2 ) as 
+
+(A∗
+
+2) = X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+·
+
+L1X
+
+l1=0 
+
+L2X
+
+l2=0 
+
+  1
+
+eσt
+
+2l1+2 l2+2 X
+
+0≤s1≤2l1+l2+1 
+
+ms1
+
+t
+
+X
+
+s2∈Ndk 
+
+> 0
+
+,|s2|≤ (2 l1+2 l2+1) ⌊βk ⌋+dk +⌊αk ⌋
+
+(ϕpjk (x)) (s2)
+
+· X
+
+s3∈ND 
+
+> 0
+
+,|s3|≤ l2+1 
+
+a′
+
+k,j,l 1,l 2,s 1,s 2,s 3 · x(s3),
+
+and 
+
+(B∗
+
+2 ) = X
+
+k∈K 2
+
+eJkX
+
+j=1 
+
+ωkρ  |x−ex∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ρ  |x−Gkj (ϕpkj (x)) |
+
+c6 eσti
+
+√log n
+
+
+
+max 
+
+
+
+1, P eJk
+
+j=1 ρ  |x−x∗ 
+
+> kj
+
+|
+
+c4n−1/(2 αk +dk )
+
+ · exp   − ∥x − Gkj (ϕpkj (x)) ∥2
+
+2eσ2
+
+t
+
+
+
+·
+
+L1X
+
+l1=0 
+
+L2X
+
+l2=0 
+
+  1
+
+eσt
+
+2l1+2 l2 X
+
+0≤s1≤2l1+l2
+
+ms1
+
+t
+
+X
+
+s2∈Ndk 
+
+> 0
+
+,|s2|≤ (2 l1+2 l2)⌊βk ⌋+dk +⌊αk ⌋
+
+(ϕpjk (x)) (s2)
+
+· X
+
+s3∈ND 
+
+> 0
+
+,|s3|≤ l2
+
+b′
+
+k,j,l 1,l 2,s 1,s 2,s 3 · x(s3),
+
+where a′
+
+k,j,l 1,l 2,s 1,s 2,s 3 ∈ RD and b′
+
+k,j,l 1,l 2,s 1,s 2,s 3 ∈ R are some constant coefficients satisfying 
+
+( 1
+
+eσt )2l1+2 l2+1 a′
+
+k,j,l 1,l 2,s 1,s 2,s 3 ≲ exp( O(log 2 n)) and ( 1
+
+eσt )2l1+2 l2 b′
+
+k,j,l 1,l 2,s 1,s 2,s 3 ≲ exp( O(log 2 n)) .Then we will use Lemmas 26, 27 and 28 for the approximation mt, σt, monomial and reciprocal function. Furthermore, we will use Lemma F.12 in Oko et al. (2023) for the approximation of exponential function. 
+
+Lemma 30 (Lemma F.12 in Oko et al. (2023)) Take ε > 0 arbitrarily. There exists a neural network ϕexp ∈ Φ( L, W, R, B ) such that 
+
+sup 
+
+x,x ′≥0
+
+e−x′
+
+− ϕexp (x) ≤ ε + x − x′
+
+holds, where L = O  log 2 ε−1 , ∥W ∥∞ = O  log ε−1 , R = O  log 2 ε−1 , B = exp  O  log 2 ε−1 .Moreover, |ϕexp (x)| ≤ ε for all x ≥ log 3 ε−1.
+
+Then we consider ϕm(t), ϕ σ(t), ϕ rec (x), ϕ [D]
+
+vpower (x; s), ϕ power (x; a), ϕ mult (x, y ), ϕ 1
+
+> eσ
+
+(t), ϕ ρ(x; x∗, a )
+
+defined in Case 1. Moreover, we approximate exp( −x) by ϕexp ∈ Φ( L′, W ′, R ′, B ′) with 64 L′ = O(log 4 n), ∥W ′∥∞ = O(log 2 n), R′ = O(log 4 n) and B′ = exp( O(log 4 n)) . For k ∈ K 2,
+
+z ∈ Rdk and s ∈ Ndk , we approximate zs by ϕ[dk ]
+
+vpower (z; s) ∈ Φ( L′
+
+1, W ′
+
+1, R ′
+
+1, B ′
+
+1) with L′
+
+1 =Θ(log 2 n · log log n), ∥W ′
+
+1∥∞ = Θ(log n), R′
+
+1 = Θ(log 3 n) and B′
+
+1 = exp(Θ(log n · log log n)) .Furthermore, we define 
+
+ϕGkj (z) = ex∗
+
+kj + X 
+
+> s∈Ndk
+> 01≤| s|≤⌊ βk⌋
+
+ϕmult 
+
+
+
+ϕ[dk ]
+
+vpower (z; s), G ∗
+
+kj (s)(0 dk )
+
+
+
+.
+
+We construct 
+
+ϕ∗
+
+(A)(x, t ) = ϕ∗
+
+(A1)(x, t ) + X
+
+k∈K 2
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+eJkX
+
+j=1 
+
+ϕρ(x; x∗
+
+kj , c 4n− 12αk +dk
+
+
+
+,
+
+eJkX
+
+j=1 
+
+L1X
+
+l1=0 
+
+L2X
+
+l2=0 
+
+X
+
+0≤s1≤2l1+l2+1 
+
+X
+
+s2∈Ndk 
+
+> 0
+
+,|s2|≤ (2 l1+2 l2+1) ⌊βk ⌋+dk +⌊αk ⌋
+
+X
+
+s3∈ND 
+
+> 0
+
+,|s3|≤ l2
+
+ωk · a′
+
+k,j,l 1,l 2,s 1,s 2,s 3
+
+· ϕmult ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l 1 + l2 + 1) , ϕ power (ϕm(t), s 1),ϕ[dk ]
+
+vpower (ϕpkj (x); s2)
+
+
+
+, ϕ [D]
+
+vpower (x; s3)
+
+
+
+, ϕ ρ(x; x∗
+
+kj , c 4n− 12αk +dk )
+
+
+
+, ϕ ρ
+
+ x; ϕGkj (ϕpkj (x)) , c 6eσti
+
+plog n!! 
+
+,
+
+and 
+
+ϕ∗
+
+(B)(x, t ) = max n−c3
+
+4 , ϕ ∗
+
+(B1)(x, t ) + X
+
+k∈K 2
+
+ϕmult ϕrec 
+
+
+
+max  1,
+
+eJkX
+
+j=1 
+
+ϕρ(x; x∗
+
+kj , c 4n− 12αk +dk
+
+
+
+,
+
+eJkX
+
+j=1 
+
+L1X
+
+l1=0 
+
+L2X
+
+l2=0 
+
+X
+
+0≤s1≤2l1+l2
+
+X
+
+s2∈Ndk 
+
+> 0
+
+,|s2|≤ (2 l1+2 l2)⌊βk ⌋+dk +⌊αk ⌋
+
+X
+
+s3∈ND 
+
+> 0
+
+,|s3|≤ l2
+
+ωk · b′
+
+k,j,l 1,l 2,s 1,s 2,s 3
+
+· ϕmult ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+
+
+ϕmult 
+
+ ϕpower (ϕ 1 
+
+> eσ2
+
+(t), l 1 + l2), ϕ power (ϕm(t), s 1),ϕ[dk ]
+
+vpower (ϕpkj (x); s2)
+
+
+
+, ϕ [D]
+
+vpower (x; s3)
+
+
+
+, ϕ ρ(x; x∗
+
+kj , c 4n− 12αk +dk )
+
+
+
+, ϕ ρ
+
+ x; ϕGkj (ϕpkj (x)) , c 6eσti
+
+plog n!!! 
+
+.
+
+Then using Lemmas 26, 27, 28 and 30, as well as ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 ) ≥ n−c3
+
+4 , we can get 
+
+∥ϕ∗
+
+(A)(x, t ) − ϕ∗
+
+(A1)(x, t ) − (A′′′ 
+
+2 )∥ ≲ n−c3−1,
+
+and √log n
+
+eσti
+
+|ϕ∗
+
+(B)(x, t ) − ϕ∗
+
+(B1)(x, t ) − (B′′′ 
+
+2 )| ≲ n−c3−1.
+
+65 So ϕ∗
+
+(A)(x, t )
+
+ϕ∗
+
+(B)(x, t ) − ∇ log pt(x)
+
+≤ ϕ∗
+
+(A)(x, t )
+
+ϕ∗
+
+(B)(x, t ) − ϕ∗
+
+(A1)(x, t ) + ( A′′′ 
+
+2 )
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 ) + (A1) + ( A2)(B1) + ( B2) − ϕ∗
+
+(A1)(x, t ) + ( A′′′ 
+
+2 )
+
+ϕ∗
+
+(B1)(x, t ) + ( B′′′ 
+
+2 )
+
+≲ sup 
+
+k∈K 2
+
+n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+.
+
+Finally, define 
+
+ϕ∗(x, t ) = max 
+
+
+
+− c2
+
+√log n
+
+eσti
+
+, min 
+
+
+
+c2
+
+√log n
+
+eσti
+
+, ϕ mult 
+
+
+
+ϕrec 
+
+ ϕ∗
+
+(B)(x, t ), ϕ ∗
+
+(A)(x, t )
+
+ 
+
+.
+
+Since ∥∇ log pt(x)∥ ≤ c2
+
+√log n
+
+eσti
+
+, it holds for any t ∈ [ti, t i+1 ] and x ∈ RD with dist( x, M) ≤
+
+c0eσti
+
+√log n,
+
+ϕ∗(x, t ) − ∇ log pt(x) ≲ sup 
+
+k∈K 2
+
+n− βk  
+
+> 2αk+dk
+
+log n
+
+eσ2
+
+ti
+
++ n− αk  
+
+> 2αk+d
+
+√log n
+
+eσti
+
+.
+
+Furthermore, based on Lemmas F.1-F.3 in Oko et al. (2023) for the concatenation and parallelization of neural networks, there exists Li, W i, R i, B i with Li = Θ(log 4 n), ∥Wi∥∞ =
+
+eΘ  P Kk=1 eJk), Ri = eΘ  P Kk=1 eJk), and Bi = exp(Θ(log 4 n)) so that ϕ∗ ∈ Φ( Li, W i, R i, B i, c 2
+
+√log n
+
+eσti
+
+).So we have 
+
+E
+
+Z ti+1 
+
+ti
+
+Z
+
+RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+≲ (ti+1 − ti) · sup 
+
+t∈[ti,t i+1 ]
+
+sup 
+
+x : dist( x, M)≤c0 eσti
+
+√log n
+
+∥ϕ∗(x, t ) − ∇ log pt(x)∥2 + (log n)2
+
+n RiLi log ( nL i ∥Wi∥∞ Bi) + 1
+
+n2
+
+= eO
+
+ X 
+
+k∈K 2
+
+ti
+
+n− 2βk 
+
+> 2αk+dk
+
+eσ4
+
+ti
+
++ ti
+
+n− 2αk 
+
+> 2αk+dk
+
+eσ2
+
+ti
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk 
+
+> 2αk+dk
+
+
+
+.
+
+Then note that eσti ≤ min k∈K 2
+
+n− 12αk +dk
+
+√log n , we have 
+
+(σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n ≳ (σ∗ + √1 ∧ ti)−dk
+
+n ≳ (eσti )−dk
+
+n ≳ max 
+
+k∈K 2
+
+n− 2αk  
+
+> 2αk+dk
+
+(log n) dk 
+
+> 2
+
+,
+
+and if dk ≥ 2,
+
+(σ∗ + √1 ∧ ti)−dk
+
+n ≳ (σ∗ + √1 ∧ ti)−dk +2 
+
+n(σ2
+
+∗ + ti) ≳ max k∈K 2 n− 2αk +2 2αk +dk (log n) dk −22
+
+σ2
+
+∗ + ti
+
+≳ max k∈K 2 n− 2βk  
+
+> 2αk+dk
+
+(log n) dk −22
+
+σ2
+
+∗ + ti
+
+,
+
+if dk = 1 ,
+
+(σ∗ + √1 ∧ ti)−2
+
+n ≳ 1
+
+n(σ2
+
+∗ + ti) ≳ max k∈K 2 n− 2βk 
+
+> 2αk+1
+
+σ2
+
+∗ + ti
+
+,
+
+66 Hence, we have 
+
+E
+
+Z ti+1 
+
+ti
+
+Z
+
+RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk 
+
+> 2αk+dk
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+min( n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk  
+
+> 2αk+dk
+
+, (σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n )
+
+
+
+= eO
+
+ KX
+
+k=1 
+
+min( n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk  
+
+> 2αk+dk
+
+, (σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n )
+
+
+
+,
+
+and using βk ≥ αk + 1 ,
+
+E
+
+
+
+(( ti log n) ∧ 1) ·
+
+Z ti+1 
+
+ti
+
+Z
+
+RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+min( n− 2βk  
+
+> 2αk+dk
+
++ ti · n− 2αk  
+
+> 2αk+dk
+
+, t i
+
+(σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n )
+
+
+
+= eO
+
+ 1
+
+n +
+
+KX
+
+k=1 
+
+min( n− 2αk +2 2αk +dk , σ2−dk
+
+∗
+
+n )
+
+
+
+.
+
+B.3 Summarizing the results 
+
+Finally, by combining the results in case 1 and 2, we have for any i ∈ [L],
+
+E
+
+Z ti+1 
+
+ti
+
+Z
+
+RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d xdt
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk 
+
+> 2αk+dk
+
+
+
+= eO
+
+ X 
+
+k∈K 2
+
+min( n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk  
+
+> 2αk+dk
+
+, (σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n )
+
+
+
+= eO
+
+ KX
+
+k=1 
+
+min( n− 2βk 
+
+> 2αk+dk
+
+σ2
+
+∗ + ti
+
++ n− 2αk  
+
+> 2αk+dk
+
+, (σ∗ + √1 ∧ ti)−(dk ∨2) 
+
+n )
+
+
+
+,
+
+and using Lemma 23, if σ∗ > n − min kαk +1 2αk +dk
+
+√log n, we have τ ≤ 1
+
+n log n and 
+
+E[W1 (bp, P ∗)] ≲ 1
+
+n + τ 12 +
+
+L−1X
+
+i=0 
+
+s
+
+E
+
+ (ti log n) ∧ 1 Z ti+1 
+
+ti
+
+Z
+
+RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d x dt
+
+
+
+= eO
+
+ 1
+
+√n +
+
+KX
+
+k=1 
+
+min( n− αk +1 2αk +dk , σ1− dk
+
+> 2
+
+∗
+
+√n )
+
+
+
+.
+
+67 if σ∗ ≤ n− min kαk +1 2αk +dk
+
+√log n, we have τ ≍ n− min k   
+
+> 2αk+2 2αk+dk
+
+· log n and 
+
+σ1− dk
+
+> 2
+> ∗
+
+√n + 1
+
+√n ≥ 1
+
+√n + n− min kαk +1 2αk +dk .
+
+Hence 
+
+E[W1 (bp, P ∗)] ≲ 1
+
+n + τ 12 +
+
+> L−1
+
+X
+
+> i=0
+
+s
+
+E
+
+ (ti log n) ∧ 1 Z ti+1 
+
+> ti
+
+Z
+
+> RD
+
+bS(x, t ) − ∇ log pt(x) 2
+
+pt(x) d x dt
+
+
+
+= eO
+
+ 1
+
+√n +
+
+> K
+
+X
+
+> k=1
+
+n− αk +1 2αk +dk
+
+
+
+= eO
+
+ 1
+
+√n +
+
+> K
+
+X
+
+> k=1
+
+min( n− αk +1 2αk +dk , σ1− dk
+
+> 2
+> ∗
+
+√n )
+
+
+
+.
+
+B.4 Proof for Lemma 24 
+
+Since M ⊂ B1(0 D), for any x ∈ RD, we have 
+
+∥∇ log pt(x)∥ = ∇pt(x)
+
+pt(x)
+
+=
+
+PKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+ ·
+
+
+
+− x−mty
+
+> eσ2
+> t
+
+i PKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+i
+
+≤ ∥x∥ + √D
+
+eσ2
+
+> t
+
+.
+
+Therefore, for any constant c1 > 0,
+
+Z
+
+> RD
+
+∥∇ log pt(x)∥2pt(x) · 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n
+
+
+
+dx
+
+≤ 1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h Z
+
+> RD
+
+∥x∥ + √D
+
+eσ2
+
+> t
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+
+
+·
+
+
+
+1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n, ∥x∥ ≥ c1
+
+plog n
+
+
+
++ 1 
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n, ∥x∥ < c 1
+
+plog n
+
+ 
+
+dx
+
+i
+
+.
+
+Note that for large enough c1, using M ⊂ B1(0 D) and στ ≤ σti ≤ eσt ≤ pσ2 
+
+> ∗
+
++ σ2 
+
+> t
+
+≤ √2, we have for any t ∈ [ti, t i+1 ],
+
+1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h Z
+
+> RD
+
+∥x∥ + √D
+
+eσ2
+
+> t
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+
+
+· 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n, ∥x∥ > c 1
+
+plog n
+
+
+
+dx
+
+i
+
+≤ 1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h Z
+
+> RD
+
+∥x∥ + √D
+
+eσ2
+
+> t
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+ · 1
+
+
+
+∥x∥ > c 1
+
+plog n
+
+
+
+dx
+
+i
+
+≤ 1
+
+n2 .
+
+68 Moreover, for large enough c0, we have 
+
+1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+> K
+
+X
+
+> k=1
+
+ωk · Ey∼Qk
+
+h Z
+
+> RD
+
+∥x∥ + √D
+
+eσ2
+
+> t
+
+exp   − ∥x − mty∥2
+
+2eσ2
+
+> t
+
+
+
+· 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n, ∥x∥ ≤ c1
+
+plog n
+
+
+
+dx
+
+i
+
+≲ c1
+
+√log n + D
+
+eσ2
+
+> t
+
+1(2 πeσ2 
+
+> t
+
+) D
+
+> 2
+
+· exp   − c20eσ2
+
+> ti
+
+4eσ2
+
+> t
+
+log n)
+
+Z
+
+> RD
+
+1
+
+
+
+∥x∥ ≤ c1
+
+plog n
+
+
+
+dx
+
+≤ 1
+
+n2 .
+
+Therefore, for sufficiently large c0, we have 
+
+Z
+
+∥∇ log pt(x)∥2 pt(x) · 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n
+
+
+
+dx ≤ c1
+
+1
+
+n2 .
+
+Similarly, we can show 
+
+Z
+
+∥S(x, t )∥2 pt(x) · 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n
+
+
+
+dx
+
+≤
+
+Z
+
+c2 log n
+
+eσ2
+
+> t
+
+pt(x) · 1
+
+
+
+dist( x, M) ≥ c0eσti
+
+plog n
+
+
+
+dx ≤ c2c1
+
+1
+
+n2 .
+
+The first statement is then proved. For the second statement, denote κ : RDx → [K] so that 
+
+κ(x) ∈ arg min k∈[K] dist( x, Mk), and denote Proj Mk (x) as any point inside arg min y∈M k ∥x−
+
+y∥. Then for any x ∈ RD with dist( x, M) ≤ c0eσti
+
+√log n, we have 
+
+(2 πeσ2 
+
+> t
+
+) D 
+
+> 2
+
+pt(x) ≥ ωκ(x) ·
+
+Z  
+
+> y∈Beσt(Proj Mκ(x)(x)) ∩M κ(x)
+
+exp 
+
+
+
+− ∥x − mty∥2
+
+2eσ2
+
+> t
+
+
+
+qκ(x)(y) d y
+
+≥ C exp( − (c0eσti
+
+√log n + eσt + (1 − mt)) 2
+
+2eσ2
+
+> t
+
+)eσdt
+
+≥ n−c2 .
+
+Therefore, there exists a constant c′ 
+
+> 0
+
+so that for any x ∈ RD with dist( x, M) ≤ c0σti
+
+√log n,
+
+∥∇ log pt(x)∥ ≤ 
+
+PKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+ ·
+
+
+
+− x−mty
+
+> eσ2
+> t
+
+
+
+· 1  ∥x − mty∥ ≤ c′
+
+> 0
+
+eσt
+
+√log n iPKk=1 ωk · Ey∼Qk
+
+h
+
+exp   − ∥x−mty∥2
+
+> 2eσ2
+> t
+
+ · 1  ∥x − mty∥ ≤ c′
+
+> 0
+
+eσt
+
+√log n i + 1
+
+n
+
+≲
+
+√log n
+
+eσt
+
+≍√log n
+
+eσti
+
+.
+
+We can then get the desired statement by combining all pieces. 69 Appendix C. Proofs for Section 5 
+
+C.1 Proof of Theorem 13 
+
+Let mt = exp( − R t 
+
+> 0
+
+βsds ) and σ2 
+
+> t
+
+= 1 − m2 
+
+> t
+
+and note that σt → 0 as t → 0+. The marginal density at a particular time t > 0 can be written as 
+
+pt(x) = 
+
+Z
+
+> S
+
+N (x; mtx0, σ 2 
+
+> t
+
+I)dP ∗(x0) = 
+
+Z
+
+> S
+
+ϕσt (x − mtx0)dP ∗(x0).
+
+Hence, by differentiating under the integral, 
+
+∇pt(x) = 
+
+Z
+
+> S
+
+− x − mtx0
+
+σ2
+
+> t
+
+ϕσt (x − mtx0)dP ∗(x0)
+
+Thus 
+
+∇ log pt(x) = ∇pt(x)
+
+pt(x) =
+
+R −( x−mtx0
+
+> σ2
+> t
+
+)ϕσt (x − mtx0)dP ∗(x0)
+
+R ϕσt (x − mtx0)dP ∗(x0)= − 1
+
+σ2
+
+> t
+
+
+
+x − mt
+
+R x0ϕσt (x − mtx0)dP ∗(x0)
+
+R ϕσt (x − mtx0)dP ∗(x0)
+
+
+
+First consider the case where S = Mℓ. Let nt(x) be the expression in parentheses above. By assumption x is sufficiently close to S, so x is in a tubular region of Mℓ where πℓ is unique. Recall Laplace’s method, which states that if f and g are smooth functions and f achieves a unique minimum at a point y∗ in the interior of a region U ⊂ Rd, then 
+
+Z
+
+> U
+
+g(y) exp( −M f (y)) dx ≈
+
+ 2πM
+
+d/ 2 g(y∗) exp( −M f (y∗)) 
+
+|Hess f (y∗)|1/2 as M → ∞ .
+
+One extends this to manifolds by using the intrinsic Hessian. We can hence express the integrals in our setting as t → 0 by 
+
+Z
+
+> Mℓ
+
+g(y)qℓ(y)(2 πσ 2 
+
+> t
+
+)−D/ 2 exp( −ft(y)/σ 2 
+
+> t
+
+)dvol Mℓ (y) ≈ (2 πσ 2 
+
+> t
+
+)−(D−dℓ)/2 g(y∗,t )qℓ(y∗,t ) exp( −ft(y∗,t )/σ 2 
+
+> t
+
+)
+
+pdet( Hess Mℓ ft(y∗,t )) ,
+
+where qℓ is the density of Qℓ with respect to the volume measure on Mℓ, ft(y) = 12 ∥x−mty∥2,and at the minimizer y∗,t , the intrinsic Hessian is positive definite on Ty∗,t M .For simplicity in the general stratified case, we combine the geometric and local density terms in the expression above into the function 
+
+Gℓ(x, t ) = (2 πσ 2 
+
+> t
+
+)−(D−dℓ)/2 qℓ(y∗,t ) exp( −ft(y∗,t )/σ 2 
+
+> t
+
+)
+
+pdet( Hess Mℓ ft(y∗,t )) 
+
+Note that if y∗ = arg min y ∥x − y∥2, then 
+
+y∗,t = arg min  
+
+> y
+
+∥x − mty∥2 = arg min  
+
+> y
+
+∥x/m t − y∥2 = πℓ(x/m t).
+
+For all sufficiently small t, x/m t lies in a tubular neighborhood of Mℓ where πℓ is uniquely de-fined. Hence, there is a unique minimizer of mtMℓ given by mty∗,t = πℓ,t (x) := mtπℓ(x/m t).70 The integrals in the expression for nt(x) only differ in the amplitude g, so, after applying Laplace’s method to the numerator and denominator and canceling terms, 
+
+nt(x) ≈ x − mty∗,t = x − πℓ,t (x) as t → 0+.
+
+Since mt → 1 as t → 0+ and the projection map is continuous in a tubular neighborhood of Mℓ, we have that mty∗,t → y∗. Thus, as t → 0+,
+
+∇ log pt(x)
+
+∥∇ log pt(x)∥ = −nt(x)
+
+∥nt(x)∥ → πℓ(x) − x
+
+∥πℓ(x) − x∥ .
+
+General case. Now recall that for a stratified space we obtain a mixture of the form 
+
+pt(x) = 
+
+Z
+
+> S
+
+ϕσt (x − mtx0)dP ∗(x0) = 
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+Z
+
+> Mk
+
+ϕσt (x − mtx0)dQ k(x0),
+
+and 
+
+∇pt(x) = 
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+Z
+
+> Mk
+
+− x − mtx0
+
+σ2
+
+> t
+
+ϕσt (x − mtx0)dQ k(x0).
+
+The score is then realized as 
+
+∇ log pt(x) = ∇pt(x)
+
+pt(x) =
+
+> K
+
+X
+
+> k=1
+
+ωk
+
+R 
+
+> Mk
+
+−( x−mtx0
+
+> σ2
+> t
+
+)ϕσt (x − mtx0)dQ k(x0)
+
+PKℓ=1 ωℓ
+
+R 
+
+> Mℓ
+
+ϕσt (x − mtx0)dQ ℓ(x0)= − 1
+
+σ2
+
+> t
+
+x − mtKX
+
+> k=1
+
+ωk
+
+R 
+
+> Mk
+
+x0ϕσt (x − mtx0)dQ k(x0)
+
+PKℓ=1 ωℓ
+
+R 
+
+> Mℓ
+
+ϕσt (x − mtx0)dQ ℓ(x0)
+
+!
+
+Note that we need only consider the indices in the set 
+
+L(x) = {k ∈ { 1, ..., K } : dist( x, M k) = dist( x, S)}.
+
+Indeed, if k̸ ∈ L(x), then ∆ = dist (x, M k)2 − dist (x, S)2 > 0. By compactness of Mk and S
+
+and the fact that mt → 1 as t → 0, for sufficiently small t > 0 we have dist (x, m tMk)2 ≥ dist (x, m tS)2 + ∆2 .
+
+Define 
+
+Ik(t) = 
+
+Z
+
+> Mk
+
+ϕσt (x − mtx0)dQ k(x0), Jk(t) = 
+
+Z
+
+> Mk
+
+x0ϕσt (x − mtx0)dQ k(x0).
+
+Then, 
+
+Ik(t) ≲ σ−Dt exp 
+
+
+
+− dist( x, m tMk)2
+
+2σ2
+
+> t
+
+
+
+≤ σ−Dt exp 
+
+
+
+− dist( x, m tS)2
+
+2σ2
+
+> t
+
+
+
+exp 
+
+
+
+− ∆4σ2
+
+> t
+
+
+
+.
+
+On the other hand, for ℓ ∈ L(x), we have by Laplace’s method that, for small t,
+
+Iℓ(t) ≳ σ−(D−dℓ) 
+
+> t
+
+exp 
+
+
+
+− dist( x, m tS)2
+
+2σ2
+
+> t
+
+
+
+.
+
+71 Hence 
+
+Ik
+
+Iℓ
+
+≲ σ−dℓ 
+
+> t
+
+exp 
+
+
+
+− ∆4σ2
+
+> t
+
+
+
+→ 0.
+
+This holds similarly for Jk in place of Ik above since ∥x0∥ is bounded uniformly by com-pactness, so it only contributes to the constant. Applying Laplace’s method to every integral for indices in L(x), we have that 
+
+nt(x) ≈ x − mt
+
+X
+
+> k∈L(x)
+
+ωk
+
+Gk(x, t )yk, ∗,t 
+
+P 
+
+> ℓ∈L(x)
+
+ωℓGℓ(x, t )= x − X
+
+> k∈L(x)
+
+γk,t · mtyk, ∗,t 
+
+= X
+
+> k∈L(x)
+
+γk,t (x − mtyk, ∗,t ),
+
+where 
+
+γk,t = ωkGk(x, t )
+
+P 
+
+> ℓ∈L(x)
+
+ωℓGℓ(x, t ) .
+
+Then observe that as t → 0,
+
+Gk(x, t )
+
+Gℓ(x, t ) ≍ σdk −dℓ 
+
+> t
+
+exp 
+
+
+
+− dist( x, m tMk)2 − dist( x, m tMℓ)2
+
+2σ2
+
+> t
+
+
+
+.
+
+Note that for k, ℓ ∈ L(x), we have that dist( x, M k) = dist( x, M ℓ) = dist( x, S). Hence, by a first order expansion, 
+
+dist( x, m tMk)2 = dist( x, S)2 + O(1 − mt),
+
+dist( x, m tMℓ)2 = dist( x, S)2 + O(1 − mt); 
+
+and so 
+
+dist( x, m tMk)2 − dist( x, m tMℓ)2 = O(1 − mt) = O(σ2 
+
+> t
+
+).
+
+This implies that the exponential term in the quotient above is bounded, so that Gk/G ℓ → 0
+
+as σdk −dℓ 
+
+> t
+
+→ 0, which is the case if dk > d ℓ. Hence as t → 0, assuming that stratum k∗ has unique minimal dimension, 
+
+γk∗,t (x) → 1, γk,t (x) → 0 for k̸ = k∗.
+
+Similar to the manifold case, letting t → 0 implies that 
+
+∇ log pt(x)
+
+∥∇ log pt(x)∥ → πk∗ (x) − x
+
+∥πk∗ (x) − x∥ .
+
+□
+
+72 C.2 Proof of Lemma 15 
+
+Let Y be a d-dimensional manifold and x0 ∈ Y . Diffused points are of the form xt =
+
+mtx0 + σtz, z ∼ N (0 , I D). Liu et al. (2025) expand the score function of a VE-SDE into a normal part with bounded remainder for points off the manifold within a small tubular neighborhood. In our VP setting, 
+
+pt(x) = 
+
+Z
+
+> Y
+
+ϕσt (x − mty)p∗(y)d vol Y (y) = 
+
+Z
+
+> mtY
+
+ϕσt (x − z)m−dt p∗(z/m t)d vol mtY (z),
+
+where the last equality follows from reparameterization. Hence, pt is a Gaussian smoothing of the scaled manifold mtY and the VP-SDE analogue of Theorem 3.1 in Liu et al. (2025) is: 
+
+∇ log pt(x) = − x − πt(x)
+
+σ2
+
+> t
+
++ O(1) ,
+
+where πt(x) = mtπ(x/m t) is the projection onto mtY and x / ∈ mtY is in a small tubular neighborhood of mtY . For xt = mtx0 + σtz in a tubular neighborhood of mtY , we have that 
+
+xt − πt(xt) = ( mtx0 + σtz) − mtπ(x0 + ( σt/m t)z).
+
+By applying a Taylor expansion to π, we have that 
+
+π(x0 + ( σt/m t)z) = x0 + ( σt/m t)PT z + O(σ2 
+
+> t
+
+∥z∥2),
+
+where PT is projection onto the tangent space of of Y at x0. Substitution yields 
+
+xt − πt(xt) = σtz − σtPT z + O(σ2 
+
+> t
+
+∥z∥2) = σtPN z + O(σ2 
+
+> t
+
+∥z∥2),
+
+where PN = I − PT is the projection onto the normal space of Y at x0. Hence, we deduce that 
+
+∇ log pt(xt) = − 1
+
+σt
+
+PN z + Rt, where sup 
+
+> t∈[tstart ,t end ]
+
+E[∥Rt∥2 | t] ≤ C
+
+for xt̸ ∈ mtY in a sufficiently small tubular neighborhood of mtY . Then 
+
+E[∇ log pt(x)∇ log pt(x)⊤ | t] = 1
+
+σ2
+
+> t
+
+PN − 1
+
+σt
+
+E[PN zR ⊤ 
+
+> t
+
++ Rtz⊤PN | t] + E[RtR⊤ 
+
+> t
+
+| t].
+
+By Cauchy-Schwarz, 
+
+∥E[PN zR ⊤ 
+
+> t
+
+| t]∥op ≤ E[∥PN z∥2]1/2E[∥Rt∥2 | t]1/2 ≤ E[∥PN z∥2]1/2√C ≤ √D − d√C = O(1) ,
+
+where we used the fact that E[∥PN z∥2] = trace( PN ) = D − d. We also have that 
+
+∥E[RtR⊤ 
+
+> t
+
+| t]∥op ≤ E[∥Rt∥2|t] ≤ C. 
+
+Thus, 
+
+E[∇ log pt(X)∇ log pt(X)⊤|t] = 1
+
+σ2
+
+> t
+
+PN + O(σ−1 
+
+> t
+
+).
+
+73 Now if we average over t ∈ [tstart , t end ], we have that 
+
+Σ( x0) = E
+
+ 1
+
+σ2
+
+> t
+
+
+
+PN + O(E[σ−1 
+
+> t
+
+]) .
+
+Since Y is d-dimensional, the eigenvalues of PN consist of D − d ones and d zeros. Arranging them in descending order implies that the eigenvalues μk of Σ( x0) satisfy: 
+
+μk = E[1 /σ 2 
+
+> t
+
+] + O(E[σ−1 
+
+> t
+
+]) , k ≤ D − d;
+
+μk = O(E[σ−1 
+
+> t
+
+]) , k > D − d. 
+
+Let g = E[1 /σ 2 
+
+> t
+
+] and h = E[σ−1 
+
+> t
+
+]. Then we can write the eigenvalues as 
+
+μk =
+
+(
+
+g + O(h), k ≤ D − d;
+
+O(h), k > D − d. 
+
+For k < D − d,
+
+μk − μk+1 = ( g + O(h)) − (g + O(h)) = O(h).
+
+For k > D − d, we have 
+
+μk − μk+1 = O(h)
+
+Lastly, for k = D − d,
+
+μD−d − μD−d+1 = ( g + O(h)) − O(h) = Θ( g)
+
+because h = o(g) by Jensen’s inequality. Since g = E[1 /σ 2 
+
+> t
+
+] ≥ 1/σ 2 
+
+> tend
+
+→ ∞ as tend → 0, the gap between indices D − d and D − d + 1 will dominate all other gaps for sufficiently small 
+
+tend .
+
+□
+
+C.3 Proof of Theorem 16 
+
+Let x0 ∈ Mℓ ⊆ S \ Ssing , δ = d(x0, S sing ) > 0. Note that t(n)2 → 0 implies that σt(n)2
+
+≲ δ/ 2 for sufficiently large n, making other distant strata have negligible effect on the score, allowing us to localize on Mℓ and apply Lemma 15 (see proof of Lemma 13 for justification). Let 
+
+n ∈ N and suppose that 
+
+EX1: n∼P ⊗n
+
+> ∗
+
+ 1∆tn
+
+Z t(n)2
+
+> t(n)1
+
+Z
+
+> RD
+
+∥ bSn(x, t ) − ∇ log pt(x)∥2pt(x) d xdt
+
+
+
+≤ ϵn,
+
+where ∆tn = t(n)2 − t(n)1 . Note that bSn is trained on an independent sample X1: n ∼ P ⊗n 
+
+> ∗
+
+,while the test points {(xi, t i)}Nn 
+
+> i=1
+
+are drawn independently from the training data. Let Rn ≥ 1. For any t > 0, consider the sets Bt = {x : || x − mtx0|| ≤ Rnσt} and Ut =
+
+B(x0, 1 
+
+> Rn
+
+σt) ∩ Mℓ. We get a lower bound on the marginal distribution pt via concentration on Ut:
+
+pt(x) = 
+
+Z
+
+> RD
+
+pt(x|x′)P∗(dx ′) ≥
+
+Z
+
+> Ut
+
+pt(x|x′)P∗(dx ′)
+
+74 Recall that pt(x|y) = N (mty, σ 2 
+
+> t
+
+ID). Hence, for x ∈ Bt and x′ ∈ Ut,
+
+pt(x|x0)
+
+pt(x|x′) = exp 
+
+ ∥x − mtx′∥2 − ∥ x − mtx0∥2
+
+2σ2
+
+> t
+
+
+
+= exp 
+
+ m2 
+
+> t
+
+∥x′ − x0∥2 − 2mt⟨x − mtx0, x ′ − x0⟩
+
+2σ2
+
+> t
+
+
+
+≤ exp 
+
+ m2 
+
+> t
+
+R−2 
+
+> n
+
++ 2 mtRnR−1
+
+> n
+
+2
+
+
+
+≤ exp 
+
+ R−2 
+
+> n
+
++ 2 2
+
+
+
+This implies that 
+
+pt(x|x0) ≤ c′pt(x|x′)
+
+for some constant c′ ≤ e3/2 since Rn ≥ 1. Then, since P∗ is bounded from below on Mℓ, we have that P∗(Ut) ≳ R−dℓ 
+
+> n
+
+σdℓ 
+
+> t
+
+. Putting everything together and combining constants into ˜C
+
+with the fact that σt is monotonic in t gives that over the interval [t(n)1 , t (n)2 ],
+
+pt(x|x0) ≤ ˜CR dℓ 
+
+> n
+
+σ−dℓ 
+
+> t
+
+pt(x) ≤ ˜CR dℓ 
+
+> n
+
+σ−dℓ
+
+> t(n)1
+
+pt(x)
+
+On Bt, we can use the upper bound on score approximation to get 
+
+EX1: n∼P ⊗n
+
+> ∗
+
+h 1∆tn
+
+Z t(n)2
+
+> t(n)1
+
+Z
+
+> Bt
+
+|| ˆS(x, t ) − ∇ log pt(x)|| 2pt(x|x0)dxdt 
+
+i
+
+≤ ˜CR dℓ 
+
+> n
+
+σ−dℓ
+
+> t(n)1
+
+ϵn.
+
+For a bound on Bct we use the following lemma. 
+
+Lemma 31 Suppose ∥ bSn∥∞ ≤ Vn and supp P∗ ⊆ B(0 , L ). Then for X ∼ pt(·| x0),
+
+E[∥ ˆSn(x, t ) − ∇ log pt(x)∥21Bct ] ≲
+
+
+
+V 2 
+
+> n
+
++ L2
+
+σ4
+
+> t
+
++ R2 + Dσ2
+
+> t
+
+
+
+e−(R−√D)2/2
+
+Now let Tn(Rn) denote the expectation bound from the lemma with R = Rn. Then 
+
+E
+
+"
+
+1∆tn
+
+Z t(n)2
+
+> t(n)1
+
+Z
+
+> RD
+
+∥ ˆS(x, t ) − ∇ log pt(x)∥2pt(x|x0)dxdt 
+
+#
+
+≤ ˜CR dℓ 
+
+> n
+
+σ−dℓ
+
+> t(n)1
+
+ϵn + Tn(Rn).
+
+Let En be the term inside the expectation and let ρn = ˜CR dℓ 
+
+> n
+
+σ−dℓ
+
+> t(n)1
+
+ϵn + Tn(Rn). Choose 
+
+Rn → ∞ such that Tn(Rn) ≤ ηn → 0 for some decreasing sequence ηn. Note that this also affects the size of Bt, but one can take Rn to grow slowly, such as Rn = O(√log n)
+
+assuming mild conditions such as polynomial growth of Vn, σ−1
+
+> t(n)1
+
+and 1/η n. This means that Rdℓ 
+
+> n
+
+= O((log n)dℓ/2) = o(nγ ) for any γ > 0. We then have that Tn(Rn) ≲ ηn → 0,and by our assumption that nησ−dℓ
+
+> t(n)1
+
+ϵn → 0, we have ρn → 0 as n → ∞ by choosing any γ < η .75 The term En depends on X1: n, so we define the event An = {En(X1: n) ≤ ρ1/2 
+
+> n
+
+}. Then by Markov’s inequality, P(Acn) ≤ ρ1/2 
+
+> n
+
+→ 0 as n → ∞ . Let Σn = Σ( x0) as in Lemma 15, i.e. 
+
+Σn = Et∼Uniform[ t(n)1 ,t (n)2 ],X ∼pt(·| x0)[∇ log pt(X)∇ log pt(X)⊤]
+
+and define 
+
+ˆΣn = 1
+
+NnNnX
+
+> i=1
+
+ˆSn(xi, t i) ˆSn(xi, t i)⊤,
+
+Letting si = ∇ log pti (xi) and ˆSi = ˆSn(xi, t i), we have 
+
+ˆΣn − Σn = 1
+
+NnNnX
+
+> i=1
+
+h ˆSn(xi, t i) ˆSn(xi, t i)⊤ − sis⊤
+
+> i
+
+i| {z }
+
+> (A)
+
++ 1
+
+NnNnX
+
+> i=1
+
+sis⊤ 
+
+> i
+
+− Σn
+
+| {z }
+
+> (B)
+
+.
+
+Bounding (A): Using the relation ˆSi ˆS⊤ 
+
+> i
+
+− sis⊤ 
+
+> i
+
+= ( ˆSi − si)( ˆSi − si)⊤ + ( ˆSi − si)s⊤ 
+
+> i
+
++
+
+si( ˆSi − si)⊤ implies that 
+
+∥ ˆSi ˆS⊤ 
+
+> i
+
+− sis⊤ 
+
+> i
+
+∥op ≤ ∥ ˆSi − si∥2 + 2 ∥ ˆSi − si∥∥ si∥.
+
+Taking expectation with respect to t ∼ Uniform[ t(n)1 , t (n)2 ] and xi ∼ pt(·| x0) and applying Cauchy-Schwarz, 
+
+E
+
+h
+
+∥(A)∥op |X1: n
+
+i
+
+≤ E[∥ ˆSi − si∥2|X1: n] + 2 E[∥ ˆSi − si∥2|X1: n]1/2E[∥si∥2]1/2.
+
+We have that E[∥ ˆSi − si∥2 | X1: n] ≤ ρ1/2 
+
+> n
+
+on An. For the second term, note that, by Jensen’s inequality, 
+
+E[∥si∥2] ≤ E[∥si∥4]1/2.
+
+Lemma 32 Let x0 ∈ Mℓ satisfy dist( x0, Ssing ) > δ . Then for sufficiently large n,
+
+E[∥∇ log pT (X)∥4] ≲ σ−4
+
+> t(n)1
+
+,
+
+where T ∼ Uniform[ t(n)1 , t (n)2 ] and X|T = t ∼ pt(· | x0).
+
+By Lemma 32, we hence have that E[∥si∥2]1/2 ≲ σ−1
+
+> t(n)1
+
+. Thus 
+
+2E[∥ ˆSi − si∥2 | X1: n]1/2E[∥si∥2]1/2 ≤ 2
+
+
+
+ρ1/2
+
+> n
+
+1/2
+
+· O(σ−1
+
+> t(n)1
+
+) = O
+
+
+
+ρ1/4 
+
+> n
+
+σ−1
+
+> t(n)1
+
+
+
+.
+
+Let ζn be the upper bound on the total expectation above and note that since ρn → 0, we have that ζn = O(ρ1/2 
+
+> n
+
++ ρ1/4 
+
+> n
+
+σ−1
+
+> t(n)1
+
+) = o(σ−2
+
+> t(n)1
+
+). For any fixed c > 0, we have by Markov that 
+
+P
+
+
+
+∥(A)∥op > cσ −2
+
+> t(n)1
+
+| X1: n
+
+
+
+≤ ζn
+
+cσ −2
+
+> t(n)1
+
+→ 0.
+
+76 Bounding (B): Note that ∥(B)∥op ≤ ∥ (B)∥F and denote Yn,i = sis⊤ 
+
+> i
+
+− Σn. Then, conditioned on the sample X1: n used to train ˆSn, Yn,i are i.i.d., and hence 
+
+E[∥(B)∥2op | X1: n] ≤ E[∥(B)∥2 
+
+> F
+
+| X1: n] = 1
+
+Nn
+
+E[∥Yn, 1∥2 
+
+> F
+
+] ≤ 1
+
+Nn
+
+E[∥si∥4].
+
+From Lemma 32, we have that E[∥si∥4] ≲ σ−4
+
+> t(n)1
+
+, so 
+
+E[∥(B)∥2op | X1: n] ≲ 1
+
+Nn
+
+σ−4
+
+> t(n)1
+
+.
+
+Hence, by Chebyshev, 
+
+P(∥(B)∥op > Cσ −2
+
+> t(n)1
+
+) ≲ 1
+
+C2Nn
+
+→ 0
+
+as Nn → ∞ .Let ˆμ1 ≥ · · · ≥ ˆμD be the eigenvalues of ˆΣn and μ1 ≥ · · · ≥ μD be the eigenvalues of Σn.By Weyl’s inequality, 
+
+|ˆμk − μk| ≤ ∥ ˆΣn − Σn∥op .
+
+By Lemma 15, for sufficiently small t(n)2 , the largest spectral gap γn ≍ σ−2
+
+> t(n)1
+
+of Σn occurs between indices D − dℓ and D − dℓ + 1 , and the rest of the consecutive spectral gaps are of order E[σ−1 
+
+> t
+
+].On the event {∥ ˆΣn − Σn∥op ≤ γn/8}, we thus have for sufficiently large n,
+
+ˆμk − ˆμk+1 ≥ μk − μk+1 − 2∥ ˆΣn − Σn∥op ,
+
+so 
+
+ˆμD−dℓ − ˆμD−dℓ+1 ≥ γn − 2∥ ˆΣn − Σn∥op > 3γn/4.
+
+For any other k̸ = D − dℓ,
+
+ˆμk − ˆμk+1 ≤ μk − μk+1 + 2 ∥ ˆΣn − Σn∥op < σ −1
+
+> t(n)1
+
++ 2 ∥ ˆΣn − Σn∥op < γ n/2
+
+for sufficiently large n as γn ≍ σ−2 
+
+> t
+
+→ ∞ , which means that ˆdn(x0) = dℓ. Now, we have that 
+
+P( ˆdn(x0)̸ = dℓ) ≤ P(Acn)+ P({∥ (A)∥op > γ n/8}∩A n)+ P(∥(B)∥op > γ n/8) → 0 as n → ∞ .
+
+□
+
+C.4 Proof of Lemma 31 
+
+Proof: We first note that 
+
+E[∥ ˆS(x, t ) − ∇ log pt(x)∥21Bct ] ≤ 2E[∥ ˆS(·, t )∥2
+
+> ∞
+
+1Bct ] + 2 E[∥∇ log pt(X)∥21Bct ],
+
+where X ∼ N (mtx0, σ 2 
+
+> t
+
+ID). Now note that x = mtx0 + σtz for some z ∼ N (0 , I D), and, by definition of our network class, ∥ ˆS∥∞ ≤ Vn. For R ≳ √D, first term on the right side of the inequality can thus be bounded as: 
+
+2E[∥ ˆS(·, t )∥2
+
+> ∞
+
+1Bct ] ≲ 2V 2 
+
+> n
+
+e−(R−√D)2/2.
+
+77 As for the second term, we have by Tweedie’s formula that 
+
+∇ log pt(x) = − 1
+
+σ2
+
+> t
+
+
+
+x − mtE[x0|Xt = x]
+
+
+
+.
+
+Thus 
+
+∥∇ log pt(x)∥ ≤ 1
+
+σ2
+
+> t
+
+(∥x∥ + mt∥E[x0|Xt = x]∥).
+
+Since the support of the true distribution P∗ is compact, we have that ∥E[x0|Xt = x]∥ < L 
+
+for some constant L > 0. We also have that 
+
+∥x∥ = ∥mtx0 + σtz∥ ≤ ∥ mtx0∥ + σt∥z∥,
+
+which implies that on Bct (where ∥z∥ > R ): 
+
+∥∇ log pt(x)∥21{∥ z∥>R } ≤ 1
+
+σ4
+
+> t
+
+
+
+2∥x∥2 + 2 m2 
+
+> t
+
+∥E[x0|Xt = x]∥2
+
+≤ 1
+
+σ4
+
+> t
+
+(4 ∥mtx0∥2 + 4 σ2 
+
+> t
+
+∥z∥2 + 2 m2 
+
+> t
+
+L2)= 2
+
+σ4
+
+> t
+
+(3 m2 
+
+> t
+
+L2 + 2 σ2 
+
+> t
+
+∥z∥2)
+
+where the last inequality holds since x0 ∈ supp P∗. Now by taking expectation, we get 
+
+E[∥∇ log pt(x)∥21Bct ] ≲ L2
+
+σ4
+
+> t
+
+P(∥z∥ > R ) + 1
+
+σ2
+
+> t
+
+E[∥z∥21{∥ z∥>R }]
+
+≲ L2
+
+σ4
+
+> t
+
+e−(R−√D)2/2 + 1
+
+σ2
+
+> t
+
+(R2 + D)e−(R−√D)2/2
+
+Combining the two bounds together gives us the lemma. □
+
+C.5 Proof of Lemma 32 
+
+Recall that a diffusion point from x0 takes the form Xt = mtx0 + σtZ, where Z ∼ N (0 , I D).From the proof of Lemma 15, we see that for a small tubular region around Mℓ,
+
+∇ log pt(Xt) = − Xt − πt(Xt)
+
+σ2
+
+> t
+
++ Rt(Xt),
+
+where ∥Rt(Xt)∥ ≤ C uniformly in t ∈ [t(n)1 , t (n)2 ]. Let At be the event that this decomposition holds. Then Act ⊆ {∥ Z∥ > r/σ t} for some radius r > 0. On the event At, since πt(x) is the minimizer of the distance to mtMℓ, we have that 
+
+∥Xt − πt(Xt)∥ ≤ ∥ Xt − mtx0∥ ≤ σt∥Z∥,
+
+and so 
+
+∥∇ log pt(Xt)∥ ≤ ∥Z∥
+
+σt
+
++ ∥Rt(Xt)∥.
+
+78 From the inequality (a + b)4 ≤ 8( a4 + b4), we have that 
+
+∥∇ log pt(Xt)∥4 ≲ ∥Z∥4
+
+σ4
+
+> t
+
++ 1 
+
+Then 
+
+E[∥∇ log pt(Xt)∥41At | t] ≲ σ−4 
+
+> t
+
+E[∥Z∥4] + 1 ≲ σ−4
+
+> t(n)1
+
+,
+
+where we used the fact that σt is monotonically increasing and ∥Z∥2 ∼ χ2
+
+> D
+
+, and we have for a χ2 
+
+> D
+
+random variable that E[( ∥Z∥2)2] = D2 + 2 D. On the event Act , we note that the manifold Mℓ is compact, so that ∥Mℓ∥ ≤ L < ∞, and 
+
+∇ log pt(x) = mtE[X0|Xt = x] − xσ2
+
+> t
+
+.
+
+Thus, 
+
+∥∇ log pt(x)∥ ≤ mtL + ∥x∥
+
+σ2
+
+> t
+
+.
+
+Plugging in Xt = mtx0 + σtZ implies that 
+
+∥∇ log pt(Xt)∥ ≤ Lσ2
+
+> t
+
++ ∥mtx0 + σtZ∥
+
+σ2
+
+> t
+
+≲ 1
+
+σ2
+
+> t
+
++ ∥Z∥
+
+σt
+
+,
+
+and so 
+
+∥∇ log pt(Xt)∥4 ≲ σ−8 
+
+> t
+
++ σ−4 
+
+> t
+
+∥Z∥4.
+
+Now, by Gaussian tails, we have that P(Act | t) ≲ e−a/σ 2 
+
+> t
+
+for some constant a > 0, and 
+
+E[∥Z∥41Act | t] similarly decays like e−a/σ 2 
+
+> t
+
+up to a polynomial factor. Hence 
+
+E[∥∇ log pt(Xt)∥41Act | t] ≲ σ−8 
+
+> t
+
+e−a/σ 2 
+
+> t
+
++ σ−4 
+
+> t
+
+E[∥Z∥41Act ] = o(σ−4 
+
+> t
+
+).
+
+Putting everything together gives us the claim. □
+
+79

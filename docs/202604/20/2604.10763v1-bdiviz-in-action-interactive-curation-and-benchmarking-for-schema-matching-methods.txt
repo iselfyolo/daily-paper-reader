@@ -1,0 +1,152 @@
+Title: BDIViz in Action: Interactive Curation and Benchmarking for Schema Matching Methods
+
+URL Source: https://arxiv.org/pdf/2604.10763v1
+
+Published Time: Tue, 14 Apr 2026 01:26:10 GMT
+
+Number of Pages: 4
+
+Markdown Content:
+# BDIViz in Action: Interactive Curation and Benchmarking for Schema Matching Methods 
+
+# Eden Wu 
+
+VIDA Center, New York University New York, USA eden.wu@nyu.edu 
+
+# Christos Koutras 
+
+VIDA Center, New York University New York, USA christos.koutras@nyu.edu 
+
+# Cláudio T. Silva 
+
+VIDA Center, New York University New York, USA csilva@nyu.edu 
+
+# Juliana Freire 
+
+VIDA Center, New York University New York, USA juliana.freire@nyu.edu 
+
+## Abstract 
+
+Schema matching remains fundamental to data integration, yet eval-uating and comparing matching methods is hindered by limited benchmark diversity and lack of interactive validation frameworks. BDIViz, recently published at IEEE VIS 2025, is an interactive visu-alization system for schema matching with LLM-assisted validation. Given source and target datasets, BDIViz applies automatic match-ing methods and visualizes candidates in an interactive heatmap with hierarchical navigation, zoom, and filtering. Users validate matches directly in the heatmap and inspect ambiguous cases us-ing coordinated views that show attribute descriptions, example values, and distributions. An LLM assistant generates structured explanations for selected candidates to support decision-making. This demonstration showcases a new extension to BDIViz that addresses a critical need in data integration research: human-in-the-loop benchmarking and iterative matcher development. New matchers can be integrated through a standardized interface, while user validations become evolving ground truth for real-time per-formance evaluation. This enables benchmarking new algorithms, constructing high-quality ground-truth datasets through expert val-idation, and comparing matcher behavior across diverse schemas and domains. We demonstrate two complementary scenarios: (i) data harmonization, where users map a large tabular dataset to a target schema with value-level inspection and LLM-generated explanations; and (ii) developer-in-the-loop benchmarking, where developers integrate custom matchers, observe performance met-rics, and refine their algorithms. 
+
+## CCS Concepts 
+
+• Information systems → Mediators and data integration ; •
+
+Human-centered computing → Visualization toolkits ; Infor-mation visualization .
+
+## Keywords 
+
+schema matching, data harmonization, interactive systems 
+
+ACM Reference Format: 
+
+Eden Wu, Christos Koutras, Cláudio T. Silva, and Juliana Freire. 2026. BDIViz in Action: Interactive Curation and Benchmarking for Schema Matching Methods. In Companion of the International Conference on Management of  
+
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> SIGMOD Companion ’26, Bengaluru, India
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2450-3/2026/05 https://doi.org/10.1145/3788853.3801596
+
+Data (SIGMOD Companion ’26), May 31-June 05, 2026, Bengaluru, India. 
+
+ACM, New York, NY, USA, 4 pages. https://doi.org/10.1145/3788853.3801596 
+
+## 1 Introduction 
+
+Schema matching remains a persistent bottleneck in data-centric workflows: practitioners must align attributes across heterogeneous datasets, verify that matched fields truly refer to the same concept, and reconcile value-level inconsistencies (e.g., incompatible encod-ings, units, or categorical conventions). While automated matching methods and systems have improved substantially [ 1– 4, 7], real deployments still require substantial human validation. This is es-pecially true for high-stakes, terminology-dense domains, where semantic ambiguity and value-format diversity are common. At the same time, the development of matching algorithms faces a complementary challenge: progress is difficult to measure when ground truth is scarce and expensive to curate. In practice, domain experts make many accept/reject decisions during curation, but these signals are rarely captured in a way that can drive systematic benchmarking, diagnostics, and rapid matcher improvement. To facilitate human validation of automated matching outputs, we recently introduced BDIViz [ 8], an interactive visualization sys-tem for schema matching with LLM-assisted capabilities. 1 Given source and target datasets or schemas, BDIViz executes multiple matchers and presents candidate correspondences in an interactive heatmap. Users validate matches directly in the matrix while co-ordinated views provide schema descriptions, value comparisons, and distributions. For ambiguous cases, a Harmonization Assistant generates structured rationales and supports iterative refinement. This work extends BDIViz to support developer-in-the-loop benchmarking, by integrating a benchmarking workflow directly into the curation process. BDIViz records user-validated decisions as evolving ground truth and updates matcher evaluation views as curation progresses. Developers can upload a customized matcher via an in-browser code editor, run it for the current task, and observe how it compares against existing matchers. The demonstration engages attendees in two interactive scenar-ios corresponding to distinct user roles. In the first, participants act as data curators, performing end-to-end harmonization of a large biomedical dataset to a standard schema. They navigate the scalable heatmap interface, validate matches with value-level inspection, and use the LLM assistant to resolve ambiguous correspondences. In the second scenario, they take on the developer role, implement-ing a new matcher via the in-browser editor, running it on the current task, and analyzing its performance against existing match-ers through benchmarking views that expose failure modes and  
+
+> 1Source code and video can be accessed at: https://github.com/VIDA-NYU/bdi-viz
+> arXiv:2604.10763v1 [cs.IR] 12 Apr 2026 SIGMOD Companion ’26, May 31-June 05, 2026, Bengaluru, India Eden Wu, Christos Koutras, Cláudio T. Silva, and Juliana Freire.
+
+Figure 1: BDIViz system overview 
+
+suggest improvements. Both scenarios support export of mapping specifications and curated ground truth for offline reuse. 
+
+## 2 System Overview 
+
+In this section, we provide an overview of BDIViz, as illustrated in Figure 1, focusing on key components and functionality. 
+
+## 2.1 Matching Pipeline and Live Ground Truth 
+
+The backend converts raw inputs a into a set of persistent artifacts consumed by the frontend: inferred ontologies, ranked match candi-dates with per-matcher scores, value comparisons and distribution bins, provenance logs, and evaluation summaries. To keep the inter-face responsive, long-running computations run asynchronously in two Celery worker pools dedicated to ontology inference and candidate generation and value profiling. 
+
+Ontology inference. When the source or target schema is not provided, the ontology worker infers attribute properties and se-mantic groupings of attributes for both the source and target f .The resulting ontology is stored in JSON and is later used to drive hierarchy-aware filtering and ontology-based search in the client. 
+
+Candidate generation. Candidate generation proceeds in three steps: (i) Easy match detection identifies high-confidence correspon-dences using fuzzy similarity and marks them for auto-acceptance to reduce review load b . (ii) Matcher-agnostic ensemble execu-tion runs an extensible ensemble of matchers (heuristic, embedding-based, and SLM/LLM-based) [ 3–5 ] and aggregates their outputs into ranked candidates per source attribute. The ensemble is matcher-agnostic: developers can register additional matchers at runtime through a standardized Python interface, enabling integration of custom algorithms without system modifications. For large schemas or computationally expensive matchers, this stage may require sig-nificant processing time; however, it can be executed offline and its results reused via cached artifacts. The backend executes the new matcher within the same pipeline and materializes its scores into the candidate artifacts c . BDIViz maintains per-matcher weights that are updated from user accept/reject feedback, allowing rankings to adapt to task-specific semantics within a session. (iii) Value profiling and mapping artifacts compute summaries to support interactive inspection, including frequency counts for categorical attributes and binned histograms for numeric attributes e . The backend also generates a one-to-one value-mapping proposal using fuzzy matching on unique values d , enabling the Value Comparison preview and the dataframe-level Value Wrangler view. 
+
+Provenance and export. As users interact with the frontend (e.g., accepting or rejecting candidates, editing value mappings), BDIViz appends each operation to a provenance timeline stored with the session artifacts. Accepted correspondences are recorded as live ground truth and are immediately available to the developer loop for in-situ evaluation views and regression checks. BDIViz exports (i) the harmonized dataset and (ii) mapping specifications at both the attribute and value levels (CSV/JSON), enabling reproducible reuse and re-import h .
+
+## 2.2 Agentic Validation Assistant 
+
+BDIViz includes an agentic copilot that operates over backend state and artifacts. The assistant supports two functions: grounded expla-nation generation for selected candidates and tool-based workflow actions that modify the current task. 
+
+Candidate explanations from multiple criteria. When a user selects a candidate correspondence, the assistant generates a struc-tured explanation based on multiple matching criteria and synthe-sizes them into an overall diagnosis (likely match vs. mismatch). The criteria cover complementary signals, including name similar-ity, token patterns, semantic meaning from schema descriptions, value-level compatibility, distributional patterns, historical map-pings, and domain knowledge. LLM-based assistance introduces additional latency relative to algorithmic matching, but it remains outside the critical path of candidate generation: users can browse and curate immediately, while the assistant is invoked selectively for ambiguous matches. In practice, single-candidate responses typ-ically arrive within a few seconds, with higher latency for larger retrieved context or heavier server load. 
+
+Supervisor routing with vector-store memory. The assistant uses a multi-agent supervisor architecture with ChromaDB-backed vector store for task-specific context retrieval. The vector store indexes (i) schema information, and (ii) user-in-the-loop operations, enabling retrieval of task-specific context. A supervisor agent routes requests to specialized agent(s): a Schema Agent that retrieves additional candidates from the target ontology; a Candidate Agent that appends/prunes/accepts/rejects/edits candidates; a Task Agent that reruns matching with filters and adds/deletes matchers; and a Value Agent that proposes value mappings, dictionary lookups, and simple numeric transforms. Agent actions update the same persisted artifacts as direct UI operations, ensuring consistency between curation, provenance, and live benchmarking. 
+
+## 2.3 Interactive Curation and Benchmarking 
+
+The frontend provides a coordinated workspace with views for both curation and benchmarking. The original curation views include (i) an interactive heatmap for triaging large match spaces, (ii) drill-down panels for value evidence and mapping previews, and (iii) BDIViz in Action: Interactive Curation and Benchmarking for Schema Matching Methods SIGMOD Companion ’26, May 31-June 05, 2026, Bengaluru, India 
+
+an explanation interface for LLM-generated rationales. A princi-pal contribution of this work is the addition of developer-oriented benchmarking views: real-time matcher performance dashboards, consensus analysis across multiple matchers, and diagnostic visual-izations computed over the live, evolving ground truth. Section 3.2 presents detailed interaction sequences. 
+
+## 3 Demonstration Scenarios 
+
+We describe the main functionalities of our frontend interface and discuss how the users can engage with them, through two distinct representantive scenarios. The first one focuses on harmonizing a large tabular dataset with respect to a given schema, while the second one investigates how our system can be used for evaluating a matching method based on manual curation. 
+
+## 3.1 Scenario 1: Biomedical Data Harmonization 
+
+In this scenario, the user acts as a domain curator and uses BDIViz to harmonize a CPTAC 2 dataset from an endometrial cancer study to the GDC 3 schema. The source dataset contains 179 attributes, which must be aligned to a target model with 736 attributes [6]. 
+
+Step 1: Task setup and automatic matching. The user starts a new session a and creates a task by uploading the source dataset and target schema b . BDIViz immediately runs the matcher en-semble in the backend, while the UI reports progress and streams intermediate results into the visual interface. 
+
+Step 2: Triage at scale in the matching matrix. BDIViz renders the candidate space as an interactive heatmap matrix c , where rows are source attributes, columns are target attributes, and cell intensity encodes aggregated matcher confidence. Users can accept, reject, and annotate candidates directly in the matrix, enabling rapid triage across potentially thousands of candidate correspondences. High-confidence candidates are automatically accepted, and ex-panding a cell reveals value-distribution comparisons as immediate supporting evidence. Coordinated panels update synchronously with schema metadata and value-level summaries, allowing users to quickly confirm routine mappings and concentrate on ambiguous regions. 
+
+Step 3: Resolving an ambiguous attribute with grounded ex-planations. The user inspects a flagged attribute for which no candidate exceeds the confidence threshold. By adjusting the simi-larity cutoff, additional candidates become visible for review d .For one candidate, expanding the cell reveals incompatible value domains—numerical values on the source side versus boolean val-ues on the target side. The Harmonization Assistant’s explanation panel corroborates this mismatch using instance-level evidence, and the user rejects the candidate e . For the remaining plausible candidates, the explanation panel provides an overall diagnosis together with criterion-specific evidence (e.g., semantic meaning, naming patterns, and value compatibility). In one case, missing tar-get values prevent a definitive decision, and the user records a note to flag the candidate for follow-up f . In another case, the assistant 
+
+> 2https://gdc.cancer.gov/about-gdc/contributed-genomic-data-cancer-research/clini cal-proteomic-tumor-analysis-consortium-cptac
+> 3https://portal.gdc.cancer.gov/
+
+identifies a systematic unit mismatch and recommends an appropri-ate transformation, enabling the user to accept the correspondence with a justified conversion g .
+
+Step 4: Category drill-down and value mapping checks. To further narrow the search space, the user filters the matrix using hierarchy-aware axes to focus on a specific semantic category h .Within this subset, a strong candidate is identified. The Value Com-parison view proposes an initial one-to-one alignment over unique values i , while the assistant highlights a consistent encoding difference and suggests a normalization rule. The user accepts the match and verifies the transformation using both the unique-value preview and the dataframe-level Value Wrangler view to catch row-level edge cases before finalizing the mapping. 
+
+Step 5: Provenance and export. Throughout the workflow, BDI-Viz records a timeline of user actions, enabling review and collabo-ration. At completion, the user exports (i) the harmonized dataset and (ii) a complete mapping specification capturing attribute corre-spondences and value mappings, so the integration decisions are reproducible and reusable in downstream analyses j .
+
+## 3.2 Scenario 2: In-situ Matcher Evaluation 
+
+In this scenario, the user acts as a matcher developer and evaluates a BERT encoder as a schema matcher on the manually curated WikiData benchmark [3]. 
+
+Step 1: Task initialization and developer mode. The user creates a new session ( wikidata ) and initializes a task by uploading the WikiData source and target CSVs. After the candidate generation completes, the user toggles Developer Mode to expose matcher-oriented controls and evaluation views. 
+
+Step 2: Adding a new matcher at runtime. From the shortcut panel, the user selects Create New Matcher, which opens an in-browser code editor a . The user pastes a minimal HuggingFace-based BERT matcher that implements the required top_matches 
+
+interface by embedding column names, computing cosine similar-ity, and returning the top-𝑘 target candidates per source attribute. Submitting the code registers the matcher in the backend and im-mediately runs it against the active task; the matcher then appears in the Matcher Control and Analytics panels alongside the default matchers. 
+
+Step 3: In-situ curation with live performance updates. As the user validates candidates in the matrix, evaluation metrics update continuously, enabling developers to observe how matcher quality evolves as more task-specific evidence is accrued. Early in the session—when ground truth consists only of auto-accepted trivial matches—all matchers achieve near-perfect metrics, obscuring real performance differences. 
+
+Step 4: Diagnosing ranking quality and matcher agreement. 
+
+As the user continues curating and the live ground truth grows, the Matcher Analytics radar plot—which summarizes performance metrics (e.g., Precision, F1, and MRR) over the evolving live ground truth—updates to reflect the evolving performance landscape b .The user then inspects the Ranked Breakdown view c , which reveals a characteristic failure mode: while BERT can achieve rea-sonable Precision and F1, its MRR is substantially lower (e.g., ≈ 0.49 ), indicating that correct matches are often ranked far down the candi-date list and are therefore less useful in an interactive top-𝑘 review workflow. SIGMOD Companion ’26, May 31-June 05, 2026, Bengaluru, India Eden Wu, Christos Koutras, Cláudio T. Silva, and Juliana Freire. 
+
+Figure 2: Demonstration Scenario 1: BDIViz offers a set of interactive and LLM-assisted visual tools to users towards data harmonization. 
+
+Figure 3: Demonstration Scenario 2: BDIViz enables develop-ers to upload, evaluate and compare their matching methods through dedicated panels. 
+
+To examine agreement patterns, the user uses the UpSet-style consensus view, which shows limited overlap between BERT and the best-performing matchers on the accepted correspondences d .This lack of consensus further suggests that BERT’s high-scoring candidates are not consistently aligned with the strongest lexical signals for this benchmark. 
+
+Step 5: Benchmark-driven conclusion. By the end of curation, BDIViz provides a final, task-specific performance summary based entirely on the curated correspondences. In this scenario, a baseline that leverages syntactic similarities (e.g., Jaccard distance) achieves near-perfect scores on this benchmark. This outcome indicates that the WikiData task is dominated by straightforward lexical alignment, where name similarity alone is sufficient and more com-plex pretrained encoders do not provide additional benefit. This scenario demonstrates BDIViz’s unique capability for immediate, task-grounded matcher evaluation: developers inject custom match-ers into active curation sessions and observe performance metrics evolve in real-time as domain experts validate correspondences, enabling rapid diagnostic feedback. 
+
+## Acknowledgments 
+
+This work was supported in part by DARPA ASKEM (HR0011262087), ARPA-H BDF, and NSF (OAC-2411221). The views, opinions, and findings expressed are those of the authors and should not be inter-preted as representing the views or policies of these agencies. 
+
+## References 
+
+[1] David Aumueller, Hong-Hai Do, Sabine Massmann, and Erhard Rahm. 2005. Schema and Ontology Matching with COMA++. In SIGMOD ’05 . 906–908. doi:10.1 145/1066157.1066283 [2] Juliana Freire, Grace Fan, Benjamin Feuer, Christos Koutras, Yurong Liu, et al .2025. Large Language Models for Data Discovery and Integration: Challenges and Opportunities. IEEE Data Eng. Bull. 49, 1 (2025), 3–31. [3] Christos Koutras, George Siachamis, Andra Ionescu, Kyriakos Psarakis, Jerry Brons, et al . 2021. Valentine: Evaluating Matching Techniques for Dataset Discovery. In 
+
+ICDE ’21 . 468–479. [4] Yurong Liu, Eduardo Peña, Aécio S. R. Santos, Eden Wu, and Juliana Freire. 2025. Magneto: Combining Small and Large Language Models for Schema Matching. 
+
+Proc. VLDB Endow. 18, 8 (2025), 2681–2694. doi:10.14778/3742728.3742757 [5] Roque Lopez, A’ecio Santos, Christos Koutras, and Juliana Freire. 2026. BDI-Kit: An AI-Powered Toolkit for Biomedical Data Harmonization. Patterns 7 (2026). [6] Aécio Santos, Eden Wu, Roque Lopez, Sarah Keegan, Eduardo Pena, et al . 2025. 
+
+GDC-SM: The GDC Schema Matching Benchmark . doi:10.5281/zenodo.14963588 [7] Shiqiang Tao, Ningzhou Zeng, Isaac Hands, Joseph Hurt-Mueller, Eric B. Durbin, et al . 2020. Web-based interactive mapping from data dictionaries to ontologies, with an application to cancer registry. BMC Med. Inform. Decis. Mak. 20, 10 (2020), 271. doi:10.1186/s12911-020-01288-7 [8] Eden Wu, Dishita G. Turakhia, Guande Wu, Christos Koutras, Sarah Keegan, et al . 2025. BDIViz: An Interactive Visualization System for Biomedical Schema Matching with LLM-Powered Validation. IEEE Trans. Vis. Comput. Graph. (2025), 1–11. doi:10.1109/TVCG.2025.3634843
