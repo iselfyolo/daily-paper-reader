@@ -1,0 +1,508 @@
+Title: JudgeMeNot: Personalizing Large Language Models to Emulate Judicial Reasoning in Hebrew
+
+URL Source: https://arxiv.org/pdf/2604.18041v1
+
+Published Time: Tue, 21 Apr 2026 02:15:27 GMT
+
+Number of Pages: 18
+
+Markdown Content:
+# JudgeMeNot: Personalizing Large Language Models to Emulate Judicial Reasoning in Hebrew 
+
+Itay Razumenko, Arnon Sturm, and Nir Grinberg 
+
+Computer and Information Science Ben-Gurion University of the Negev Beer-Sheva, Israel 
+
+itayraz@post.bgu.ac.il, {sturm, nirgrn}@bgu.ac.il 
+
+Abstract 
+
+Despite significant advances in large lan-guage models, personalizing them for individ-ual decision-makers remains an open problem. Here, we introduce a synthetic-organic super-vision pipeline that transforms raw judicial de-cisions into instruction-tuning data, enabling parameter-efficient fine-tuning of personalized models for individual judges in low-resource settings. We compare our approach to state-of-the-art personalization techniques across three different tasks and settings. The results show that Causal Language Modeling followed by synthetically generated instruction-tuning sig-nificantly outperforms all other baselines, pro-viding significant improvements across lexical, stylistic, and semantic similarity. Notably, our model-generated outputs are indistinguishable from the reasoning of human judges, highlight-ing the viability of efficient personalization, even in low-resource settings. 
+
+1 Introduction 
+
+Human writing is characterized by stable individ-ual style and reasoning, which shape the way ar-guments are framed and supported (Koppel et al., 2009). In the legal domain, this is particularly acute: judicial decisions are not merely a me-chanical application of the law to a case, they re-flect judge-specific patterns in reasoning, empha-sis, and rhetorical structure (Ash et al., 2024; Sun-stein et al., 2006). Nevertheless, most Legal NLP work, from outcome prediction to summarization, treats judges as interchangeable decision-makers. This approach reduces profound interpretive dif-ferences to mere noise and effectively misses the opportunity to build a deeper understanding of the variation in judicial reasoning and style. Despite significant advances in reasoning mod-els (e.g., Guo et al., 2025a), research on per-sonalizing for individual decision-makers remains nascent. Recent surveys highlight growing interest Judge B 
+
+> (purposivist )
+
+Judge A  
+
+> (textualist)
+> verdicts
+> No, the legislator intended 'carry’ as
+> 'bearing' for use, not merely transporting it.
+> verdicts
+
+B’s LLM A’s LLM      
+
+> Training
+> Inference
+> Q: Does traveling with a gun in the glove
+> compartment count as ‘carrying a firearm’?
+> AI
+> AI
+> Yes, carry’s definition includes transportion.
+> Thus, traveling with a gun is considered carrying.
+> Legal
+> query
+
+Figure 1: Illustrative example: Two personalized LLMs trained (top) to emulate two human judges, and then queried (bottom) with a question inspired by Mus-carello v. United States. The query prompts different philosophies for interpreting the law: a textualist ap-proach, which focuses on the literal meaning, and a pur-posivist approach, which focuses on legislative intent. 
+
+in personalization for content generation (Zhang et al., 2024; Xu et al., 2025), yet existing efforts focus on user preferences (e.g., style, product rec-ommendations) rather than reasoning. A major barrier is the need for objective verification sig-nals (e.g., code or math proofs) to reward correct reasoning steps (Lightman et al., 2024). While traces of individual human reasoning are generally sparse, the legal domain provides an abundance of such data, making it an ideal testbed for person-alizing large language models that enable reason-ing. Judges tackle tough decisions on a regular ba-sis (Posner, 2008; Epstein et al., 2013), and write long and detailed texts justifying them. By decom-posing verdicts into their constituent parts, rather than focusing only on the final ruling, one can extract many reasoning decisions and thousands of these recorded decisions throughout a judge’s 
+
+> arXiv:2604.18041v1 [cs.CL] 20 Apr 2026
+
+tenure on the bench. Furthermore, tackling person-alization in a low-resource language provides a rig-orous stress test for transferability beyond standard English benchmarks (Guha et al., 2023). Bridging these gaps is critical for addressing the open challenge of “deliberative reasoning” in personalization, where current methods struggle to model complex, slow-thinking cognitive pro-cesses (Xu et al., 2025). Personalization offers a path to combat linguistic homogenization and “mode collapse” of standard pretraining (Guo et al., 2025b). In the legal domain, this is not merely a stylistic preference but a functional necessity. Judicial decision-making is inherently interpre-tive, requiring judges to balance competing values (e.g., deterrence vs. rehabilitation) and philoso-phies (Posner, 2008; Sunstein et al., 2006, see example in Figure 1). Treating judges as inter-changeable ignores the primary driver of legal out-comes. Therefore, personalization is crucial for high-fidelity counterfactual analysis and trust by le-gal scholars seeking to examine a fuller range of possible interpretations (Zhang et al., 2024). However, several challenges make it particularly hard to train high-fidelity LLMs for individual judges. First, the raw data is not structured for rea-soning supervision. Verdicts are lengthy, unstruc-tured documents where reasoning is often inextri-cably woven with procedural boilerplate, recitation of the facts, and personal circumstances (Šavelka and Ashley, 2018). Second, even when identified, judges’ decisions often appear “unprompted” in the text, without the implicit internal question that triggered them. Third, it is unclear whether the rea-soning traces from a single judge will be strong and consistent enough to move the priors of the base model, while keeping model training computation-ally efficient enough to enable scaling up to hun-dreds or even thousands of individuals. In this study, we introduce a scalable frame-work for personalizing LLMs for judicial reason-ing and style without manual annotation (see Fig-ure 1 for an illustrative example). To overcome the scarcity of supervision, we propose a synthetic-organic alignment pipeline that transforms raw ju-dicial decisions into instruction-tuning data. Using an agentic workflow, which we manually validated, our approach identifies reasoning statements in ver-dicts and generates synthetic questions that plausi-bly prompted them. This allowed us to train per-sonalized models through parameter-efficient fine-tuning (PEFT) on a reasoning-focused instruction set and compare against other personalization tech-niques, namely standard Causal Language Model-ing (CLM) and Retrieval-Augmented Generation (RAG), across configurations and model combina-tions. We test our models on three different tasks – next token prediction, question-answering, and au-thor discernment – and evaluate the lexical, stylis-tic, and semantic fidelity of leading LLM personal-ization techniques. Therefore, our contributions are the following: • A benchmark for evaluating personalized mod-els in text generation and reasoning tasks in the morphologically rich, low-resource language of Hebrew. • A synthetic-organic alignment pipeline that gen-erates reasoning-focused instruction pairs. • A parameter-efficient methodology for training personalized LLMs to emulate the reasoning and style of individual judges. • A systematic evaluation of LLM personalization techniques across multiple tasks, including an ab-lation study of the dominant factors for improve-ment. 
+
+2 Related Work 
+
+The current study builds on three lines of work: personalizing large language models, reasoning models in various tasks, and synthetic question-generation for enhanced model supervision. 
+
+2.1 Personalization of LLMs Parameter-Efficient Fine-Tuning (PEFT) is a central approach to personalization that adapts an LLM by training only a small subset of parame-ters or by inserting lightweight trainable modules (Houlsby et al., 2019; Hu et al., 2022). OnePeFT-PerUser combines PEFT with retrieval capabili-ties to enable generation based on user-specific ev-idence, resulting in gains on labeled personaliza-tion tasks such as tagging and classification (Tan et al., 2025). Liu et al. (2024) fine-tune LLaMA-2 to improve lexical and syntactic alignment with the specific authors. Comparative studies across domains further report that LoRA and QLoRA of-ten offer a strong tradeoff between parameter ef-ficiency and adaptation quality, while prompt tun-ing is typically lighter but weaker on more complex tasks (Gajulamandyam et al., 2025). However, ap-plying PEFT to long, unstructured legal texts un-der limited supervision, and evaluating whether it captures judge-specific reasoning (not only style), remains underexplored (Zhang et al., 2024). 
+
+Retrieval-Augmented Generation (RAG) sup-ports personalization by retrieving user- or domain-specific material at inference time. Style-aware variants aim to capture recurring authorial patterns beyond lexical overlap (Neelakanteswara et al., 2024), and in law, CBR-RAG combines case-based reasoning with retrieval to improve factual ground-ing in legal question answering (Wiratunga et al., 2024). However, these approaches focus on accu-rate answers rather than the recurring reasoning of a specific judge. 
+
+Prompt-based personalization. Prompting can encode user or domain cues directly in the in-put and improve alignment with preferences (Oba et al., 2023), but profile-based prompts are of-ten noisy, and prompting alone may not yield sta-ble user-specific outputs. Wang et al. (2025) and Gajulamandyam et al. (2025) show that LLMs still struggle to imitate implicit writing styles, and prompt tuning often underperforms stronger adap-tation methods in complex domain-specific set-tings. Overall, personalization to a specific indi-vidual , such as a particular judge, remains under-explored, especially under limited supervision. 
+
+LLM Simulation. A growing body of research leverages LLM personalization methods to emu-late the language, preference, and behavior of indi-viduals or personas across different contexts (Shao et al., 2023; Li et al., 2023; Park et al., 2025; Dinu et al., 2025; Park et al., 2024). Our work comple-ments this line of work by focusing on reasoning as a process, extracting and modeling granular de-cisions throughout a case, and not the final ruling. 
+
+2.2 Reasoning Models in Verifiable Domains 
+
+Reasoning-oriented post-training has recently im-proved LLMs on multi-step problems, particu-larly when solutions are externally checkable (e.g., math, code, and scientific reasoning) (Guo et al., 2025a). Prior work distinguishes several reason-ing modes, including deductive, inductive, and ab-ductive reasoning, as well as analogical and causal reasoning (Huang and Chang, 2023). When the correctness of steps is well-defined, process super-vision can further reduce logical errors by super-vising intermediate steps (Lightman et al., 2023). Judicial reasoning does not offer the same objec-tive supervision. In this work, we evaluate LLM emulation of judges’ rationale, rather than step cor-rectness, and use this signal as evidence that judge-specific reasoning patterns are learnable. 
+
+2.3 Synthetic Question-Generation 
+
+To enable personalization of reasoning models, one needs supervision signals. Synthetic super-vision is a common strategy for expanding train-ing signals when manual annotations are not fea-sible. In this work, we generate question-answer pairs to emulate reasoning activities. Prior work on question-answer generation shows that generated QA pairs can support adaptation and provide struc-tured evaluation material by encouraging close reading and explicit answers (Ushio et al., 2023; Chen et al., 2024; Nayak et al., 2024). GPT-based methods were shown to be effective in annotating and classifying legal texts with little or no task-specific training. For example, Savelka (2023); Savelka et al. (2023) demonstrates that GPT-4 and GPT-3.5 can match trained human annotators on a sentence-level legal analysis task when guided by detailed annotation instructions. Nevertheless, there remains a gap in extract-ing judicial justifications and turning them into clear question–answer pairs tailored to a specific decision-maker. Our work moves toward filling this gap by extracting judge-specific reasoning and generating synthetic questions for it, enabling judge-level modeling even when data are limited. 
+
+3 Methodology 
+
+In this section, we describe how the data were cu-rated and generated, the personalization methods we experimented with, and the evaluation metrics used to assess their success. 
+
+3.1 Data Curation and Generation Judicial Decisions. We collected from the Nevo Legal Database 1 public domain verdicts by the magistrate and district courts in Israel. We filtered for single-judge rulings to ensure unambiguous au-thorship, and used only verdicts where we could re-liably identify the judge’s summary judgment sec-tion and exclude other sections (recitation of facts, external circumstances, etc.). To ensure models have sufficient training data, we focused on judges with at least 100 such summary judgments. The final dataset comprises summary judgments of 29 judges, including their written opinions spanning multiple years. 
+
+Question Generation. To create high-quality synthetic-organic reasoning pairs, we construct an agentic workflow using multiple LLM agents for 
+
+> 1https://www.nevo.co.il
+
+extraction and validation, applied over several it-erations. In particular, we use GPT-4.1-mini for reasoning extraction (temperature 0.3) and GPT-4o-mini for validation (temperature 0.1), which we empirically found to perform best. Custom prompts were engineered to extract reasoning state-ments, validate the quality of this extraction, gen-erate questions, and validate their fidelity. The en-tire pipeline, including all prompts, is described in Section A.5. The overall process resulted in a set of 62,051 reasoning sentences and synthetic ques-tions generated for them. We validated the quality of output generated by the aforementioned agentic workflow by having two annotators manually label a random sample of 175 instruction pairs. They independently as-sessed whether the organic reasoning statement ex-tracted contained explicit judicial reasoning and whether the generated question was sufficiently related and could plausibly induce the reasoning statement. Inter-coder reliability was relatively high, with Gwet’s AC1 of 0.75 for the statement extraction and 0.90 for question generation. In the randomly-sampled sample, 83% of answers con-tained explicit reasoning, and 91% of questions were semantically aligned with them. Both the raw verdicts and the reasoning instruction sets are pub-licly available 2.
+
+3.2 Personalization Methods 
+
+Next, we evaluate leading approaches for LLM per-sonalization, as well as, chaining of different mod-els, as detailed below. All of our experiments are using open-source foundation models and publicly available code 3.
+
+CausalLM Fine-Tuning with QLoRA: We fine-tuned multilingual Gemma 3 models (Team et al., 2025), both 1B and 4B variants, using QLoRA (Dettmers et al., 2023). We choose Gemma 3 because it is open, multilingual, and efficient for training on a per-judge basis in con-strained computing resources environments. See Appendix A.4 for precise information about the computing resources used and training hyperpa-rameters. Causal language modeling (CLM) was applied to all raw, unlabeled summary judgment text from a single judge, separately training a LoRA adapter for each judge in the dataset while keeping the base Gemma weights frozen. This 
+
+> 2https://doi.org/10.7910/DVN/8CYHIC
+> 3https://github.com/Socially-Embedded-Lab/ JudgeMeNot
+
+training procedure encouraged the model to learn judge-specific writing patterns without any manual labeling. 
+
+Instruction Fine-Tuning with QLoRA: We per-form a per-judge instruction fine-tuning with QLoRA using the synthetic-organic reasoning pairs described in the previous section. This train-ing aims to focus model weights on reasoning state-ments. Again, only the adapters were kept for each judge. 
+
+Chain-of-LoRA (CLM → Instruction Tuning): 
+
+Following the ideas of Xia et al. (2024), we trained a Chain of LoRA (CoLA) model, where adapter weights are merged back into the model, updat-ing the “starting point” before training each new adapter layer. Specifically, we trained the CLM adapter, merged this into the Gemma base weights, then run a second QLoRA fine-tuning on the in-struction set. The goal of this procedure is to first adapt the model to the judge’s general writing style, then specialize it with supervised reasoning exam-ples. We provide the full training configurations in Appendix A.4. 
+
+Retrieval-Based Personalization: Finally, we evaluated retrieval-based personalization that in-volves no training. For each judge, we index the judge-specific instruction pairs, retrieve at infer-ence time the top-k most similar pairs for an in-put question, and include them in the prompt as in-context examples for generation. We experimented with generation using Gemma-3 and Gemini-3-Pro, which currently is one of the strongest rea-soning models across leaderboards (Google Deep-Mind, 2025). 
+
+3.3 Evaluation Metrics 
+
+We used common metrics across two of our main tasks: next-token prediction and question-answering. Specifically, we used BLEU and ROUGE-1/2/L for lexical similarity, BERTScore (Zhang et al., 2019) for semantic similarity, and Jensen–Shannon divergence over Part-of-Speech (POS) tags for stylistic similarity. Following common practice in author discern-ment (Casal and Kessler, 2023; Moro et al., 2026; Zhang et al., 2024), we use classifier accuracy on held-out set, as detailed in subsection 4.2). We use the latest Hebrew encoder architecture of DictaBERT (Shmidman et al., 2023) as the underlying model for indexing documents for retrieval, computing BERTScore, performing Part-of-Speech (POS) tagging, and training our authorship classifier. 
+
+4 Experimental Design 
+
+We evaluate our personalized models on three tasks: (i) next-token prediction, (ii) question-answering, and (iii) author discernment. For next-token prediction, we used the first 15% of a sum-mary judgment as a seed for generating the next tokens. For question-answering, we used the synthetic-organic instruction pairs. For author dis-cernment, we trained a dedicated classifier per judge, as detailed below. 
+
+4.1 Next-token Prediction and Question Answering 
+
+For both tasks, we follow the same procedure. For each judge j ∈ { 1, . . . , J }, we construct a held-out test set Tj . We evaluate non-personalized base-line models on Tj and compare them to the per-sonalized model Mj , trained only on judge j. All models were evaluated with the same prompts and decoding settings. This provides a within-judge comparison that tests whether personalization im-proves generation quality on the judge’s own data. 
+
+Models: We compare the Chain-of-LoRA model against several non-personalized baselines evaluated on every judge test set. We include the base Gemma model (the foundation used in our personalization pipeline) as a direct reference point without judge-specific adaptation. We also eval-uate DictaLM3 as a strong open Hebrew LLM baseline (Shmidman et al., 2025). In addition, we report two multi-judge training baselines: Joint-Gemma , trained once on the union of all judges’ training data, and Mixed-Gemma , trained on a size-matched mixture across judges where the to-tal training budget is comparable to the average single-judge dataset. We also compared the CoLA model with respect to other personalization models we trained (CLM and Instruction-tuning). To further check whether personalization is judge-specific rather than a generic improvement, we evaluate every personalized model on every judge’s held-out test set. For each judge j, we com-pare the performance of the model trained on judge 
+
+j (denoted Mj ) on judge j’s test set Tj against the performance of models trained on other judges on the same test set. Formally, for each metric we compute the test-set centered gap ∆j = rjj − 1  
+
+> J−1
+> ∑
+> k̸=j
+
+rkj .where rkj is the score of model Mk evaluated on                                           
+
+> Model BLEU ↑BS-F ↑R-L ↑POS ↓
+> Non-personalized baselines
+> Vanilla-DictaLM3 11.845 0.089 0.188 -0.005 Vanilla-Gemma 11.997 0.113 0.192 -0.017 Mixed-Gemma 9.205 0.043 0.083 -0.012 Joint-Gemma 8.912 0.037 0.078 -0.009
+> Retrieval-augmented baselines
+> Gemini-3-Pro 8.773 0.021 0.077 -0.001 ∗
+> Gemma-3 10.421 0.023 0.148 +0.011
+> Alternative personalization models
+> Pers-CLM 11.748 0.079 0.181 -0.001 ∗
+> Pers-IT 4.973 0.020 0.043 -0.001 ∗
+> Table 1: The differences among the CoLA and the com-petitors (mean across judges) in the question-answer completion task. The CoLA outperforms the baseline, and the differences were statistically significant ( p <
+> 0.05 )except for the entries marked with an (*).
+
+test set Tj . For metrics (such as ) higher scores of the judge’s model is considered better, ∆j > 0 in-dicates that the judge-specific model performs bet-ter on the judge j’s own test set than models per-sonalized to other judges, consistent with judge-specific adaptation. We report the distribution of 
+
+∆j across judges. 
+
+4.2 Authorship Discernment 
+
+We assess judge-specific stylistic fidelity with a judge-specific binary classifier. For each judge j,positive examples are real judge-authored reason-ing sentences, and negative examples are either other-judge sentences (real-vs-real) or generated sentences from the judge’s trained models. We keep the classifier fixed across settings and report accuracy, with the random guessing and real-vs-real setting serving as reference points. 
+
+5 Results 
+
+In this section, we present the question-answering results, whereas the analysis of the next-token pre-diction task is presented in Tables 3 and 5. The re-sults reported here refer to the 4B models, as they consistently outperform their 1B counterparts, as appear in Table 4. 
+
+5.1 Question Answering 
+
+Table 1 summarizes the results of evaluating the improvements of personalization when referring to question generation. The Chain-of-LoRA model yields consistent and statistically significant gains over all non-personalized baselines on overlap-and semantic-oriented metrics (BLEU, ROUGE-L, Figure 2: Each point shows the performance gap be-tween the matched CoLA-4B model for a judge and CoLA-4B models trained on other judges, evaluated on that judge’s test set. Points to the right of zero indicate better performance for the matched model (for POS-JSD , where lower is better, the direction is reversed). 
+
+Green circles indicate significant gaps ( p < 0.05 ); 
+
+grey triangles are non-significant. BLEU is scaled (/100 ) for visualization. 
+
+and BERTScore-F). The improvements are espe-cially pronounced relative to the vanilla baselines, indicating that judge-level adaptation provides ben-efits beyond generic legal generation. Across al-ternative personalization paradigms, the model at-tains the strongest overall performance, with clear gains over CLM-only and RAG-only personaliza-tion and a smaller but consistent advantage over instruction-tuning-only personalization. For JSD-POS (lower is better), the Chain-of-LoRA model reduces divergence relative to most baselines, but not relative to the RAG personalization variant, where JSD-POS increases. This suggests that im-provements in semantic and lexical fidelity do not always translate to closer part-of-speech distribu-tions, and that retrieval-based personalization can affect syntactic regularities differently than param-eter adaptation. On the Next Token Prediction evaluation, the CLM-based personalization variant performs best overall, outperforming the other training strategies on most metrics. We report the full CLM compar-ison in Table 3 in the Appendix. Figure 2 summarizes cross-judge specificity of 
+
+Chain-of-LoRA (4B) model using the test-set cen-tered gaps ∆j . For lexical and semantic metrics (BLEU, BERTScore-F, and ROUGE), ∆j is pre-dominantly positive, indicating that the model per-sonalized to judge j tends to outperform models             
+
+> Setting / Method Acc. (%) Random classifier 50.0 Ground truth (real vs other judges) 84.3 ∗
+> Non-personalized baselines
+> Vanilla-Gemma-3 70.3 ∗
+> Vanilla-DictaLM-3 71.9 ∗
+> Mixed-Gemma-3 76.2 ∗
+> Joint-Gemma-3 77.0 ∗
+> Retrieval-augmented baselines
+> Gemma-3 70.4 ∗
+> Gemini-3-Pro 73.8 ∗
+> Personalized models
+> CLM 56.2 ∗
+> IT 49.6
+> CoLA 49.8
+
+Table 2: Authorship discernibility task: Classifier ac-curacy. across judge-specific classifiers. An (*) marks significant differences from chance (50%, p < 0.05 ,paired Wilcoxon test across judges). 
+
+trained on other judges when evaluated on Tj . This pattern suggests that the gains observed in the base-line comparison are not merely generic improve-ments: they are strongest when the model and test set correspond to the same judge. For the structural metric JSD-POS, the differ-ences are closer to zero and more variable across judges. This indicates that personalization more consistently improves content fidelity and lexical similarity than it matches part-of-speech distribu-tions, which may be shaped by shared institutional phrasing and boilerplate. Full cross-judge results for all methods appear in Table 5 in the Appendix. 
+
+5.2 Authorship Discernment 
+
+To assess judge-specific fidelity, we train a binary authorship classifier for each judge, distinguish-ing that judge’s real reasoning sentences from a negative set. We keep the positive class fixed (real sentences by judge j) and vary the negative class across settings. Table 2 reports mean accu-racy across 29 judges and compares each setting to a random classifier. In the ground-truth setting, where negatives are real sentences written by other judges, the classifiers achieve high average accu-racy (0.843). This confirms that judges are sepa-rable in authentic text. When generating answers using the non-personalized or retrieval-augmented baselines, the classifier was able to detect differ-ences between the sentences originating from the judges to their generated content (accuracy ranges between 70% and 76.2%). This implies that the baseline approaches failed to mimic the judges’ fi-Figure 3: Ablation study on three judges. Top row: performance as a function of training set size (x-axis: 25, 50, 75, 100% of the judge’s training data). Bottom row: performance as a function of LoRA rank (x-axis:      
+
+> r∈ { 2,4,8,16 ,32 }).
+
+delity. When generating answers using the personal-ized methods, results differ sharply by method. CLM-only generations remain detectable: accu-racy rises to 56.2%, significantly above random, in-dicating that the classifier can still distinguish gen-erated text from the judge’s authentic writing. In contrast, both instruction-tuning-only and Chain-of-LoRA reduce accuracy to random level (0.496 and 0.498, respectively; p> 0.8), suggesting that these generations are difficult to distinguish from real judge sentences under this authorship test. Taken together, these findings complement the se-mantic and cross-judge results by showing that the strongest personalization methods also suppress detectable authorship cues. We observe a similar pattern when running the same task under the next-token prediction (CLM) training setting: model accuracies deviate from the random baseline, yet remain far from the ground-truth separability achieved with real other-judge negatives. Full results are reported in Table 7 in the Appendix. 
+
+5.3 Ablation Study 
+
+We conduct an ablation study to isolate how data scale and model size affect performance. We vary each factor independently while keeping the model architecture and training protocol fixed. 
+
+5.3.1 Effect of Training Data Size Setup. To evaluate how the data scale affects our method, we fine-tuned judge-specific models on subsets of their available training data (25%, 50%, 75%, and 100%), while fixing the LoRA rank at 8. The 0% point represents a non-personalized base model. The full dataset ranges from 2,500 to 3,100 examples per judge, which corresponds to ∼ 310k– 375k tokens. 
+
+Findings. We observe a two-regime learning curve as the amount of training data increases. With ≤25% of the data ( ∼650 examples), the per-sonalized model remains close to the base model, showing limited improvements over the baseline. Between 25% and 50% ( ∼650 →1,500 examples), both semantic fidelity (BERTScore) and stylis-tic alignment (JSD) improve sharply, after which gains largely plateau. 
+
+5.3.2 Effect of LoRA Rank Setup. To determine the minimal parameter trade-offs for effective adaptation, we varied the LoRA rank r ∈ { 2, 4, 8, 16 , 32 } on the full dataset, which is proportional to model size. 
+
+Findings. LoRA rank exhibits diminishing re-turns. The largest improvement occurs at r = 2 :for Judge A, BLEU increases from 0.9 (Vanilla) to 14.9, reaching ∼75% of the best observed performance. Across judges, semantic fidelity (BERTScore) and stylistic alignment (JSD) im-prove mainly at low ranks and largely plateau by 
+
+r = 4 . BLEU continues to vary more strongly across judges and tends to benefit from larger r, but the average gains beyond r = 8 are small. 
+
+5.3.3 Data Size vs. Model Size 
+
+To disentangle the effect of training volume from model size, we compare (i) doubling the amount of judge-specific training data (e.g., 50 % → 100 %) to (ii) doubling the LoRA rank ( r → 2r), holding the remaining setup fixed. Doubling the data pro-duces substantially larger gains: on average, +2.68 BLEU , along with consistent improvements in se-mantic fidelity (BERTScore increases of ∼0.02) and in our style metrics. In contrast, doubling the rank yields only a modest +0.77 BLEU in-crease and negligible changes in semantic and style scores. These results indicate diminishing returns from increasing adapter rank, while additional training examples continue to improve both content preser-vation and stylistic alignment. In particular, our style divergence measure (JSD) plateaus early in the rank sweep (around r=4 ), but continues to im-prove as more judge text is added, suggesting that personalization quality is more constrained by data coverage than by adapter capacity. 
+
+5.4 Qualitative Evaluation 
+
+To complement the automatic metrics, we con-ducted a blind human evaluation of 100 question-answer instances. A human annotator with ba-sic legal training, blinded to answer origin, evalu-ated each answer for responsiveness, logical coher-ence and legal plausibility, and resemblance to au-thentic judicial writing. All ground-truth answers (40/40) were labelled as addressing the question, logically coherent, and resembling judicial writ-ings. Model-generated answers were rated posi-tively in 71.2% of cases for answering the ques-tion, 82.7% for coherence and legal plausibility, and 80.8% for judicial authenticity. These results suggest that, despite some failure cases, most gen-erated answers are sound and stylistically judge-like. In addition, we qualitatively examined the an-swers of the base model, CLM, and CoLA on a ran-dom sample of identical questions. We observed a consistent pattern: the base model often produced long, generic responses resembling encyclopedic explanations. CLM reduced this behavior, but re-mained verbose and occasionally unfocused. In contrast, CoLA generated more concise outputs with a more authentic judicial tone. However, CoLA also exhibits several failure modes, including overly short and uninformative answers, occasional drift into irrelevant legal text, and, in some cases, repetition. We also observe in-stances where CoLA maintains stylistic fidelity but misses key legal reasoning present in the ground truth. Representative examples are provided in Ap-pendix A.6. 
+
+5.5 Robustness to Catastrophic Forgetting 
+
+To assess potential catastrophic forgetting, we eval-uated the personalized models on three out-of-domain settings: (i) general Hebrew text from Wikipedia, (ii) Hebrew legal text from the Is-raeli Supreme Court written by judges excluded from training, using the Israeli Supreme Court Dataset (Muchnik et al., 2023), and (iii) English commonsense reasoning using HellaSwag (Zellers et al., 2019). We report perplexity for the Hebrew evaluations and multiple-choice accuracy for Hel-laSwag. Relative to the base model, CLM significantly improves perplexity in both Hebrew settings across all 29 judges. CoLA shows no significant differ-ence on Hebrew Wikipedia, but significantly im-proves perplexity on the out-of-domain Supreme Court text. On HellaSwag, CLM slightly improves over the base model, while CoLA shows a small de-crease (66.4% for the base model, 67.3% for CLM, and 64.9% for CoLA; all p < 0.05 ). Overall, these findings suggest no catastrophic forgetting, but at most a modest tradeoff in English general knowl-edge. 
+
+5.6 Next-Step Reasoning Prediction 
+
+As an additional probe, we evaluated the models on a multiple-choice next-step reasoning task. Given one to three reasoning sentences from a judicial de-cision, each model was asked to identify the correct subsequent reasoning sentence from a set of candi-date continuations drawn from the same case. Can-didate answers were scored by their conditional likelihood under the model given the preceding context, and the highest-scoring continuation was selected. We found that none of the evaluated mod-els, including the base model and CoLA, achieved strong performance on this task. This suggests that predicting the next reasoning step remains a dif-ficult task, even for personalized models, that re-quires further supervision. 
+
+6 Discussion 
+
+Our findings show that reasoning signatures can be effectively captured even in low-resource, mor-phologically rich settings. This result challenges the prevailing perception that training reasoning capabilities requires massive computing resources and web-scale datasets. By successfully model-ing distinct judicial decisions with limited compute (a 4B parameter model with LoRa) and a limited amount of data, we show that the “cognitive finger-print” of a decision-maker is compressible. Criti-cally, this efficiency is achieved by our synthetic-organic alignment pipeline. Exposure to the raw corpora (via CLM) was found to be less efficient, most likely due to the dilution of reasoning signals among other types of information. However, when the same data was structured into synthetic instruc-tion pairs, the model was able to learn judges’ rea-soning patterns with far fewer tokens. This sug-gests that the primary bottleneck in personalization is not the quantity of user data, but rather the struc-ture of supervision signal, making personalization potentially viable in other domains where there are similar amounts of reasoning traces exist. Beyond these efficiency gains, the study also sheds light on the theoretical dichotomy between surface-level style and deep reasoning, a critical tension in current alignment research (Krishna et al., 2020; Neelakanteswara et al., 2024; Xu et al., 2025). The contrast between our RAG and parameter-adapted (CoLA) models is illustra-tive: While RAG effectively mimicked the syn-tactic style of the domain (improving JSD-POS scores), it failed to capture the semantic reason-ing needed to address substantive questions. Con-versely, parameter-tuning excelled at emulating judges’ reasoning but showed slightly less adher-ence to surface-level part-of-speech distributions. This suggests that a “persona” may be decom-posed more effectively into two layers: surface-level stylistic patterns, which retrieval can capture, and deeper reasoning priors, which require para-metric adaptation. Future research may explore techniques for optimizing both layers simultane-ously. 
+
+7 Conclusion 
+
+In this work, we presented a framework for per-sonalizing LLMs to the reasoning styles of indi-vidual judges. By converting unstructured judi-cial reasoning into synthetic-organic instruction-tuning data, we introduced supervision signals that enabled efficient training. Our results show that CLM followed by instruction-tuning significantly outperforms all other baselines, including a state-of-the-art reasoning model with RAG and mod-els trained on considerably more data, all while remaining computationally feasible and effective in a low-resource, morphologically rich language like Hebrew. We also demonstrated consistent im-provements across lexical, stylistic, and semantic dimensions, ultimately making LLM’s simulated output indistinguishable from the reasoning of the real judge. These results highlight the potential to efficiently train personalized reasoning models in low-resource settings, which future work could ex-plore in other expert domains (e.g., medicine) and more complex reasoning tasks (e.g., tasks that re-quire planning). 
+
+8 Limitations 
+
+The current study has several important limitations. First, our framework focuses on the reasoning and style of granular decisions dispersed throughout a verdict. While these decisions surely affect the fi-nal ruling, our approach does not model case-level reasoning, which is inherently sparse, or account for shifts in reasoning over time. Moreover, future work could also examine ways to integrate existing knowledge (e.g., the fact of a case) in reasoning su-pervision signals. Second, our personalization objective priori-tizes emulating the voice and reasoning signature of a judge rather than ensuring strict legal correct-ness, which we considered outside the scope of the current work. However, factuality of person-alization models, especially in the legal domain, is a worthy avenue of future research, which should probably focus on high-resource languages with a robust knowledge base. Finally, the current study focused on a single low-resource language and just one legal system. It is important to examine how these findings generalize to other settings. 
+
+9 Ethical considerations 
+
+As this research relies exclusively on the analysis of existing, publicly available court records gen-erated by public officials in their official capac-ity and intended for public scrutiny, involving no interaction or intervention, it does not constitute human subjects research requiring institutional re-view. Nevertheless, we recognize that the sensitiv-ity of the domain and the focus on personalization require further considerations beyond standard reg-ulatory compliance. Here, we discuss these addi-tional considerations, namely the potential for mis-use, risks of bias and amplification, privacy, and our mitigation strategies. 
+
+Potential for misuse: The development of mod-els capable of emulating specific judges raises po-tential concerns regarding the integrity of the ju-dicial process. Chiefly, there is a risk that such tools could be used by litigants to “game the sys-tem”, tailoring arguments to exploit a judge’s pre-dicted linguistic or philosophical preferences. We note, however, that adapting arguments to the per-ceived judicial philosophy of a judge is already a common, albeit manual, practice in litigation strat-egy (Posner, 2008). Critically, one must distin-guish between the emulation of reasoning patterns 
+
+and the exercise of judicial discretion . While our models can capture some persistent patterns of rea-soning of specific judges, they inherently lack the moral agency and accountability that characterize human decision. Using these tools to predict fu-ture outcomes is fundamentally flawed: they may replicate previous pattern, but are far from able to weigh the merits of future cases. 
+
+Bias amplification and fairness: Judicial de-cisions inherently reflect historical, systemic, and individual biases present in the legal system. By optimizing for high-fidelity emulation, personal-ized models risk not only reproducing but also perpetuating and potentially amplifying biases, un-der the pretense of mathematical neutrality. More-over, similar to general-purpose LLMs, users may conflate linguistic fluency with correctness or ob-jectivity. We therefore explicitly state that these models are designed to capture the idiosyncrasies of specific reasoning signatures, including their flaws and biases, and should be thoroughly au-dited for fairness before any potential deployment in decision-support contexts. 
+
+Data privacy and mitigation: To address these risks and minimize potential harm, we have im-plemented strict protocols regarding data handling and model distribution. Although our training data consists entirely of public domain verdicts, we recognize that generative models can hallucinate plausible but false information, potentially placing individuals in unanticipated circumstances. This applies both to the individuals mentioned in the corpus and to the judges themselves. Therefore, in compliance with principles of responsible AI data minimization, we remove identifying informa-tion about judges and avoid analyzing or report-ing findings associated with specific identities of the judges analyzed. Furthermore, we refrain from releasing the trained judge-specific model check-points, which serve as a safeguard against potential misuse, production of hallucinated content, and the malicious deployment of these personas in real-world settings. 
+
+10 Acknowledgments 
+
+This research was supported by the Israeli Inno-vation Authority, grant number 81686. We thank members of our research team for helpful com-ments and discussions. 
+
+References 
+
+Elliott Ash, Germain Gauthier, and Philine Widmer. 2024. Relatio: Text semantics capture political and economic narratives. Political Analysis , 32(1):115– 132. J Elliott Casal and Matt Kessler. 2023. Can linguists distinguish between chatgpt/ai and human writing?: A study of research ethics and academic publish-ing. Research Methods in Applied Linguistics ,2(3):100068. Shu Chen, Xinyan Guan, Yaojie Lu, Hongyu Lin, Xian-pei Han, and Le Sun. 2024. REInstruct: Building in-struction data from unlabeled corpus. In Findings of the Association for Computational Linguistics: ACL 2024 , pages 6840–6856, Bangkok, Thailand. Associ-ation for Computational Linguistics. Tim Dettmers, Artidoro Pagnoni, Ari Holtzman, and Luke Zettlemoyer. 2023. Qlora: Efficient finetuning of quantized llms. Anca Dinu, Andra-Maria Florescu, and Liviu Dinu. 2025. Analyzing large language models’ pastiche ability: a case study on a 20th century Romanian au-thor. In Proceedings of the 5th International Con-ference on Natural Language Processing for Digital Humanities , pages 20–32, Albuquerque, USA. Asso-ciation for Computational Linguistics. Lee Epstein, William M Landes, and Richard A Posner. 2013. The behavior of federal judges: a theoretical and empirical study of rational choice . harvard uni-versity press. Deva Kumar Gajulamandyam, Sainath Veerla, Yasaman Emami, Kichang Lee, Yuanting Li, Jinthy Swetha Mamillapalli, and Simon Shim. 2025. Domain specific finetuning of llms using peft techniques. In 2025 IEEE 15th Annual Computing and Communication Workshop and Conference (CCWC) , pages 00484–00490. IEEE. Google DeepMind. 2025. Gemini 3 pro model card. Model card. https://storage.googleapis. com/deepmind-media/Model-Cards/ Gemini-3-Pro-Model-Card.pdf .Neel Guha, Julian Nyarko, Daniel Ho, Christopher Ré, Adam Chilton, Alex Chohlas-Wood, Austin Peters, Brandon Waldon, Daniel Rockmore, Diego Zam-brano, and 1 others. 2023. Legalbench: A collabora-tively built benchmark for measuring legal reasoning in large language models. Advances in neural infor-mation processing systems , 36:44123–44279. Daya Guo, Dejian Yang, Haowei Zhang, Junxiao Song, Peiyi Wang, Qihao Zhu, Runxin Xu, Ruoyu Zhang, Shirong Ma, Xiao Bi, and 1 others. 2025a. Deepseek-r1 incentivizes reasoning in llms through reinforce-ment learning. Nature , 645(8081):633–638. Yanzhu Guo, Guokan Shang, and Chloé Clavel. 2025b. Benchmarking linguistic diversity of large language models. Transactions of the Association for Compu-tational Linguistics , 13:1507–1526. Neil Houlsby, Andrei Giurgiu, Stanislaw Jastrzebski, Bruna Morrone, Quentin De Laroussilhe, Andrea Gesmundo, Mona Attariyan, and Sylvain Gelly. 2019. Parameter-efficient transfer learning for nlp. International Conference on Machine Learning ,pages 2790–2799. Edward J Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, Weizhu Chen, and 1 others. 2022. Lora: Low-rank adaptation of large language models. ICLR , 1(2):3. Jie Huang and Kevin Chen-Chuan Chang. 2023. To-wards reasoning in large language models: A survey. In Findings of the Association for Computational Linguistics: ACL 2023 , pages 1049–1065, Toronto, Canada. Association for Computational Linguistics. Moshe Koppel, Jonathan Schler, and Shlomo Argamon. 2009. Computational methods in authorship attribu-tion. Journal of the American Society for informa-tion Science and Technology , 60(1):9–26. Kalpesh Krishna, John Wieting, and Mohit Iyyer. 2020. Reformulating unsupervised style transfer as para-phrase generation. In Proceedings of the 2020 Con-ference on Empirical Methods in Natural Language Processing (EMNLP) , pages 737–762, Online. Asso-ciation for Computational Linguistics. Cheng Li, Ziang Leng, Chenxi Yan, Junyi Shen, Hao Wang, Weishi Mi, Yaying Fei, Xiaoyang Feng, Song Yan, HaoSheng Wang, and 1 others. 2023. Chatharuhi: Reviving anime character in reality via large language model. arXiv preprint arXiv:2308.09597 .Hunter Lightman, Vineet Kosaraju, Yuri Burda, Harri-son Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. 2023. Let’s verify step by step. In The Twelfth Inter-national Conference on Learning Representations .Hunter Lightman, Vineet Kosaraju, Yuri Burda, Harri-son Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. 2024. Let’s verify step by step. In The Twelfth Inter-national Conference on Learning Representations .Xinyue Liu, Harshita Diddee, and Daphne Ippolito. 2024. Customizing large language model gen-eration style using parameter-efficient finetuning. In Proceedings of the 17th International Natural Language Generation Conference , pages 412–426, Tokyo, Japan. Association for Computational Lin-guistics. Gianluca Moro, Leonardo David Matteo Magnani, and Luca Ragazzi. 2026. Legal lay summarization: exploring methods and data generation with large language models. Artificial Intelligence Review ,59(1):21. Lev Muchnik, Inbal Yahav, Ariel Nevo, Avichay Chriqui, and Tim Shektov. 2023. The israeli supreme court dataset. https: //huggingface.co/datasets/LevMuchnik/ SupremeCourtOfIsrael . Hugging Face dataset. Nihal Nayak, Yiyang Nan, Avi Trost, and Stephen Bach. 2024. Learning to generate instruction tuning datasets for zero-shot task adaptation. In Findings of the Association for Computational Linguistics: ACL 2024 , pages 12585–12611, Bangkok, Thailand. As-sociation for Computational Linguistics. Abhiman Neelakanteswara, Shreyas Chaudhari, and Hamed Zamani. 2024. RAGs to style: Personalizing LLMs with style embeddings. In Proceedings of the 1st Workshop on Personalization of Generative AI Systems (PERSONALIZE 2024) , pages 119–123, St. Julians, Malta. Association for Computational Lin-guistics. Daisuke Oba, Naoki Yoshinaga, and Masashi Toyoda. 2023. Perplm: Personalized fine-tuning of pre-trained language models via writer-specific interme-diate learning and prompts. arXiv .Jeiyoon Park, Chanjun Park, and Heuiseok Lim. 2025. CharacterGPT: A persona reconstruction framework for role-playing agents. In Proceedings of the 2025 Conference of the Nations of the Americas Chapter of the Association for Computational Linguistics: Hu-man Language Technologies (Volume 3: Industry Track) , pages 287–303, Albuquerque, New Mexico. Association for Computational Linguistics. Joon Sung Park, Carolyn Q Zou, Aaron Shaw, Ben-jamin Mako Hill, Carrie Cai, Meredith Ringel Mor-ris, Robb Willer, Percy Liang, and Michael S Bern-stein. 2024. Generative agent simulations of 1,000 people. arXiv preprint arXiv:2411.10109 .R.A. Posner. 2008. How Judges Think . Harvard Uni-versity Press. Jaromir Savelka. 2023. Unlocking practical applica-tions in legal domain: Evaluation of gpt for zero-shot semantic annotation of legal texts. In Proceedings of the Nineteenth International Conference on Artificial Intelligence and Law , pages 447–451. Jaromír Šavelka and Kevin D Ashley. 2018. Segment-ing us court decisions into functional and issue spe-cific parts. In Legal knowledge and information sys-tems , pages 111–120. IOS Press. Jaromir Savelka, Kevin D Ashley, Morgan A Gray, Hannes Westermann, and Huihui Xu. 2023. Can gpt-4 support analysis of textual data in tasks requiring highly specialized domain expertise? arXiv .Yunfan Shao, Linyang Li, Junqi Dai, and Xipeng Qiu. 2023. Character-LLM: A trainable agent for role-playing. In Proceedings of the 2023 Conference on Empirical Methods in Natural Language Process-ing , pages 13153–13187, Singapore. Association for Computational Linguistics. Shaltiel Shmidman, Avi Shmidman, Amir DN Cohen, and Moshe Koppel. 2025. Dicta-LM 3.0: Advancing The Frontier of Hebrew Sovereign LLMs. Technical report, DICTA, Jerusalem, Israel. Shaltiel Shmidman, Avi Shmidman, and Moshe Kop-pel. 2023. Dictabert: A state-of-the-art bert suite for modern hebrew. arXiv .Cass R Sunstein, David Schkade, Lisa Ellman, and An-dres Sawicki. 2006. Are judges political?: an em-pirical analysis of the federal judiciary . Brookings Institution Press. Zhaoxuan Tan, Qingkai Zeng, Yijun Tian, Zheyuan Liu, Bing Yin, and Meng Jiang. 2025. Democratizing large language models via personalized parameter-efficient fine-tuning. Preprint , arXiv:2402.04401. Gemma Team, Aishwarya Kamath, Johan Ferret, Shreya Pathak, Nino Vieillard, Ramona Merhej, Sarah Perrin, Tatiana Matejovicova, Alexandre Ramé, Morgane Rivière, and 1 others. 2025. Gemma 3 technical report. arXiv preprint arXiv:2503.19786 .Asahi Ushio, Fernando Alva-Manchego, and Jose Camacho-Collados. 2023. An empirical comparison of LM-based question and answer generation meth-ods. In Findings of the Association for Computa-tional Linguistics: ACL 2023 , pages 14262–14272, Toronto, Canada. Association for Computational Lin-guistics. Zhengxiang Wang, Nafis Irtiza Tripto, Solha Park, Zhenzhen Li, and Jiawei Zhou. 2025. Catch me if you can? not yet: LLMs still struggle to imitate the implicit writing styles of everyday authors. In Find-ings of the Association for Computational Linguis-tics: EMNLP 2025 , pages 10040–10055, Suzhou, China. Association for Computational Linguistics. Nirmalie Wiratunga, Ramitha Abeyratne, Lasal Jayawardena, Kyle Martin, Stewart Massie, Ikechukwu Nkisi-Orji, Ruvan Weerasinghe, Anne Liret, and Bruno Fleisch. 2024. Cbr-rag: Case-based reasoning for retrieval augmented generation in llms for legal question answering. In Interna-tional Conference on Case-Based Reasoning , pages 445–460. Springer. Wenhan Xia, Chengwei Qin, and Elad Hazan. 2024. Chain of lora: Efficient fine-tuning of language mod-els via residual learning. Yiyan Xu, Jinghao Zhang, Alireza Salemi, Xinting Hu, Wenjie Wang, Fuli Feng, Hamed Zamani, Xiangnan He, and Tat-Seng Chua. 2025. Personalized gen-eration in large model era: A survey. In Proceed-ings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Pa-pers) , pages 24607–24649, Vienna, Austria. Associ-ation for Computational Linguistics. Rowan Zellers, Ari Holtzman, Yonatan Bisk, Ali Farhadi, and Yejin Choi. 2019. Hellaswag: Can a machine really finish your sentence? In Proceed-ings of the 57th annual meeting of the association for computational linguistics , pages 4791–4800. Tianyi Zhang, Varsha Kishore, Felix Wu, Kilian Q Weinberger, and Yoav Artzi. 2019. Bertscore: Eval-uating text generation with bert. arXiv preprint arXiv:1904.09675 .Zhehao Zhang, Ryan A Rossi, Branislav Kveton, Yijia Shao, Diyi Yang, Hamed Zamani, Franck Dernon-court, Joe Barrow, Tong Yu, Sungchul Kim, and 1 others. 2024. Personalization of large language mod-els: A survey. arXiv .
+
+A Appendix 
+
+A.1 Next Token Prediction - CLM Baseline Comparison Table 
+
+Table 3 reports the full CLM improvement (abso-lute difference) of the best-performing model rela-tive to the other methods. 
+
+A.2 Impact of Model Size 
+
+Table 4 compares the performance of 1B and 4B model variants. We find that increasing model size consistently improves performance. The 4B mod-els achieve higher mean scores across nearly all metrics in both instruction and raw-text settings. 
+
+A.3 Cross-Judge Specificity: Full Results 
+
+Table 5 reports the cross-judge specificity sum-mary for all methods. Each entry shows the mean test-set centered gap across judges, followed by the percentage of judges for which the paired gap is statistically significant. Consistent with Fig-ure 2, gaps are predominantly positive for lexi-cal and semantic metrics (BLEU, ROUGE, and BERTScore), indicating that judge-matched mod-els tend to score higher than models trained on other judges. By contrast, the structural JSD-POS gaps are smaller and less consistently significant across judges, suggesting weaker judge-specific separation under POS-distribution similarity. 
+
+A.4 Training Setup 
+
+All experiments were run on a single NVIDIA RTX 4090 GPU. To handle memory constraints, we used a dynamic gradient accumulation strategy that adjusted the number of accumulation steps as needed to maintain training stability. All other hy-perparameters are listed in Table 6. Model BLEU ↑ BERTScore-F1 ↑ ROUGE-1 ↑ ROUGE-2 ↑ ROUGE-L ↑ POS-JSD ↓
+
+Non-personalized baselines 
+
+Vanilla-DictaLM3 5.533 0.076 0.073 0.021 0.063 -0.042 Vanilla-Gemma (1B) 6.010 0.124 0.101 0.025 0.087 -0.040 Vanilla-Gemma (4B) 5.597 0.079 0.081 0.023 0.071 -0.013 Mixed-Gemma (1B) 4.662 0.065 0.067 0.021 0.057 -0.042 Mixed-Gemma (4B) 4.383 0.042 0.050 0.019 0.042 -0.019 Joint-Gemma (1B) 2.127 0.016 0.013 0.006 ∗ 0.013 -0.005 ∗
+
+Joint-Gemma (4B) 2.349 0.016 0.017 0.008 0.015 -0.010 
+
+Alternative personalization paradigms 
+
+Pers-CLM (1B) 0.643 -0.062 0.006 ∗ 0.002 ∗ 0.006 ∗ -0.002 ∗
+
+Pers-IT (1B) 6.529 0.142 0.106 0.026 0.092 -0.100 Pers-IT (4B) 5.542 0.066 0.084 0.022 0.072 -0.033 Chain-of-LoRA (4B) 5.101 0.062 0.074 0.018 0.063 -0.038 
+
+Table 3: Comparison to Pers-CLM (4B) using per-judge paired deltas (method − Pers-CLM 4B), averaged over judges. We report two-sided Wilcoxon signed-rank tests over judges for each metric; all entries are significant at 
+
+p < 0.05 unless marked (*). 
+
+Method BLEU ↑ BS-F ↑ POS ↓ R-1 ↑ R-2 ↑ R-L ↑
+
+Next Token Prediction (CLM) setting 
+
+CLM 6.690 / 6.047 0.606 / 0.667 0.059 ∗ / 0.061 ∗ 0.123 ∗ / 0.117 ∗ 0.027 ∗ / 0.025 ∗ 0.108 ∗ / 0.102 ∗
+
+IT 1.148 / 0.161 0.540 / 0.463 0.092 / 0.159 0.040 / 0.017 0.005 / 0.001 0.036 / 0.015 Joint 4.341 ∗ / 4.563 ∗ 0.589 ∗ / 0.589 ∗ 0.069 / 0.064 0.107 ∗ / 0.110 ∗ 0.019 ∗ / 0.022 ∗ 0.092 ∗ / 0.094 ∗
+
+Mixed 2.308 / 2.028 0.563 / 0.541 0.078 / 0.101 0.073 / 0.056 0.008 / 0.006 0.066 / 0.051 Vanilla 1.093 / 0.680 0.527 / 0.482 0.072 / 0.100 0.042 / 0.023 0.004 / 0.002 0.037 / 0.020 
+
+Instruction setting 
+
+CLM 1.565 / 1.040 0.561 / 0.534 0.073 / 0.077 0.201 / 0.183 0.060 / 0.044 0.136 / 0.122 CoLA 13.313 / 9.948 0.639 / 0.597 0.073 / 0.079 0.385 / 0.332 0.200 / 0.147 0.317 / 0.268 IT 8.339 ∗ / 10.032 ∗ 0.619 / 0.604 0.074 / 0.077 0.349 ∗ / 0.345 ∗ 0.151 ∗ / 0.155 ∗ 0.274 ∗ / 0.276 ∗
+
+Joint 4.401 / 3.278 0.602 / 0.570 0.082 / 0.086 0.318 / 0.286 0.111 / 0.083 0.239 / 0.211 Mixed 4.108 / 3.302 0.596 / 0.568 0.085 / 0.088 0.316 / 0.289 0.107 / 0.084 0.234 / 0.214 Vanilla 1.316 ∗ / 1.309 ∗ 0.526 / 0.505 0.090 / 0.099 0.181 / 0.178 0.050 / 0.049 0.124 / 0.124 
+
+Table 4: Model size comparison (mean across judges). Each cell reports 4B / 1B . Asterisks (*) mark entries where the 4B and 1B means are not significantly different under a paired Wilcoxon signed-rank test ( p ≥ 0.05 ). Results are shown separately for the instruction setting and the Next Token Prediction (CLM) setting. 
+
+Method BLEU ↑ BS-F ↑ POS ↓ R-1 ↑ R-2 ↑ R-L ↑
+
+Next Token Prediction (CLM) Setting 
+
+CLM-1B 4.523 (0.93) 0.031 (0.76) 0.012 (0.59) 0.039 (0.66) 0.018 (0.59) 0.036 (0.69) 
+
+CLM-4B 4.925 (0.86) 0.046 (0.83) 0.011 (0.72) 0.037 (0.59) 0.020 (0.52) 0.035 (0.62) CoLA-4B 0.810 (0.55) 0.025 (0.52) 0.007 (0.28) 0.014 (0.34) 0.006 (0.21) 0.013 (0.34) IT-1B 0.026 (0.28) 0.008 (0.28) 0.003 (0.28) 0.002 (0.14) 0.000 (0.41) 0.002 (0.10) IT-4B 0.364 (0.66) 0.012 (0.52) 0.002 (0.45) 0.004 (0.03) 0.002 (0.14) 0.004 (0.03) 
+
+Instruction Setting 
+
+CLM-1B 0.226 (0.79) 0.008 (0.76) 0.001 (0.41) 0.007 (0.34) 0.008 (0.79) 0.004 (0.48) CLM-4B 0.424 (0.79) 0.012 (0.69) 0.003 (0.59) 0.010 (0.52) 0.011 (0.86) 0.008 (0.59) CoLA-1B 7.600 (0.83) 0.051 (0.83) 0.012 (0.69) 0.079 (0.83) 0.090 (0.83) 0.081 (0.86) CoLA-4B 10.062 (0.93) 0.061 (0.93) 0.013 (0.66) 0.099 (0.97) 0.117 (0.97) 0.105 (0.93) 
+
+IT-1B 7.285 (0.83) 0.050 (0.83) 0.010 (0.59) 0.075 (0.86) 0.086 (0.86) 0.078 (0.86) IT-4B 5.098 (0.79) 0.040 (0.86) 0.009 (0.62) 0.060 (0.83) 0.067 (0.83) 0.062 (0.86) RAG-3k 1.125 (0.90) 0.023 (0.90) 0.003 (0.21) 0.024 (0.90) 0.025 (0.90) 0.022 (0.90) RAG-5k 1.286 (0.93) 0.025 (0.93) 0.003 (0.34) 0.026 (0.90) 0.028 (0.93) 0.023 (0.90) 
+
+Table 5: Cross-judge specificity across methods. For each judge j, we evaluate the matched model Mj on Tj and compare it to models trained on other judges, evaluated on the same Tj . Each cell reports the mean centered gap ∆j
+
+(averaged over judges); the value in parentheses is the fraction of judges where the gap is significant under bootstrap. Positive gaps are better. Hyperparameter Value               
+
+> LoRA Configuration
+> Rank ( r)16 Alpha ( α)32 Dropout 0.05 Target Modules All linear layers*
+> Training Dynamics
+> Learning Rate 2.0×10 −4
+> Optimizer Paged AdamW 8-bit Scheduler Linear Warmup Steps 5Max Steps 2,500 Max Sequence Length 512 Weight Decay 0.01 Seed 3407
+
+Table 6: Hyperparameters used for fine-tuning. * Tar-get modules include q, k, v, o projections, gates, and the LM head.                
+
+> Method Acc. (%)
+> Random Baseline 50.0
+> Non-personalized
+> Vanilla-1B 80.6 ∗
+> Vanilla-4B 80.6 ∗
+> Dicta-3 81.7 ∗
+> Mixed-1B 84.0 ∗
+> Mixed-4B 84.0 ∗
+> Joint-1B 84.1 ∗
+> Joint-4B 82.5 ∗
+> Alternative methods
+> IT-4B 63.4 ∗
+> IT-1B 68.1 ∗
+> CoLA-4B 61.8 ∗
+> CLM-4B 56.0 ∗
+> CLM-1B 56.5 ∗
+> Reference
+> Ground Truth 94.9 ∗
+
+Table 7: Authorship accuracy relative to ground truth. 
+
+∗ denotes p < 0.05 .
+
+A.5 Question-Answer Generation 
+
+For that task, we used an agentic workflow implemented entirely with OpenAI’s GPT 4.1-mini and GPT 4o-mini, applying the steps: 1. Reasoning Sentence Extraction We process each verdict with a chain-of-thought prompt to identify sentences that express the judge’s legal reasoning. 2. Judicial Reasoning Validation We pass the extracted flagged sentences to a separate validator prompt that confirms they indeed contain judicial reasoning; sentences that fail validation are removed. 3. Question Generation Based on the extracted reasoning sentences, we generate questions whose an-swers refer to the reasoning sentences. 4. Validation We then verify that the questions match the answers; if validation fails twice, the pair is discarded. The exact prompts used in each stage of the workflow are provided in Section A.7. 
+
+A.6 Qualitative Error Analysis 
+
+Below we present representative question–answer pairs comparing the outputs of the Base model, CLM, and CoLA on identical inputs. 
+
+Model Output Question מהו מתחם העונש ההולם שנקבע בנסיבות ביצוע העבירה? 
+
+Ground Truth 
+
+נוכח המפורט לעיל, איני סבורה כי מתחם העונש שולל קצה נמוך של מאסר על תנאי בלבד, כפי שבקשה המאשימה לקבוע, וסבורני כי מתחם העונש ההולם בנסיבות ביצוע העבירה נע בין מאסר על-תנאי בצירוף ענישה כספית, ובין שבעה חודשי מאסר בפועל, שיכול וירוצו בעבודות שירות. 
+
+Base מתחם העונש ההולם Options) Sentencing of (Range שנקבע בנסיבות ביצוע העבירה הוא סט הוא לא המינימום והמקסימום של עונשים שהמדינה יכולה לגזור על נאשם שהורשע בעבירה. מחייב את בית המשפט לגזור את העונש הנמוך ביותר או הגבוה ביותר, אלא מספק לו טווח חוק .1 הגדרת מתחם העונש ההולם מורכבת ומושפעת ממספר גורמים, ביניהם: אפשרויות. חומרה של סוג העבירה: .2 החוק עצמו מגדיר את סוגי העונשים האפשריים ]...[ העבירה: העבירה היא גורם מרכזי. עבירות חמורות יותר )כגון ]...[ 
+
+> Continued on next page
+
+Model Output 
+
+CLM אכן, שיתוף הפסילה המקילה והארוכה הנה התייחסות לחומרת העבירה שביצע הנאשם )פסיקה יחד עם זאת, בשני מקרים שהוצעו, הנאשם לא ביצע את שניתנה בסגור או בפני שופטת(. העבירות המיוחסות לו, והם אינם מלמדים על מתחם ענישה הולם או מתאים. לכל מקרה ייתכן ויש ליתן ביטוי שונה בחומרת המתחם ]...[ 
+
+CoLA בנסיבות ביצוע העבירה, בשקלול הנסיבות שפורטו לעיל, אני קובעת כי מתחם העונש ההולם בנסיבות ביצוע העבירה נע בין 14 ל-30 חודשי מאסר. 
+
+The Base model provides a generic, encyclopedic definition of sentencing ranges with num-bered bullet points. CLM produces legal-sounding but unfocused text. CoLA generates a concise, first-person judicial ruling that mirrors the ground truth’s structure. 
+
+Question מהו האיזון בין השיקולים שהנחה את בית המשפט בגזירת העונש על הנאשם? 
+
+Ground Truth 
+
+באיזון בין השיקולים השונים, סבורני כי יש לגזור על הנאשם עונש בחלקו המרכזי המתחם. 
+
+Base בגזירת עונש על נאשם, בית המשפט צריך לאזן בין מגוון רחב של שיקולים, שמטרתם היא להעניש את הנאשם בצורה הולמת, למזער את הנזקים ולתרום להסדרה ולשיקום. הנה פירוט של השיקולים העיקריים שהנחו אותו: 1. ענישה: חומרת העבירה: זהו השיקול הבסיסי ביותר ]...[ נסיבות העבירה ]...[ עקרונות ענישה ]...[ 
+
+CLM בעניין זה יש לבחון את הערכים החברתיים אשר נפגעו עקב ביצוע העבירה, ואת מידת הפגיעה בגזירת העונש המתאים לנאשם, בגדרי מתחם העונש ההולם, יש להתחשב בערך המוגן ]...[ בנסיבות שאינן קשורות בביצוע העבירה. במסגרת זו מן הראוי לתת את הדעת לכך שהנאשם צעיר ]...[ 
+
+CoLA באיזון בין השיקולים השונים, יש לכבד את המלצת שירות המבחן בעניינו של הנאשם אשר סבורים כי העונש מנוטר והגורם לעונש של עבודות שירות, במקרים שבהם קיימת תמטיקה של חלוף דיינו וכי עונש מאסר בכליאה יפגע בו. 
+
+The Base model produces a textbook-style explanation. CLM gives a verbose legal discus-sion. CoLA opens with the same phrasing as the ground truth and produces a case-specific judicial statement, though some phrasing is imprecise. 
+
+Question כיצד הודאת הנאשם בעובדות כתב האישום משפיעה על ההליך השיפוטי? 
+
+Ground Truth 
+
+לכל האמור לעיל יש להוסיף את הודאתו של הנאשם בעובדות כתב האישום, המבטאת נטילת אחריות מצדו על מעשיו ואשר הובילה לחיסכון בזמן שיפוטי יקר. 
+
+Base התנגדות לנאשם בעובדות כתב האישום משפיעה באופן משמעותי על ההליך השיפוטי, ויש לה השלכות משפטיות מורכבות. הנה פירוט של האופן שבו זה מתבטא: 1. תחילת ההליך: הגשת התנגדות: הנאשם יכול להגיש התנגדות ]...[ 2. חקירה וניהול הדיון: חקירת התנגדות ]...[ 
+
+CLM הודאת הנאשם בעובדות כתב האישום, מקלה על תפקידו של בית המשפט במניעת הצורך לחקור את הנסיבות שבעבירות נשוא כתב האישום, ובכך חוסכת את זמן שיקול הדעת והזמן שירוצה על ידו ]...[ 
+
+CoLA הודאה זו החזירה את הביצועים מהרבה יותר ממה שהיה צפוי. 
+
+CoLA produces an extremely short, uninformative sentence that is meaningless in this legal context. Both the Base model and CLM, despite their verbosity, at least convey relevant legal content. This illustrates the failure mode of overly terse output. 
+
+Question מהי המדיניות הכללית בענישה בעבירות הצתה של בתי מגורים? 
+
+Ground Truth 
+
+מדיניות הענישה הנהוגה בעבירות הצתה של בתי מגורים, הינה של חומרה. 
+
+> Continued on next page
+
+Model Output 
+
+Base העונש בעבירות הצתה של בתי מגורים הוא עונש חמור מאוד, והמדיניות הכללית בענישה מתייחסת למגוון גורמים והסדרה של רמות ענישה, המותאמות למאפיינים של המקרה הספציפי. הנה סקירה כללית: 1. סיווג העבירה ]...[ 
+
+CLM המשפט העליון ציין שטיב העונש הראוי בעבירות הצתה צריך לתוא את חומרת מעשה ההצתה שכן הנזק שנגרם – ככל שהוא גורם לנזק גדול יותר, גם הענישה צריכה להיות חמורה יותר. כתוצאה מהצתת הדירה הוא חמור וממשי ]...[ 
+
+CoLA כל בר כשר המשנה את פני השמש ביום האש, יפנה מלכתחילה לעבר התחרויות המדגישות את נצחיות הזיכרון ואת מעלתה המיוחדת של הדרישת הדין להרתעה. 
+
+CoLA drifts into poetic, irrelevant language that bears no resemblance to legal reasoning. While the Base and CLM answers are verbose, they at least address sentencing policy for arson. This exemplifies the failure mode of drifting into incoherent text. 
+
+Question מהו הכיעור המיוחד הקשור בעבירת הסחיטה באיומים? 
+
+Ground Truth 
+
+העבירה של סחיטה באיומים טבועה בכיעור מיוחד, מעבר לכיעור הרגיל הכרוך במעשים פליליים. 
+
+Base הכיעור המיוחד הקשור בעבירת הסחיטה באיומים הוא האיום. האיום, בניגוד לאיום רגיל )שאינו גורם עונתי(, הוא תכונה ייחודית של עבירת הסחיטה, והוא מהווה את הבסיס לעונש החמור יותר ]...[ סחיטה: עבירת הסחיטה מתרחשת כאשר אדם מפעיל כוח או איומים ]...[ 
+
+CLM הכיעור המיוחד הקשור בעבירת הסחיטה באיומים, מתבטא בהשפעה הפסיכולוגית הנובעת מהסכנה שהיא טומנת בחובה, שהיא משמעותית יותר מזו הקשורה לעבירות רכוש בנסיבות כלליות ]...[ 
+
+CoLA העבירה של סחיטה באיומים טומנת בחובה כיעור מיוחד, הנוגע לאינטרסים חברתיים בעלי חשיבות קלאסית. 
+
+CoLA closely echoes the ground truth’s phrasing and judicial tone. 
+
+Question מדוע יש לראות בעבירות מס כעבירות גזל כספי הציבור ולא רק כעבירות רגולטוריות? 
+
+Ground Truth 
+
+הפסיקה חוזרת ומדגישה כי אין לראות בעבירות מס משום עבירות רגולטוריות גרידא, שכן משמעותן המעשית היא גזל כספי הציבור. 
+
+Base השאלה מדוע ראוי לראות בעבירות מס כעבירות גזל כספי הציבור, ולא רק כעבירות רגולטוריות, היא שאלה מורכבת עם היבטים משפטיים, אתיים וכלכליים. הנה מספר טיעונים התומכים בגישה זו: 1. פגיעה חמורה בנכסי המדינה: המס הוא אמצעי מימון ]...[ הונאה על חשבון המטרה ]...[ 
+
+CLM שאלה מצוינת. כפי שציינת, בתי המשפט שונים – ובוודאי שגם בפסיקה העולה מהרשות העוסקת בכך )ר’ למשל רע”פ 7009/20 יהודה ואח’ נ’ מדינת ישראל ]פורסם בנבו[ )– (2021 בעניין עבירות המס נדרשת גישה מהותית, השוות לזו של גזל ]...[ 
+
+CoLA כמעט למותר לציין כי בעבירות מס, כבעבירות של הגבלת יסודות חברה ועבירות גניבה, אי אפשר לראותן משום עבירות רגולטוריות גרידא. 
+
+The Base model provides a lengthy essay, while CLM fabricates a case citation. CoLA is closest in style but misses the substantive argument. 
+
+A.7 Question–Answer Generation Prompts 
+
+Below we provide the exact prompts used in each step of the question–answer generation pipeline. 
+
+Step 1: Reasoning Sentence Extraction Model: GPT-4.1-mini   
+
+> # תפקיד המערכת
+> אתה אנליסט משפטי. שלוף מתוך פסק הדין אך ורק משפטים הסברתיים — כלומר, משפטים שבהם השופט מסביר את החזר את החזר את כל המשפטים המלאים, ללא שינוי ניסוח או קיצור. שיקוליו, נימוקיו או עקרונות שבהם הסתמך. הפלט במבנה JSON של רשימת מחרוזות תחת השם ‘משפטים’. אל תסווג או תדרג את המשפטים, רק תאסוף אותם. אם אין משפטים הסברתיים — החזר רשימה ריקה.
+
+# הנחיות כלליות 
+
+1. החזר את המשפטים בדיוק כפי שהם כתובים בפסק הדין — ללא קיצור, סיכום, שינוי ניסוח או שלוש נקודות )...(. 2. אל תכלול משפטים טענתיים או כלליים בלבד. החזר רק משפטים שמכילים נימוק, סיבה או עקרון ברור. 3. אל תכלול משפטים שנאמרו ע”י ב”כ המאשימה או ב”כ הנאשם, רק משפטים הסברתיים שהשופט הסביר את שיקוליו. 4. אל תכלול משפטים שמתארים את העונש שהטיל השופט על הנאשם. 5. אל תכלול משפטים אשר מכילים ציטוטים לתיקים אחרים. 
+
+# שלבים לביצוע Reasoning Steps 
+
+1. קרא את פסק הדין המלא. 2. עבור כל משפט, שאל: האם יש כאן הסבר או נימוק שיפוטי או עקרון משפטי כלשהו? שנאמר ע”י השופט. 3. אם כן — סווג את המשפט לאחת הקטגוריות לעיל. 4. דלג על משפטים שלא מכילים נימוק או הסבר אמיתי. 5. החזר את כל המשפטים הרלוונטיים. 
+
+# דוגמאות למשפטים שאינם תקפים: 
+
+￿ ״מדובר באירוע חמור״ — זהו משפט טענתי, ללא נימוק. ￿ ״יש להחמיר את הענישה״ — אין בו הסבר. ￿ על פי ממצאי שירות המבחן הנאשם השתתף, במשך תקופה משמעותית, בהליך טיפולי מוצלח. — יש פה עובדה ללא הסבר. ￿ אני מתיר לנאשם לרצות את עונש המאסר בן שלושה חודשים, מהם ינוכו 10 ימי מעצרו, בעבודות שירות. ￿ המבקר קבע כי מתחם העונש ההולם נע בין 20 חודשי מאסר בפועל לבין 48 חודשי מאסר בפועל. )אין להחזיר אותם בפלט בפועל(: # דוגמאות למשפטים תקפים 
+
+￿ ״עבירת הצתה הינה מן החמורות שבעבירות, שיודע אתה את תחילתה ואין אתה יודע את סופה.״ ￿ ״הנאשם ביצע את העבירה תוך הפרת אמון משמעותית שניתנה בו כמטפל.״ ￿ ״הפגיעה בנפגע העבירה חמורה ומתמשכת, ולכך יש לתת ביטוי בענישה.״ ￿ ״היתר הבנייה הקיים בהווה הנו נסיבה אשר יש להתחשב בה לקולא, שכן מדובר במבנה שהיום ברור לגביו כי הוא עומד בחוקי התכנון והבנייה הנוכחיים, ולפיכך, ברור כעת כי עמידתו במקומו אינה פוגעת בערכים חשובים שעניינם תכנון מוניציפלי, תכנון תוואי הנוף, הקצאת חלקות וכן זכויות קניין.״ ￿ ״אין ספק, כי הטלת ענישה ממשית עליו תפגע גם בו וגם בבני משפחתו.״ ￿ ״הנאשם הורשע לאחר שניהל משפטו ואמנם אין להעניש נאשם על עצם ניהול משפט פלילי, אך אין להתחשב בו כפי שמתחשבים באדם שהודה בפתח משפטו והביע חרטה כנה על מעשיו.״ 
+
+Step 2: Judicial Reasoning Validation Model: GPT-4o-mini 
+
+אם המשפט שלפניך כולל הסבר או נימוק שמצדיק החלטה שיפוטית )למשל: הפניה לעקרון משפטי, שקלול נסיבות, כן השב אם המשפט הוא רק תיאור עובדות, הליך, ציטוט טענות או הצהרה לא השב נסיבת לקולא/לחומרה, מטרת הענישה(. תוצאתית ללא הסבר. דוגמאות: מטבע הדברים, לא ניתן לאותם מכתבים כל משקל. — לא לטעמי במקרה זה נכון היה לחרוג ממתחם העונש ההולם, וזאת מטעמי צדק, גם במקרה שהמדינה לא פעלה במזיד או ברשלנות. — כן הוא ונאשם 5 היו הקבלנים הפעילים והבולטים ביותר בפגישה. — לא בעבירות הלבנת הון נפגעו הערכים המוגנים של שמירה על אמינות המערכת הפיננסית, כלכלת המדינה והשוויון. — כן אני סבור שמתחם העונש ההולם בגין העבירה קרוב יותר למתחם שהציעה התביעה, קרי 8 חודשים ועד 18 חושדים. — לא אל תוסף מילים; כתוב רק כן או לא. אם המשפט גבולי השב לא. 
+
+Step 3: Question Generation Model: GPT-4.1-mini 
+
+### Role and Objective 
+
+You are a seasoned Israeli jurist who writes precise, exam-style questions intended to surface the legal rationale found in short “Answer” sentences extracted from court verdicts. 
+
+### Instructions 
+
+For every item you receive, generate one question in modern Hebrew that a law student could answer exactly with the given “Answer.” Keep each question: • Focused on the key legal principle or factual nuance in the Answer. • Neutral in tone, neither accusatory nor apologetic. • One sentence, max 25 words. Sub-categories: 1. Language — Output questions in Hebrew. 2. Style — Prefer ״כיצד״, ״מהו״, ״מדוע״ to open questions; avoid rhetoric. 3. Scope — Use only the Answer (and optional Context to disambiguate names). 4. Punctuation — Standard Hebrew punctuation; never the character ‘ -’. 
+
+### Reasoning Steps 
+
+1. Identify its pivotal legal point (rule, fact pattern, mitigation, etc.). 2. Reformulate that pivot into an interrogative sentence that elicits the Answer verbatim or in tight paraphrase. 3. Verify the question is answerable solely from the Answer. 
+
+### Output Format 
+
+Return exactly one line per Answer, numbered 1. 2. …
+
+Example: 
+
+1. מהו השיקול המרכזי שהצדיק החמרה בענישת הנאשם? 2. כיצד השפיעה הודאת הנאשם בשלב מוקדם על מתחם העונש? 
+
+Return only the numbered list—nothing else. 
+
+Step 4: QA Validation Model: GPT-4o-mini 
+
+אתה בודק-איכות קפדן. השאלה והתשובה חייבות להתאים בזיקה מלאה: האם התשובה עונה במדויק על השאלה ענה אך ורק ב-״1״ )כן, עונה( או ״0״ )לא(.

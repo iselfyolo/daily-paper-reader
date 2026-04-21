@@ -1,0 +1,329 @@
+Title: Making AI Compliance Evidence Machine-Readable
+
+URL Source: https://arxiv.org/pdf/2604.13767v1
+
+Published Time: Thu, 16 Apr 2026 00:52:19 GMT
+
+Number of Pages: 8
+
+Markdown Content:
+> 1
+
+# Making AI Compliance Evidence Machine-Readable 
+
+Rodrigo Cilla Ugarte, Miguel Ángel Patricio Guisado, Antonio Berlanga de Jesús, and José Manuel Molina López 
+
+Abstract —AI Assurance—producing the machine-readable evidence required to demonstrate compliance with AI governance frameworks—has mature policy scaffolding but lacks the infrastructure to operationalize it. Organizations building high-risk AI systems under the EU AI Act face a gap: frameworks such as the EU AI Act, ISO/IEC 42001, and NIST AI RMF specify what to assure but provide no executable format for how. This paper proposes OSCAL—the NIST standard adopted for FedRAMP cybersecurity compliance—as a candidate interchange format for AI governance, complementing rather than replacing the emerging JTC21 standards stack. We define 16 property extensions covering lifecycle phases, enforcement semantics, risk traceability, and risk-acceptance justification, and present a three-layer Compliance-as-Code architecture (policy, evidence, enforcement) that generates assurance evidence as a byproduct of model training. The SDK produces native OSCAL Assessment Results validated against the NIST JSON schema. We test the approach on two Annex III high-risk systems: a credit scoring model and a medical imaging segmentation system. The architecture and reference implementation are open-source under Apache 2.0. 
+
+Index Terms —AI Assurance, EU AI Act, OSCAL, Compliance-as-Code, ISO/IEC 42001, NIST AI RMF, MLOps, Fairness, Risk Management, Conformity Assessment 
+
+✦
+
+INTRODUCTION 
+
+AI governance frameworks tell organizations what to assure but not how to produce the evidence. We adapt OSCAL—the standard that made compliance-as-code pos-sible in cybersecurity—to the AI domain, and validate the approach on two high-risk systems under the EU AI Act. 
+
+AI Assurance—the machinery for producing the evi-dence that an AI system complies with a regulatory or management framework—sounds straightforward until you try to do it. Trustworthiness in the broader ethical sense enters as an input to the thresholds, not as an output of the machinery. The EU AI Act (Regulation (EU) 2024/1689), ISO/IEC 42001:2023, the NIST AI RMF (AI 100-1), Sin-gapore’s Model Framework, and emerging regulations in Brazil, South Korea, and Canada all describe what orga-nizations should assure [1]. None of them provides an executable format for encoding controls, a standard for evidence artifacts, or a reference architecture for wiring assurance into an ML pipeline. Marino and Lane [2] put it bluntly: compliance with AI regulations can only realisti-cally be achieved computationally. Sovrano et al. [3] reach a similar conclusion from the software-engineering side: drafting AI Act technical documentation is itself a software problem. 
+
+• R. Cilla Ugarte is with Venturalítica S.L., Donostia–San Sebastián, Spain. E-mail: rodrigo.cilla@venturalitica.ai 
+
+• M. A. Patricio, A. Berlanga, and J. M. Molina are with the Applied Artificial Intelligence Group (GIAA), Computer Science Department, Universidad Carlos III de Madrid, Leganés, Spain. 
+
+• Preprint. This work has been submitted to IEEE Computer (Special Issue on AI Governance and Compliance) for possible publication. Copyright may be transferred without notice, after which this version may no longer be accessible. 
+
+In practice, most teams treat compliance as a documenta-tion exercise—risk registers, slide decks, manually authored reports—disconnected from the code that actually trains the model. The result is that when an auditor asks for proof, the evidence is six months old. Cybersecurity solved a similar problem. When Fe-dRAMP mandated OSCAL for cloud service authorizations, the enabling technology was OSCAL [4]—a NIST standard that turns security controls into version-controlled configu-ration and evidence into structured artifacts. RegTech adop-tion reduced compliance costs by 40–70% [5]. AI governance has no equivalent infrastructure—yet. In this article we extend OSCAL with 16 properties for AI lifecycle assurance, build a three-layer architecture (policy, evidence, enforcement) that generates compliance evidence during model training, and test it on two EU AI Act Annex III high-risk systems: a credit scoring model and a medical imaging segmentation pipeline. The reference implementation is open-source (Apache 2.0). 1
+
+BACKGROUND 
+
+Consider a European bank deploying a credit scoring sys-tem. It must satisfy the EU AI Act Articles 9–15 (risk man-agement, data governance, documentation, logging, trans-parency, human oversight, accuracy)—but also DORA (dig-ital operational resilience), NIS2 (network and information security), and GDPR (automated decision-making under Art. 22). If ISO/IEC 42001-certified, the bank maintains Annex A controls on top. If serving the US market, the NIST AI RMF adds another layer. A single incident can trigger four reporting regimes with different authorities, 
+
+1. https://github.com/Venturalitica/venturalitica-sdk 
+
+> arXiv:2604.13767v1 [cs.CY] 15 Apr 2026 2
+> TABLE 1 Cross-framework mapping of AI Assurance obligations. Each row shows how the same concern is expressed across three frameworks with different terminology and evidence expectations. No executable format unifies them.
+
+Concern EU AI Act Requirement ISO/IEC 42001 NIST AI RMF 
+
+Risk management Art. 9 Continuous risk system across lifecycle A.5.3 Risk treatment Manage 2.2 Data governance Art. 10 Quality criteria; bias exam-ination A.7.4 Data quality Measure 2.6 Technical docs Art. 11 Annex IV documentation pre-market A.6.2.4 Activity records Govern 1.3 Logging Art. 12 Automatic, traceable records A.6.2.4 Activity records Govern 1.3 Transparency Art. 13 Information to deployers A.8 Transparency Map 3.5 Human oversight Art. 14 Override capability; au-tomation bias A.8 Transparency Govern 6.3 Accuracy & robustness Art. 15 Demonstrated perfor-mance; cybersecurity A.5.4 Residual risk Measure 2.7 
+
+forms, and deadlines [6]. Table 1 illustrates the overlap for one concern—bias—across three of these frameworks: three names for the same thing, three documentation streams, zero interoperability. The EU AI Act obligations are binding from August 2026 under Regulation (EU) 2024/1689 as amended by the 2025 Digital Omnibus package, and they are evidence requirements—the Act asks providers to demonstrate com-pliance, not merely to claim it [7], [8]. Peckham [9] proposes an AI harms framework, but without an executable mech-anism. The first harmonised standard, prEN 18286, is in public enquiry but not yet cited in the Official Journal; until it is, providers cannot claim “presumption of conformity” (Art. 40). ISO/IEC 42001 certification is the strongest signal of due diligence available today, but it provides organi-zational governance—not the technical, machine-readable evidence that Arts. 9–15 demand. Existing approaches address parts of this problem but not the whole. Model Cards [10] and FactSheets [11] proposed structured documentation for AI transparency— static, single-framework artifacts, not continuous evidence streams tied to training runs. Governance platforms such as VerifyWise, 2 Modulos, and Credo AI provide multi-tenant tooling, RBAC, attestation workflows, and regulator-facing dashboards—features outside the scope of an SDK—but each produces evidence in platform-specific shapes that are not directly portable across jurisdictions. The missing layer is the interchange format: continuous, machine-readable evidence generated as a byproduct of the ML pipeline, in a standardized shape that any auditor or regulatory tool can verify. That is what we build. 
+
+OSCAL AS LINGUA FRANCA FOR AI G OVERNANCE 
+
+If compliance-as-code is the goal, what language should the code be written in? For cybersecurity, the answer is OSCAL [4]—the Open Security Controls Assessment Lan-guage, developed by NIST. OSCAL provides six models covering the full compliance lifecycle:  
+
+> •
+
+Catalog : a library of controls (e.g., “bias must not exceed threshold X”).  
+
+> 2. https://verifywise.ai
+> •
+
+Profile : a selection of controls from one or more cata-logs applicable to a specific context (e.g., “controls for a credit scoring system under EU AI Act Annex III”).  
+
+> •
+
+Component definition : a description of how a sys-tem or tool implements specific controls.  
+
+> •
+
+Assessment plan : what will be tested, when, and against which criteria.  
+
+> •
+
+Assessment results : the outcome of evaluating controls—pass, fail, values, timestamps.  
+
+> •
+
+Plan of Action and Milestones (POA&M): remedia-tion tracking for failed controls. All six models are serializable as JSON, XML, or YAML, enabling version control alongside source code. FedRAMP mandates OSCAL for all cloud service authorizations. For AI governance, the equivalent does not exist. There are no OSCAL catalogs for the EU AI Act, no profiles for high-risk systems, no assessment plans encoding Articles 9– 15. We built the first one. 
+
+An OSCAL Profile for AI Assurance 
+
+OSCAL’s implemented-requirement structure holds a control ID, a description, and a list of typed properties. The standard needs 16 new properties to work for AI (Table 2). Together they express what to evaluate, when and how , why —linking each technical check to its originating risk, treatment plan, and organizational objective—and on what basis the thresholds and acceptance criteria are defensible. The 16 properties form a single, coherent profile specification—the primary contribution of this section. Of these, the last three respond to aquestion Art. 9.5 forces explicitly: why is this threshold defensible? Making threshold_justification and 
+
+risk_acceptance_criteria first-class properties obliges the evidence chain to name its normative source (for example, the EEOC Four-Fifths Rule, a WHO guideline, or a documented stakeholder deliberation referenced via 
+
+stakeholder_consultation_ref ). The profile is designed so that different consumers use the relevant subset: the training-time SDK enforces controls tagged lifecycle_phase: training or validation 
+
+using metric_key , operator , threshold , severity ,3                                                                   
+
+> TABLE 2 Proposed OSCAL property extensions for AI Assurance, with normative justification across three frameworks
+> Property Purpose EU AI Act ISO 42001 NIST RMF
+> metric_key Metric function identifier 10.2(f), 15.1 A.6.2.3, A.7.4 Measure 2.6
+> operator Comparison operator 9.2(b), 15.1 A.6.2.3 Measure
+> threshold Quantitative threshold 9.2(b), 15.1 A.5.3 Measure
+> severity Control criticality 9.8 A.5.3 Map 2.2
+> lifecycle_phase One or more of training, validation, monitoring, incident 9–15, 72, 73 A.6.2 Govern 1.7
+> enforcement_mode Monitor, warn, or block 14.4(e), 72, 73 A.6.2.6, A.8.3 Manage 2
+> evaluation_method Automated, manual, hybrid 9.9, 43 A.6.2.3 Measure 4
+> evaluation_window Per-run, periodic, sliding 9.3, 72 A.6.2.6 Manage 3
+> target_type System, dataset, or model 10, 11, 15 A.4.2, A.7 Map 1
+> risk_id Link to identified risk 9.2(a) §6.1.2 Map 3
+> treatment_id Link to risk treatment 9.4 §6.1.3 Manage 2
+> policy_id Link to governing policy 9§5.2, A.2 Govern 1.1
+> objective_id Link to AI objective —§6.2 Govern 1.3
+> risk_acceptance_criteria Explicit acceptance criterion for resid-ual risk 9.5 §6.1.2 Manage 1.3
+> threshold_justification Citation/rationale for the numeric threshold 9.2(b), 10 A.5.3, A.7.4 Measure 2.9
+> stakeholder_consultation_ref Record of stakeholder deliberation be-hind the threshold 10.2(d) §4.2, A.3.2 Map 1.6
+
+and enforcement_mode ; a runtime proxy (discussed in §Discussion) consumes controls tagged monitoring to-gether with evaluation_window ; and a governance plat-form reads the traceability chain to close the loop with organizational risk management. All coexist in the same OSCAL file; unknown properties are ignored, preserving backward compatibility. The specification is fully documented here for adoption by any implementation. The open-source reference imple-mentation produces OSCAL Assessment Results documents validated against the official NIST JSON schema (v1.2.1), demonstrating that the profile is not only specified but executable. 
+
+Why Not a New Format? 
+
+We extend OSCAL rather than designing a new format for three reasons. First, OSCAL already has validation libraries, converters, and institutional adoption through FedRAMP. Second, NIST maintains both the AI RMF and OSCAL [4]; a future OSCAL Profile for AI is a plausible evolutionary step. Third, a single OSCAL file can reference controls from the EU AI Act, NIST AI RMF, and ISO/IEC 42001 simultaneously, eliminating the triple-documentation prob-lem. OSCAL supplies an interoperability layer—a machine-readable envelope—for the requirements that other gover-nance instruments articulate in prose. 
+
+Lifecycle Semantics 
+
+The EU AI Act distinguishes between pre-market obliga-tions (Arts. 9–15, before a system is placed on the mar-ket) and post-market obligations (Art. 72, continuous mon-itoring; Art. 73, incident reporting). A single assurance control—for example, “demographic parity difference <
+
+0.10”—applies across both regimes, but with different se-mantics at each lifecycle phase. In OSCAL terms, each phase is expressed by re-peating the lifecycle_phase property on a single 
+
+implemented-requirement : a control that runs both at training and at runtime carries lifecycle_phase: training and lifecycle_phase: monitoring , and each consumer picks up the subset relevant to its scope. The phase determines what the check operates on : training 
+
+controls evaluate raw training data (class imbalance, demo-graphic representation — Art. 10); validation controls evaluate model predictions (accuracy, fairness of decisions — Art. 15); monitoring controls evaluate production infer-ence traffic (drift, fairness over time — Art. 72); incident 
+
+controls feed into the Art. 73 reporting path. The evaluation_window property applies primar-ily to the monitoring phase, where controls run con-tinuously rather than per-pipeline: per-run is the de-fault at training and validation, whereas periodic and 
+
+sliding-window are consumed by the runtime proxy. The 
+
+enforcement_mode determines the consequence: block 
+
+halts the pipeline by raising an exception on the failing con-trol, warn emits an alert without interrupting execution, and 
+
+monitor logs silently for audit. A single OSCAL catalog— authored once by a compliance team—therefore drives both the training-time SDK and the runtime proxy, with each consumer selecting the controls whose lifecycle_phase 
+
+matches its scope. 
+
+Traceability Chain 
+
+The traceability properties enable a vertical chain that mir-rors the full ISO/IEC 42001 PDCA hierarchy. The chain flows downward from organizational governance to tech-nical evidence: the AI Policy (§5.2) sets the direction; AI Objectives (§6.2) operationalize it; Risk Assessment (§6.1.2) identifies threats; Risk Treatment (§6.1.3) prescribes mitiga-tions; Assurance Controls (Annex A) implement them as measurable checks. The chain continues upward in the Check 4
+
+and Act phases: each OSCAL Assessment Result populates performance evaluation (§9.1), and each POA&M item pop-ulates corrective action (§10.1). Each OSCAL control carries typed links to every level above it: policy_id , objective_id , risk_id ,
+
+treatment_id . When a metric fails—a disparate impact ratio of 0.65 against a 0.80 threshold—the chain traces up-ward to the treatment (“apply group-aware reweighting”), to the risk (“gender discrimination in credit approval”), to the objective (“ensure non-discriminatory credit decisions”), and to the policy (“Four-Fifths Rule per EEOC guidelines”). This is what Art. 9.2(a) requires. 
+
+ARCHITECTURE 
+
+Figure 1 shows how the pieces fit together. The architec-ture has three layers, all focused on pre-market placement —generating the evidence that Articles 9–15 require before the system reaches the market. Post-market monitoring (Art. 72) and incident reporting (Art. 73) run on a separate infrastruc-ture layer and are outside the scope of this work. 
+
+Layer 1: Policy (OSCAL) 
+
+Compliance controls are expressed as OSCAL assessment plan files, version-controlled alongside model source code. We adopt a separation between data policies (evaluated be-fore training, addressing Art. 10) and model policies (evalu-ated after training, addressing Art. 15). Each control refer-ences a metric function (from the SDK’s library of 104 func-tions), a comparison operator, a quantitative threshold, and the proposed AI extensions (lifecycle phase, enforcement mode, severity, risk traceability). OSCAL defines the control intent and acceptance criteria; the metric library provides the computational implementation. Figure 2 shows an example control that checks gender disparate impact using the Four-Fifths Rule, applied during the training phase, with blocking enforcement linked to an identified risk. The choice of a single threshold over a specific metric is deliberate; Bell et al. [12] show that in practice fairness criteria previously argued to be incom-patible can be satisfied with bounded relaxations, and the OSCAL profile lets those relaxations be declared explicitly per control rather than assumed. 
+
+Layer 2: Evidence Collection 
+
+The evidence layer wraps the ML pipeline in a context manager that activates seven concurrent probes—covering code analysis (AST trace), data integrity (SHA-256 hashes), software supply chain (CycloneDX BOM [13]), environment fingerprinting, hardware telemetry, carbon emissions, and enforcement verification—each mapped to a specific EU AI Act article (Arts. 9–12, 15). Research documents systematic gaps in ML evidence capture; the probes address them. Concretely, a developer wraps their training code in with vl.monitor("my-run"): and, inside the block, calls vl.enforce(data=df, policy="my-policy.oscal.yaml") . The monitor 
+
+context activates all probes in parallel; enforce loads the YAML policy, evaluates each control against the data, and caches results for the OSCAL artifact generated at context exit. The AST probe traces which library functions the training script invokes; the Integrity probe computes SHA-256 hashes of input data splits and output model weights; the BOM probe introspects the Python environment and generates a CycloneDX bill of materials; and the Environment probe records CUDA version, GPU model, and OS fingerprint. No modification of the training code itself is required. Evidence is persisted to a local vault (.venturalitica/runs/{run_id}/ ) as anative OSCAL Assessment Results document (assessment-results.oscal.json ), validated against the NIST JSON schema (v1.2.1). When controls fail, the SDK generates an OSCAL Plan of Action and Milestones (poam.oscal.json ) with open risk items linked to the failing findings. 
+
+Layer 3: Enforcement 
+
+The enforcement engine reads the OSCAL controls and dispatches each to the corresponding metric function from the SDK’s extensible registry covering fairness, privacy, data quality, and performance. The OSCAL control defines what 
+
+to measure and the acceptance threshold; the metric func-tion defines how to compute it. For each control, the engine resolves metric_key to a function, loads the relevant data or predictions, computes the metric, and compares the result against operator + threshold . Each evaluation produces an OSCAL Observation; each control outcome becomes a Finding ( satisfied or not-satisfied ). Failures auto-generate an OSCAL Risk with characterization facets—the metric name, actual value, threshold, operator, and affected demographic groups—plus a POA&M remediation item. The enforcement_mode property governs the response: 
+
+monitor logs only, warn emits an alert, block halts the pipeline by raising an exception at the failing control. 
+
+VALIDATION 
+
+We tested the architecture on two AI systems classified as high-risk under EU AI Act Annex III. 
+
+Scenario A: Credit Scoring (Annex III, Area 5b) 
+
+Credit scoring systems are explicitly listed in Annex III, Area 5(b). We use the UCI German Credit dataset [14] (1,000 samples, 20 features, binary target) to demonstrate the full assurance lifecycle. The scenario implements a logistic regression classifier with group-aware sample reweight-ing as a bias mitigation strategy, wrapped in the SDK’s 
+
+monitor() context manager. The complete scenario— including OSCAL policies, training script, and generated evidence—is available as an open-source reproducibility package. 3
+
+The end-to-end flow maps directly onto the three-layer architecture. A compliance officer authors an OSCAL policy (credit-scoring.oscal.yaml )with five controls: three pre-training (class imbalance ratio, gender disparate impact, age disparate impact) and two post-training (accuracy, gender demographic 
+
+> 3. https://github.com/Venturalitica/venturalitica-scenario-financial 5
+
+POLICY    
+
+> OSCAL assessment plans, version-controlled in git
+> data_policy.oscal.yaml (Art. 10) model_policy.oscal.yaml (Art. 15)
+
+EVIDENCE     
+
+> 7 probes activated by with vl.monitor():
+> Trace
+> code AST
+> Artifact
+> SHA-256
+> BOM
+> CycloneDX
+> Integrity
+> env hash
+> Hardware
+> CPU/GPU
+> Carbon
+> kgCO 2
+> Handshake
+> enforce?
+> Arts. 10–12 Arts. 11, 15 Art. 11 Art. 9
+
+ENFORCEMENT          
+
+> vl.enforce() : OSCAL controls →metric function registry
+> PASS →Finding: satisfied FAIL →Risk + POA&M item
+> OSCAL Assessment Results |assessment-results.oscal.json
+> controls loaded
+> observations
+> findings + risks
+
+Fig. 1. Three-layer architecture. OSCAL policies define controls with the proposed AI extensions (including metric selection and thresholds). Seven probes collect evidence during training. The enforcement engine dispatches each control to a metric function from the SDK’s extensible registry (fairness, privacy, data quality, performance) and produces OSCAL Assessment Results—with auto-generated risks and POA&M items for failed controls. 
+
+parity difference). The developer wraps the training script in with vl.monitor("credit-scoring"): 
+
+and calls vl.enforce(data=df, policy="credit-scoring.oscal.yaml") inside. The evidence layer activates all probes; the enforcement layer evaluates the five controls against the data and predictions. Table 3 summarizes the results. The age disparity fails (0.286 vs. 0.50 threshold); with enforcement_mode: block , training would halt. After group-aware sample reweighting ( wg,y = P (g) · P (y)/P (g, y )), gender demo-graphic parity drops to 0.012 while accuracy holds at 0.795. 
+
+Phase Control Actual Op Thresh. Result 
+
+Pre Class imbalance 0.429 > 0.20 PASS 
+
+Pre Gender DI 0.818 > 0.80 PASS 
+
+Pre Age DI 0.286 > 0.50 FAIL 
+
+Post Accuracy 0.795 ≥ 0.70 PASS 
+
+Post Gender DP diff 0.012 < 0.10 PASS 
+
+TABLE 3 Pre-training (Art. 10) and post-training (Art. 15) audit results for credit scoring. DI = Disparate Impact, DP = Demographic Parity. 
+
+The age disparity failure triggers an OSCAL Risk in the assessment results, with characterization facets record-ing the metric ( disparate_impact ), actual value (0.286), threshold (0.50), and operator ( gt ). The POA&M auto-generates an open remediation item linked to this risk. The enforcement engine also reports per-group breakdowns: female positive rate 35.16%, male positive rate 27.68%, ratio 0.787—granularity that an auditor needs to verify the un-derlying distribution, not just a pass/fail flag. After group-aware sample reweighting ( wg,y = P (g) ·
+
+P (y)/P (g, y )), the post-training audit shows gender de-mographic parity dropped to 0.012 while accuracy held at 0.795. The age disparity persists because the mitigation targeted gender only; a subsequent cycle would address it before market placement. The evidence vault for this run contains: the OSCAL Assessment Results document (3 observations, 3 findings, 1 risk for pre-training; 2 findings, 0 risks for post-training), the POA&M with one open item, a trace file with AST analysis of the training script, SHA-256 hashes of data splits, a CycloneDX BOM (scikit-learn 1.3.0, 12 dependencies), hardware metadata (4 CPUs, 2.1 GB peak RAM), and carbon emissions (0.002 kgCO 2). All artifacts are OSCAL-compliant and validated against the NIST JSON schema. 
+
+Scenario B: Medical Imaging (Annex III, Area 5a) 
+
+AI systems used as safety components in medical devices are high-risk under Annex III, Area 5(a), and additionally subject to the Medical Device Regulation (EU) 2017/745. We apply the same architecture to a 3D whole-body CT segmentation pipeline built on MONAI 1.3 with a SegRes-Net backbone pre-trained to segment 105 anatomical struc-tures. Unlike the credit-scoring scenario, here the model is downloaded as published weights—representative of the manufacturer-as-deployer case: a hospital or SaMD vendor that integrates a third-party model and must still demon-strate EU AI Act conformity and ISO 42001 alignment on its own deployment. The monitor() context manager activates all seven probes without modifying the inference code. 4
+
+The OSCAL policy (medical-ct.oscal.yaml )defines controls for Dice coefficient, sensitivity, and specificity—each stratified by patient cohort (age, 
+
+4. https://github.com/Venturalitica/venturalitica-scenario-medical 6                                                                         
+
+> assessment-plan: metadata: title: "Art. 10 Data Governance" control-implementations: - implemented-requirements: - control-id: credit-data-bias
+> description :"Gender disparate impact follows Four-Fifths Rule"
+> props :-name :metric_key
+> value :disparate_impact -name :operator
+> value :">=" -name :threshold
+> value :"0.8" -name :threshold_justification
+> value :"EEOC Four-Fifths Rule (1978)" -name :risk_acceptance_criteria
+> value :"residual DI >= 0.80 after mitigation" -name :severity
+> value :high -name :lifecycle_phase
+> value :training -name :enforcement_mode
+> value :block -name :risk_id
+> value :R-042 -name :treatment_id
+> value :T-017
+> Fig. 2. Excerpt from areal OSCAL policy file (abridged for space). The first three properties drive metric evaluation;
+> threshold_justification and risk_acceptance_criteria
+> name the normative source and residual-risk bound; severity labels criticality for reporting; lifecycle_phase and enforcement_mode
+> control which engine evaluates the check and how it reacts to failure;
+> risk_id and treatment_id link to the risk register. Full examples at https://github.com/Venturalitica/venturalitica-sdk-samples.
+
+gender). The developer wraps the MONAI inference loop in with vl.monitor("medical-ct"): 
+
+and calls vl.enforce(data=preds, policy="medical-ct.oscal.yaml") inside; the probes capture model weights hashes, a CycloneDX BOM (MONAI + 47 dependencies), and CUDA environment metadata. The enforcement engine evaluates the controls across all cohort stratifications, producing 37 evaluation rows—each an OSCAL Observation traceable to its originating control. The BOM lists MONAI 1.3, PyTorch 2.1, and 47 transitive dependencies; the Integrity probe records the full computational environment (CUDA 12.1, A100 80GB), addressing Art. 11/Annex IV documentation requirements. The two scenarios cover the two canonical deployment modes: training your own model on tabular data (Sce-nario A) and deploying a pre-trained volumetric model (Scenario B). The pipeline code differs—scikit-learn vs MONAI/PyTorch—but the SDK integration is identical: the same monitor() call, the same OSCAL policy for-mat, the same probes and enforcement engine. Only the policy content (metrics, thresholds, framework references) and whether lifecycle_phase targets training or 
+
+validation change between domains. 
+
+Summary of Generated Evidence 
+
+A single pipeline execution—whether training or inference—generates a compliance bundle: the OSCAL Assessment Results and POA&M documents plus the probe artifacts (BOM, hashes, environment fingerprint, carbon trace), colocated in the run directory. The bundle is machine-readable, locally stored, and independently verifiable by an auditor. 
+
+DISCUSSION 
+
+Implications for engineering teams. The architecture shifts compliance from a recurring audit cost to an amortized pipeline cost: evidence is produced as a byproduct of the pipeline rather than reconstructed ex-post. Teams get im-mediate feedback on data quality and fairness (Table 3), enabling remediation before market placement rather than after a failed audit. 
+
+Implications for regulators and auditors. Machine-readable OSCAL evidence prepares the infrastructure for scalable conformity assessment. Regulators and notified bodies could consume assessment results programmatically—verifying that controls were evaluated against thresholds at recorded timestamps—once the format is recognised in sector-specific guidance or anotified-body procedure; this recognition is a policy step beyond the technical contribution of this work. The same structured evidence feeds auditor dashboards: a viewer can render OSCAL Findings, Risks, and POA&M items as an interactive risk register, surfacing failing controls and affected demographic groups without requiring the auditor to parse raw JSON. Art. 14 human oversight is a cognitive problem as much as a technical one [15]; standardized evidence formats make it tractable to build the review interfaces that overseers actually need. 
+
+Implications for standards bodies. The proposed exten-sions (Table 2) are a starting point for standardization. The CEN/CENELEC work on prEN 18286 could adopt an exe-cutable policy format alongside natural-language controls. A NIST OSCAL Profile for AI—analogous to existing Fe-dRAMP profiles—could unify AI RMF sub-categories with EU AI Act articles in one catalog. 
+
+From pre-market to post-market monitoring. The SDK described here targets the pre-market obligations of Arts. 9–15, but the same OSCAL foundation extends nat-urally to Art. 72 (post-market monitoring) and Art. 73 (serious incident reporting). The lifecycle_phase and 
+
+evaluation_window properties we introduced (Table 2) are the hooks a runtime layer uses. A hypothetical production-monitoring agent—deployable under Privacy-by-Design / Bring-Your-Own-Cloud constraints—would act as a second consumer of the same OSCAL catalog: ingest-ing the controls tagged lifecycle_phase: monitoring 
+
+and emitting the same Assessment Results structure (obser-vations, findings, risks, POA&M). Continuous-evaluation semantics governed by evaluation_window (including sliding-window assessment of drift and demographic parity over production traffic) follow naturally once that layer exists. Training-time and runtime enforcement would there-fore share a single source of truth, not a duplicate gover-nance stack. 
+
+From classical ML to agentic AI. Recent work proposes governance for autonomous AI agents [16], including trajectory-level compliance policies. Nannini et al. [17] 7
+
+argue that high-risk agentic systems with untraceable behavioral drift—quantified empirically by Rath [18]— cannot currently meet the AI Act’s essential requirements; their three oversight modalities (retrospective, real-time, continuous) map to our enforcement_mode 
+
+values, and lifecycle_phase: monitoring with 
+
+evaluation_window: sliding are the hooks acontinuous layer needs. Runtime-governance frameworks such as MI9 [19] and policies-on-paths [20] describe complementary mechanisms (telemetry, conformance state machines, trajectory policies) that a compliant runtime proxy would implement on top of the same OSCAL catalog. These proposals assume an assurance layer exists for the models agents invoke. Our architecture is that prerequisite: assure the models first, then assure the agents. 
+
+Limitations. The architecture covers Arts. 9–15 but not organizational requirements (Arts. 16–17). The multi-regulation problem [6] is beyond scope. Validation is limited to tabular and volumetric imaging scenarios; NLP, LLM, and recommender systems remain future work, as do GPAI models with systemic risk (Arts. 51–55), which fall un-der a distinct regime outside this profile. OSCAL JSON is designed for engineers and regulators—a parallel human-readable layer is needed for public accountability. 
+
+CONCLUSION 
+
+AI governance frameworks tell you what to measure. OS-CAL, extended with the 16 properties we describe here, tells the machine how to measure it. We tested the approach on a credit scoring model and a medical imaging pipeline—two different modalities, same OSCAL policies, same probes, same enforcement engine. The SDK produces native Assessment Results validated against the NIST JSON schema. When a control fails, it generates a Plan of Action and Milestones with the risk linked to the specific finding. The evidence is machine-readable, version-controlled, and auditor-ready—produced as a byproduct of training, not as a separate exercise. The takeaway for engineering teams: compliance is an infrastructure problem. For regulators: machine-readable evidence scales. For standards bodies working on prEN 18286: the OSCAL extensions proposed here are a concrete starting point. 
+
+Declaration of Competing Interests 
+
+R. Cilla Ugarte is founder of Venturalítica S.L., the company that develops and maintains the open-source 
+
+venturalitica-sdk described in this work. The remain-ing authors declare no competing interests. This manuscript received no external funding from Venturalítica S.L. or any other organization; the reference implementation is released under the Apache 2.0 license and is independently verifi-able. 
+
+AI Use Declaration 
+
+Claude (Anthropic, Opus 4 model via Claude Code CLI) was used during manuscript preparation for: (1) literature search assistance in the Background section (identifying and cross-referencing related work); (2) LaTeX formatting and table layout across all sections; and (3) prose editing for grammar and clarity. All scientific content—the OSCAL extension design, the three-layer architecture, experimental design, and analysis of results—was authored solely by the authors. All AI-assisted outputs were reviewed, verified, and revised by the authors, who retain full responsibility for the accuracy and integrity of the work. 
+
+REFERENCES 
+
+[1] N. Kshetri, “Economics of artificial intelligence governance,” Com-puter , vol. 57, no. 4, pp. 113–118, 2024. [2] B. Marino and N. D. Lane, “Computational compliance for AI regulation: Blueprint for a new research domain,” 2026. [3] F. Sovrano, E. Hine, S. Anzolut, and A. Bacchelli, “Simplifying software compliance: AI technologies in drafting technical docu-mentation for the AI act,” Empirical Software Engineering , vol. 30, no. 91, 2025. [4] M. Iorga and M. Nguyen, “Charting the course for NIST OSCAL,” National Institute of Standards and Technology, Tech. Rep. NIST CSWP 53 (Initial Public Draft), Dec. 2025. [5] N. Kshetri, “Regulatory technology and supervisory technology: Current status, facilitators, and barriers,” Computer , vol. 56, no. 1, pp. 64–75, 2023. [6] H. Graux, K. Garstka, N. Murali, J. Cave, and M. Botterman, “Interplay between the AI Act and the EU digital legislative framework,” European Parliament, ITRE Committee, Tech. Rep. PE 778.575, 2025. [Online]. Available: https://www.europarl.europa.eu/RegData/etudes/ STUD/2025/778575/ECTI_STU(2025)778575_EN.pdf [7] S. Bartsch, O. Behn, A. Benlian, R. Brownsword, S. Bücker, M. Düwell, N. Formánek, M. Jungtäubl, M. Leyer, A. Richter, J.-H. Schmidt, and M. Will-Zocholl, “Governance of high-risk AI systems in healthcare and credit scoring,” Business & Information Systems Engineering , vol. 67, no. 4, pp. 563–581, 2025. [8] M. Wagner, M. Borg, and P. Runeson, “Navigating the upcoming European Union AI Act,” IEEE Software , vol. 41, no. 1, pp. 19–24, 2024. [9] J. B. Peckham, “An AI harms and governance framework for trustworthy AI,” Computer , vol. 57, no. 3, pp. 59–68, 2024. [10] M. Mitchell, S. Wu, A. Zaldivar, P. Barnes, L. Vasserman, B. Hutchinson, E. Spitzer, I. D. Raji, and T. Gebru, “Model cards for model reporting,” in Proc. Conf. Fairness, Accountability, and Transparency (FAT* ’19) , 2019, pp. 220–229. [11] M. Arnold, R. K. E. Bellamy, M. Hind, S. Houde, S. Mehta, A. Mo-jsilovic, R. Nair, K. Natesan Ramamurthy, D. Reimer, A. Olteanu, D. Piorkowski, J. Tsay, and K. R. Varshney, “FactSheets: Increasing trust in AI services through supplier’s declarations of conformity,” 
+
+IBM Journal of Research and Development , vol. 63, no. 4/5, pp. 6:1– 6:13, 2019. [12] A. Bell, L. Bynum, N. Drushchak, T. Herasymova, L. Rosenblatt, and J. Stoyanovich, “The possibility of fairness: Revisiting the impossibility theorem in practice,” in Proc. Conf. Fairness, Accountability, and Transparency (FAccT ’23) , 2023. [Online]. Available: https://arxiv.org/abs/2302.06347 [13] S. Nocera, M. Di Penta, F. Ahmed, S. Romano, and G. Scanniello, “What we know about AIBOMs: Results from a multivocal litera-ture review on artificial intelligence bill of materials,” ACM Trans. Softw. Eng. Methodol. , vol. 33, no. 6, 2025. [14] H. Hofmann, “Statlog (German Credit Data),” UCI Machine Learning Repository, 1994. [Online]. Available: https://archive. ics.uci.edu/ml/datasets/statlog+(german+credit+data) [15] J. Laux and H. Ruschemeier, “Automation bias in the AI Act: On the legal implications of attempting to de-bias human oversight of AI,” European Journal of Risk Regulation , vol. 16, pp. 1519–1534, 2025. [16] N. Kshetri, “Governing agentic AI: Security, identity, and over-sight in the age of autonomous intelligent systems,” Computer ,vol. 58, no. 8, pp. 123–129, 2025. [17] L. Nannini, A. L. Smith, M. J. Maggini, E. Panai, S. Feliciano, A. Tiulkanov, E. Maran, J. Gealy, and P. Bisconti, “AI agents under EU law,” arXiv:2604.04604, 2026. [Online]. Available: https://arxiv.org/abs/2604.04604 8
+
+[18] A. Rath, “Agent drift: Quantifying behavioral degradation in multi-agent LLM systems over extended interactions,” arXiv preprint , 2026. [Online]. Available: https://arxiv.org/abs/2601. 04170 [19] C. L. Wang, T. Singhal, A. Kelkar, and J. Tuo, “MI9: An integrated runtime governance framework for agentic AI,” arXiv preprint ,2025. [Online]. Available: https://arxiv.org/abs/2508.03858 [20] D. Furman and M. Goldszmidt, “Runtime governance for AI agents: Policies on paths,” arXiv preprint , 2026. [Online]. Available: https://arxiv.org/abs/2603.16586 
+
+PLACE PHOTO HERE 
+
+Rodrigo Cilla Ugarte is founder of Venturalítica S.L. and holds a PhD in Computer Science from Universidad Carlos III de Madrid. He pre-viously led CE marking for medical device soft-ware at ULMA Medical Technologies and is a certified ISO/IEC 42001 Lead Auditor. Contact: rodrigo.cilla@venturalitica.ai. PLACE PHOTO HERE 
+
+Miguel Ángel Patricio Guisado is a Full Pro-fessor at Universidad Carlos III de Madrid (GIAA group), with a PhD from Universidad Politécnica de Madrid. His research covers computer vision, machine learning, and distributed systems. PLACE PHOTO HERE 
+
+Antonio Berlanga de Jesús is an Associate Professor at Universidad Carlos III de Madrid (GIAA group), with a PhD in Computer Engi-neering from UC3M. His research covers ma-chine learning, multi-objective optimization, and decision-making. PLACE PHOTO HERE 
+
+José Manuel Molina López is a Full Professor at Universidad Carlos III de Madrid and Director of the GIAA group, with a PhD in Telecommu-nications Engineering from UPM. His research spans machine learning, deep learning, and multi-agent systems.

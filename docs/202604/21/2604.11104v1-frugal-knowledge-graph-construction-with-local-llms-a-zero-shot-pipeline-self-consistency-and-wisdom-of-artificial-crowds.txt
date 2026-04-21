@@ -1,0 +1,459 @@
+Title: 2604.11104v1.pdf
+
+URL Source: https://arxiv.org/pdf/2604.11104v1
+
+Published Time: Tue, 14 Apr 2026 02:17:28 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+> arXiv:2604.11104v1 [cs.AI] 13 Apr 2026
+
+# Frugal Knowledge Graph Construction with Local LLMs: A Zero-Shot Pipeline, Self-Consistency and Wisdom of Artificial Crowds 
+
+Pierre Jourlin 
+
+Avignon Université, Laboratoire d’Informatique d’Avignon (LIA) 
+
+pierre.jourlin@univ-avignon.fr 
+
+April 2026 
+
+Abstract 
+
+This paper presents an empirical study of a multi-model zero-shot pipeline for knowledge graph construction and exploitation, executed entirely through local inference on consumer-grade hardware. We propose a reproducible evaluation framework integrating two external benchmarks (DocRED, HotpotQA), WebQuestionsSP-style synthetic data, and the RAGAS evaluation framework in an automated pipeline. On 500 document-level relations, our system achieves an F1 of 0 .70 ± 0.04 1 in zero-shot, compared to 0 .80 for supervised DREEAM. Text-to-query achieves an accuracy of 0 .80 ± 0.06 on 200 samples. Multi-hop reasoning achieves an Exact Match (EM) of 0 .46 ±0.04 on 500 HotpotQA questions, with a RAGAS faithfulness of 0 .96 ± 0.04 on 50 samples. Beyond the pipeline, we study diversity mechanisms for difficult multi-hop reasoning. On 181 questions unsolvable at zero temperature, self-consistency ( k=5, T =0 .7) recovers up to 23% EM with a single Mixture-of-Experts (MoE) model, but the cross-model oracle (3 architectures × 5 samples) reaches 46.4%. We highlight an agreement paradox : strong con-sensus among samples signals collective hallucination rather than a reliable answer, echoing the work of Moussaïd et al. on the wisdom of crowds. Extending to the full pipeline (500 questions), self-consistency ( k=3) raises EM from 0.46 to 0 .48 ± 0.04. A confidence-routing cascade mechanism (Phi-4 → GPT-OSS, k=5) achieves an EM of 0 .55 ± 0.04, the best result obtained, with 45.4% of questions rerouted. Finally, we show that V3 prompt engineering applied to other models does not reproduce the gains observed with Gemma-4, confirming the specific prompt/model interaction. The entire system runs in ∼5 h on a single RTX 3090, without any training, for an estimated carbon footprint of 0.09 kg CO 2eq. 
+
+Keywords: knowledge graph, relation extraction, frugal AI, zero-shot, multi-hop reason-ing, self-consistency, confidence-routing cascade, wisdom of crowds, RAG, quantized LLM, Ollama 
+
+> 1
+
+All our confidence intervals (CI) are reported at the 95% level. 
+
+11 Introduction 
+
+1.1 Context and Motivation 
+
+Large Language Models (LLMs) have achieved tremendous success in natural language process-ing, yet remain criticized for their tendency to hallucinate [ 1] and their high computational cost [ 2]. A promising avenue is to couple knowledge graphs (KGs) with frugal LLMs: the KG provides a verifiable semantic structure, while the LLM serves as the natural language interface. The central question is to determine to what extent quantized LLMs, executed locally and without specialized training, can construct and exploit a KG with sufficient quality for real-world applications. 
+
+1.2 Contributions 
+
+This work makes four contributions: 1. A reproducible multi-task evaluation framework integrating DocRED [ 3], WebQuestionsSP-style synthetic data [ 4], HotpotQA [ 5], and the RAGAS framework [ 7] in an automated pipeline executable via local inference. The code and raw results are available under a 
+
+Hypocratic license 2.2. A comparative empirical study measuring the performance/cost trade-off between frugal zero-shot approaches and supervised systems, with bootstrap confidence intervals and comparison of four quantized models. 3. An analysis of the role of prompt engineering demonstrating that the gains primarily stem from prompt design (synonyms, semantic constraints) rather than from constrained decoding alone. 4. A study of stochastic vs. architectural diversity for multi-hop reasoning, revealing an agreement paradox that connects LLMs to the literature on the wisdom of crowds [ 19 ]. 5. A confidence-routing cascade mechanism combining self-consistency and cross-model rerouting, achieving EM=0.55 on 500 HotpotQA questions, the best result obtained, out-performing zero-shot (+9 pts) and multi-model voting (+11 pts). 
+
+1.3 Outline 
+
+Section 2 reviews related work. Section 3 describes our methodology. Section 4 presents the results. Section 5 discusses implications and limitations. Section 6 concludes. 
+
+> 2https://github.com/jourlin/synsynth
+
+22 Related Work 
+
+2.1 Relation Extraction 
+
+2.1.1 Supervised Approaches 
+
+Document-level relation extraction aims to identify semantic links between entities separated by multiple sentences. DocRED [ 3] contains 3,053 annotated documents with 96 relation types. ATLOP [ 8] proposes adaptive thresholding and localized context pooling, achieving an F1 of 77.8%. DREEAM [ 9] uses an end-to-end evidence-guided attention mechanism, with an F1 of 80.2%. These systems require supervised training on multiple GPUs for several hours to several days. 
+
+2.1.2 Zero-Shot and Few-Shot Approaches with LLMs 
+
+The emergence of LLMs has opened the way to relation extraction without specific training. Wadhwa et al. [ 10 ] show that GPT-3 in few-shot achieves performance close to the supervised SOTA on TACRED, with an F1 of 30.4% in zero-shot and ∼72% in few-shot with human evalu-ation. Li et al. [ 11 ] evaluate ChatGPT on 14 information extraction tasks and find poor perfor-mance on standard evaluation but remarkable results on OpenIE. Ozyurt et al. [ 12 ] propose a few-shot framework for document-level extraction with pre-trained LLMs, achieving competitive results on DocRED without fine-tuning. REBEL [ 13 ] treats extraction as a sequence-to-sequence generation task. 
+
+2.2 Text-to-Query and KGQA 
+
+The transformation of questions into graph queries (KGQA) is an active problem. WebQuestion-sSP [ 4] provides a standard benchmark (4,737 questions). Recent approaches leverage LLMs for SPARQL (SPARQL Protocol and RDF Query Language) or Cypher query generation, replacing classical semantic parsing pipelines [ 15 ]. 
+
+2.3 Multi-Hop Reasoning 
+
+Multi-hop reasoning consists of combining multiple facts to answer complex questions. Hot-potQA [ 5] contains 113,000 questions requiring at least two hops. The standard metrics are Exact Match (EM) and token-level F1. Chain-of-thought approaches [ 16 ] significantly improve LLM performance on this type of reasoning. 
+
+2.4 RAG and KG–LLM Coupling 
+
+Retrieval-Augmented Generation (RAG) [ 6] combines information retrieval and generation to reduce hallucinations. RAGAS [ 7] evaluates three dimensions: faithfulness, relevance, and con-text precision. Pan et al. [ 14 ] propose a roadmap for unifying KGs and LLMs, identifying three paradigms: KG-enhanced LLM, LLM-enhanced KG, and synergistic integration. Our work falls within the second paradigm. 3Table 1: Tasks, data, and evaluation metrics. 
+
+Source / Framework Task N Metrics 
+
+Re-DocRED [ 3] Relation extraction 500 P, R, F1 Synthetic ⋆ Text-to-Query 200 Accuracy, Valid Cypher HotpotQA [ 5] Multi-hop reasoning 500 EM, Token-F1 Synthetic ⋆ + RAGAS [ 7] Anti-hallucination 50 Faithfulness, Relevance, Ctx. Precision  
+
+> ⋆Questions generated by the LLM from manual seeds (20 for Text-to-Query, 6 for RAG). RAG metrics are computed by the RAGAS framework. See § Evaluation Protocol.
+
+# 3 Methodology 
+
+3.1 Pipeline Architecture 
+
+The SYNSYNTH pipeline chains four independent modules, each assigned to a specialized LLM. The entire system is orchestrated by a single script with checkpoint saving and automatic re-sumption. 
+
+3.2 Models and Quantization 
+
+All models are executed via Ollama v0.20.0 with native JSON Schema support for constrained decoding: Table 2: Models used per task. 
+
+Task Model Parameters Quant. 
+
+Relation extraction Gemma-4-27B-A4B-it 27B (4B active) Q4_K_M Text-to-Query Qwen3-Deep 8B Q4_K_M Multi-hop reasoning Phi-4 14B Q4_K_M Conversational RAG Mistral-Small 24B Q4_K_M 
+
+The main model, Gemma-4-27B-A4B-it (Google DeepMind), is a multilingual LLM with a Mixture-of-Experts (MoE) architecture of 27 billion parameters of which only 4 billion are activated per inference. Quantization in GGUF (GPT-Generated Unified Format) Q4_K_M reduces the memory footprint to ∼16 GB of video memory (VRAM). 
+
+3.3 Prompt Engineering 
+
+The extraction prompt is a central element of our approach. It includes: • The explicit list of 96 valid relations drawn from the DocRED Wikidata taxonomy. • The prohibition of no_relation , none , or unknown answers. • Specific rules per semantic type (geographic, familial, creative work). 4The full prompt is given in Appendix A.
+
+3.4 Relation Matching and Synonyms 
+
+Extraction evaluation uses soft matching that tolerates expressive variations between the model output and the gold standard: 1. Resolution of the Wikidata code (e.g., P131 → located_in_admin ). 2. Normalized exact match (lowercase, underscores). 3. Substring inclusion and significant common words ( ≥ 4 characters). 4. Synonym dictionary covering 25 semantic groups, built from manual analysis of the V1 confusion matrix ( ∼ 150 recoverable errors identified). The groups cluster systematic con-fusions between relations of the same domain. 3
+
+As validation, automatic spectral clustering on the symmetrized confusion matrix (60 × 60 labels, 954 pairs), optimized by silhouette ( k=15 clusters), produces groupings that capture more raw confusions (F1=0.88 vs. 0.73 for manual synonyms, computed by inclusive matching on pred/gold pairs). However, the silhouette is very low ( −0.93) and the correspondence with manual groups is low (mean Jaccard=0.10): the automatic clusters mix relations from distinct domains (e.g., capital_of , date_of_birth , and religion in the same cluster of size 16). The manual groups, though less exhaustive, offer semantically coherent coverage that automation does not reproduce at this stage. 
+
+3.5 Experimental Conditions 
+
+• Processor : Intel Core i9-12900HK (14 cores, 20 threads) • Memory : 32 GB DDR5 • GPU : NVIDIA GeForce RTX 3090 (24 GB VRAM, TDP 350 W) • System : Ubuntu 24.04 LTS, Python 3.12.3 • Inference : Ollama v0.20.0 (native JSON Schema) • Hyperparameters : temperature = 0 .3, top-p = 0 .9, num_ctx = 8192 • Random seed : 42 (reproducibility) 
+
+3.6 Evaluation Protocol 
+
+All metrics are accompanied by 95% confidence intervals computed by bootstrap (1,000 iter-ations). Sample sizes are as follows: N =500 for relation extraction (DocRED), N =200 for Text-to-Query, N =500 for multi-hop reasoning (HotpotQA), and N =50 for RAG evaluation.     
+
+> 3e.g., country /located_in_admin /contains_admin for geographic relations, spouse /mother /father for family relations.
+
+5These sizes are constant across versions, with the exception of RAGAS, which used N =6 
+
+in V1–V2 before being scaled to N =50 starting from V3 .
+
+Origin of evaluation data. Relation extraction and multi-hop reasoning rely on established external benchmarks: Re-DocRED [ 3] (3,053 annotated documents) and HotpotQA [ 5] (113,000 questions), from which we randomly draw our samples. In contrast, the Text-to-Query and RAG data are necessarily synthetic . The use of generated data is a constrained choice, not a convenience choice: Text-to-Query queries must be expressed in Cypher and target the schema of the Neo4j graph built by the pipeline, which rules out existing benchmarks (WebQuestionsSP uses SPARQL against Freebase, an incompatible schema and query language); likewise, RAG evaluation must target the content of the KG actually constructed by SYNSYNTH, and no external benchmark provides questions adapted to an arbitrary knowledge graph. More specif-ically: for Text-to-Query, 20 examples are manually written (WebQuestionsSP-style questions with a reference Cypher query), then the LLM (Qwen3-Deep 8B) generates the remaining 180 in batches of 30, across varied domains (geography, history, science, etc.). For RAG, 6 man-ual examples serve as seeds and 44 are generated in the same manner. This pragmatic choice enables the creation of reasonably sized evaluation sets without costly human annotation, but introduces a risk of circular bias: since the model being evaluated produced part of the data, the Text-to-Query and RAG scores should be interpreted as indicators of internal consistency rather than as measures against an external gold standard. The standard metrics for each benchmark are reported in Table 1.
+
+3.7 Pipeline Versions 
+
+Development followed an incremental progression in six versions: 
+
+V1 (baseline) Initial pipeline with minimal prompt and free parsing of JSON outputs. 
+
+V2 (+ constrained decoding) Addition of constrained decoding via Ollama JSON Schema, guaranteeing the syntactic validity of outputs. 
+
+V3 (+ synonyms + prompt) Advanced prompt engineering (§ 3.3 ) and synonym dictionary for relation extraction. This is the reference version of the complete pipeline. 
+
+V4 (+ QLoRA multi-hop) QLoRA 4-bit fine-tuning of Qwen2.5-7B on HotpotQA with train-ing format aligned with evaluation (§ 4.5 ). 
+
+V5a (+ self-consistency) Addition of intra-model majority voting ( k=3 samples, T =0 .7) for multi-hop reasoning (§ 5.7 ). 
+
+V5b (+ cascade) Confidence-routing cascade: questions with low intra-model agreement are rerouted to a second LLM ( k=5, Phi-4 → GPT-OSS, § 5.7 ). 64 Experimental Results 
+
+4.1 Relation Extraction 
+
+Table 3: Relation extraction results (500 DocRED samples). All models are zero-shot. The 95% CIs are computed by bootstrap. 
+
+Metric Value 95% CI Target 
+
+Precision 0.7379 [0.70; 0.77] —Recall 0.6700 [0.63; 0.71] —F1-Score 0.7023 [0.67; 0.74] 0.85 
+
+The extraction achieves an F1 of 0.70, tripled compared to the initial baseline (V1: 0.26). The high precision (0.74) indicates that predictions are predominantly reliable, while the lower recall (0.67) reveals that the model still misses some relations. 
+
+4.1.1 Multi-Model Benchmark 
+
+To evaluate the contribution of our prompt engineering independently of model choice, we submitted the same 500 DocRED samples to six models in raw extraction (minimal prompt, JSON format), without our V3 pipeline optimizations. Table 4: Raw extraction benchmark on 500 Re-DocRED samples. JSON format, minimal prompt, zero-shot. 
+
+Model P R F1 Unparsed samples (%) 
+
+Mistral-Small 0.666 0.666 0.666 0.0 GPT-OSS (20B) 0.823 0.550 0.659 33.2 Phi-4-Reasoning+ 0.656 0.656 0.656 0.0 Phi-4 0.618 0.618 0.618 0.0 Qwen-3 (14B) 0.917 0.176 0.295 80.8 
+
+Gemma-4 (26B, pipeline) 1.000 0.020 0.039 98.0 
+
+The “Unparsed samples” column indicates the percentage of samples whose JSON output from the model is malformed and cannot be parsed by the evaluation script; these samples are counted as complete failures (no triplets extracted). A high rate signals an incompatibility of the model with the constrained output format. Two models were excluded from this benchmark: Qwen-3.5 (27B) , whose reasoning architecture encapsulates the entire response in an internal thinking field, returning empty JSON content (100% parsing failures); and DeepSeek-R1 (32B) , which exhibits a similar pathological profile (partial F1 of 0.29 at 280/500, 81% parsing failures), suggesting a structural incompatibility of explicit chain-of-thought models with the constrained JSON output format. 7The most striking result concerns Gemma-4, the model selected for our pipeline: in raw extrac-tion, it obtains an F1 of only 0.039, the worst score among the six models. Yet, integrated into our V3 pipeline with prompt optimizations (relation synonyms, structured system prompt, soft matching), it reaches an F1 of 0.702—a gain of +66 points entirely attributable to prompt engineering. This demonstrates that prompt quality far outweighs model choice for this task. 
+
+4.1.2 Comparison with the State of the Art 
+
+Table 5: Comparison with supervised and zero-shot baselines on DocRED. 
+
+System Paradigm F1 (%) Hardware 
+
+DREEAM [ 9] Supervised (fine-tuned) 80.2 Multi-GPU †
+
+ATLOP [ 8] Supervised (fine-tuned) 77.8 Multi-GPU †
+
+GPT-3 few-shot [ 10 ] Few-shot (cloud API) ∼72 ∗ OpenAI API GPT-3 zero-shot [ 10 ] Zero-shot (cloud API) ∼30 OpenAI API ChatGPT zero-shot [ 11 ] Zero-shot (cloud API) ∼25 OpenAI API 
+
+SYNSYNTH (Gemma-4 Q4) Zero-shot (local) 70.2 1× RTX 3090   
+
+> †Exact resources not reported in the original papers.
+> ∗With human evaluation (Wadhwa et al., 2023).
+
+Our result of 70.2% in local zero-shot clearly surpasses published zero-shot results for GPT-3 (∼30%) and ChatGPT ( ∼25%), while remaining below supervised systems (DREEAM: 80.2%). This performance is remarkable given the complete absence of training and execution on consumer-grade hardware. 
+
+4.2 Text-to-Query 
+
+Table 6: Text-to-Query results (200 samples). 
+
+Metric Value 95% CI Target 
+
+Accuracy 0.795 [0.74; 0.85] 0.90 Valid Cypher rate 1.00 — —
+
+The syntactically valid Cypher rate of 1.0 shows that constrained decoding guarantees syntac-tic correctness. Cypher is the query language of the Neo4j 4 graph database. The accuracy (i.e., the proportion of queries producing the correct answer) of 0.80 indicates good question understanding, with a 95% CI confirming the significance of the result ( N = 200). 
+
+> 4https://neo4j.com/
+
+84.3 Multi-Hop Reasoning 
+
+Table 7: Multi-hop reasoning results (500 HotpotQA samples). Standard metrics: EM and token-F1. 
+
+Metric Value 95% CI Target 
+
+Exact Match (EM) 0.458 [0.42; 0.50] 0.70 Token-F1 0.520 [0.49; 0.55] —Mean chain length 3.24 — 3
+
+We report the standard HotpotQA metrics: Exact Match (EM) and token-level F1. The mean chain length of 3.24 confirms that the system effectively chains multiple facts. The token-F1 of 0.52 shows that partially correct answers are frequent. The gap between the observed EM (0.46) and the ambitious target of 0.70 is explained by the zero-shot nature of our approach: the target corresponds to the best supervised systems, trained on the 90,000 HotpotQA examples, whereas our pipeline uses no training examples. As shown in Sections 4.5 and 5.7 , self-consistency and confidence-routing cascade mechanisms help close this gap, reaching up to EM=0.55. 
+
+4.4 RAGAS Evaluation 
+
+Table 8: RAGAS evaluation results (50 samples). 
+
+Metric Value 95% CI 
+
+Mean faithfulness 0.9572 [0.91; 1.00] Mean relevance 0.8220 [0.76; 0.88] Context precision 0.9480 [0.90; 0.99] 
+
+The faithfulness of 0.96 indicates that answers are overwhelmingly derived from the graph con-text, with a residual hallucination rate of ∼ 4%. The context precision of 0.95 confirms that the system retrieves the correct nodes. 
+
+4.5 QLoRA Learning Curve and Multi-Hop Reasoning 
+
+To determine whether QLoRA (Quantized Low-Rank Adaptation) 4-bit fine-tuning of a small model (7B) can close the gap with zero-shot from a larger model (14B), we trained Qwen2.5-7B-Instruct with QLoRA (NF4, LoRA r=16, α=32) on n ∈ { 10 , 50 , 200 , 500 , 1000 , 3000 } HotpotQA examples. The V4 training format is strictly aligned with evaluation (same system prompt, same few-shot). The learning rate is adaptive: lr=2 ×10 −4 if n ≤ 200, 10 −4 otherwise. 9Table 9: QLoRA learning curve on HotpotQA (500 test questions). The V4 format (structured reasoning chains) is compared to the V1 format (degenerate chains). 
+
+n EM V4 EM V1 F1 V4 chain ∆ V4 −V1 
+
+10 0.444 0.440 0.432 3.73 +0.004 50 0.344 0.330 0.313 4.31 +0.014 200 0.380 0.356 0.341 3.87 +0.024 500 0.378 0.308 0.359 3.74 +0.070 1000 0.406 0.246 0.405 3.46 +0.160 3000 0.406 0.190 0.387 3.80 +0.216 
+
+Pipeline references (Phi-4 14B zero-shot) 
+
+V1 / V2 0.462 — —V3 0.458 — —
+
+The contrast between the two training formats is the main result. “EM V1” and “EM V4” denote the QLoRA trained with the V1 data format (degenerate reasoning chains, i.e., raw answers without structured justification) and V4 (format aligned with evaluation, with system prompt and explicit reasoning chains), respectively. The V1 column shows a classic collapse known as catastrophic forgetting: EM drops from 0.44 ( n=10) to 0.19 ( n=3000) as the model “forgets” its zero-shot capabilities. In contrast, the V4 curve stabilizes at 0.406, yielding a gap of +0.216 at n=3000. The V4 curve exhibits a learning valley at n=50 (temporary loss of zero-shot capabilities before acquiring new ones), followed by a recovery and a plateau at n ≥ 1000. The QLoRA 7B plateaus at 88% of the Phi-4 14B zero-shot performance, with 36.2% of questions (181/500) wrong at all 
+
+data points. 
+
+4.6 Model Selection on Difficult Questions 
+
+To determine whether the glass ceiling is due to the model or the task, we evaluated 8 zero-shot LLMs (5 families, 14B–32B) on the 181 questions always wrong in V4. Table 10: Benchmark of 8 zero-shot LLMs on the 181 difficult questions. 
+
+Model Size EM F1 chain JSON% 
+
+GPT-OSS-20B 20B MoE 0.177 0.201 2.25 12.2 Phi-4-Reasoning+ 14B 0.166 0.156 10.9 23.8 Phi-4 14B 0.133 0.165 3.39 0.0 Magistral-24B 24B 0.110 0.142 4.31 0.6 Gemma-4-26B 26B MoE 0.083 0.066 0.86 77.3 Qwen3-14B 14B 0.072 0.088 2.13 4.4 DeepSeek-R1-32B 32B 0.072 0.118 2.24 0.0 Qwen3.5-27B 27B 0.061 0.060 0.60 81.2 
+
+10 The Oracle EM (at least one model correct) reaches 0.315 (57/181), i.e., +78% relative vs. the best individual. However, 124 questions (68.5%) remain unsolvable for all models. Model size does not predict performance: DeepSeek-R1-32B (the largest) performs worse than Phi-4 (14B). 
+
+4.7 Frugality and Carbon Footprint 
+
+Table 11: Execution times of the full pipeline. 
+
+Phase N Duration 
+
+Relation extraction 500 3 h 55 min Text-to-Query 200 ∼ 3 min Multi-hop reasoning 500 22 min 47 s Conversational RAG 50 ∼ 10 min 
+
+Total pipeline — ∼ 4 h 30 
+
+The carbon footprint is estimated following the methodology of Lacoste et al. [ 17 ]: CO 2eq = PGPU × t  
+
+> ︸︷︷ ︸
+> energy
+
+×PUE × CI (1) with PGPU = 350 W (RTX 3090 TDP), t ≈ 4.5 h, a domestic Power Usage Effectiveness (PUE) of 1.0, and an emission factor for France CI = 57 gCO 2eq/kWh (ADEME, 2023). The calculation yields: 350W × 4.5h × 1.0 × 57 × 10 −6 ≈ 0.09 kg CO 2eq This estimate covers only the GPU; adding the CPU ( ∼65 W) and RAM ( ∼10 W) would bring the estimate to ∼ 0.11 kg CO 2eq. Table 12: Frugality comparison between SYNSYNTH and baselines. 
+
+Approach Hardware Training Inference F1 
+
+SYNSYNTH (Gemma-4 Q4) 1× RTX 3090 None ∼4 h 0.70 GPT-3 zero-shot [ 10 ] Cloud API None — ∼0.30 GPT-3 few-shot [ 10 ] Cloud API None — ∼0.72 DREEAM [ 9] Multi-GPU † ∼ 24–48 h < 1 min 0.80 ATLOP [ 8] Multi-GPU † ∼ 12–24 h < 1 min 0.78  
+
+> †Exact resources not reported in the original papers.
+
+# 5 Analysis and Discussion 
+
+5.1 Error Analysis 
+
+We present a qualitative analysis of extraction errors, based on a manual examination of 50 error cases. 11 5.1.1 Typical False Positives 
+
+1. Geographic/administrative confusion : the model predicts country instead of located_in_admin 
+
+for relations between a city and a region. Ex. : (Lyon, Rhône) → pred: country , gold: 
+
+located_in_admin .2. Directional inversion : contains_admin predicted instead of part_of . The model con-fuses the direction of the relation (container vs. contained). 3. Temporal over-generalization : start_time confused with inception or date_of_birth 
+
+for dated events. 4. Semantic hallucination : notable_work predicted for geographic relations. Ex. : (Mozart, Salzburg) → pred: notable_work , gold: place_of_birth .
+
+5.1.2 Typical False Negatives 
+
+1. Parsing failures : ∼ 1% of responses do not contain valid JSON despite retry. 2. Rare relations : relations with few examples in DocRED ( basin_country , mouth_of_watercourse )are rarely predicted correctly. 3. Insufficient context : text truncated to 512 characters sometimes loses the necessary cues. 
+
+5.1.3 Multi-Hop Failures 
+
+The most frequent multi-hop errors are: • Interrupted chain : the model identifies the first hop but fails at the second. • Verbose answer : the answer contains the correct information buried in a long explana-tion, causing an EM failure but a non-zero token-F1 score. • Fact hallucination : the model invents an intermediate fact absent from the provided supporting facts. 
+
+5.2 Impact of Prompt Engineering 
+
+Table 13 traces the evolution of scores across optimizations. 12 Table 13: Score evolution by pipeline version. Extr. F1: relation extraction F1 (DocRED); Query: Text-to-Query accuracy (synthetic data); Multi. EM: multi-hop reasoning exact match (HotpotQA); RAG F.: RAGAS faithfulness. 
+
+Version Extr. F1 Query Multi. EM RAG F. Duration 
+
+V1 (baseline) 0.263 0.80 0.462 1.00 24 h 10 V2 (+ constrained decoding) 0.260 0.80 0.462 1.00 2 h 53 V3 (+ synonyms + prompt) 0.702 0.80 0.458 0.94 4 h 23 V4 (+ QLoRA multi-hop) 0.702 0.795 0.406 ‡ 0.96 ∼5 h V5a (+ SC k=3) 0.702 0.795 0.482 0.96 ∼6 h 
+
+V5b (+ Cascade) 0.702 0.795 0.552 0.96 ∼8 h   
+
+> ‡EM of QLoRA V4 on Qwen2.5-7B (7B, n=3000); V1–V3 and V5 use Phi-4 14B.
+
+Analysis. The transition from V1 to V2 demonstrates that constrained decoding (JSON Schema) does not improve extraction: the problem is semantic, not structural. The major gain (V3) comes from two factors: 1. Synonym expansion in relation matching: 25 semantic groups covering geographic, temporal, and familial confusions ( ∼150 recovered errors). 2. Prompt restructuring : switching to English, explicit list of 96 valid relations, prohibi-tion of no_relation , semantic-type guidance. In V4, the multi-hop EM of 0.406 corresponds to QLoRA on Qwen2.5-7B (a model 2 × smaller than Phi-4 14B). Despite an EM absolutely lower than zero-shot Phi-4 (0.462), this result is positive: QLoRA V4 eliminates the catastrophic forgetting observed in V1 (EM 0.44 →0.19 at 
+
+n=3000) and reaches 88% of the performance of the 14B zero-shot model, with a model 2 ×
+
+smaller. The RAGAS faithfulness regression from 1.00 (V1) to 0.94 (V3) is explained by the change in RAG model and the increased question complexity. With N = 6 in V1, the perfect score of 1.0 was not statistically reliable. The score of 0.96 on N = 50 in V4 is more representative. 
+
+5.3 Structural Advantage of the Knowledge Graph 
+
+A fundamental advantage of the KG approach over classical textual RAG lies in the ability to provide computed answers absent from source data: • Aggregations : “How many countries are EU members?”; COUNT query on nodes linked by member_of .• Comparisons : “Which authors have published more than 5 works?”; filtering and aggre-gation impossible through passage extraction. • Transitive inferences : if A part_of B and B part_of C, then A is indirectly related to C. 13 5.4 Pareto Analysis: Collective Intelligence vs. Single Model 
+
+The strong complementarity between models (Oracle EM=0.315 vs. Best=0.177) suggests that a multi-LLM ensemble could break through the glass ceiling. We evaluated this hypothesis by comparing scenarios on the full 500 questions. Table 14 lists all configurations, including the V5a/V5b variants introduced in § 5.7 and the routing baselines analyzed in § 5.7 .Table 14: Definitive Pareto frontier: cost vs. performance on 500 HotpotQA questions. 
+
+Scenario EM 95% CI #Mod. VRAM Rel. cost 
+
+V4 QLoRA only ( n=3000) 0.406 — 1 4 GB ×1V4 + 8 LLM vote 0.446 — 9 19 GB ×130 Phi-4 zero-shot (ref.) 0.462 [0 .42 ; 0 .50] 1 9 GB ×2.5 V5a SC ( k=3) 0.482 [0 .44 ; 0 .52] 1 9 GB ×7.5 V4 + 8-model Oracle (theor.) 0.520 — 9 19 GB ×130 Random cascade (45%) 0.524 ± 0.008 2 14 GB ×12 
+
+V5b Cascade (k=5) 0.552 [0 .51 ; 0 .59] 2 14 GB ×12 Phi-4 / GPT-OSS Oracle (theor.) 0.588 — 2 14 GB ×12  
+
+> CIs are reported only for configurations involving stochastic sampling (self-consistency, cascade). Lines without CIs correspond to deterministic results (a single answer per question) or theoretical bounds (oracles).
+
+The majority vote of 8 models (EM=0.446) underperforms a single zero-shot Phi-4 (EM=0.462). The voting efficiency is only 35% of the oracle: answers are too divergent to converge. In con-trast, the V5b cascade dominates the frontier: it achieves the best EM (0.552) with only 2 models and 14 GB VRAM, while remaining 10 × more frugal than the 8-model vote. Compared to a random cascade (EM=0.524) rerouting the same proportion of questions (45%) without considering agreement, the confidence-based cascade gains +2.8 pts (3 .5 σ), capturing 61% of the gap to the two-model oracle (0.588). 
+
+5.5 Self-Consistency: Stochastic vs. Architectural Diversity 
+
+The Pareto analysis compares different models (architectural diversity). Yet, Wang et al. [ 18 ]show that sampling k responses from the same model at non-zero temperature (stochastic di-versity) can also improve performance. We apply this protocol to the 181 difficult questions (EM=0 for all models at T ≈0) with k=5 samples and T =0 .7, on three representative architec-tures: GPT-OSS 20B (MoE), Phi-4-Reasoning+ (14B reasoner), and Phi-4 (14B standard). 14 Table 15: Self-consistency ( k=5, T =0 .7) on the 181 unsolvable questions (3 models). 
+
+Model Type EM voted Oracle k F1 voted ∆ vs. T ≈0
+
+GPT-OSS 20B MoE 0.232 0.332 0.240 +23.2 pts Phi-4-Reasoning+ Reasoner 0.171 0.298 0.138 +17.1 pts Phi-4 Standard 0.144 0.210 0.172 +14.4 pts 
+
+Cross-model oracle 3×k=5 0.309 0.464 — +46.4 pts 
+
+Results by model. The ranking MoE > reasoner > standard is systematic. The MoE architecture, with its stochastically activated experts, best exploits the diversity induced by temperature. The reasoner model (Phi-4-Reasoning+), paradoxically, benefits less from self-consistency: its long chains of thought produce high but unproductive variance (61% of questions with low agreement, vs. only 13% for GPT-OSS). The cross-model oracle (at least one correct answer among 15 attempts = 3 × k=5) reaches EM=0.464, i.e., 84/181 questions recovered. Each model brings unique contributions: GPT-OSS solves 15 questions that the other two fail, Phi-4-Reasoning+ solves 7, and Phi-4 solves 3. 
+
+The agreement paradox and the wisdom of crowds. Analysis by agreement level reveals a counterintuitive phenomenon: Table 16: Agreement paradox: EM by consensus level (GPT-OSS 20B). 
+
+Inter-response agreement N EM voted Oracle k
+
+High ( ≥ 0.8) 84 (46%) 0.214 0.250 Medium [0 .4; 0 .8[ 74 (41%) 0.311 0.459 
+
+Low ( < 0.4) 23 (13%) 0.043 0.217 
+
+Questions with high consensus (≥ 0.8, 46% of the corpus) exhibit lower EM (0.214) than those with intermediate agreement (0.311). When all 5 responses converge, it is often toward the same error: the model is confident but wrong . This phenomenon directly relates to the work of Moussaïd et al. [ 19 ] on collective intelligence: in human crowds, social influence reduces opinion diversity and degrades the quality of collective estimation. Here, the 5 samples come from the same network: they share the same systemic biases (knowl-edge gaps, evaluation heuristics). The T =0 .7 introduces surface diversity (lexical variations, inference orders), but not deep epistemic diversity. This is why the intermediate agreement zone [0 .4; 0 .8[ is the most productive (Oracle=0.459): the model hesitates, and it is precisely there that stochastic diversity provides new information. The Oracle −Vote gap (0.332 −0.232=0.100) shows that 10 EM points of correct answers exist in the k samples but do not survive majority voting: correct minorities are drowned out, exactly as predicted by the literature on collective conformity biases [ 19 ]. The cross-model combina-15 tion (Oracle=0.464) confirms that architectural diversity is complementary to stochastic diversity: the 15 combined attempts recover nearly half of the unsolvable questions at T ≈0. 
+
+5.6 Confidence Calibration 
+
+We evaluated the exploitability of self-reported confidence (the confidence field in the out-put JSON) as a human-in-the-loop routing signal. After QLoRA fine-tuning on Qwen2.5-7B, confidence is constant at 0.95 (σ = 0 .00), with an AUC-ROC of 0.500 (random), an Ex-pected Calibration Error (ECE) of 0.174, and no useful rejection threshold ( τ = 0). QLoRA on conversational-format data (system/user/assistant messages) learns a fixed pattern including 
+
+"confidence": 0.95 by default, destroying any discriminative capability. This negative result has a practical implication: self-reported confidence cannot serve as a filter-ing criterion for an automatic routing system. An external calibrator (Platt scaling 5, calibrated temperature 6) or a graph-based verification module would be necessary to estimate the true reliability of predictions. 
+
+5.7 Extension to the Full Pipeline: Self-Consistency and Cascade 
+
+The self-consistency experiments (§ 5.5 ) focused on the 181 difficult questions. We extend the study here to the full pipeline (500 HotpotQA questions) with two mechanisms: 
+
+V5a: Simple self-consistency ( k=3 ). A majority vote of k=3 samples from Phi-4 ( T =0 .7) on the 500 pipeline questions: Table 17: Self-consistency ( k=3) on 500 HotpotQA questions (full pipeline). 
+
+Metric Value 95% CI 
+
+Voted EM 0.482 [0 .440 ; 0 .522] Voted F1 0.479 [0 .437 ; 0 .518] Oracle ( k=3) 0.568 [0 .522 ; 0 .608] Mean agreement 0.738 —    
+
+> Mean agreement is the average proportion, across all questions, of the kresponses that match the majority response (e.g., 4 identical responses out of 5 →agreement = 0 .8).
+
+Self-consistency raises EM from 0.462 (zero-shot) to 0.482, a modest gain (+2 pts) explained by the small k and the predominance of “easy” questions already correct at T ≈0. The oracle (0.568) confirms that considerable untapped potential remains: 11 EM points of correct answers do not survive the vote. 
+
+V5b: Confidence-routing cascade ( k=5 ). We propose a cascade mechanism inspired by the agreement paradox (§ 5.5 ): (i) the primary model (Phi-4) generates k=5 responses at T =0 .7; (ii) 
+
+if inter-response agreement exceeds a high threshold ( θh=0 .8), the majority answer is accepted;   
+
+> 5Logistic regression applied to raw model scores to transform outputs into calibrated probabilities [ 20 ].
+> 6Division of logits by a parameter Toptimized on a validation set to minimize calibration error.
+
+16 (iii) if agreement falls in the intermediate zone [ θl=0 .4 ; θh[, a second model (GPT-OSS 20B) is solicited with k=5; (iv) if agreement remains below θl, the question is marked “uncertain.” Table 18: Cascade Phi-4 → GPT-OSS ( k=5) on 500 HotpotQA questions. 
+
+Metric Value 95% CI 
+
+Voted EM 0.552 [0 .508 ; 0 .594] Voted F1 0.534 [0 .493 ; 0 .576] Oracle ( k=5) 0.658 [0 .616 ; 0 .698] Mean agreement 0.837 —
+
+Primary accepted 54.6% —Rerouted 33.6% —Uncertain 11.8% —
+
+The cascade achieves EM =0.552 , the best score obtained in this study, surpassing simple self-consistency (+7 pts vs. V5a), zero-shot Phi-4 (+9 pts), and the 8-model vote (+11 pts vs. §5.4 ). The lower bound of the 95% CI (0.508) remains above the previous best result (0.482), confirming the statistical significance of the gain. The high mean agreement (0.837 vs. 0.738 for V5a) shows that rerouting improves response coherence. The mechanism directly exploits the agreement paradox: the 45.4% of rerouted questions cor-respond precisely to those where Phi-4 hesitates (agreement < 0.8). The transfer to GPT-OSS provides architectural diversity complementary to stochastic diversity, consistent with the con-clusions of the cross-model analysis. The complete Pareto frontier (Table 14 ) confirms that the V5b cascade dominates all configura-tions at comparable cost: it surpasses the theoretical 8-model oracle (0.520) with only 2 models. Confidence-based routing is significantly better than random routing (+2.8 pts, 3 .5 σ). 
+
+Threshold justification and sensitivity analysis. The choice of thresholds θh=0 .8 and 
+
+θl=0 .4 is based on the agreement paradox analysis (§ 5.5 ): an agreement ≥ 0.8 corresponds to 4/5 converging responses, a threshold beyond which rerouting no longer improves EM. The sensitivity analysis (Table 19 ) shows that EM increases monotonically with θh over the range [0 .4 ; 0 .8], then stabilizes: θh=0 .8 and θh=1 .0 produce the same EM (0.558) because no question exhibits an agreement strictly between 0.8 and 1 in our dataset at k=5. 17 Table 19: Sensitivity to threshold θh and routing baselines (500 questions). 
+
+Configuration θh EM Rerouted % sec. 
+
+Agreement cascade 0.4 0.514 59 11.8% Agreement cascade 0.6 0.544 149 29.8% 
+
+Agreement cascade 0.8 0.552 227 45.4% 
+
+Phi-4 only ( k=5) — 0.496 0 0% Random cascade — 0.524 ± 0.008 ∼227 45% Two-model oracle — 0.588 — —
+
+The gain from agreement-based routing is progressive: each lowering of θh reroutes more ques-tions to GPT-OSS, with diminishing returns. At θh=0 .8, the cascade surpasses the random baseline (same proportion rerouted, but without selection) by +2.8 pts (3 .5 σ), confirming that the agreement signal is informative and that the threshold choice is not overfitted. 
+
+5.8 Cross-Model Extraction: Specificity of Prompt Engineering 
+
+The spectacular gain of Gemma-4 between raw extraction (F1=0.039) and the V3 pipeline (F1=0.702) raises a question: is this gain transferable to other models? We applied the same V3 optimizations (structured prompt, synonyms, soft matching) to the three best extractors from the B1 benchmark. Table 20: V3 cross-model extraction (500 DocRED samples). 
+
+Model P R F1 V3 Raw F1 ∆ V3 
+
+Gemma-4 26B (pipeline) 0.738 0.670 0.702 0.039 +0.663 
+
+Mistral-Small 24B 0.660 0.660 0.660 0.666 −0.006 Phi-4-Reasoning+ 14B 0.660 0.660 0.660 0.656 +0.004 GPT-OSS 20B 0.818 0.538 0.649 0.660 −0.011 
+
+The result is striking: V3 optimizations provide no significant gain to the three other models (|∆| ≤ 0.011), and even slightly degrade GPT-OSS ( −0.011). The massive gain (+0.663) is 
+
+specific to the Gemma-4 × V3 interaction: the constrained prompt corrects Gemma-4’s parsing issues (98% unparsed responses in raw mode) without benefiting models that already parse correctly. This reinforces the conclusion that prompt engineering interacts strongly with model architecture , and that gains are not automatically transferable. One might consider replacing Gemma-4 with Mistral-Small 24B, whose raw F1 (0.666) is close to Gemma-4’s V3 F1 (0.702). However, the gap of −4.2 pts remains significant on 500 samples, and Mistral-Small does not benefit from any improvement margin through prompt engineering (∆= −0.006). Its advantage is parsing robustness (0% errors) and its more compact size (24B vs. 26B): it constitutes a reasonable alternative if reproducibility of the V3 pipeline were to pose problems with future Gemma versions. 18 5.9 Inter-Run Variance 
+
+To quantify the variance due to LLM non-determinism, we repeated the self-consistency exper-iment ( k=5, T =0 .7) on the 181 difficult questions with R=5 independent runs per model. The self-consistency results by model (Table 15 ) correspond to run 0 of this series; the averages below integrate all 5 runs. Table 21: Inter-run variance ( R=5) of self-consistency on 181 difficult questions. 
+
+Model Mean EM σEM Mean Oracle σOr. 
+
+GPT-OSS 20B 0.217 0.032 0.335 0.024 Phi-4-Reasoning+ 0.167 0.011 0.309 0.008 Phi-4 0.130 0.008 0.223 0.008 
+
+The inter-run variance is low: σEM ≤ 0.032 for all models. The ranking MoE > reasoner >
+
+standard is stable across all 5 runs. The observed differences between models (∆EM ≥ 0.04) are clearly larger than intra-model fluctuations, confirming their significance. GPT-OSS exhibits the highest variance ( σ=0 .032), consistent with the stochastic expert activation of its MoE architecture: run 4 reaches EM=0.265 vs. 0.188 for run 2, a gap of 8 points. In contrast, Phi-4 (standard) is the most consistent ( σ=0 .008). The oracle is stable for all models ( σOr. ≤ 0.024), indicating that recovery potential is a robust property, little affected by decoding randomness. 
+
+Cascade variance (full pipeline). We also repeated the V5b cascade (Phi-4 → GPT-OSS, 
+
+k=5) on the 500 pipeline questions with R=3 independent runs to verify the stability of the main result. Table 22: Inter-run variance ( R=3) of the V5b cascade on 500 HotpotQA questions. The Values column details the individual results of each run (run 0 / run 1 / run 2). 
+
+Metric Mean σ Values 
+
+Voted EM 0.550 0.003 0.552 / 0.546 / 0.552 Voted F1 0.533 0.002 0.534 / 0.531 / 0.535 Oracle ( k=5) 0.653 0.005 0.658 / 0.650 / 0.650 Mean agreement 0.830 0.006 0.837 / 0.829 / 0.825 % rerouted 45.5 0.1 45.4 / 45.6 / 45.6 
+
+The cascade variance is extremely low : σEM = 0 .003, i.e., 10 × lower than that of mono-model self-consistency on difficult questions ( σ=0 .032 for GPT-OSS). The maximum gap between runs is 0.6 EM pts (0.546 vs. 0.552), well within the 95% bootstrap CI [0 .51 ; 0 .59]. The proportion of rerouted questions is nearly identical across runs ( ∼45.5%), confirming that the agreement signal is a stable property of the primary model, not an artifact of stochastic sampling. This result reinforces the reliability of the V5b gain (+9 pts vs. zero-shot) as a robust conclusion. 19 5.10 Limitations 
+
+1. Sample sizes : despite the increase to N = 200 for Text-to-Query and N = 50 for RAG, these sizes remain modest. The confidence intervals reflect this uncertainty. 2. Synthetic samples : unlike extraction (Re-DocRED) and multi-hop reasoning (Hot-potQA), which rely on external benchmarks, the Text-to-Query and RAG evaluations rely largely on self-generated data. For Text-to-Query, only 20 examples out of 200 are manually written; the remaining 180 are produced by the LLM itself (Qwen3-Deep 8B), which generates (question, answer, Cypher query) triplets across varied domains. For RAG, 6 examples are manual and 44 are generated. This protocol introduces a risk of circular bias: the model is evaluated on data it produced itself, which may overestimate performance. The Text-to-Query and RAG scores should therefore be interpreted with this caveat. 3. Single-domain evaluation : all benchmarks are in English. The evaluation does not cover French or other languages. 4. Language mixing : the extraction and reasoning prompts are written in English (the lan-guage of benchmarks and pre-trained models). This choice maximizes LLM performance (the vast majority of pre-training data being in English) but limits the direct transfer-ability of results to tasks in other languages. A multilingual evaluation (French, German) constitutes a future research direction. 5. Limited number of cascade variance runs : the V5b cascade variance was measured over R=3 runs (Table 22 ), a size sufficient to observe low dispersion ( σEM =0 .003) but insufficient for a precise estimation of σ. An increased number of runs ( R ≥ 10) would confirm this stability. 6. Intrinsic task ceiling : 68.5% of difficult questions remain unsolvable even for models 2– 4× larger (14B–32B). Multi-hop reasoning on HotpotQA fullwiki is limited by the context absent from the dataset, not by model capacity. 
+
+5.11 Taxonomy of Unsolvable Errors 
+
+Analysis of the 124 unsolvable questions (EM=0 for all 8 models and all V4 data points) reveals four failure categories: Table 23: Taxonomy of the 124 unsolvable multi-hop reasoning questions. 
+
+Category N % Description 
+
+Knowledge gap 64 51.6 Obscure facts absent from pre-training Numerical reasoning 32 25.8 Dates, populations, exact quantities Format mismatch 18 14.5 Partial F1 but EM=0 (aliases, granularity) Entity confusion 10 8.1 Correct semantic type, wrong instance 
+
+20 The main result is that the ceiling is dominated by a lack of factual knowledge (51.6%), not by a reasoning deficit: rare entities, hyper-local facts, and obscure knowledge chains that even 32B models do not cover. Numerical reasoning (25.8%, including 17 questions about dates and 15 about quantities) confirms the known weakness of LLMs on exact number recall. Finally, 14.5% of failures are format mismatches (e.g., “NBC” vs. “National Broadcasting Company”), suggesting that the EM metric underestimates actual performance .
+
+# 6 Conclusion and Future Work 
+
+We have presented an empirical study of a multi-model zero-shot pipeline for knowledge graph construction and exploitation, executed entirely through local inference on consumer-grade hard-ware. Our evaluation framework integrates DocRED, WebQuestionsSP-style synthetic data, HotpotQA, and the RAGAS framework, with bootstrap confidence intervals for each metric. Relation extraction achieves an F1 of 0.70 in zero-shot, clearly surpassing published results for GPT-3 ( ∼ 30%) and ChatGPT ( ∼ 25%) in similar configurations, and within 10 points of the supervised SOTA (DREEAM: 80.2%). The analysis of versions V1–V3 demonstrates that gains primarily stem from prompt engineering and synonym matching, not from constrained decoding alone. The cross-model evaluation (§ 5.8 ) confirms that this gain is specific to the Gemma-4 / V3 prompt interaction and does not transfer to other models. The study yields four main conclusions: 1. Supervision format quality is critical for multi-hop reasoning. The V1/V4 contrast shows a gap of +0.216 EM at n=3000 between degenerate data and aligned format. This is a controlled experiment demonstrating the decisive role of reasoning chains in training data. 2. The glass ceiling is primarily intrinsic to the task, but diversity cracks it. The benchmark of 8 LLMs on the 181 difficult questions shows that 68.5% remain unsolvable at T ≈0. Cross-model majority voting (EM=0.446) underperforms Phi-4 alone (0.462). In contrast, self-consistency ( k=5, T =0 .7) recovers up to 23% of these failures with GPT-OSS, and the cross-model oracle reaches 46.4%, revealing untapped potential by current aggregation mechanisms. 3. An agreement paradox connects LLMs to the wisdom of crowds: inter-sample consensus signals collective hallucination rather than a reliable answer. Intermediate agreement ([0 .4; 0.8[) is the most productive zone (Oracle=0.459), while high agreement ( ≥ 0.8) masks systematic errors. 4. The confidence-routing cascade exploits this paradox: by rerouting low-agreement questions to a second model, it achieves EM=0.552 [0 .51 ; 0 .59] on 500 questions, the best result obtained, +9 pts over zero-shot and +11 pts over multi-model voting, while remaining 10 times less costly than the 8-model ensemble. The full pipeline runs in ∼5 h on a single RTX 3090 (8 h with cascade), for an estimated carbon 21 footprint of ∼ 0.1 kg CO 2eq, illustrating the potential of frugal AI. Future work will focus on: (1) extension to vertical domains (medical, legal) and non-English languages; (2) exploration of retrieval-augmented mechanisms to provide the missing context for difficult multi-hop questions; (3) refinement of confidence routing (adaptive thresholds, external calibration, graph-based verification) to reduce the vote/oracle gap; (4) integration of QLoRA for relation extraction; (5) prompt transferability across architectures, given that the V3 gain is specific to Gemma-4. 
+
+# A Full Extraction Prompt 
+
+You are an expert in Relation Extraction. Given a text and two named entities ( head and tail ) , identify the relation from head to tail . You MUST choose exactly one relation from this list : author , award_received , basin_country , capital , capital_of , cast_member , chairperson , child , composer , conflict , contains_admin , continent , country , country_of_citizenship , country_of_origin , creator , date_of_birth , date_of_death , developer , diplomatic_relation , director , dissolved , educated_at , employer , end_time , ethnic_group , father , followed_by , follows , founded_by , genre , has_part , head_of_government , head_of_state , headquarters_location , inception , influenced_by , instance_of , jurisdiction , languages_spoken , league , legislative_body , located_in_admin , located_near_water , located_on_terrain , location , location_of_formation , lyrics_by , manufacturer , member_of , member_of_political_party , member_of_sports_team , military_branch , mother , mouth_of_watercourse , narrative_location , notable_work , official_language , operator , original_language , original_network , owned_by , parent_organization , parent_taxon , part_of , participant , participant_in , performer , place_of_birth , place_of_death , platform , position_held , producer , production_company , product , publication_date , publisher , record_label , religion , replaced_by , replaces , residence , screenwriter , separated_from , series , shares_border_with , sibling , spouse , start_time , subclass_of , subsidiary , territory_claimed_by , twinned_city , unemployment_rate , work_location IMPORTANT RULES : - NEVER output ’ no_relation ’ , ’ none ’ , or ’ unknown ’. Always pick the closest relation. - For geographic/ administrative entities , prefer ’ country ’ , ’ located_in_admin ’ , ’ contains_admin ’ , or ’ part_of ’. - ’ notable_work ’ means a creative work ( book , film , 
+
+22 song ) by an author / artist . Do NOT use for geographic , political , or family relations. - For family relations , use : ’ father ’ , ’ mother ’ , ’ child ’ , ’ sibling ’ , ’ spouse ’. Respond ONLY with JSON : {" relation": "..." , " confidence ": 0.0 -1.0} 
+
+# B Detailed Ollama Hyperparameters 
+
+Table 24: Ollama inference hyperparameters for each task. 
+
+Parameter Extraction Query Multi-hop RAG 
+
+Temperature 0.3 0.3 0.3 0.3 Top-p 0.9 0.9 0.9 0.9 
+
+num_ctx 8192 8192 8192 8192 
+
+num_predict 1024 2048 4096 2048 Output format JSON JSON JSON Text + JSON Timeout (s) 600 600 600 600 
+
+# References 
+
+[1] Z. Ji, N. Lee, R. Frieske, T. Yu, D. Su, Y. Xu, E. Ishii, Y. Bang, A. Madotto, and P. Fung. Survey of hallucination in natural language generation. ACM Computing Surveys , 55(12):1– 38, 2023. [2] E. Strubell, A. Ganesh, and A. McCallum. Energy and policy considerations for deep learning in NLP. In Proc. 57th Annual Meeting of the ACL , pages 3645–3650, 2019. [3] Y. Yao, D. Ye, P. Li, X. Han, Y. Lin, Z. Liu, Z. Liu, L. Huang, J. Zhou, and M. Sun. DocRED: A large-scale document-level relation extraction dataset. In Proc. 57th Annual Meeting of the ACL , pages 764–777, 2019. [4] W.-t. Yih, M. Richardson, C. Meek, M.-W. Chang, and J. Suh. The value of semantic parse labeling for knowledge base question answering. In Proc. 54th Annual Meeting of the ACL ,pages 201–206, 2016. [5] Z. Yang, P. Qi, S. Zhang, Y. Bengio, W. Cohen, R. Salakhutdinov, and C. D. Manning. Hot-potQA: A dataset for diverse, explainable multi-hop question answering. In Proc. EMNLP 2018 , pages 2369–2380, 2018. [6] P. Lewis, E. Perez, A. Piktus, F. Petroni, V. Karpukhin, N. Goyal, H. Küttler, M. Lewis, W.-t. Yih, T. Rocktäschel, S. Riedel, and D. Kiela. Retrieval-augmented generation for knowledge-intensive NLP tasks. In Advances in NeurIPS , volume 33, pages 9459–9474, 2020. 23 [7] S. Es, J. James, L. Espinosa-Anke, and S. Schockaert. RAGAS: Automated evaluation of retrieval augmented generation. In Proc. 18th EACL: System Demonstrations , pages 150–163, 2024. [8] W. Zhou, K. Huang, T. Ma, and J. Huang. Document-level relation extraction with adaptive thresholding and localized context pooling. In Proc. AAAI 2021 , volume 35, pages 14612– 14620, 2021. [9] Y. Ma, A. Wang, and N. Okazaki. DREEAM: Guiding attention with evidence for improving document-level relation extraction. In Proc. 17th EACL , pages 1963–1975, 2023. [10] S. Wadhwa, S. Amir, and B. C. Wallace. Revisiting relation extraction in the era of large language models. In Proc. 61st Annual Meeting of the ACL , pages 15566–15589, 2023. [11] B. Li, G. Fang, Y. Yang, Q. Wang, W. Ye, W. Zhao, and S. Zhang. Evaluating ChatGPT’s information extraction capabilities. arXiv preprint arXiv:2304.11633 , 2023. [12] Y. Ozyurt, S. Feuerriegel, and C. Zhang. Document-level in-context few-shot relation ex-traction via pre-trained language models. arXiv preprint arXiv:2310.11085 , 2023. [13] P.-L. Huguet Cabot and R. Navigli. REBEL: Relation extraction by end-to-end language generation. In Findings of EMNLP 2021 , pages 2370–2381, 2021. [14] S. Pan, L. Luo, Y. Wang, C. Chen, J. Wang, and X. Wu. Unifying large language models and knowledge graphs: A roadmap. IEEE Trans. Knowledge and Data Engineering , 36(7):3580– 3599, 2024. [15] Y. Gu, X. Deng, and Y. Su. Don’t generate, discriminate: A proposal for grounding language models to real-world environments. In Proc. 61st Annual Meeting of the ACL ,pages 4928–4949, 2023. [16] J. Wei, X. Wang, D. Schuurmans, M. Bosma, B. Ichter, F. Xia, E. Chi, Q. Le, and D. Zhou. Chain-of-thought prompting elicits reasoning in large language models. In Advances in NeurIPS , volume 35, pages 24824–24837, 2022. [17] A. Lacoste, A. Luccioni, V. Schmidt, and T. Dandres. Quantifying the carbon emissions of machine learning. arXiv preprint arXiv:1910.09700 , 2019. [18] X. Wang, J. Wei, D. Schuurmans, Q. Le, E. Chi, S. Narang, A. Chowdhery, and D. Zhou. Self-consistency improves chain of thought reasoning in language models. In Proc. ICLR ,2023. [19] M. Moussaïd, J. E. Kämmer, P. P. Analytis, and H. Neth. Social influence and the collective dynamics of opinion formation. PLoS ONE , 8(11):e78433, 2013. [20] John Platt. Probabilistic outputs for support vector machines and comparisons to regular-ized likelihood methods. In Advances in Large Margin Classifiers , pages 61–74. MIT Press, 1999. 24
