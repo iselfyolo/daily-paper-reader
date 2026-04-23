@@ -1,0 +1,957 @@
+Title: The Provenance Gap in Clinical AI: Evidence-Traceable Temporal Knowledge Graphs for Rare Disease Reasoning
+
+URL Source: https://arxiv.org/pdf/2604.17114v1
+
+Published Time: Tue, 21 Apr 2026 00:55:02 GMT
+
+Number of Pages: 55
+
+Markdown Content:
+# The Provenance Gap in Clinical AI: Evidence-Traceable Temporal Knowledge Graphs for Rare Disease Reasoning 
+
+## Md Shamim Ahmed 1,* , Maja Dusanic 2, Moritz Nikolai Kirschner 2, Elisabeth Nyoungui 2,Jana Zsch¨ untzsch 2, Lukas Galke Poech 1, †, and Richard R¨ ottger 1, †
+
+1Department of Mathematics and Computer Science, University of Southern Denmark, Campusvej 55, 5230 Odense, Denmark 
+
+2Universit¨ atsmedizin G¨ ottingen, Robert-Koch-Straße 40, 37075 G¨ ottingen, Germany 
+
+*Correspondence: shamim@imada.sdu.dk 
+
+†These authors jointly supervised this work 
+
+Abstract 
+
+Frontier large language models generate clinically accurate outputs, but their citations are often fabri-cated. We term this the Provenance Gap . We tested five frontier LLMs across 36 clinician-validated sce-narios for three phenotypically confusable rare disease pairs (myasthenia gravis/Lambert-Eaton, Duchen-ne/Becker muscular dystrophy, CIDP/Guillain-Barr´ e). No model produced a clinically relevant PubMed identifier (PMID) without prompting. When explicitly asked to cite, the best model achieved 15.3% relevant PMIDs; the majority resolved to real publications in unrelated fields, so a spot-check finds real papers, just not the right ones. We present HEG-TKG (Hierarchical Evidence-Grounded Tempo-ral Knowledge Graphs), a system that grounds clinical claims in temporal knowledge graphs built from 4,512 PubMed records and curated sources. HEG-TKG structures evidence with quality-tier stratification (GOLD/SILVER/BRONZE reflecting cross-source consensus) and 1,280 disease-trajectory milestones -temporal anchoring absent from existing biomedical KGs. In a controlled three-arm comparison (Vanilla, Guideline-RAG, HEG-TKG; same synthesis model), HEG-TKG matches baseline clinical feature cov-erage while achieving 100% evidence verifiability: every output is generated from an average of 181 PMID-backed knowledge graph edges per scenario, with 203 inline citations. Guideline-RAG, given over-lapping source documents as raw text, produces zero verifiable citations, which is identical to vanilla. The graph structure is what creates traceability. LLM judges cannot distinguish fabricated from verified citations without PubMed audit data. Independent clinician evaluation confirms the verifiability advan-tage: clinicians rated HEG-TKG higher on Verifiability (D1: ∆ = +1 .64, Cohen’s d = 1 .81, p < 0.001) and actionability with no degradation on safety or completeness. A counterfactual experiment shows 80% resistance to injected clinical errors with 100% detectability via citation trace. The system deploys on-premise via open-source models, so patient data never leaves institutional infrastructure. The Provenance Gap should be a standard reporting metric for clinical AI. 
+
+Keywords: clinical AI, knowledge graphs, evidence provenance, rare diseases, LLM evaluation, citation verification, temporal reasoning 1
+
+> arXiv:2604.17114v1 [cs.CL] 18 Apr 2026
+
+# 1 Introduction 
+
+Frontier LLMs produce competent differentials for myasthenia gravis versus Lambert-Eaton syndrome, and it is the same for other pairs of diseases as well. Med-PaLM 2 achieves 86.5% on MedQA[1], GPT-4 ex-ceeds passing scores on all three parts of the United States Medical Licensing Examination[2], and clinical deployment appears imminent across specialties[3]. But correctness alone does not make it useful in clinics. A neurologist presented with an AI-generated differential diagnosis needs to verify certain aspects, like why 
+
+that answer was reached, trace each claim to its evidentiary source, and potentially confirm that the cited evidence actually supports the recommendation. Without traceability, clinicians don’t trust the output. A misdiagnosis of MG as LEMS that leads to incorrect immunotherapy, or a DMD/BMD confusion that affects steroid timing, delays treatment initiation by months, and is not acceptable. The EU AI Act[4], FDA clinical decision support guidance[5], and WHO[6] all mandate independent verification of AI-generated clinical recommendations. At the same time, patient scenarios constitute pro-tected health information under GDPR and HIPAA[7], meaning that cloud API calls expose data outside institutional control. A clinical AI system needs verifiability and data protection. Current LLMs deliver neither. HEG-TKG resolves both: structured evidence provenance for verifiability, open-source synthesis models behind institutional firewalls for data protection. Citation failures in LLMs are worse than most studies acknowledge. SourceCheckup found 50-90% of LLM responses unsupported by their cited sources[8]; VeriFact showed automated fact verification can achieve 92.7% clinician agreement for EHR claims[9]. Autoregressive generation produces hallucinations by design[10, 11]. For example, what LLMs know and what they can prove are different things. Using a second LLM to verify citations from the first does not work. Our experiments show LLM judges rate fabricated citations as valid because they lack external verification data. The Provenance Gap cannot be solved within the LLM ecosystem itself. This matters most in rare diseases, where the clinician diagnosing you has probably never seen your condi-tion before. Over 6,000 rare diseases affect approximately 300 million patients globally[12], most diagnosed by non-specialists after years-long diagnostic odysseys. We selected three phenotypically confusable disease pairs - myasthenia gravis versus Lambert-Eaton[13], Duchenne versus Becker muscular dystrophy[14], and CIDP versus Guillain-Barr´ e[15] - because all three are clinically similar at presentation but diverge over their longi-tudinal course, requiring temporal reasoning that existing knowledge graphs do not support. PrimeKG[16], UMLS[17], and DrugBank[18] encode static relationships: dystrophin is associated with DMD, but not that Gowers’ sign appears at age 3-5 while ambulation loss follows at 9-13. We define Provenance Gap as the gap between a system’s clinical feature coverage and its reliable evi-dence traceability (adjusted for citation quality; see Methods). We tested five frontier LLMs spanning three providers across 36 clinician-validated scenarios and verified every PubMed identifier against the E-utilities API. In vanilla mode, all models produced zero clinically relevant PMIDs. The best model, when explicitly told to cite, managed 15.3%. We present HEG-TKG, a system that grounds clinical reasoning in temporal knowledge graphs with a two-tier architecture: a curated Tier 1 backbone from GeneReviews[19], OMIM[20], Orphanet[21], and CDC guidelines[22], augmented by Tier 2 extraction from 4,512 PubMed records (987 unique source PMIDs), and anchored to 1,280 disease-trajectory milestones. To our knowledge, no existing biomedical knowledge graph captures these temporal trajectories[23]. Where standard retrieval-augmented generation[24, 25] hands the model a bag of text chunks, HEG-TKG maps every claim to a verified PMID, as-signs a quality tier reflecting cross-source consensus, and places it within a disease timeline. As our three-arm comparison confirms, this structured grounding maintains clinical feature coverage (Table 2). The following 2two works essentially highlight this gap. Zhao et al.[26] cover 2,919 diseases using an agentic framework, whereas Song et al.[27] build a graph-RAG system for rare genetic diseases (6,143 nodes). But they do not verify reasoning against primary literature and lack temporal anchoring and citation verification. We take a depth-first approach: six diseases with fully traceable temporal reasoning, showing that the architecture generalises. In this work, we make five contributions: (1) a formal definition and empirical measurement of the 
+
+Provenance Gap across five frontier LLMs; (2) HEG-TKG, a temporal knowledge graph architecture with fully verified citations, quality-stratified evidence (GOLD/SILVER/BRONZE), and disease-trajectory anchoring; (3) the first demonstration that LLM judges cannot detect fabricated citations without external audit data; (4) a counterfactual safety test showing 80% error resistance with 100% detectability; (5) the temporal KG as a reusable resource with comprehensive coverage of six rare neuromuscular diseases (5,481 nodes; 1,280 temporal anchors). 
+
+# 2 Results 
+
+## 2.1 Frontier LLMs produce zero verifiable citations 
+
+We evaluated five frontier LLMs spanning three providers across 36 clinician-validated scenarios for three rare neuromuscular disease pairs (Table 1). Each model generated clinical outputs (differential diagnoses, temporal trajectories, treatment rationales, safety-critical recommendations) for the same scenarios. We then verified every PubMed identifier (PMID) cited against the PubMed E-utilities API[28], classifying each as clinically relevant, real but unrelated, or non-existent. Table 1: Citation verifiability across five frontier LLMs and HEG-TKG. PMIDs = unique PubMed identifiers extracted from outputs. Relevant = PMID resolves to a neuromuscular disease publication. Wrong Field = PMID exists in PubMed but covers an unrelated specialty. Not Found = PMID does not exist. 
+
+Model Mode PMIDs Relevant Wrong Field Not Found 
+
+GPT-4.1 Vanilla 2 0 2 (100%) 0GPT-5.4 Vanilla 0 — — —Claude Sonnet 4.6 Vanilla 0* — — —DeepSeek-v3 Vanilla 0 — — —Claude Opus 4.6 Citation-prompted 577 88 (15.3%) 455 (78.9%) 34 (5.9%) Claude Sonnet 4.6 Citation-prompted 415 49 (11.8%) 331 (79.8%) 35 (8.4%) DeepSeek-v3 Citation-prompted 163 17 (10.4%) 135 (82.8%) 11 (6.7%) 
+
+HEG-TKG KG-grounded 203 203 (100%) 0 0
+
+> *Claude Sonnet 4.6 in vanilla mode produced 89 unique author-year references (e.g., “Wolfe et al., 2016”) instead of PMIDs; none were verifiable to a specific publication. All unique PMIDs (1,147 total across experiments) were verified against the PubMed E-utilities API. The HEG-TKG knowledge graphs were constructed from curated Tier 1 sources (GeneReviews, OMIM, Orphanet, CDC; 101 protected edges) and 4,512 PubMed records (2,011 after deduplication and screening), yielding 987 unique source PMIDs; the 203 cited in outputs reflect query-relevant subgraph retrieval. 22 of 36 scenarios were refined by a clinical collaborator (J.Z., UMG G¨ ottingen).
+
+All four vanilla models produced zero clinically relevant PMIDs (Figure 1). GPT-4.1 generated only 2 unique PMIDs across 36 scenarios that resolved to unrelated fields. GPT-5.4 and DeepSeek-v3 produced zero PMIDs altogether. Claude Sonnet 4.6 generates author-year references (e.g., “Gilhus NE, Neurology 2016”) that look authoritative but cannot be resolved to a specific publication without manually searching PubMed. It took approximately 2–5 minutes per claim to disambiguate (Figure 2). 3GPT-4.1 GPT-5.4 Claude        
+
+> Sonnet
+> DeepSeek
+> v3
+> Claude
+> Opus
+> Claude
+> Sonnet
+> DeepSeek
+> v3
+> HEG-TKG
+> (ours)
+> 0
+> 25
+> 50
+> 75
+> 100
+> Citation composition (%)
+> 15.3% 11.8% 10.4%
+> 100% 0 PMIDs
+> cited
+> 0 PMIDs
+> cited
+> 0 PMIDs
+> cited
+> Unprompted Citation-prompted KG-grounded
+> Clinically relevant Real but unrelated field Not found in PubMed Zero PMIDs cited
+
+Figure 1: Citation verifiability across five frontier LLMs and HEG-TKG. Stacked bars show the composition of PMIDs cited by each model: clinically relevant (blue), real but from an unrelated field (red), not found in PubMed (grey), or zero PMIDs cited (light grey). All four unprompted models produce zero relevant PMIDs. Citation-prompting yields at best 15.3% relevant PMIDs (Claude Opus); the majority resolve to real papers in unrelated fields. HEG-TKG achieves 100% relevant citations. The Provenance Gap is model-agnostic and prompt-agnostic. 
+
+Figure 2: Same clinical claim, different verifiability. Left: vanilla GPT-4.1 cites an author-year reference that returns 633 PubMed search results. Right: HEG-TKG cites PMID:31380816, verifiable in seconds via PubMed lookup. 42.2 Citation prompting manufactures false rigour 
+
+The most intuitive question is: would better prompts fix this? We tested this directly by adding an explicit prompt (“You must cite specific PubMed PMIDs for every clinical claim”) to three models (Table 1, citation-prompted rows). Claude Opus 4.6 produced 577 unique PMIDs, the highest among all models. Of those, 78.9% were published in unrelated fields, and only 15.3% were clinically relevant. Claude Sonnet 4.6 achieved 11.8%, and DeepSeek-v3 managed 10.4%. These models do not generate random digit strings, but they generate plausible PubMed identifiers that happen to exist in the database. A clinician who spot-checks a cited PMID will find a real paper and may not notice it discusses a different disease entirely. That’s worse than citing nothing if a clinician who spot-checks will find a real paper and assume the citation is correct. The Provenance Gap is an intrinsic limitation of how parametric memory works, not a prompt engineering problem. 
+
+## 2.3 Structured KG grounding halves the Provenance Gap without sacrificing coverage 
+
+Given that prompting alone fails to produce verifiable citations, we next asked whether structured evidence grounding could close the gap. We evaluated HEG-TKG’s clinical outputs against two baselines: Vanilla (parametric knowledge only) and Guideline-RAG (overlapping source documents as raw text passages) - in a controlled three-arm design where all arms use the same synthesis model (GPT-4.1) to isolate the contribution of evidence grounding (see Methods). Table 2: Automated metrics across three arms and three disease pairs (mean ± SD). 
+
+Metric HEG-TKG Guideline-RAG Vanilla 
+
+Evidence Traceability Score 0.372 ± 0.192 0.0 0.0 Clinical Feature Coverage (automated) 0.717 ± 0.192 0.688 ± 0.165 0.743 ± 0.168 95% Bootstrap CI [0 .652 , 0.779] [0 .633 , 0.741] [0 .688 , 0.796] Provenance Gap 0.366 ± 0.217 0.688 ± 0.165 0.743 ± 0.168 Temporal Precision 0.233 ± 0.119 — —PMID Coverage 100% 0% 0%      
+
+> Evidence Traceability Score (ETS) = fraction of claims with verifiable PMID citations. Provenance Gap = Feature Coverage
+> −(ETS ×citation reliability) per scenario, clamped at 0, then averaged; lower is better (0 = every covered claim is reliably traceable). Citation reliability: HEG-TKG = 0.97 (verified PMIDs), Vanilla = 0.80, Guideline-RAG = 0.50 (see Methods). Values are means ±SD across 36 scenarios (12 per disease pair). Bootstrap 95% CIs: 10,000 resamples, seed = 42, computed over all 36 scenarios. Per-disease-pair breakdown in Supplementary Table S28.
+
+HEG-TKG achieves comparable clinical feature coverage to both baselines (bootstrap 95% CIs overlap: HEG-TKG [0 .652 , 0.779], Vanilla [0 .688 , 0.796], Guideline-RAG [0 .633 , 0.741]; Mann-Whitney p > 0.10) while halving the Provenance Gap (0.366 vs 0.743). The ETS of 0.372 requires careful interpretation. It measures the inline citation rate : 37% of output claims carry an explicit [PMID:X] tag in the generated text. But HEG-TKG’s actual verifiability is 100%. Every output is generated entirely from a PMID-backed evidence context, on average 181 knowledge graph edges drawn from 199 unique PMIDs per scenario, and the full evidence manifest is stored per query. A clinician can trace any claim, cited or uncited, back to the specific KG edges and PMIDs that informed it. The 63% without inline tags are not ungrounded: they are synthesised from the same auditable evidence, but the model did not attach a citation (e.g., combining two cited facts into a differential reasoning statement). The inline citation rate is a lower bound on verifiability, not a measure of it. The actual verifiability gap is therefore: HEG-TKG 5= 100% (every claim traceable to PMID-backed evidence), vanilla = 0% (no evidence trail at any level), Guideline-RAG = 0% (raw text passages with no structured identifiers). The ETS-based Provenance Gap (0.366) is a conservative, automatable proxy for this fundamental difference. Per-disease-pair performance varies: HEG-TKG outperforms vanilla on MG/LEMS (0 .814 vs 0 .747) but underperforms on DMD/BMD (0 .659 vs 0 .771), reflecting the higher proportion of treatment-specific scenarios where parametric knowledge is stronger (Supplementary Table S28). A worked example comparing outputs side by side is provided in Supplementary S29. The Guideline-RAG receives overlapping source material : GeneReviews, OMIM, and the same PubMed abstracts used to build the knowledge graph, arguably more raw text than a clinician would consult, but delivered without graph structure, PMID citations, or quality tiers. It nonetheless produces zero verifiable citations, identical to vanilla, suggesting that the volume of source text is not the bottleneck; rather, it is the structured citation metadata in the graph that enables traceability. MG/LEMS DMD/BMD CIDP/GBS        
+
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.35
+> 0.41
+> 0.36
+> Evidence Traceability
+> Score (ETS)
+> MG/LEMS DMD/BMD CIDP/GBS
+> 0.55
+> 0.60
+> 0.65
+> 0.70
+> 0.75
+> 0.80
+> 0.85
+> 0.90
+> 0.81
+> 0.66
+> 0.68
+> 0.73
+> 0.69
+> 0.64
+> 0.75
+> 0.77
+> 0.71
+> Clinical Feature
+> Coverage (automated)
+> MG/LEMS DMD/BMD CIDP/GBS
+> 0.0
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> 0.6
+> 0.7
+> 0.8
+> 0.48
+> 0.29
+> 0.33
+> 0.73
+> 0.69
+> 0.64
+> 0.75 0.77
+> 0.71
+> better
+> Provenance Gap
+> (lower = better)
+> HEG-TKG Guideline-RAG Vanilla
+
+Figure 3: Three-arm comparison: Evidence Traceability Score, Clinical Feature Coverage, and Provenance Gap. All three arms use the same synthesis model (GPT-4.1). HEG-TKG achieves comparable feature coverage with substantially lower Provenance Gap. 
+
+## 2.4 Quality-tiered knowledge graphs provide 6,316 PMID-backed edges 
+
+The three knowledge graphs collectively contain 5,481 nodes, 6,316 edges, 987 unique source PMIDs, and 1,280 temporal anchors (Supplementary Table S30). The temporal anchors are disease-trajectory milestones (e.g., Gowers’ sign at P3Y-P5Y, ambulation loss at P9Y-P13Y for DMD), not publication dates. Our automated keyword-matching scorer reports Clinical Feature Coverage of 71.7% (range 65.9-81.4% across disease pairs). However, manual inspection reveals this substantially underestimates true coverage: 70% of features scored as “missing” are in fact discussed in the output but fail the rigid substring matcher (e.g., “reading frame rule 90-95% accuracy” is marked absent despite the output stating “fulfilled in ∼90% of DMD cases”). Of the 80 feature instances flagged as missing, 76% have corresponding concepts present in the KG evidence manifest. The true KG coverage gap: features genuinely absent from the knowledge graph is approximately 5-10%, confined primarily to treatment specifics available only in full-text articles. Across all 36 scenarios, HEG-TKG retrieved 26,139 knowledge graph edges. Of these, 562 (2.2%) are GOLD tier (cross-tier confirmed: Tier 2 extraction independently confirmed a Tier 1 curated fact, confi-dence = 0.95), 2,271 (8.7%) are SILVER (multi-model or multi-document consensus, confidence = 0.85), and 23,306 (89.2%) are BRONZE (single model, single source, confidence = 0.70). Temporal edges account for 65,802 (22.2%) of all retrieved evidence. The quality tier distribution is clinically meaningful: GOLD edges represent guideline-confirmed facts (e.g., “corticosteroids delay ambulation loss in DMD” confirmed by both GeneReviews and independent literature) that a clinician can treat as high-confidence anchors. SILVER edges reflect claims corroborated across multiple sources or extraction models, suitable for clinical reasoning with standard verification. BRONZE edges flag single-source claims warranting additional scrutiny before acting - analogous to a case report versus a systematic review. This stratification gives clinicians a built-in confidence signal absent from both vanilla LLMs and text-based RAG, where every claim carries equal (zero) provenance weight. 
+
+## 2.5 Temporal anchoring provides the clinical “when” that static knowledge graphs miss 
+
+HEG-TKG is not just a citation engine. The “T” denotes temporal anchoring: structured disease-trajectory milestones that, to our knowledge, no existing biomedical knowledge graph provides[23]. Across 36 scenarios, HEG-TKG produced 577 PMID-anchored temporal claims; vanilla GPT-4.1 produced zero (Table 3). Table 3: Temporal claims per scenario type. Time-anchored claims detected by automated regex extraction of ISO 8601 durations and age ranges from clinical outputs. Vanilla GPT-4.1 produces zero across all scenario types.                    
+
+> Scenario type HEG-TKG Vanilla nscenarios
+> Temporal comparative 222 06Temporal trajectory 197 06Differential diagnosis 128 015 Treatment rationale 30 09
+> Total 577 036
+
+The table doesn’t capture what this actually looks like in practice. Consider a pediatrician who has just received genetic confirmation that a 4-year-old boy has a DMD-causing dystrophin mutation. The immedi-ate clinical question is not “what is DMD?” but “what happens next, and when?” HEG-TKG produces a structured disease timeline: “Gowers’ sign at age 3–5 years [PMID:29395989, GOLD]; loss of independent ambulation at 10–12 years [PMID:41391909]; scoliosis onset after loss of ambulation [PMID:20301670, SIL-VER]; cardiac surveillance should begin by age 10 [PMID:37240001, SILVER]; dilated cardiomyopathy by end of second decade [PMID:37240001, SILVER]; respiratory decline (FVC <1L) by late teens [PMID:28981889, SILVER].” Each milestone carries a PMID and a quality tier. The paediatrician can plan: cardiac screening at age 10, respiratory function monitoring from age 12, orthopaedic referral at first signs of ambulation loss. Vanilla GPT-4.1 produces “onset of symptoms (delayed motor milestones, Gowers’ sign, calf pseudohypertro-phy)” with no age windows and no citations. It tells the clinician what happens but not when - and “when” is what drives clinical management. The same pattern holds across disease pairs. For GBS/CIDP, HEG-TKG provides the 7-14-day nadir window and 2-4-week recovery onset with PMIDs, the timeline a GP needs to distinguish GBS from CIDP. For MG/LEMS, the 2-4-year latency between neurological onset and LEMS-associated small-cell lung cancer makes the screening timeline safety-critical. PrimeKG[16] tells you that dystrophin is associated with DMD; HEG-TKG tells you when each consequence arrives and backs it with a PMID. 72.6 Clinicians confirm the verifiability and actionability advantage 
+
+Three evaluators independently scored blinded cases on five Likert dimensions (1–5): Verifiability (D1), Actionability (D2), Temporal Precision (D3), Non-Expert Safety (D4), and Clinical Completeness (D5). Each case presented a single clinical output (Vanilla or HEG-TKG) without system identity; evaluators saw no comparison cases. Guideline-RAG was excluded from clinician evaluation to conserve evaluator time; the LLM judge evaluation covers all three arms. The five dimensions test the specific clinical contributions of HEG-TKG: D1 measures whether claims can be traced to published sources (the Provenance Gap); D3 measures whether outputs provide specific time windows for disease milestones (the temporal anchoring contribution); D4 measures safety for the GP-to-specialist referral pathway. The panel comprised two neurologists (C1, senior; C2) and one medical informatician (MI). C1 scored the reduced 36-case pack (18 Vanilla, 18 HEG-TKG); C2 scored the full 72-case pack (36 per arm); MI scored 36 of 72 cases (23 Vanilla, 13 HEG-TKG) but exhibited ceiling effects (SD = 0 on four of five dimensions) and was excluded from the primary statistical analysis. Table 4: Clinician evaluation: C1 (senior neurologist), 18 Vanilla vs 18 HEG-TKG. Mann-Whitney 
+
+U , BH-corrected across 5 comparisons. Bootstrap 95% CIs from 10,000 resamples (seed 42).                                                             
+
+> Dimension Vanilla HEG-TKG ∆dp(BH) 95% CI
+> D1 Verifiability 2.36 ±0.68 4.00 ±1.08 +1 .64 1.81 <0.001 [+1 .03 ,+2 .17] D2 Actionability 2.75 ±0.65 3.61 ±1.04 +0 .86 1.00 0.009 [+0 .31 ,+1 .39] D3 Temporal Precision 3.78 ±0.65 4.17 ±1.04 +0 .39 0.45 0.17 —D4 Non-Expert Safety 3.17 ±0.79 3.61 ±0.78 +0 .44 0.57 0.12 —D5 Completeness 3.25 ±0.55 3.47 ±0.70 +0 .22 0.35 0.17 —
+
+C1’s results confirm the core hypothesis: HEG-TKG produces a large, statistically significant advantage on Verifiability (D1: ∆ = +1 .64, Cohen’s d = 1 .81, p < 0.001) and a moderate advantage on Actionability (D2: ∆ = +0 .86, d = 1 .00, p = 0 .009). D3–D5 showed positive but non-significant deltas (+0 .22 to +0 .44), consistent with the LLM judge finding that HEG-TKG does not degrade clinical quality on any dimension. The D1 effect size ( d = 1 .81) is the largest observed in this study outside the citation-aware LLM judge comparison, and the bootstrap CI excludes zero by a wide margin ([+1 .03 , +2 .17]). C2 scored all 72 cases (36 per arm) and found no significant differences on any dimension (all pBH > 0.79, 
+
+|d| < 0.31). The most informative signal came from qualitative annotations: C2 penalised HEG-TKG on D1 for citing “general knowledge” with PMIDs (e.g., annotating MG antibody subtypes or standard-of-care treatments as cited claims), viewing such citations as unnecessary rather than verifiable. This evaluation philosophy that citation of established facts is redundant, produces a flat D1 profile despite the structural difference in citation presence. It represents a legitimate clinical perspective (experienced specialists do not need citations for consensus knowledge) and highlights that verifiability is most valuable for non-specialists and for claims at the frontier of evidence. The 72 clinician cases are drawn from the same base scenarios used in the LLM judge evaluation, enabling direct LLM–human correlation analysis (Section 2.8). 
+
+## 2.7 LLM judges cannot assess verifiability without ground truth 
+
+Most clinical AI studies rely on automated judges. Can LLM judges assess citation quality? We deployed a three-model judge panel (GPT-4o-mini, DeepSeek-V3, Claude 3 Haiku) across all 108 cases (36 scenarios 
+
+× 3 arms) using five clinician-aligned Likert dimensions: Verifiability (D1), Actionability (D2), Temporal 8Precision (D3), Non-Expert Safety (D4), and Clinical Completeness (D5). Cases were blinded and randomly ordered. In v1 (blind), D1 Verifiability showed no meaningful separation: HEG-TKG 4 .59, Vanilla 4 .34, Guideline-RAG 4 .58 (all pairwise deltas < 0.5, non-significant after BH correction). Inter-rater reliability for D1 was negative (Krippendorff’s α = −0.09), confirming judges fundamentally disagree about what “verifiable” means without ground-truth citation data. On D2-D5, all three arms scored comparably: HEG-TKG showed slight advantages on Actionability (+0 .03 to +0 .17), Temporal Precision ( −0.08 to +0 .28), and Completeness (+0 .11 to +0 .31) vs Vanilla, with no degradation on any dimension. Guideline-RAG scored lower on Temporal Precision (D3: 3 .47-4 .28) than both other arms, reflecting the absence of structured temporal data. The D1 failure was specific and structural: judges score citation plausibility (does the text look well-referenced?) rather than citation validity (are the references real?). To confirm this, we deployed a second evaluation round (v2) with one addition: each judge received a PubMed E-utilities citation audit report documenting which PMIDs existed, their publication titles, and clinical relevance to the disease pair. This three-arm design (N = 108 cases, 36 per arm, 3 judges each) tests whether the citation blindness extends to Guideline-RAG, which has access to overlapping source texts but without structured citations. Table 5: v2 citation-aware D1 Verifiability across all three disease pairs (3 arms).                                                        
+
+> Pair Vanilla D1 G-RAG D1 HEG-TKG D1 ∆H−VdH−Vp(BH)
+> MG/LEMS 1.39 ±0.49 1.39 ±0.49 4.44 ±1.05 +3 .06 3.71 <10 −11
+> DMD/BMD 1.39 ±0.49 1.50 ±0.51 4.92 ±0.28 +3 .53 8.78 <10 −13
+> CIDP/GBS 1.36 ±0.49 1.39 ±0.49 4.58 ±0.77 +3 .22 5.00 <10 −12
+> Mann-Whitney U, BH-corrected across 6 comparisons. N= 36 per arm per pair (12 scenarios ×3 judges). All H-vs-G comparisons similarly significant ( p < 10 −11 ,d > 3.7).
+
+All three disease pairs told the same story. In v2, both Vanilla and Guideline-RAG D1 scores collapsed to 1 .36–1 .50 out of 5.0. Judges could now see that neither arm provided verifiable citations. HEG-TKG held at 4 .44-4 .92. Effect sizes ranged from Cohen’s d = 3 .71 to 8 .78, the largest in this study. It is important to note that Guideline-RAG scored identically to Vanilla on D1 despite having access to the same source literature as HEG-TKG. It confirms that raw text access without structured citation mechanisms provides no verifiability advantage. Scores on D2-D5 remained comparable (D5 Clinical Completeness: HEG-TKG 4.73, Vanilla 4 .08, Guideline-RAG 3 .82), confirming that verifiability does not cost clinical quality. Table 6: v1 (blind) vs v2 (citation-aware) D1 Verifiability shift.                  
+
+> System v1 D1 v2 D1 ∆α: v1 →v2
+> HEG-TKG 4.59 4.65 +0 .06
+> −0.09 →0.89 Vanilla 4.34 1.38 −2.96 Guideline-RAG 4.58 1.43 −3.16
+
+Inter-rater reliability for D1 shifts from no agreement in v1 (Krippendorff’s α = −0.09) to excellent in v2 ( α = 0 .89). This finding has a direct methodological implication: LLM-as-judge evaluation of citation quality without external verification data measures surface plausibility, not actual verifiability. 9GPT-4o-mini DeepSeek-V3 Claude 3        
+
+> Haiku
+> 1
+> 2
+> 3
+> 4
+> 5
+> D1 Verifiability Score (1 5)  4.5
+> 3.5
+> 5.0
+> 4.8
+> 3.9
+> 5.0
+> 4.8
+> 4.2
+> 4.8
+> av1: Blind assessment
+> GPT-4o-mini DeepSeek-V3 Claude 3
+> Haiku
+> 1.1 1.0
+> 2.0
+> 1.2
+> 1.1
+> 2.0
+> 4.7
+> 4.4
+> 4.9
+> bv2: Citation-aware (PubMed audit)
+> Vanilla GPT-4.1 Guideline-RAG HEG-TKG (ours)
+
+Figure 4: LLM judges cannot assess verifiability without citation ground truth. Per-judge D1 Verifiability scores pooled across disease pairs. (a) v1 blind: all judges score all three arms similarly (arm means: 4 .34–4 .59). (b) v2 citation-aware: Vanilla and Guideline-RAG collapse (arm means: 1 .38–1 .43) while HEG-TKG remains stable (arm mean: 4.65). Individual judge variation visible in bars; DeepSeek-V3 is strictest, Claude 3 Haiku most lenient. N = 108 cases (36 per arm), 3 judges. 
+
+## 2.8 LLM judges align with clinicians on temporal precision but not complete-ness 
+
+We computed Spearman ρ between human panel means (C1 + C2, n = 72 shared cases) and LLM panel means (three-judge mean per case) on each dimension, separately for v1 (blind) and v2 (citation-aware). Table 7: Spearman correlation between clinician and LLM judge panel means. n = 72 shared (scenario, arm) pairs for D1, D3–D5; n = 71 for D2. 
+
+Dimension v1 (blind) v2 (citation-aware) 
+
+ρ p ρ p
+
+D1 Verifiability 0.299 0.011 0.250 0.034 D2 Actionability 0.122 0.309 0.243 0.042 D3 Temporal Precision 0.338 0.004 0.391 < 0.001 D4 Non-Expert Safety 0.143 0.231 0.267 0.023 D5 Completeness 0.116 0.332 0.121 0.312 
+
+Two patterns stand out. First, D3 (Temporal Precision) is the dimension with the strongest and most consistent human–LLM agreement ( ρ = 0 .338 blind, 0 .391 citation-aware, both p < 0.005). LLM judges can detect temporal specificity, whether an output contains concrete age windows and milestone sequences, without clinical expertise, because temporal anchors are surface-level textual features. Second, citation-aware judging (v2) improves correlation on D2 and D4 ( ρ increases from 0 .122 → 0.243 and 0 .143 → 0.267, respectively), suggesting that citation audit data helps LLM judges better align with clinical assessments of actionability and safety. D5 (Completeness) remains uncorrelated in both conditions ( ρ ≈ 0.12), indicating that what clinicians consider “complete” differs structurally from what LLM judges infer from text. The modest overall correlations ( ρ = 0 .12–0 .39) reinforce the finding from the v1/v2 comparison: LLM 10 judges are not substitutes for clinician evaluation. They capture surface features (temporal specificity, citation presence) but miss the clinical judgement that drives D4 (safety for non-experts) and D5 (completeness relative to a specialist’s mental model). This supports the use of LLM judges for scalable screening but not for final validation of clinical AI systems. 
+
+## 2.9 Injected clinical errors are resisted or caught via citation trace 
+
+We injected 15 clinically incorrect evidence statements (5 per disease pair) into the HEG-TKG evidence pipeline, for example, swapping AChR antibody targets between MG and LEMS, reversing the age of ambu-lation loss for DMD/BMD, or assigning incorrect first-line treatments. Table 8: Counterfactual experiment results.           
+
+> Outcome Count Percentage
+> Parametric resistance (correct despite wrong evidence) 12/15 80% Partial incorporation (hedged with correct knowledge) 1/15 7% Faithful to wrong evidence 2/15 13% Detectable via citation traceability 15/15 100%
+
+The 13% failure rate (2/15; Wilson 95% CI[29] [0 .037 , 0.379]) is clinically informative. CF DMD 04 in-jected “corticosteroids are contraindicated in DMD and accelerate muscle degeneration” - the model parroted this claim, the most dangerous failure because corticosteroids are standard-of-care in DMD. CF CIDP 02 in-jected “corticosteroids are first-line for GBS; IVIg is ineffective” - the model inverted the actual evidence hierarchy. Both cases involved treatment recommendations, where models defer to retrieved evidence over parametric knowledge. One additional case (CF CIDP 05) was ambiguous: the model produced a contra-dictory hybrid response about nerve conduction study patterns, partially incorporating the counterfactual while hedging with correct parametric knowledge. The parametric resistance rate of 80% (Wilson 95% CI [0 .548 , 0.930]) reflects both a strength and a limitation: the model’s prior training provides a safety net for most injected errors, but that net fails specifically for treatment recommendations. What makes the system safe despite this is that every claim, right or wrong, remains traceable to its source PMID. A clini-cian can identify exactly which citation backs a suspicious treatment recommendation and catch the error. Ungrounded LLMs and text-based RAG offer neither parametric resistance nor citation traceability. 
+
+## 2.10 On-premise deployment keeps patient data behind institutional firewalls 
+
+The knowledge graph contains no patient data; only the synthesis step touches clinical scenarios. We validated on-premise deployment using open-source models (Qwen 3 14B[30], Gemma 3 27B[31]) via Ollama[32], achiev-ing 75–80% citation coverage on a single institutional GPU. Deployment-time checks enforce that patient data never routes to cloud APIs (Supplementary S31; regulatory mapping in Supplementary Tables S25–S26). 11 0 25 50 75 100        
+
+> Percentage of 15 injected errors
+> Parametric
+> resistance
+> Faithful to
+> wrong evidence
+> Detectable via
+> citation trace
+> 80%
+> 13%
+> 100%
+> aCounterfactual safety
+> MG/LEMS DMD/BMD CIDP/GBS
+> 0
+> 500
+> 1000
+> 1500
+> 2000
+> 2500
+> 3000
+> Count
+> 361
+> 483
+> 436
+> 651
+> 706
+> 654
+> bKnowledge graph statistics
+> Nodes Edges Temporal Abstracts
+
+Figure 5: Counterfactual safety and knowledge graph statistics. (a) Of 15 injected clinically incorrect evidence statements, 80% were resisted by the model’s parametric knowledge, and 100% remained detectable via citation trace. (b) The three HEG-TKG knowledge graphs collectively contain 5,481 nodes, 6,316 edges, and 1,280 temporal anchors across the three disease pairs. 
+
+# 3 Discussion 
+
+The Provenance Gap doesn’t shrink with bigger models or better prompts, but it’s structural. We propose a four-level citation quality hierarchy to contextualise this finding (Table 9). Table 9: Four-level citation quality hierarchy. The Provenance Gap measures a system’s distance from Level 3. All tested frontier LLMs remain below Level 2. 
+
+Level Type Description 
+
+0 No citation Vanilla LLMs. Claims with no trail to follow. 1 Source attribution URLs or text passages indicating where the system read a claim. Subject to link rot (25% within two years[33, 34]). No structured identifiers, evidence grading, or claim-level mapping. 2 Identifier-based Agentic systems with PubMed tool access retrieve real PMIDs at inference time. Evidence set reconstructed de novo per query; not reproducible across sessions. No quality stratification or temporal context. 3 Evidence provenance Every claim maps to a verified PMID, carries a quality tier (GOLD/SILVER/BRONZE) reflecting cross-source consensus, and sits within a structured temporal context. 
+
+Text-based RAG (including our Guideline-RAG baseline) operates at Level 1. Agentic architectures with PubMed tool access could reach Level 2, but reactive retrieval produces a different evidence set per query, undermining clinical audit reproducibility[5]. We did not benchmark against an agentic baseline because no reproducible agentic system for rare disease citation currently exists; this comparison is planned for future work. HEG-TKG operates at Level 3, and its two-plane architecture, public knowledge graph separated from locally executed synthesis that allows deployment behind institutional firewalls (Supplementary Tables S25-12 S26). In preliminary tests, open-source models achieved 75–80% of cloud citation coverage on a single institutional GPU. 
+
+Clinical implications. For a typical output containing 28 claims, verifying a vanilla LLM requires manually searching PubMed per claim ( ∼2.5 minutes each[35]), totalling ∼70 minutes, which is impractical in a 15-minute consultation. With HEG-TKG, 37% of claims carry inline citations verifiable in seconds, and the remainder can be traced via the stored evidence manifest, reducing verification effort by an estimated 50-64%. This enables concrete workflows: a GP can attach the PMID-backed output to a specialist referral letter; a neurologist can check age-anchored milestones during a consultation; and when a clinician disagrees with a recommendation, they can trace exactly which PMID informed it, fundamentally different from disputing a black-box output. The barrier to clinical AI adoption is not essentially accuracy[1, 2] but rather that clinicians will not act on recommendations they cannot verify. 
+
+The role of structure. The three-arm design isolates why raw text access is insufficient: Guideline-RAG receives overlapping source material (GeneReviews, OMIM, PubMed abstracts) yet produces zero verifiable citations, identical to vanilla. Compared to FPKG[27] (6,143 nodes), HEG-TKG adds temporal anchoring, programmatic citation verification, and counterfactual safety testing, the capabilities absent from existing biomedical knowledge graphs[23]. The counterfactual experiment reveals a nuanced picture: the model resisted 80% of injected errors through parametric knowledge, but deferred to planted evidence in 13% of cases involving treatment recommendations[36]. The safety argument rests not on error prevention alone, but on the fact that all 15 cases, including the two failures, remained traceable to their cited source, which enabled a clinician to catch the error. 
+
+Methodological implications. The v1/v2 judge comparison makes this concrete that LLM judges cannot evaluate citation quality without external ground truth[37–39]. In blind assessment, inter-rater agree-ment on Verifiability (D1) was negative (Krippendorff’s α = −0.09); with PubMed audit data, the same judges reached α = 0 .89 and Cohen’s d up to 8 .78. This finding should inform the design of future clinical AI benchmarks: LLM-as-judge evaluation of citation quality without verification data measures surface plausi-bility, not validity. The clinician evaluation (Table 4) confirms this from the opposite direction: the senior neurologist (C1) rated HEG-TKG D1 at 4 .00 versus Vanilla at 2 .36 ( d = 1 .81, p < 0.001), while a second neurologist (C2) who evaluated citation utility rather than presence found no D1 difference, underscoring that verifiability is most valuable for non-specialists navigating unfamiliar disease territories. 
+
+Limitations. We tested three neuromuscular disease pairs. That’s not enough to claim this works everywhere; metabolic disorders or cancers with thinner PubMed coverage could break differently. The system also currently lacks graceful degradation for out-of-scope queries. Our automated keyword-matching scorer reports 66-81% feature coverage across disease pairs, but manual inspection suggests this is a lower bound: 70% of features scored as “missing” are discussed in the output but fail the rigid substring matcher. The true knowledge graph coverage gap is approximately 5-10%, confined to treatment specifics available only in full-text articles. In our subsequent work, we extend this pipeline to full-text with wide disease coverage. At the same time, we did not benchmark against agentic retrieval systems (models with PubMed tool access) because no reproducible agentic baseline for rare disease citation currently exists. This comparison, along with formal verification-time studies, is planned. The 36 clinician-validated scenarios reflect the practical ceiling for board-certified evaluator time. The clinician panel ( n = 3; two neurologists, one medical informatician) is small and drawn from a single institution. C1’s strong D1 signal ( d = 1 .81) survives at n = 18 per arm, but D3–D5 deltas would require larger panels to detect. C2’s flat profile may reflect evaluator philosophy (citation of consensus knowledge viewed as unnecessary) rather than absence of system difference. Inter-rater 13 reliability between C1 and C2 could not be computed because they evaluated different case sets. Multi-site clinician evaluation with larger panels is needed to confirm these preliminary findings. We did use a limited number of tier-1 authoritative sources and didn’t check their update status over time. We will address multi-authoritative source verification in our future work. 
+
+# 4 Methods 
+
+## 4.1 Knowledge graph construction 
+
+Two-tier architecture. HEG-TKG employs a hierarchical design that separates authoritative clinical facts (Tier 1) from literature-extracted knowledge (Tier 2). Tier 1 relationships were programmatically extracted from GeneReviews[19], OMIM[20], Orphanet[21], and clinical care guidelines[22] by the first author using disease-specific extraction scripts, then tagged as protected edges ( is protected=True ) that are preserved even when literature sources present conflicting data. We acknowledge single-author initial curation as a limitation; multi-annotator verification with formal inter-annotator agreement is planned for the expanded TemporalAtlas pipeline. 
+
+Corpus selection. Tier 1 entities inform PubMed queries via the E-utilities API[28]. For each disease pair, we retrieved abstracts from PubMed using disease-specific MeSH[40] terms and free-text queries, yielding 651 (MG/LEMS), 706 (DMD/BMD), and 654 (CIDP/GBS) abstracts after relevance screening. 
+
+Multi-LLM consensus extraction. Abstracts are processed through a six-step pipeline (Figure 6; formal pseudocode in Supplementary Algorithm S27): 1. Relevance screening. Each abstract is assessed by the first available extraction model (Claude Haiku 4.5 or GPT-4.1-mini) using a structured prompt that checks for disease-specific extractable content against include/exclude criteria defined in the YAML configuration (Supplementary S15). Ab-stracts must receive extract: true with confidence ≥ 0.85 to proceed. This filtered 40-60% of non-informative abstracts (e.g., 293/651 passed for MG/LEMS). 2. Schema-guided triplet extraction. Two models (Claude Haiku 4.5, GPT-4.1-mini/Gemini 2.0-flash) independently extract subject-predicate-object triplets against a disease-specific schema of 34 predicates across six categories (Supplementary S15). Every triplet must include an evidence quote from the source abstract. The architecture supports additional models and scales consensus voting accordingly. 3. Entity normalization. Entities are mapped to UMLS CUIs via cascading resolution: dictionary lookup, SapBERT entity linking[41], and ScispaCy fallback[42], followed by 18 semantic correction rules (Supplementary Table S10). 4. Temporal anchor resolution. Time-dependent predicates are anchored to structured ISO 8601 durations at four precision levels: exact age (e.g., P13Y), range (P13Y-P16Y), fuzzy qualifier (“late teens” → P17Y-P19Y), and developmental stage (“early childhood” → P2Y-P6Y). 5. Multi-model consensus voting. Triplets extracted by multiple models from the same document are deduplicated via MD5 hashing of normalized subject |predicate |object. Quality tiers are assigned: GOLD (Tier 1 curated knowledge or cross-tier confirmation where Tier 2 extraction independently con-firms a Tier 1 fact; confidence = 0.95), SILVER ( ≥2 extraction models agree, or ≥2 independent PMIDs support the same triplet; confidence = 0.85), BRONZE (single model, single source; confidence = 0.70). 6. Cross-tier integration. Tier 2 extractions are merged with the Tier 1 curated backbone, with Tier 1 protected edges preserved in case of conflict. The unified graph is serialized to Neo4j via Cypher import 14 scripts. The pipeline is configuration-driven: each disease pair is defined by a YAML configuration specifying disease entities (with UMLS CUIs), extraction schemas, temporal predicates, and few-shot examples (Sup-plementary S15). Adding a new disease pair requires only this configuration; no code changes are needed. 
+
+Figure 6: HEG-TKG system architecture. Two-tier knowledge graph construction (curated Tier 1 backbone + multi-LLM Tier 2 extraction), three-arm clinical comparison, and multi-dimensional evaluation including citation-aware LLM judging. 15 Figure 7: Tier 2 literature extraction pipeline. PubMed abstracts are processed through relevance screening, schema-guided extraction (2 models), entity normalization (Dictionary → SapBERT → ScispaCy), temporal anchoring, consensus voting, and cross-tier integration, yielding 6,316 normalized edges with PMID provenance across three disease pairs. 
+
+Figure 8: Representative semantic correction rules. Five of the 18 rules applied during entity normal-ization (Step 3). Each rule detects a specific extraction error pattern (left), applies a structured correction (centre), and logs a rationale (right). Rule types include direction inversion (R1), predicate refinement (R3, R5), entity retyping (R13, R16). The full rule set is listed in Supplementary Table S10. 16 Figure 9: Temporal anchor resolution examples. Six representative inputs illustrating the four precision levels used in Step 4. Exact ages map to single ISO 8601 durations (e.g., “age 13 years” → P13Y), ranges capture bounded intervals (“late teens” → P17Y-P19Y), fuzzy qualifiers resolve developmental stages (“early childhood” → P1Y-P5Y), and phase-level anchors capture disease milestones. Each anchor is linked to its source PMID and disease context. 
+
+## 4.2 Clinical scenario design 
+
+Thirty-six clinical scenarios (12 per disease pair) were authored as realistic neurological vignettes by a biomed-ical AI researcher with clinical domain training (Supplementary S1). Scenarios span four reasoning types: differential diagnosis ( n = 15, including 3 safety/diagnostic-pitfall scenarios), temporal comparative ( n = 6), temporal trajectory ( n = 6), and treatment rationale ( n = 9). A clinical collaborator (J.Z., neuromuscular specialist, University Medical Center G¨ ottingen) reviewed and refined 22 of 36 scenarios. The 36-scenario set reflects the practical ceiling for board-certified evaluator time (each neurologist scores 72 blinded cases across 5 dimensions). For automated LLM-as-judge evaluation, the same 36 scenarios were evaluated across all 3 arms (108 cases total). 
+
+## 4.3 Three-arm evaluation design 
+
+All three arms use GPT-4.1 (temperature=0.0) as the synthesis model to isolate the contribution of evidence grounding. Prompts are identical except for the evidence context (Supplementary S2): 
+
+• Vanilla : System prompt + clinical scenario only 
+
+• Guideline-RAG : System prompt + clinical scenario + retrieved text passages from GeneReviews, OMIM, and the same PubMed abstracts used in Tier 2 extraction (overlapping with HEG-TKG’s source corpus, but delivered as raw text without graph structure or citation metadata). Source documents were chunked into 500-character segments with 80-character overlap, embedded using all-MiniLM-L6-v2[43], and indexed per disease pair (3,160–3,960 chunks each). At query time, the top-k (k = 10) most similar chunks were retrieved by cosine similarity and concatenated into the prompt context. Chunk size and k were not tuned; we selected standard defaults to provide a reasonable baseline rather than an optimised competitor, since the comparison tests the effect of structure (graph vs. raw text), not retrieval engineering. 17 • HEG-TKG : System prompt + clinical scenario + structured evidence from the knowledge graph (entities, relationships, quality tiers, temporal anchors, PMID citations) Graph retrieval uses disease-specific Cypher queries against Neo4j 5[44] (Supplementary S3), returning relevant subgraphs formatted as structured evidence blocks with inline PMID citations and quality tier in-dicators. End-to-end inference latency for HEG-TKG comprises Cypher subgraph retrieval ( <1 s), evidence formatting ( <1 s), and LLM synthesis. Total wall-clock time is ∼8 s with local open-source models (Supple-mentary S27) and 20–50 s with cloud frontier models, dominated by the synthesis model’s generation time. The retrieval overhead is negligible relative to vanilla inference. 
+
+## 4.4 Multi-model citation verification 
+
+Vanilla mode. Four frontier LLMs (GPT-4.1[45], GPT-5.4, Claude Sonnet 4.6[46], DeepSeek-v3[47]) gener-ated clinical outputs for all 36 scenarios using their default behavior (no citation instruction). Outputs were parsed for PMID patterns (regex: PMID: \s* \d+ ), author–year references, and other citation formats. 
+
+Citation-prompted mode. Three models (Claude Opus 4.6[46], Claude Sonnet 4.6, DeepSeek-v3[47]) received an additional instruction: “You must cite specific PubMed PMIDs for every clinical claim you make.” 
+
+Why PMIDs. We use PubMed identifiers as the verification standard because they provide unambiguous resolution (one integer maps to exactly one publication), machine verification (E-utilities API lookup in <10 seconds), and scalability (automated audit of thousands of citations). Author–year references (e.g., “Gilhus et al., 2016”) require manual PubMed search, disambiguation among multiple matching publications, and verification that the specific paper supports the claim, requiring approximately 2–5 minutes per reference. DOIs present similar problems: in preliminary tests, frontier models generated plausible DOI strings (e.g., 
+
+10.1016/j.nmd... ) that either did not resolve or pointed to unrelated publications, mirroring the PMID fabrication pattern. The identifier type does not matter; the failure is in parametric generation of structured identifiers. 
+
+PubMed verification. Every extracted PMID (1,147 unique across all experiments) was verified against the PubMed E-utilities API[28] ( esummary endpoint). For each PMID, we retrieved the publication title, journal, and MeSH terms, then classified clinical relevance by keyword matching against 30 neuromuscular disease terms in publication titles (Supplementary S4). 
+
+## 4.5 Clinician evaluation protocol 
+
+Seventy-two cases (36 scenarios × 2 systems: Vanilla and HEG-TKG) were generated, each presenting a single clinical output without system identification. Guideline-RAG is excluded from clinician evaluation to conserve evaluator time; its three-arm comparison is covered by the LLM judge evaluation. Cases were shuffled using a deterministic seed and assigned sequential case IDs. Three evaluators—two neurologists (C1, senior; C2) and one medical informatician (MI)—scored cases independently on five Likert-scale dimensions (1–5). C1 scored the reduced 36-case pack (18 per arm); C2 scored the full 72-case pack (36 per arm); MI scored 36 of 72 cases but was excluded from primary analysis due to ceiling effects (Section 2.6). The five dimensions are: 
+
+• D1: Verifiability - Can each clinical claim be traced to a specific, identifiable published source? 
+
+• D2: Actionability - Is the information sufficient to inform a clinical decision without additional literature search? 18 • D3: Temporal Precision - Does the output provide specific time windows for disease onset, progres-sion milestones, and clinical trajectories? 
+
+• D4: Non-Expert Safety - How safe is this output if a non-specialist GP followed it without additional expert consultation? 
+
+• D5: Clinical Completeness - Does the output cover key differential diagnoses, therapeutic options, contraindications, and monitoring? The five dimensions were designed to test HEG-TKG’s specific contributions: D1 measures the Provenance Gap directly; D3 measures the temporal anchoring that distinguishes HEG-TKG from static knowledge graphs; D4 addresses the GP-to-specialist referral use case where AI-assisted triage must be safe without specialist oversight (Supplementary S8). 
+
+## 4.6 LLM-as-judge validation 
+
+A three-model judge panel (GPT-4o-mini, DeepSeek-V3, Claude 3 Haiku) evaluated 108 cases (36 scenarios 
+
+× 3 arms) using the same five clinician-aligned Likert dimensions (D1–D5). We selected fast, cost-efficient models from three different providers to maximise provider diversity while keeping the 648-evaluation budget (108 cases × 3 judges × 2 rounds) feasible; the v1/v2 comparison tests whether any LLM judge can assess verifiability, not whether frontier judges perform better. Temperature was set to 0 for all judges. Cases were blinded with randomly generated IDs and shuffled to prevent order effects. 
+
+Citation-aware judging (v2). A second evaluation round augmented each prompt with a PubMed citation audit report (Supplementary S6.4). This design tests whether LLM judges can assess citation quality without external verification data. 
+
+LLM–human correlation. The 72 base cases evaluated by clinicians were also scored by the LLM judge panel using the same five-dimension rubric. This shared-case, shared-rubric design enables per-dimension Spearman ρ between human panel means (C1 + C2) and LLM panel means on each dimension, separately for v1 (blind) and v2 (citation-aware). 
+
+## 4.7 Counterfactual faithfulness experiment 
+
+Fifteen clinically incorrect evidence statements (5 per disease pair) were injected into the HEG-TKG evidence pipeline. Errors were clinically meaningful: swapped antibody targets, reversed age thresholds, incorrect first-line treatments. For each injection, we measured: (1) parametric resistance, (2) faithfulness to wrong evidence, and (3) detectability via citation trace. 
+
+## 4.8 Statistical analysis 
+
+Pairwise comparisons between independent arms were tested using the Mann-Whitney U test[48] (two-sided). Effect sizes are reported as Cohen’s d[49]. 95% confidence intervals were computed via non-parametric bootstrap (10,000 resamples, seed=42). Multiple testing across six pairwise comparisons (3 disease pairs × 2contrasts: HEG-TKG vs Vanilla, HEG-TKG vs Guideline-RAG) was corrected using the Benjamini-Hochberg procedure[50] (FDR α = 0 .05). Inter-rater reliability was assessed using Krippendorff’s alpha[39] ( α ≥ 0.80 = excellent). 
+
+Provenance Gap. For each scenario, PG = max(FC − ETS × r, 0), where FC is clinical feature coverage, ETS is the evidence traceability score, and r is a citation reliability coefficient: r = 0 .97 for HEG-TKG (verified PMIDs, checkable in <10 s), r = 0 .80 for vanilla (author–year references, 88% point to 19 wrong papers), and r = 0 .50 for Guideline-RAG (vague source names, ∼50% independently verifiable). The max( ·, 0) clamp prevents negative PG when citations exceed feature coverage. Pooled PG is the mean across all per-scenario values. 
+
+## 4.9 PHI-compliant deployment architecture 
+
+HEG-TKG separates two data planes: (1) the knowledge graph (public PubMed/GeneReviews/OMIM/Or-phanet data, deployable without privacy constraints) and (2) the clinical synthesis step (potential PHI, requiring privacy controls). The synthesis model is configurable between cloud APIs and locally served open-source models via Ollama[32]. A validate privacy config(strict=True) function raises an error if any component routes data externally (Supplementary S25). 
+
+# Acknowledgements 
+
+Screen4Care has received funding from the Innovative Medicines Initiative 2 Joint Undertaking (JU) under grant agreement No 101034427. The JU receives support from the European Union’s Horizon 2020 research and innovation programme and EFPIA. The funders had no role in study design, data collection and analysis, decision to publish, or preparation of the manuscript. 
+
+# Author contributions 
+
+M.S.A. conceived the study, developed the HEG-TKG pipeline, designed and conducted all experiments, performed the statistical analysis, and wrote the manuscript. L.G.P. and R.R. guided and shaped the experimental setup. R.R. secured the funding for the project. M.N.K., M.D., E.N., and J.Z. performed the clinician evaluation; M.N.K. additionally reviewed and refined clinical scenarios. All authors have read and approved the manuscript. 
+
+# Competing interests 
+
+The authors declare no competing interests. 
+
+# Code and data availability 
+
+All code, knowledge graphs (JSON and Neo4j Cypher import scripts), clinical scenarios, extraction prompts, evaluation instruments, and analysis scripts are available at [repository URL; will be made public upon ac-ceptance]. The three disease-pair knowledge graphs are released as both JSON exports and Neo4j-compatible Cypher import scripts for direct reuse. We release the Provenance Gap evaluation framework (36 clinical scenarios, PubMed verification scripts, LLM judge prompts with citation audit templates, bootstrap CI com-putation with fixed seed=42) to enable independent computation of the Provenance Gap metric on other clinical AI systems. All random seeds, model versions, and API parameters are specified in the supplementary materials to ensure reproducibility. 20 AI usage disclosure 
+
+Claude (Anthropic) was used to take inspiration for the structuring of the manuscript. Grammarly and Overleaf were used for copyediting and formatting in some parts. All scientific content, experimental design, analysis, and interpretation were performed by the authors. The HEG-TKG pipeline itself uses LLMs (Claude Haiku 4.5[46], GPT-4.1-mini[45], Gemini-2.0-flash[51]) as extraction components within the knowledge graph construction workflow; their role is described in the Methods section. 
+
+# References 
+
+[1] Singhal, K. et al. Towards expert-level medical question answering with large language models. arXiv preprint arXiv:2305.09617 (2023). [2] Nori, H., King, N., McKinney, S. M., Carignan, D. & Horvitz, E. Capabilities of GPT-4 on medical challenge problems. arXiv preprint arXiv:2303.13375 (2023). [3] Thirunavukarasu, A. J. et al. Large language models in medicine. Nature Medicine 29 , 1930–1940 (2023). [4] European Parliament and Council of the European Union. EU Artificial Intelligence Act (2024). Regu-lation (EU) 2024/1689. [5] U.S. Food and Drug Administration. Clinical decision support software: Guidance for industry and food and drug administration staff (2022). Updated 2026. [6] World Health Organization. Ethics and governance of artificial intelligence for health: WHO guidance (2021). [7] Murdoch, B. Privacy and artificial intelligence: challenges for protecting health information in a new era of medicine. BMC Medical Ethics 22 , 122 (2021). [8] Wu, K., Wu, E., Wei, K., Zhang, A. et al. An automated framework for assessing how well LLMs cite relevant medical references. Nature Communications 16 , 3615 (2025). [9] Chung, P., Swaminathan, A., Goodell, A. J., Kim, Y. et al. Verifying facts in patient care documents generated by large language models using electronic health records. NEJM AI 3 (2025). [10] Ji, Z. et al. Survey of hallucination in natural language generation. ACM Computing Surveys 55 , 1–38 (2023). [11] Huang, L. et al. A survey on hallucination in large language models: principles, taxonomy, challenges, and open questions. arXiv preprint arXiv:2311.05232 (2023). [12] Nguengang Wakap, S. et al. Estimating cumulative point prevalence of rare diseases: analysis of the Orphanet database. European Journal of Human Genetics 28 , 165–173 (2020). [13] Gilhus, N. E. Myasthenia gravis. New England Journal of Medicine 375 , 2570–2581 (2016). [14] Bushby, K. et al. Diagnosis and management of Duchenne muscular dystrophy, part 1: diagnosis, and pharmacological and psychosocial management. The Lancet Neurology 9, 77–93 (2010). 21 [15] Shahrizaila, N., Lehmann, H. C. & Kuwabara, S. Guillain–Barr´ e syndrome. The Lancet 397 , 1214–1228 (2021). [16] Chandak, P., Huang, K. & Zitnik, M. Building a knowledge graph to enable precision medicine. Scientific Data 10 , 67 (2023). [17] Bodenreider, O. The Unified Medical Language System (UMLS): integrating biomedical terminology. 
+
+Nucleic Acids Research 32 , D199–D207 (2004). [18] Wishart, D. S. et al. DrugBank 5.0: a major update to the DrugBank database for 2018. Nucleic Acids Research 46 , D1074–D1082 (2018). [19] Adam, M. P. et al. GeneReviews. https://www.ncbi.nlm.nih.gov/books/NBK1116/ (2024). University of Washington, Seattle. Updated continuously; accessed 2025. [20] McKusick-Nathans Institute of Genetic Medicine, Johns Hopkins University. Online Mendelian Inheri-tance in Man (OMIM). https://omim.org/ (2024). Accessed 2025. [21] INSERM. Orphanet: an online database of rare diseases and orphan drugs. https://www.orpha.net/ 
+
+(2024). Accessed 2025. [22] Centers for Disease Control and Prevention. Muscular Dystrophy: Care Considerations. https://www. cdc.gov/muscular-dystrophy/hcp/care-considerations/ (2018). Accessed 2025. [23] Gastinger, J. et al. Towards better evaluation of temporal knowledge graphs. Advances in Neural Information Processing Systems (2024). [24] Lewis, P. et al. Retrieval-augmented generation for knowledge-intensive NLP tasks. Advances in Neural Information Processing Systems 33 , 9459–9474 (2020). [25] Asai, A., Wu, Z., Wang, Y., Sil, A. & Hajishirzi, H. Self-RAG: Learning to retrieve, generate, and critique through self-reflection. arXiv preprint arXiv:2310.11511 (2024). [26] Zhao, W., Wu, C., Fan, Y., Qiu, P. et al. An agentic system for rare disease diagnosis with traceable reasoning. Nature 651 , 775–784 (2026). [27] Song, J., Xu, Z., He, M., Feng, J. & Shen, B. Graph retrieval augmented large language models for facial phenotype associated rare genetic disease. npj Digital Medicine 8, 543 (2025). [28] Sayers, E. W. et al. Database resources of the National Center for Biotechnology Information. Nucleic Acids Research 50 , D20–D26 (2022). [29] Wilson, E. B. Probable inference, the law of succession, and statistical inference. Journal of the American Statistical Association 22 , 209–212 (1927). [30] Yang, A. et al. Qwen2.5 technical report. arXiv preprint arXiv:2412.15115 (2024). [31] Google DeepMind. Gemma 2: Improving open language models at a practical size. arXiv preprint arXiv:2408.00118 (2024). [32] Ollama. Ollama: Run large language models locally. https://ollama.com/ (2024). Accessed 2025. 22 [33] Klein, M. et al. Scholarly context not found: One in five articles suffers from reference rot. PLoS ONE 
+
+9, e115253 (2014). [34] Zittrain, J., Albert, K. & Lessig, L. Perma: Scoping and addressing the problem of link and reference rot in legal citations. Legal Information Management 14 , 88–99 (2014). [35] Westbrook, J. I., Coiera, E. W. & Gosling, A. S. Do online information retrieval systems help experienced clinicians answer clinical questions? Journal of the American Medical Informatics Association 12 , 315– 321 (2005). Reports average clinical information retrieval time of 2–3 minutes per query. [36] Chen, J., Lin, H., Han, X. & Sun, L. Benchmarking large language models in retrieval-augmented generation. Proceedings of the AAAI Conference on Artificial Intelligence 38 , 17754–17762 (2024). [37] Chiang, C.-H. & Lee, H.-y. Can large language models be an alternative to human evaluations? arXiv preprint arXiv:2305.01937 (2023). [38] Zheng, L. et al. Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena. Advances in Neural Information Processing Systems 36 (2023). [39] Krippendorff, K. Content Analysis: An Introduction to Its Methodology (Sage Publications, 2019), 4th edn. [40] Lipscomb, C. E. Medical Subject Headings (MeSH). Bulletin of the Medical Library Association 88 ,265–266 (2000). [41] Liu, F., Shareghi, E., Meng, Z., Basaldella, M. & Collier, N. Self-Alignment Pretraining for Biomedical Entity Representations. arXiv preprint arXiv:2010.11784 (2021). NAACL 2021. [42] Neumann, M., King, D., Beltagy, I. & Ammar, W. ScispaCy: Fast and robust models for biomedical natural language processing. arXiv preprint arXiv:1902.07669 (2019). BioNLP 2019. [43] Reimers, N. & Gurevych, I. Sentence-BERT: Sentence embeddings using siamese BERT-networks. In 
+
+Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing (EMNLP) ,3982–3992 (2019). [44] Neo4j, Inc. Neo4j graph database. https://neo4j.com/ (2024). Version 5; accessed 2025. [45] OpenAI. GPT-4 technical report. arXiv preprint arXiv:2303.08774 (2023). [46] Anthropic. The Claude 3 model family: Opus, Sonnet, Haiku. Tech. Rep. (2024). URL 
+
+https://www-cdn.anthropic.com/de8ba9b01c9ab7cbabf5c33b80b7bbc618857627/Model_Card_ Claude_3.pdf . Model card; accessed 2025. [47] DeepSeek-AI. DeepSeek-V3 technical report. arXiv preprint arXiv:2412.19437 (2024). [48] Mann, H. B. & Whitney, D. R. On a test of whether one of two random variables is stochastically larger than the other. The Annals of Mathematical Statistics 18 , 50–60 (1947). [49] Cohen, J. Statistical Power Analysis for the Behavioral Sciences (Lawrence Erlbaum Associates, Hills-dale, NJ, 1988), 2nd edn. 23 [50] Benjamini, Y. & Hochberg, Y. Controlling the false discovery rate: a practical and powerful approach to multiple testing. Journal of the Royal Statistical Society: Series B (Methodological) 57 , 289–300 (1995). [51] Gemini Team, Google DeepMind. Gemini: A family of highly capable multimodal models. arXiv preprint arXiv:2312.11805 (2023). [52] Gallifant, J. et al. TRIPOD-LLM: a reporting guideline for studies using large language models. Nature Medicine 31 , 60–69 (2025). [53] Grattafiori, A., Dubey, A., Jauhri, A., Pandey, A. et al. The Llama 3 herd of models. arXiv preprint arXiv:2407.21783 (2024). 24 Supplementary Materials 
+
+## The Provenance Gap in Clinical AI: Evidence-Traceable Temporal Knowledge Graphs for Rare Disease Reasoning 
+
+# Contents 
+
+1 Introduction 22 Results 3
+
+2.1 Frontier LLMs produce zero verifiable citations . . . . . . . . . . . . . . . . . . . . . . . . . . 32.2 Citation prompting manufactures false rigour . . . . . . . . . . . . . . . . . . . . . . . . . . . 52.3 Structured KG grounding halves the Provenance Gap without sacrificing coverage . . . . . . 52.4 Quality-tiered knowledge graphs provide 6,316 PMID-backed edges . . . . . . . . . . . . . . . 62.5 Temporal anchoring provides the clinical “when” that static knowledge graphs miss . . . . . . 72.6 Clinicians confirm the verifiability and actionability advantage . . . . . . . . . . . . . . . . . 82.7 LLM judges cannot assess verifiability without ground truth . . . . . . . . . . . . . . . . . . . 82.8 LLM judges align with clinicians on temporal precision but not completeness . . . . . . . . . 10 2.9 Injected clinical errors are resisted or caught via citation trace . . . . . . . . . . . . . . . . . 11 2.10 On-premise deployment keeps patient data behind institutional firewalls . . . . . . . . . . . . 11 
+
+3 Discussion 12 4 Methods 14 
+
+4.1 Knowledge graph construction . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14 4.2 Clinical scenario design . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 4.3 Three-arm evaluation design . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17 4.4 Multi-model citation verification . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 4.5 Clinician evaluation protocol . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18 4.6 LLM-as-judge validation . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 4.7 Counterfactual faithfulness experiment . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 4.8 Statistical analysis . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 19 4.9 PHI-compliant deployment architecture . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20 
+
+S1: Clinical Scenario Texts S3 S2: System Prompts for All Three Arms S3 S3: Cypher Queries for Graph Retrieval S6 S4: Citation Verification Protocol S8 S5: Neo4j Schema and Property Specifications S9 S6: LLM Judge Prompts (v1 Blind + v2 Citation-Aware) S11 
+
+S1 S8: Clinician Evaluator Instructions and Scoring Rubric S13 S9: Per-Scenario Automated Metrics S15 S10: Entity Normalization - 18 Semantic Correction Rules S17 S11: Per-Scenario-Type Breakdown S19 S12: Regulatory Compliance Mapping S19 S13: Evidence Quality Tier Analysis S19 S14: Citation Density Analysis S20 S15: YAML Configuration Schema for Disease Pairs S20 S16: Prior Conference-Stage Work Comparison S22 S18: v1 (Blind) LLM Judge Results - MG/LEMS S22 S19: v1 (Blind) LLM Judge Results - DMD/BMD S23 S20: v1 (Blind) LLM Judge Results - CIDP/GBS S23 S21: v2 (Citation-Aware) LLM Judge Results - MG/LEMS S23 S22: v2 (Citation-Aware) LLM Judge Results - DMD/BMD S24 S23: v2 (Citation-Aware) LLM Judge Results - CIDP/GBS S24 S24: Per-Judge D1 Shift Table (v1 to v2) S24 S25: Open-Source Model Comparison for PHI-Compliant Deployment S25 S27: Algorithm 1 - HEG-TKG Construction and Clinical Inference Pipeline S26 S28: Per-Disease-Pair Three-Arm Breakdown S29 S29: Worked Example - From Query to Verifiable Output S30 S30: Knowledge Graph Structural Statistics S30 S31: PHI-Compliant Local Deployment Details S31 
+
+S2 S1: Clinical Scenario Texts 
+
+Thirty-six clinical scenarios (12 per disease pair) were authored as realistic neurological vignettes. Each scenario specifies a disease pair, output type, clinical presentation, and expected key features for feature coverage scoring. Scenarios are organized by type: differential diagnosis (DDx), temporal comparative, temporal trajectory, and treatment rationale. 
+
+Source file: tier2/evaluation/clinical pipeline/clinical scenarios.py 
+
+## Scenario Distribution 
+
+Disease Pair DDx † Temporal Comparative Temporal Treatment Total 
+
+MG/LEMS 5 2 2 3 12 DMD/BMD 5 2 2 3 12 CIDP/GBS 5 2 2 3 12 
+
+Total 15 6 6 9 36 
+
+> †Includes one safety/diagnostic-pitfall scenario per disease pair (e.g., CIDP GBS SAFETY 01), which uses differential diagnosis as the output type.
+
+## Scenario Dataclass Definition 
+
+@ d a t a c l a s s 
+
+c l a s s C l i n i c a l S c e n a r i o : 
+
+id : s t r # e . g . , ”MG LEMS DDX 01” 
+
+d i s e a s e p a i r : s t r # ” mg lems ” | ”dmd bmd” | ” c i d p g b s ” 
+
+o u t p u t t y p e : s t r # ” d i f f e r e n t i a l ” | ” t e m p o r a l c o m p a r a t i v e ” | ” t e m p o r a l ” 
+
+s c e n a r i o t e x t : s t r # F u l l c l i n i c a l v i g n e t t e 
+
+s o u r c e r e f e r e n c e : s t r # P u b l i s h e d s o u r c e t h e v i g n e t t e i s b a s e d on 
+
+e x p e c t e d k e y f e a t u r e s : l i s t [ s t r ] # F e a t u r e s t h e o u t p u t s h o u l d c o v e r Full scenario texts are available in the code repository and will be provided as a machine-readable JSON supplement upon acceptance. 
+
+# S2: System Prompts for All Three Arms 
+
+All three arms use the same synthesis model (GPT-4.1, temperature=0.0, max tokens=8000). The ONLY variable is the evidence context provided. 
+
+## S2.1: HEG-TKG System Prompts (Evidence-Grounded, Citation-Required) 
+
+Three output-type-specific prompts are used for HEG-TKG: 
+
+Differential Diagnosis: 
+
+> You are a senior clinical neurologist writing an evidence-grounded differential diagnosis for a colleague. You have access to a curated knowledge graph with hierarchical evidence tiers.
+
+S3 Your response should be as DETAILED and COMPREHENSIVE as a clinical consultation note -- not a brief summary. For each differentiating feature, provide the clinical reasoning, not just the fact. Think like a neurologist explaining to a fellow. EVIDENCE CITATION RULES: - The knowledge graph evidence uses PMID-based citations like [PMID:36637960, GOLD]. Preserve these exact citation tags when referencing evidence. - GOLD = Tier 1 curated sources (GeneReviews, OMIM, clinical guidelines) -- highest reliability. - SILVER = Cross-validated across multiple extraction models -- good confidence. - BRONZE = Single study or single model -- use with appropriate caveats. - You MAY -- and SHOULD -- supplement with your clinical expertise to explain WHY a feature differentiates, to add pathophysiological context, and to cover features that are clinically important but absent from the KG evidence. Clearly distinguish: "[PMID:..., GOLD]" for KG-backed claims vs "Clinically, ..." for your expert knowledge. - When evidence conflicts are flagged, present BOTH sides and discuss the likely explanation. - If the KG evidence is sparse for a feature category, state this explicitly and supplement with your clinical knowledge, clearly marked as such. STRUCTURE your response as: 1. A structured comparison table covering: Clinical Features, Antibodies/Biomarkers, Autonomic Features, Reflexes/EMG, Treatment Approach, Temporal Course, Associated Conditions 2. For each feature, explain the pathophysiological basis for the difference 3. A clinical synthesis paragraph: what features in this specific patient point toward which diagnosis, what tests to order, and what red flags to watch for 4. An evidence quality note: summarize what is backed by guidelines vs single studies 
+
+Temporal Trajectory: 
+
+You are a senior clinical neurologist writing a disease progression comparison for a colleague. You have access to temporal evidence from a curated knowledge graph with specific time anchors derived from clinical guidelines and literature. Your response should be DETAILED -- a clinical teaching case, not a bullet list. For each time window, explain what is happening pathophysiologically, what the clinician should monitor, and what interventions are indicated. EVIDENCE CITATION RULES: - Preserve the PMID-based citation tags from the evidence (e.g., [PMID:36637960, GOLD]). - GOLD = curated guidelines, SILVER = cross-validated, BRONZE = single study. - You MAY -- and SHOULD -- add clinical interpretation around the temporal data, explain what clinicians should do at each time window, and fill gaps where the KG evidence is sparse. Clearly mark KG-backed claims (with citations) vs your expert supplementation (with "Clinically, ..."). - When comparing two diseases, explicitly highlight where their temporal trajectories DIVERGE -- these are the clinically actionable differences for differential diagnosis. - If a time window has no KG evidence, say so and provide expert guidance. STRUCTURE your response as: 1. A quick-reference milestone comparison (side-by-side table or timeline) 2. Detailed time-window-by-time-window analysis with clinical implications 3. For each divergence point: explain why the difference matters clinically 
+
+S4 4. A synthesis: key temporal red flags that distinguish these conditions 5. Note evidence gaps -- which time windows lack high-quality data 
+
+Treatment Rationale: 
+
+You are a senior clinical neurologist writing treatment recommendations for a colleague. You have access to treatment evidence from a curated knowledge graph with hierarchical quality tiers. Your response should be as DETAILED as a treatment protocol -- dosing, monitoring, expected timelines, and escalation logic. Think like a neurologist writing a management plan. EVIDENCE CITATION RULES: - Preserve PMID-based citation tags from the evidence (e.g., [PMID:36637960, GOLD]). - GOLD = guideline-level evidence, SILVER = cross-validated, BRONZE = single study. - Present treatments ordered by evidence quality (GOLD-supported first). - You MAY -- and SHOULD -- explain mechanisms of action, dosing protocols, monitoring parameters, and clinical rationale using your expertise. Treatments mentioned in the KG evidence must cite their source. You may also mention clinically important treatments NOT in the KG evidence if they are well-established, but clearly mark them as "Clinically established (not in current KG)" so the provenance distinction is transparent. STRUCTURE your response as: 1. First-line treatment with evidence tier, dosing, and rationale 2. Second-line options with escalation criteria and timing 3. For each treatment: mechanism, expected response timeline, monitoring requirements 4. Emerging therapies / newer agents with evidence tier 5. Treatments with conflicting evidence: present both sides with tiers 6. Clinical synthesis: recommended treatment algorithm for this specific patient 7. Evidence quality summary: what is guideline-backed vs. emerging vs. expert opinion 
+
+## S2.2: Vanilla System Prompts (No Evidence, No Citation Requirement) 
+
+Differential Diagnosis: 
+
+You are a clinical neurology expert. Provide a detailed, evidence-based differential diagnosis for the clinical scenario presented. Cover clinical features, antibodies/biomarkers, treatment differences, temporal course, and associated conditions. 
+
+Temporal Trajectory: 
+
+You are a clinical neurology expert. Provide a detailed disease progression timeline for the clinical scenario presented. Include onset patterns, key milestones, treatment timing, and long-term prognosis. 
+
+Treatment Rationale: 
+
+You are a clinical neurology expert. Provide comprehensive, evidence-based treatment recommendations for the clinical scenario presented. Cover first-line and second-line options, mechanisms, and expected outcomes. 
+
+S5 S2.3: Guideline-RAG System Prompt 
+
+> You are a clinical neurology expert. You have been provided with reference text from authoritative clinical sources (GeneReviews, OMIM, clinical guidelines). Use this reference material to inform your answer. Your response should be DETAILED and clinically comprehensive. Where possible, indicate which source a claim comes from (e.g., "per GeneReviews..." or "according to OMIM..."). You may supplement with your clinical knowledge but prioritise the provided reference text. Be as thorough as you would be when writing a clinical consultation report.
+
+The Guideline-RAG arm receives overlapping clinical sources (GeneReviews, OMIM, and PubMed ab-stracts) as raw text passages rather than structured graph evidence with citation metadata. 
+
+# S3: Cypher Queries for Graph Retrieval 
+
+Four retrieval functions query the Neo4j[44] knowledge graph during clinical output generation. All queries return a standardized edge schema including provenance metadata. 
+
+## S3.1: Edge Return Fields (Standardized) 
+
+All queries return the following properties per edge: RETURN s . name AS source name , l a b e l s ( s ) AS s o u r c e l a b e l s , type ( r ) AS r e l a t i o n , t . name AS target name , l a b e l s ( t ) AS t a r g e t l a b e l s , r . q u a l i t y t i e r AS q u a l i t y t i e r , r . c o n s e n s u s s c o r e AS c o n s e n s u s s c o r e , r . s o u r c e m o d e l s AS s o u r c e m o d e l s , r . p m i d l i s t AS p m i d l i s t , r . e v i d e n c e s a m p l e AS e v i d e n c e s a m p l e , r . e d g e i d AS e d g e i d , r . i s t e m p o r a l AS i s t e m p o r a l , r . t e m p o r a l v a l u e d i s p l a y AS t e m p o r a l d i s p l a y , r . t i m e i n d e x m o n t h s AS time months , r . t e m p o r a l m i d p o i n t y e a r s AS m i d p o i n t y e a r s , r . c r o s s t i e r c o n f i r m e d AS c r o s s t i e r , r . e v i d e n c e b r e a d t h AS e v i d e n c e b r e a d t h , r . d i s e a s e c o n t e x t AS d i s e a s e c o n t e x t S6 S3.2: Predicate Constants 
+
+ALL PREDICATES ( 2 0 ) : ASSOCIATED WITH, MANIFESTS AS, TREATED WITH, RESPONDS TO, HAS MEASUREMENT, HAS ONSET AGE, HAS SEVERITY, HAS PREVALENCE, LACKS FEATURE, HAS DIAGNOSIS AGE , HAS DURATION, GENERALIZED AT, REMISSION AT , PRECEDES, CRISIS AT , DEVELOPS COMPLICATION AT, PRESERVES FUNCTION, HAS SURVIVAL TO, DIFFERENTIATES FROM, REQUIRES INTERVENTION AT DIFFERENTIAL PREDICATES ( 9 ) : MANIFESTS AS, ASSOCIATED WITH, TREATED WITH, RESPONDS TO, LACKS FEATURE, DIFFERENTIATES FROM, HAS PREVALENCE, HAS ONSET AGE, HAS SEVERITY TEMPORAL PREDICATES ( 1 0 ) : HAS ONSET AGE, HAS DIAGNOSIS AGE , GENERALIZED AT, CRISIS AT , REMISSION AT , DEVELOPS COMPLICATION AT, REQUIRES INTERVENTION AT, HAS SURVIVAL TO, HAS DURATION, PRECEDES TREATMENT PREDICATES ( 2 ) : TREATED WITH, RESPONDS TO 
+
+## S3.3: Query 1 - Comparative Subgraph (Differential Diagnosis) 
+
+Retrieves all edges relevant to a specific disease within the pair, using two strategies: 
+
+Strategy A: Disease context filter on edges (primary) MATCH ( s : E n t i t y ) −[ r ] −>( t : E n t i t y ) 
+
+WHERE $ d i s e a s e s h o r t IN r . d i s e a s e c o n t e x t 
+
+AND type ( r ) IN $ p r e d i c a t e s RETURN [ edge f i e l d s ] 
+
+ORDER BY CASE r . q u a l i t y t i e r 
+
+WHEN ’GOLD ’ THEN 0 WHEN ’SILVER ’ THEN 1
+
+WHEN ’BRONZE ’ THEN 2 ELSE 3 END Strategy B: Disease anchor node (secondary) MATCH ( d : D i s e a s e ) −[ r ] −>( t : E n t i t y ) 
+
+WHERE ( d . c u i = $ c u i OR toLower ( d . name ) = toLower ( $name ) ) 
+
+AND type ( r ) IN $ p r e d i c a t e s RETURN [ edge f i e l d s ] 
+
+ORDER BY q u a l i t y t i e r 
+
+Strategy C: LACKS FEATURE edges (explicit absences) MATCH ( s : E n t i t y ) −[ r :LACKS FEATURE] −>( t : E n t i t y ) 
+
+WHERE $ d i s e a s e s h o r t IN r . d i s e a s e c o n t e x t RETURN t . name AS f e a t u r e , s . name AS c o n t e x t , r . q u a l i t y t i e r , r . s o u r c e m o d e l s , r . p m i d l i s t , r . e d g e i d , r . e v i d e n c e s a m p l e Results from all three strategies are merged and deduplicated by edge id .S7 S3.4: Query 2 - Temporal Trajectory 
+
+MATCH ( s : E n t i t y ) −[ r ] −>( t : E n t i t y ) 
+
+WHERE $ d i s e a s e s h o r t IN r . d i s e a s e c o n t e x t 
+
+AND r . i s t e m p o r a l = true AND r . t e m p o r a l p a r s e s t a t u s = ’ r e s o l v e d ’ RETURN [ edge f i e l d s ] 
+
+ORDER BY r . t i m e i n d e x m o n t h s ASC 
+
+## S3.5: Query 3 - Treatment Evidence 
+
+MATCH ( s : E n t i t y ) −[ r ] −>( t : E n t i t y ) 
+
+WHERE $ d i s e a s e s h o r t IN r . d i s e a s e c o n t e x t 
+
+AND type ( r ) IN [ ’TREATED WITH ’ , ’RESPONDS TO ’ ] RETURN [ edge f i e l d s ] 
+
+ORDER BY q u a l i t y t i e r 
+
+## S3.6: Query 4 - Entity Neighbourhood (Fallback) 
+
+MATCH ( n : E n t i t y ) −[ r ] −(m: E n t i t y ) 
+
+WHERE ( $ c u i IS NOT NULL A ND n . c u i = $ c u i ) 
+
+OR toLower ( n . name ) CONTAINS toLower ( $name ) [ o p t i o n a l : AND $ d i s e a s e s h o r t IN r . d i s e a s e c o n t e x t ] RETURN [ edge f i e l d s ] 
+
+LIMIT 30 
+
+# S4: Citation Verification Protocol 
+
+## Verification Process 
+
+Every PMID extracted from clinical outputs was verified against the PubMed E-utilities API using the following protocol: 1. PMID Extraction : Regex pattern PMID[: \s]*( \d{6,9 }) applied to all clinical outputs 2. API Query : Each PMID queried via https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubme 
+
+3. Metadata Extraction : Publication title, journal name, and MeSH terms extracted from the XML response 4. Relevance Classification : Automated keyword matching against disease-specific terms: 5. Three-way Classification :
+
+• Clinically relevant : PMID exists AND title/MeSH contains disease-specific keywords 
+
+• Real, wrong field : PMID exists BUT title/MeSH contains no disease-specific keywords 
+
+• Not found : PMID does not exist in PubMed S8 Disease Pair Relevance Keywords 
+
+MG/LEMS myasthenia, lambert-eaton, lems, neuromuscular junction, acetylcholine re-ceptor, achr, musk, thymoma, thymectomy, pyridostigmine, complement, eculizumab, efgartigimod DMD/BMD duchenne, becker, muscular dystrophy, dystrophin, dmd, bmd, dystrophinopa-thy, exon skipping, corticosteroid, cardiomyopathy, ambulation CIDP/GBS cidp, guillain-barr´ e, guillain-barre, gbs, demyelinating, polyneuropathy, ivig, plasmapheresis, nerve conduction, areflexia, albumin-cytologic 
+
+## Rate Limiting 
+
+All API calls respect NCBI’s rate limit of 3 requests/second (0.35s inter-request delay). No API key was required for the volume of queries performed. 
+
+## Author-Year Reference Verification 
+
+For Claude Sonnet 4.6 vanilla outputs (which used author-year references rather than PMIDs), we queried PubMed’s esearch endpoint with author + year + disease keywords and classified results as: specific match, ambiguous, wrong paper, not found, or too vague to search. None resolved to a specific, verifiable publication. 
+
+# S5: Neo4j Schema and Property Specifications 
+
+## Node Types 
+
+Label Description Key Properties 
+
+Disease Anchor disease nodes name, cui, mondo id, short name Entity Generic biomedical entity name, cui, entity type Gene Genetic entities name, cui Protein Protein entities name, cui Treatment Therapeutic agents name, cui Symptom Clinical symptoms name, cui ClinicalFinding Clinical observations name, cui Measurement Lab tests / biomarkers name, cui Procedure Diagnostic/therapeutic procedures name, cui PatientGroup Patient subpopulations name Mutation Genetic mutations name Autoantibody Autoantibody entities name InheritancePattern Inheritance modes name PhysiologicalFunction Body functions name 
+
+S9 Property Type Description 
+
+quality tier String GOLD / SILVER / BRONZE consensus score Float 0.70 (BRONZE), 0.85 (SILVER), 0.95 (GOLD) source models List[String] Models that extracted this edge pmid list List[String] PubMed IDs supporting this edge evidence sample String Representative evidence quote from source ab-stract edge id String Unique identifier (MD5 hash of normalized S—P—O) is temporal Boolean Whether edge has temporal anchoring temporal value display String Human-readable temporal display (e.g., “P13Y”) time index months Integer Temporal position in months (for ordering) temporal midpoint years Float Midpoint age in years temporal parse status String “resolved” / “unresolved” cross tier confirmed Boolean Whether Tier 2 extraction confirms Tier 1 fact evidence breadth Integer Number of independent PMIDs supporting this edge disease context List[String] Disease codes this edge applies to (e.g., [“MG”, “LEMS”]) is protected Boolean Whether this is a Tier 1 curated edge 
+
+Tier Criteria Confidence Typical Sources 
+
+GOLD Tier 1 curated knowledge OR cross-tier confirmation (Tier 2 independently ex-tracts a Tier 1 fact) 0.95 GeneReviews, OMIM, Or-phanet, clinical guidelines SILVER ≥2 extraction models agree on the same triplet, OR ≥2 independent PMIDs support the same relationship 0.85 Cross-model consensus, multi-source literature BRONZE Single extraction model, single source document 0.70 Individual PubMed abstracts 
+
+S10 Edge Properties (All Relationship Types) Quality Tier Definitions 
+
+# S6: LLM Judge Prompts (v1 Blind + v2 Citation-Aware) 
+
+## S6.1: Five Evaluation Dimensions 
+
+All judges (both v1 and v2) score on the same five clinician-aligned Likert dimensions (1–5), matching the clinician evaluation rubric: 
+
+ID Dimension Rubric 
+
+D1 Verifiability Score 1–5 on whether clinical claims can be traced to specific published evidence. Does the output cite specific PMIDs, studies, or guidelines? Can a clinician verify each claim within 1 minute? Score 5 if most claims have verifiable citations; 1 if no citations. D2 Actionability Score 1–5 on whether the output provides actionable clinical guidance. Does it specify concrete next steps, dosing, monitoring, or referral cri-teria? Score 5 if immediately actionable; 1 if only general information. D3 Temporal Precision Score 1–5 on whether the output provides specific time points for dis-ease milestones, treatment response windows, and monitoring intervals. Score 5 if precise temporal anchoring; 1 if only vague temporal language. D4 Non-Expert Safety Score 1–5 on whether the output is safe for a non-specialist (e.g., GP) to act on. Are red flags clearly flagged? Are dangerous diagnostic pitfalls highlighted? Score 5 if safe for non-expert use; 1 if serious safety risks without specialist oversight. D5 Clinical Completeness Score 1–5 on whether the output covers ALL clinically important fea-tures for this scenario: key differentiating features, relevant investiga-tions, treatment options, prognosis, and red flags. 
+
+## S6.2: v1 Blind Judge Prompt Template 
+
+You are an expert clinical evaluator (board-certified neurologist with 15+ years of experience in neuromuscular diseases). You are evaluating an AI-generated clinical output for a rare neuromuscular disease scenario. ## Clinical Scenario {scenario_text} ## AI-Generated Output {output_text} ## Evaluation Task Rate this output on EACH of the following 5 dimensions using a 1-5 Likert scale: D1 (Verifiability): [rubric] D2 (Actionability): [rubric] D3 (Temporal Precision): [rubric] D4 (Non-Expert Safety): [rubric] D5 (Clinical Completeness): [rubric] ## Response Format Respond ONLY with a JSON object (no markdown, no explanation): 
+
+S11 {"D1_verifiability": <1-5>, "D2_actionability": <1-5>, "D3_temporal_precision": <1-5>, "D4_nonexpert_safety": <1-5>, "D5_clinical_completeness": <1-5>, "brief_justification": "<2-3 sentences explaining your overall assessment>" }
+
+## S6.3: v2 Citation-Aware Judge Prompt Template 
+
+The v2 prompt is identical to v1 with two additions: 1. Citation Audit Report appended after the AI-generated output 2. D1-specific instruction added before the dimensions: 
+
+IMPORTANT: For D1 (Verifiability), use the Citation Audit Report above as ground truth. If the audit shows 0 PMIDs or mostly wrong-field citations, D1 should be LOW (1-2). If the audit shows most PMIDs are real and relevant, D1 should be HIGH (4-5). 
+
+## S6.4: Citation Audit Report Format (Appended in v2) 
+
+For outputs with PMIDs: 
+
+## Citation Audit Report This output cites **N unique PMIDs**. We verified each against the PubMed database: - **X** (Y%) are real publications relevant to this clinical domain - **X** (Y%) are real PubMed records but in UNRELATED medical fields - **X** (Y%) do not exist in PubMed PMID:12345678 [RELEVANT] -- "Title..." (Journal) PMID:87654321 [WRONG FIELD] -- "Title..." (Journal) ... and N more PMIDs verified 
+
+For outputs without PMIDs: 
+
+## Citation Audit Report This output contains **0 PubMed identifiers (PMIDs)**. No specific citations can be verified against PubMed. All clinical claims rely on unverifiable parametric knowledge. 
+
+## S6.5: Judge Panel Configuration 
+
+All three judges are primary panel members, selected for provider diversity (OpenAI, DeepSeek, Anthropic), cost efficiency, and fast inference. Each judge evaluates all 108 cases (36 scenarios × 3 arms) in both v1 and v2 rounds, totaling 648 evaluations. S12 Judge Model Provider Temperature Max Tokens 
+
+GPT-4o-mini[45] OpenAI 0.0 2000 DeepSeek-V3 (deepseek-chat)[47] DeepSeek 0.0 2000 Claude 3 Haiku[46] Anthropic 0.0 2000 
+
+## S6.6: Case Design 
+
+The 36 base scenarios were evaluated across all 3 arms (Vanilla, Guideline-RAG, HEG-TKG), yielding 108 cases total (36 per arm). Each case was assigned a blinded random ID and shuffled using a deterministic seed (seed=42) to prevent order effects. No demographic or severity expansion was applied; each case corresponds to exactly one base scenario and one system arm, avoiding pseudo-replication. The evaluation key mapping blinded IDs to systems and scenarios is stored per disease pair. 
+
+# S8: Clinician Evaluator Instructions and Scoring Rubric 
+
+## Study Design 
+
+Single-blind independent-cases evaluation. Each evaluator reviews 24 clinical cases per disease pair. Each case presents a clinical scenario followed by a single AI-generated response. Evaluators are fully blinded to which system produced each output. 
+
+## Scoring Guide (1–5 Likert) 
+
+• 1 = Strongly Disagree (major deficiencies) 
+
+• 2 = Disagree (notable issues) 
+
+• 3 = Neutral (adequate but not outstanding) 
+
+• 4 = Agree (good quality) 
+
+• 5 = Strongly Agree (excellent) 
+
+## Evaluation Dimensions Citation Verification Task 
+
+For each case, evaluators: 1. Select one factual claim from the AI output 2. Attempt to verify it against PubMed 3. Record: the claim text, verification result, time to verify (seconds), and whether a specific supporting paper was found 
+
+## Time Estimate 
+
+Approximately 2–3 hours total (24 cases at ∼2 minutes each + global assessment). S13 ID Dimension What to Assess 
+
+D1 Verifiability Can each clinical claim be traced to a specific, identifiable published source? 1 = No claims traceable; 3 = About half sourced; 5 = Every claim traceable. D2 Actionability Is the information sufficient and well-supported to inform a clinical decision without additional literature search? 1 = Requires complete verification; 3 = Partially action-able; 5 = Fully actionable. D3 Temporal Precision Does the output use specific time windows for disease on-set, progression milestones, and clinical trajectories? Are temporal claims anchored to evidence? 1 = No temporal context; 3 = Vague or inconsistent timelines; 5 = Explicit time windows with cited milestones. D4 Non-Expert Safety How safe is this output if a non-specialist GP followed it without additional expert consultation? 1 = Could lead to patient harm; 3 = Mostly safe; 5 = Fully safe with caveats and referral triggers. D5 Clinical Completeness Does the output cover key differential diagnoses, therapeu-tic options, contraindications, and monitoring? 1 = Dan-gerously incomplete; 3 = Moderately complete; 5 = Ex-haustive. S14 S9: Per-Scenario Automated Metrics 
+
+Evidence Traceability Score (ETS), Clinical Feature Coverage (FC), and Provenance Gap (PG) for each of the 36 scenarios across all three arms. PG = max(FC − ETS × r, 0) where r = 0.97 (HEG-TKG), 0.80 (Vanilla), 0.50 (Guideline-RAG). S15 Scenario  Type  Vanilla  Guideline-RAG  HEG-TKG 
+
+> FC  ETS  PG  FC  ETS  PG  FC  ETS  PG CIDP GBS DDX 01  diff.  0.75  0.00  0.75  0.38  0.00  0.38  0.50  0.41  0.11 CIDP GBS DDX 02  diff.  0.44  0.00  0.44  0.89  0.00  0.89  0.67  0.36  0.32 CIDP GBS DDX 03  diff.  1.00  0.00  1.00  1.00  0.00  1.00  0.89  0.47  0.43 CIDP GBS DDX 04  diff.  0.50  0.00  0.50  0.50  0.00  0.50  0.38  0.28  0.11 CIDP GBS SAFETY 01  diff.  0.62  0.00  0.62  0.62  0.00  0.62  0.62  0.41  0.23 CIDP GBS TEMP 01  temp. comp.  0.71  0.00  0.71  0.57  0.00  0.57  0.71  0.31  0.41 CIDP GBS TEMP 02  temp. comp.  0.67  0.00  0.67  0.67  0.00  0.67  0.67  0.24  0.43 CIDP GBS TEMP 03  temporal  0.86  0.00  0.86  0.86  0.00  0.86  0.86  0.12  0.74 CIDP GBS TEMP 04  temporal  0.88  0.00  0.88  0.62  0.00  0.62  0.62  0.07  0.56 CIDP GBS TX 01  treatment  0.71  0.00  0.71  0.57  0.00  0.57  0.71  0.43  0.29 CIDP GBS TX 02  treatment  0.75  0.00  0.75  0.62  0.00  0.62  0.75  0.73  0.04 CIDP GBS TX 03  treatment  0.62  0.00  0.62  0.38  0.00  0.38  0.75  0.46  0.30 DMD BMD DDX 01  diff.  0.80  0.00  0.80  0.70  0.00  0.70  0.90  0.48  0.43 DMD BMD DDX 02  diff.  0.86  0.00  0.86  0.86  0.00  0.86  0.71  0.32  0.41 DMD BMD DDX 03  diff.  0.75  0.00  0.75  0.75  0.00  0.75  0.38  0.45  0.00 DMD BMD DDX 04  diff.  0.50  0.00  0.50  0.62  0.00  0.62  0.62  0.42  0.21 DMD BMD SAFETY 01  diff.  0.75  0.00  0.75  0.75  0.00  0.75  0.75  0.36  0.40 DMD BMD TEMP 01  temp. comp.  1.00  0.00  1.00  0.67  0.00  0.67  1.00  0.20  0.80 DMD BMD TEMP 02  temp. comp.  1.00  0.00  1.00  0.71  0.00  0.71  0.86  0.46  0.41 DMD BMD TEMP 03  temporal  0.75  0.00  0.75  0.62  0.00  0.62  0.62  0.30  0.33 DMD BMD TEMP 04  temporal  0.43  0.00  0.43  0.57  0.00  0.57  0.29  0.23  0.06 DMD BMD TX 01  treatment  0.67  0.00  0.67  0.78  0.00  0.78  0.78  0.50  0.29 DMD BMD TX 02  treatment  0.88  0.00  0.88  0.75  0.00  0.75  0.62  0.93  0.00 DMD BMD TX 03  treatment  0.88  0.00  0.88  0.50  0.00  0.50  0.38  0.27  0.12 MG LEMS DDX 01  diff.  0.60  0.00  0.60  0.90  0.00  0.90  1.00  0.32  0.69 MG LEMS DDX 02  diff.  1.00  0.00  1.00  0.90  0.00  0.90  1.00  0.22  0.78 MG LEMS DDX 03  diff.  0.62  0.00  0.62  0.75  0.00  0.75  0.62  0.27  0.36 MG LEMS DDX 04  diff.  0.70  0.00  0.70  0.70  0.00  0.70  0.60  0.15  0.45 MG LEMS SAFETY 01  diff.  0.50  0.00  0.50  0.75  0.00  0.75  0.88  0.25  0.63 MG LEMS TEMP 01  temp. comp.  1.00  0.00  1.00  0.88  0.00  0.88  0.88  0.26  0.62 MG LEMS TEMP 02  temp. comp.  0.86  0.00  0.86  0.86  0.00  0.86  0.71  0.35  0.37 MG LEMS TEMP 03  temporal  0.86  0.00  0.86  0.71  0.00  0.71  1.00  0.43  0.58 MG LEMS TEMP 04  temporal  0.43  0.00  0.43  0.43  0.00  0.43  0.43  0.00  0.43 MG LEMS TX 01  treatment  0.88  0.00  0.88  0.88  0.00  0.88  0.88  0.41  0.48 MG LEMS TX 02  treatment  0.86  0.00  0.86  0.29  0.00  0.29  1.00  0.83  0.20 MG LEMS TX 03  treatment  0.67  0.00  0.67  0.78  0.00  0.78  0.78  0.69  0.11
+> Mean  ± SD  0.74  0.00  0.74  0.69  0.00  0.69  0.72  0.37  0.37
+> ±0.17  ±0.17  ±0.17  ±0.17  ±0.19  ±0.19  ±0.22
+
+S16 S10: Entity Normalization - 18 Semantic Correction Rules 
+
+The following rules are applied sequentially during entity normalization (Step 3 of the extraction pipeline). Each rule matches a specific subject type → predicate → object type pattern and transforms the triplet to correct common LLM extraction errors. S17 # Rule Name  Input Pattern  Corrected Output  Purpose 
+
+> 1 invert caused by mutation  Gene  → CAUSED BY MUTATION  → Disease  Disease  → CAUSED BY MUTATION  → Gene  Fix direction inversion 2 invert treated with  Treatment  → TREATED WITH  → Disease  Disease  → TREATED WITH  → Treatment  Fix direction inversion 3 procedure to monitored  Procedure  → TREATED WITH  → Disease  Disease  → MONITORED WITH  → Procedure  Diagnostics ̸ = treatments 3b  therapeutic proc invert  Procedure  → TREATED WITH  → Disease  Disease  → TREATED WITH  → Procedure  Therapeutic: invert only 4 mutation occurs in  Mutation  → ASSOCIATED WITH  → Gene  Mutation  → OCCURS IN  → Gene  Refine generic predicate 5 inheritance pattern  Disease  → ASSOCIATED WITH  → Entity  Disease  → HAS INHERITANCE  → InheritPattern  Object has “x-linked” etc. 6 entity treatment invert  Entity  → TREATED WITH  → Disease  Disease  → TREATED WITH  → Treatment  Direction + retype 7 measurement to monitored  Measurement  → TREATED WITH  → Disease  Disease  → MONITORED WITH  → Measurement  Measurements ̸ = treatments 8 onset to symptom onset  PatientGrp  → HAS ONSET AGE  → Symptom  PatientGrp  → SYMPTOM ONSET AT  → Symptom  Refine temporal predicate 9 develops to loses func  PatientGrp  → DEVELOPS COMPL  → PhysFunc  PatientGrp  → LOSES FUNCTION AT  → PhysFunc  Evidence mentions “loss” 10  retype entity assoc  Entity  → ASSOCIATED WITH  → Disease  Procedure  → USED FOR DIAG  → Disease  Subject is “biopsy” etc. 11  patgrp proc to monitored  PatientGrp  → TREATED WITH  → Procedure  PatientGrp  → MONITORED WITH  → Procedure  Diagnostic for patients 12  proc assoc to diagnosis  Procedure  → ASSOCIATED WITH  → Disease  Procedure  → USED FOR DIAG  → Disease  Refine generic association 13  caused by protein state  Disease  → CAUSED BY MUTATION  → Entity  Disease  → LACKS FEATURE  → Protein  Object is “deficiency” 15  protein assoc to target  Protein  → ASSOCIATED WITH  → Disease  Disease  → ASSOCIATED WITH  → Protein  Invert receptor–disease 16 ∗ autoantibody retype  Disease  → CAUSED BY MUTATION  → Entity  Disease  → CAUSED BY  → Autoantibody  Retype autoantibody 14  retype entity to gene  Disease  → CAUSED BY MUTATION  → Entity  Disease  → CAUSED BY MUTATION  → Gene  Retype Entity as Gene 17  measurement to diagnosis  Measurement  → ASSOCIATED WITH  → Disease  Measurement  → USED FOR DIAG  → Disease  Antibody measurements
+> ∗Rule ordering:  Rules 16 and 14 both match (Disease, CAUSED BY MUTATION, Entity).  Rule 16 must fire first; otherwise ALL-CAPS autoantibody strings hit Rule 14’s uppercase guard and get mistyped as Gene.
+
+S18 S11: Per-Scenario-Type Breakdown 
+
+Performance stratified by the four scenario types. The Provenance Gap reduction varies by scenario type, with HEG-TKG achieving the strongest ETS on treatment scenarios (0.58) where structured citation of drug interactions and dosing evidence is most clinically relevant. 
+
+Supplementary Table S11a. Automated metrics by scenario type (mean across scenarios). 
+
+Type n Vanilla G-RAG HEG-TKG 
+
+FC ETS PG FC ETS PG FC ETS PG Differential Dx 15 0.69 0.00 0.69 0.74 0.00 0.74 0.70 0.35 0.37 Temporal Comp. 6 0.87 0.00 0.87 0.73 0.00 0.73 0.80 0.30 0.51 Temporal Traj. 6 0.70 0.00 0.70 0.64 0.00 0.64 0.64 0.19 0.45 Treatment 9 0.77 0.00 0.77 0.62 0.00 0.62 0.74 0.58 0.20 
+
+Treatment scenarios show the lowest Provenance Gap for HEG-TKG (PG = 0.20), reflecting that treatment-related knowledge graph edges carry high inline citation rates (ETS = 0.58). Temporal trajectory scenarios have lower ETS (0.19) because temporal milestone claims are synthesised from multiple KG edges and the model often omits inline PMID tags when combining temporal facts into narrative text; however, these claims remain fully traceable via the stored evidence manifest. 
+
+Supplementary Table S11b. LLM judge v2 (citation-aware) D1 and D3 by scenario type. 
+
+Type D1 Verifiability D3 Temporal Precision 
+
+Van. G-RAG HEG-TKG Van. G-RAG HEG-TKG Differential Dx 1.40 1.44 4.89 3.91 3.38 4.51 Temporal Comp. 1.33 1.39 4.83 4.94 4.61 5.00 Temporal Traj. 1.33 1.33 3.78 4.89 4.72 5.00 Treatment 1.41 1.48 4.70 3.96 2.67 4.33 
+
+D1 Verifiability shows consistent HEG-TKG advantage across all scenario types (∆ > 2.3 in every cate-gory). D3 Temporal Precision advantages are largest for treatment scenarios (∆ = +0 .37 vs Vanilla, +1 .66 vs Guideline-RAG), where Guideline-RAG’s lack of structured temporal data is most apparent (D3 = 2.67). 
+
+# S12: Regulatory Compliance Mapping 
+
+Moved from main text Table 6 to supplementary. 
+
+Supplementary Table S26. Regulatory compliance assessment across three system architec-tures. 
+
+# S13: Evidence Quality Tier Analysis 
+
+Across all 36 scenarios, HEG-TKG retrieved 26,139 knowledge graph edges. Table S3 shows the quality tier distribution. Temporal edges account for 5,802 (22.2%) of all retrieved evidence. GOLD edges are not preferentially retrieved for safety-critical or treatment scenarios (2.4% of edges in treatment scenarios vs 2.2% overall), reflecting that the quality tier distribution is driven by extraction consensus patterns rather than clinical S19 Requirement Vanilla LLM Guideline-RAG HEG-TKG EU AI Act Art. 14 : Human oversight via interpretable out-puts Partial: text output only Partial: source pas-sages 
+
+Full : PMID-linked claims 
+
+EU AI Act Art. 14 : Abil-ity to understand and challenge outputs No source tracking Text chunks, no structured prove-nance 
+
+PMID → PubMed 
+
+→ full paper FDA CDS Criterion 4:Transparency of information sources Fails: fabricated or absent citations Partial: raw text re-trieval 
+
+Full : every claim traceable 
+
+FDA CDS : Intended user can independently review basis No: unverifiable Partial: text search required 
+
+Yes : PMID lookup in ∼10s 
+
+GDPR Art. 9 / HIPAA : PHI protection No: cloud API re-quired No: cloud API re-quired 
+
+Yes : local deploy-ment option 
+
+Table S3: Evidence quality tier distribution across 26,139 retrieved edges. 
+
+Tier Count % Definition 
+
+GOLD 562 2.2% Cross-tier confirmed: Tier 2 extraction indepen-dently confirms a Tier 1 curated fact (confidence = 0.95) SILVER 2,271 8.7% Multi-model or multi-document consensus ( ≥2 ex-traction models agree, or ≥2 independent PMIDs; confidence = 0.85) BRONZE 23,306 89.2% Single model, single source (confidence = 0.70) 
+
+Total 26,139 100% 
+
+content type. The clinical implication: GOLD edges provide high-confidence anchors that a clinician can trust with minimal verification, SILVER edges warrant standard verification, and BRONZE edges flag claims that rest on a single source and should be scrutinised before acting on. 
+
+# S14: Citation Density Analysis 
+
+Inline PMID citation density across all 36 scenarios and three arms. Neither Vanilla nor Guideline-RAG produces any PMID citations in their outputs, consistent with the zero ETS scores reported in the main text. HEG-TKG averages 23.8 inline PMID citations per 1,000 words, with DMD/BMD showing the highest density (30.3) reflecting the denser temporal evidence available for this disease pair. HEG-TKG outputs are approximately 50% longer than baseline outputs (1,246 vs 827–866 words), attributable to the structured evidence blocks and inline citations. The 203 unique PMIDs cited across all 36 HEG-TKG outputs represent 21% of the 987 unique PMIDs in the knowledge graphs, indicating that subgraph retrieval selects a focused, query-relevant subset of the evidence base. 
+
+# S15: YAML Configuration Schema for Disease Pairs 
+
+Each disease pair is defined by a YAML configuration file. Adding a new disease pair requires only creating a new YAML file; no code changes are needed. Below is the schema (using DMD/BMD as an example): S20 Supplementary Table S14. Citation density analysis. Mean values across 12 scenarios per disease pair. 
+
+System Pair Words PMIDs PMIDs/1k words 
+
+Vanilla MG/LEMS 861 0.0 0.0 DMD/BMD 828 0.0 0.0 CIDP/GBS 793 0.0 0.0 
+
+All 827 0.0 0.0 
+
+Guideline-RAG MG/LEMS 853 0.0 0.0 DMD/BMD 876 0.0 0.0 CIDP/GBS 869 0.0 0.0 
+
+All 866 0.0 0.0 
+
+HEG-TKG MG/LEMS 1,313 21.6 16.2 DMD/BMD 1,245 37.8 30.3 CIDP/GBS 1,178 29.8 24.8 
+
+All 1,246 29.7 23.8 
+
+# Disease pair metadata disease_pair: dmd_bmd label: "Duchenne vs Becker Muscular Dystrophy" # Classification section -- used by DiseaseClassifier to assign disease context classification: diseases: - short_name: DMD full_name: Duchenne muscular dystrophy cuis: - C0013264 # Primary UMLS CUI - C0410189 # Alternate CUI text_patterns: - duchenne - dmd - "duchenne muscular dystrophy" ontology_id: "OMIM:310200" mondo_id: "MONDO:0007803" - short_name: BMD full_name: Becker muscular dystrophy cuis: - C0917713 text_patterns: - becker - bmd - "becker muscular dystrophy" ontology_id: "OMIM:300376" mondo_id: "MONDO:0010311" shared: cuis: - C0079259 # Dystrophin - C1457887 # DMD gene text_patterns: - dystrophin 
+
+S21 - dystrophinopathy - "exon skipping" parent: name: Dystrophinopathy cui: C0872247 # PubMed retrieval parameters pubmed: min_year: 2015 max_year: 2025 max_abstracts_per_query: 100 mesh_terms: - ’"Muscular Dystrophy, Duchenne"[Mesh]’ differential_terms: - "differential diagnosis" - "genotype-phenotype" progression_terms: - "natural history" - "disease progression" anchor_categories: temporal: ["age of onset", "loss of ambulation"] cardiac: ["cardiomyopathy", "ejection fraction"] treatment: ["corticosteroid", "exon skipping"] # Temporal predicates requiring numerical guardrails temporal_predicates: - HAS_ONSET_AGE - HAS_DIAGNOSIS_AGE - GENERALIZED_AT - DEVELOPS_COMPLICATION_AT - HAS_SURVIVAL_TO - REQUIRES_INTERVENTION_AT # ... (12 total temporal relationship types) # Extraction section -- LLM prompt context and few-shot examples extraction: prompt_context: "Focus on dystrophinopathies..." screening_keywords: [...] few_shot_examples: [...] 
+
+# S16: Prior Conference-Stage Work Comparison S18: v1 (Blind) LLM Judge Results - MG/LEMS (All 5 Dimen-sions, 3 Arms) 
+
+Supplementary Table S18. v1 blind evaluation, MG/LEMS ( N =36 per arm, 3 judges each). HEG-TKG vs Vanilla deltas shown. S22 Aspect Conference Investigation This Study 
+
+Disease pairs 1 (DMD/BMD only) 3 (MG/LEMS, DMD/BMD, CID-P/GBS) Clinical scenarios 12 36 Evaluation design Paired A/B comparison Independent blinded cases LLM models tested 1 (GPT-4o) 5 frontier models Citation verification Manual spot-check Automated PubMed E-utilities (all PMIDs) LLM judge evaluation Not performed 648 evaluations (108 × 3 judges × 2rounds) Citation-aware judging Not performed v1 vs v2 comparison (methodologi-cal contribution) Counterfactual testing Not performed 15 injected errors Statistical analysis Descriptive Mann-Whitney U , Cohen’s d, boot-strap CIs, BH FDR, Krippendorff’s 
+
+α
+
+PHI compliance Not addressed Validated local deployment with open-source models 
+
+Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 4.42 ± 0.69 4.53 ± 0.56 4.50 ± 0.56 +0.08 0.13 
+
+D2 Actionability 4.47 ± 0.51 4.31 ± 0.47 4.50 ± 0.51 +0.03 0.05 D3 Temporal Precision 4.33 ± 0.83 3.47 ± 1.25 4.25 ± 0.77 −0.08 −0.10 D4 Non-Expert Safety 4.03 ± 0.51 3.94 ± 0.47 4.11 ± 0.52 +0.08 0.16 D5 Clinical Completeness 4.50 ± 0.61 4.17 ± 0.65 4.61 ± 0.49 +0.11 0.20 
+
+# S19: v1 (Blind) LLM Judge Results - DMD/BMD (All 5 Dimen-sions, 3 Arms) 
+
+Supplementary Table S19. v1 blind evaluation, DMD/BMD ( N =36 per arm, 3 judges each). 
+
+Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 4.25 ± 0.94 4.67 ± 0.53 4.75 ± 0.44 +0.50 0.68 
+
+D2 Actionability 4.44 ± 0.50 4.31 ± 0.52 4.61 ± 0.49 +0.17 0.33 D3 Temporal Precision 4.47 ± 0.65 4.14 ± 0.80 4.75 ± 0.44 +0.28 0.50 D4 Non-Expert Safety 4.14 ± 0.49 4.08 ± 0.37 4.19 ± 0.47 +0.06 0.12 D5 Clinical Completeness 4.33 ± 0.68 4.17 ± 0.77 4.64 ± 0.49 +0.31 0.52 
+
+# S20: v1 (Blind) LLM Judge Results - CIDP/GBS (All 5 Dimen-sions, 3 Arms) 
+
+Supplementary Table S20. v1 blind evaluation, CIDP/GBS ( N =36 per arm, 3 judges each). 
+
+# S21: v2 (Citation-Aware) LLM Judge Results - MG/LEMS (All 5 Dimensions, 3 Arms) 
+
+Supplementary Table S21. v2 citation-aware evaluation, MG/LEMS ( N =36 per arm, 3 judges each). S23 Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 4.36 ± 0.72 4.56 ± 0.56 4.53 ± 0.65 +0.17 0.24 
+
+D2 Actionability 4.44 ± 0.50 4.22 ± 0.48 4.47 ± 0.51 +0.03 0.05 D3 Temporal Precision 4.64 ± 0.54 4.28 ± 0.97 4.69 ± 0.47 +0.06 0.11 D4 Non-Expert Safety 4.06 ± 0.41 4.06 ± 0.33 4.08 ± 0.44 +0.03 0.07 D5 Clinical Completeness 4.39 ± 0.69 4.28 ± 0.70 4.64 ± 0.54 +0.25 0.40 
+
+Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 1.39 ± 0.49 1.39 ± 0.49 4.44 ± 1.05 +3.06 3.71 
+
+D2 Actionability 4.08 ± 0.28 3.94 ± 0.33 4.56 ± 0.50 +0.47 1.16 D3 Temporal Precision 4.06 ± 0.83 3.11 ± 1.33 4.33 ± 0.68 +0.28 0.37 D4 Non-Expert Safety 3.81 ± 0.47 3.75 ± 0.44 4.06 ± 0.41 +0.25 0.57 D5 Clinical Completeness 4.11 ± 0.46 3.86 ± 0.35 4.72 ± 0.45 +0.61 1.33 
+
+# S22: v2 (Citation-Aware) LLM Judge Results - DMD/BMD (All 5 Dimensions, 3 Arms) 
+
+Supplementary Table S22. v2 citation-aware evaluation, DMD/BMD ( N =36 per arm, 3 judges each). 
+
+Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 1.39 ± 0.49 1.50 ± 0.51 4.92 ± 0.28 +3.53 8.78 
+
+D2 Actionability 4.03 ± 0.17 3.86 ± 0.42 4.69 ± 0.47 +0.67 1.90 D3 Temporal Precision 4.25 ± 0.69 3.78 ± 0.83 4.81 ± 0.40 +0.56 0.98 D4 Non-Expert Safety 3.86 ± 0.35 3.92 ± 0.37 4.11 ± 0.32 +0.25 0.75 D5 Clinical Completeness 4.03 ± 0.38 3.75 ± 0.55 4.72 ± 0.45 +0.69 1.66 
+
+# S23: v2 (Citation-Aware) LLM Judge Results - CIDP/GBS (All 5 Dimensions, 3 Arms) 
+
+Supplementary Table S23. v2 citation-aware evaluation, CIDP/GBS ( N =36 per arm, 3 judges each). 
+
+# S24: Per-Judge D1 Shift Table (v1 → v2) Across All Disease Pairs 
+
+Supplementary Table S24. D1 Verifiability scores per judge across all three arms, showing the shift from v1 (blind) to v2 (citation-aware). 
+
+## MG/LEMS DMD/BMD CIDP/GBS 
+
+Key observation: Vanilla and Guideline-RAG D1 scores collapse across all judges and disease pairs in v2 (Vanilla shifts −2.33 to −3.42; G-RAG shifts comparably), while HEG-TKG scores remain stable. GPT-4o-mini shows the largest vanilla collapse ( −3.25 to −3.42), consistent with its tendency to assign high scores in blind mode. Claude 3 Haiku consistently scores Vanilla and G-RAG at exactly 2.0 in v2, showing the most S24 Dimension Vanilla G-RAG HEG-TKG ∆(H-V) d
+
+D1 Verifiability 1.36 ± 0.49 1.39 ± 0.49 4.58 ± 0.77 +3.22 5.00 
+
+D2 Actionability 4.03 ± 0.29 3.89 ± 0.32 4.56 ± 0.50 +0.53 1.28 D3 Temporal Precision 4.47 ± 0.51 4.00 ± 1.12 4.75 ± 0.44 +0.28 0.59 D4 Non-Expert Safety 3.83 ± 0.38 3.78 ± 0.42 4.11 ± 0.32 +0.28 0.79 D5 Clinical Completeness 4.11 ± 0.57 3.86 ± 0.35 4.75 ± 0.44 +0.64 1.25 
+
+Judge v1 Van v1 RAG v1 HEG v2 Van v2 RAG v2 HEG Van Shift 
+
+GPT-4o-mini 4.58 4.67 4.67 1.17 1.08 4.50 −3.42 DeepSeek-V3 3.67 3.92 4.08 1.00 1.08 4.08 −2.67 Claude 3 Haiku 5.00 5.00 4.75 2.00 2.00 4.75 −3.00 
+
+decisive shift. DeepSeek-V3 is the strictest judge overall, scoring both Vanilla and G-RAG at 1.0 in v2. All three judges agree that Guideline-RAG is equally unverifiable as Vanilla despite having access to overlapping source literature. 
+
+# S25: Open-Source Model Comparison for PHI-Compliant Deploy-ment 
+
+Moved from main text Table 5 to supplementary. 
+
+Supplementary Table S25. Open-source model comparison for PHI-compliant local deploy-ment. 
+
+*GPT-4.1 as synthesis model; citation coverage reflects KG-provided PMIDs in output. 
+
+Notes: 
+
+• Citation coverage = percentage of KG-provided PMIDs successfully incorporated into the clinical output by the synthesis model 
+
+• Provenance Gap = max(Feature Coverage −ETS ×r, 0) where r = citation reliability (HEG-TKG: 0.97, Vanilla: 0.80, Guideline-RAG: 0.50); lower is better (0 = every covered claim is reliably traceable) 
+
+• All local models served via Ollama (localhost:11434) using the OpenAI-compatible API endpoint 
+
+• Open-source model numbers are preliminary estimates; formal benchmarking across all 36 scenarios is pending 
+
+• Each output includes a phi compliant metadata flag indicating local vs. cloud synthesis 
+
+• The system’s validate privacy config(strict=True) function raises an error if any component routes data to external endpoints 
+
+Judge v1 Van v1 RAG v1 HEG v2 Van v2 RAG v2 HEG Van Shift 
+
+GPT-4o-mini 4.42 5.00 4.92 1.17 1.42 4.92 −3.25 DeepSeek-V3 3.33 4.00 4.33 1.00 1.08 4.83 −2.33 Claude 3 Haiku 5.00 5.00 5.00 2.00 2.00 5.00 −3.00 
+
+S25 Judge v1 Van v1 RAG v1 HEG v2 Van v2 RAG v2 HEG Van Shift 
+
+GPT-4o-mini 4.50 4.75 4.75 1.08 1.17 4.67 −3.42 DeepSeek-V3 3.58 3.92 4.08 1.00 1.00 4.25 −2.58 Claude 3 Haiku 5.00 5.00 4.75 2.00 2.00 4.83 −3.00 
+
+Model License Params Cit. Cov. Prov. Gap PHI Hardware 
+
+GPT-4.1 (cloud) Proprietary Unknown 100%* 0.37 No Cloud API Qwen 3 14B[30] Apache 2.0 14B ∼80% ∼0.45 Yes 1× A100 (40GB) Gemma 3 27B[31] Apache 2.0 27B ∼75% ∼0.50 Yes 1× A100 (40GB) Llama 3.3 70B[53] Llama License 70B ∼78% ∼0.47 Yes 1× A100 (80GB) DeepSeek R1 70B[47] MIT 70B ∼76% ∼0.48 Yes 1× A100 (80GB) 
+
+# S27: Algorithm 1 - HEG-TKG Construction and Clinical Inference Pipeline 
+
+The following pseudocode formally specifies the complete HEG-TKG pipeline, from corpus acquisition through clinical output generation. The algorithm is divided into two phases: Phase I constructs the knowledge graph offline (run once per disease pair), and Phase II performs clinical inference online (run per query). 
+
+## Phase I: Knowledge Graph Construction (Offline) 
+
+Algorithm 1: HEG-TKG Construction Pipeline ---------------------------------------------Input: Disease pair configuration Y (YAML: entities, schemas, MeSH terms) Output: Neo4j knowledge graph G = (V, E) with provenance metadata Phase I-A: Corpus Acquisition ------------------------------1: E_tier1 <- CURATE(GeneReviews, OMIM, Orphanet, Guidelines, Y) 2: for each edge e in E_tier1 do 3: e.is_protected <- True 4: e.quality_tier <- GOLD 5: e.confidence <- 0.95 6: end for 7: Q <- BUILD_MESH_QUERIES(Y.entities, Y.mesh_terms) 8: A_raw <- PUBMED_EFETCH(Q, date_filters) // ~650-706 abstracts per pair 9: A <- RELEVANCE_SCREEN(A_raw, Y.schema) // Filters 40-60% non-informative Phase I-B: Multi-LLM Extraction ---------------------------------10: M <- {Claude-Haiku-4.5, GPT-4.1-mini} // Extraction model set 11: T_raw <- {} 12: for each abstract a in A do 13: for each model m in M do 14: T_m <- EXTRACT(a, m, Y.schema) // Schema-guided triplet extraction 15: for each triplet t in T_m do 16: ASSERT t.evidence_quote >= 3-gram // Evidence quote required 17: t.source_model <- m 18: t.pmid <- a.pmid 
+
+S26 19: end for 20: T_raw <- T_raw + T_m 21: end for 22: end for Phase I-C: Entity Normalization ---------------------------------23: for each triplet t in T_raw do 24: for each entity e in {t.subject, t.object} do 25: cui <- DICT_LOOKUP(e, Y.synonym_table) // Step 1: Dictionary 26: if cui = null then 27: cui <- SAPBERT_LINK(e, UMLS) // Step 2: SapBERT embedding 28: end if 29: if cui = null then 30: cui <- SCISPACY_LINK(e, en_core_sci_lg) // Step 3: ScispaCy fallback 31: end if 32: if cui = null then 33: cui <- FUZZY_MATCH(e, Jaccard + embedding) // Step 4: Fuzzy 34: end if 35: e.umls_cui <- cui 36: end for 37: end for Phase I-D: Semantic Correction (18 Rules) -------------------------------------------38: APPLY_RULE_16(T_raw) // Autoantibody guard: MUST fire first 39: // ALL-CAPS entities (ANTI-ACHR) -> Autoantibody type 40: // Prevents gene-name normalizer misclassification 41: for each rule r in CORRECTION_RULES \ {R16} do // R1-R15, R17-R18 (including R3b) 42: T_raw <- APPLY_RULE(T_raw, r) 43: // R1: Direction inversion (Gene->Disease to Disease->Gene) 44: // R3: Diagnostic vs therapeutic (TREATED_WITH -> MONITORED_WITH) 45: // R5: Inheritance typing (ASSOCIATED_WITH -> HAS_INHERITANCE) 46: // R13: Protein state (CAUSED_BY "deficiency" -> LACKS_FEATURE) 47: // R14: Gene name normalization (fires AFTER R16) 48: end for Phase I-E: Temporal Anchoring ------------------------------49: for each triplet t in T_raw where t.predicate in Y.temporal_predicates do 50: text <- EXTRACT_TEMPORAL_PHRASE(t.evidence_quote) 51: (iso_start, iso_end, precision) <- RESOLVE_TEMPORAL(text) 52: // precision in {Exact, Range, Fuzzy, Stage} 53: // Exact: "age 13 years" -> P13Y 54: // Range: "13 to 16 years" -> P13Y-P16Y 55: // Fuzzy: "late teens" -> P17Y-P19Y (from 24 predefined fuzzy mappings) 56: // Stage: "early childhood" -> P1Y-P5Y 57: t.temporal_start <- iso_start 58: t.temporal_end <- iso_end 59: t.temporal_precision <- precision 60: end for Phase I-F: Consensus Voting & Quality Tiering -----------------------------------------------61: groups <- GROUP_BY(T_raw, key = MD5(normalize(subj|pred|obj))) 
+
+S27 62: E_tier2 <- {} 63: for each group g in groups do 64: e <- MERGE(g) // Union of PMIDs, quotes, models 65: if exists e’ in E_tier1 matching e then // Cross-tier confirmation 66: e.quality_tier <- GOLD 67: e.confidence <- 0.95 68: else if |g.models| >= 2 OR |g.pmids| >= 2 then // Multi-source agreement 69: e.quality_tier <- SILVER 70: e.confidence <- 0.85 71: else // Single source 72: e.quality_tier <- BRONZE 73: e.confidence <- 0.70 74: end if 75: E_tier2 <- E_tier2 + {e} 76: end for Phase I-G: Cross-Tier Merge & Graph Construction --------------------------------------------------77: E <- E_tier1 + E_tier2 // Protected edges preserved on conflict 78: for each e in E_tier2 where CONFLICTS(e, E_tier1) do 79: DISCARD(e) // Tier 1 authority takes precedence 80: end for 81: V <- EXTRACT_NODES(E) 82: G <- NEO4J_IMPORT(V, E) // Cypher bulk import 83: VERIFY_PMIDS(G, PubMed_E-utilities) // 203 PMIDs -> 100% confirmed 84: return G 
+
+## Phase II: Clinical Inference (Online, per query) 
+
+Algorithm 2: HEG-TKG Clinical Inference -----------------------------------------Input: Clinical scenario s, knowledge graph G, synthesis model LLM_synth Output: Clinical response R with inline PMID citations 1: entities <- EXTRACT_ENTITIES(s) // Disease names, symptoms, age 2: subgraph <- CYPHER_QUERY(G, entities) // 4 disease-specific Cypher queries 3: // Q1: Differential features between disease pair 4: // Q2: Temporal trajectory edges with ISO 8601 anchors 5: // Q3: Treatment relationships with evidence tiers 6: // Q4: Diagnostic markers and associated genes 7: 8: evidence_block <- FORMAT_EVIDENCE(subgraph) 9: // Each triple formatted as: 10: // [Subject] ->PREDICATE-> [Object] 11: // PMID: {pmid} | Tier: {quality_tier} | Temporal: {iso_anchor} 12: // Evidence: "{quote from source abstract}" 13: 14: prompt <- CONSTRUCT_PROMPT( 15: system = HEG_TKG_SYSTEM_PROMPT, // See Supplementary S2 16: scenario = s, 17: evidence = evidence_block 18: ) 
+
+S28 19: 20: R <- LLM_synth(prompt, temperature=0.0) // GPT-4.1 for evaluation 21: // OR Qwen-3/Gemma-3 via Ollama for PHI 22: 23: // Verification (automated, optional): 24: pmids_cited <- EXTRACT_PMIDS(R) 25: for each pmid in pmids_cited do 26: status <- PUBMED_ESUMMARY(pmid) // Confirm existence + relevance 27: end for 28: 29: return R 
+
+## Complexity Notes 
+
+Component Time Complexity Typical Runtime 
+
+Corpus acquisition O(|Q| × API latency) ∼5 min per pair Relevance screening O(|A| × LLM call) ∼10 min per pair Multi-LLM extraction O(|A| × | M | × LLM call) ∼45 min per pair Entity normalization O(|T | × (dict + SapBERT + ScispaCy)) ∼15 min per pair Temporal anchoring O(|Ttemporal |) ∼2 min per pair Consensus voting O(|T | × log |T |) for grouping ∼1 min per pair Neo4j import O(|V | + |E|) ∼30 sec per pair 
+
+Total offline (Phase I) – ∼80 min per pair Online inference (Phase II) O(Cypher query + LLM call) ∼8 sec per query 
+
+# S28: Per-Disease-Pair Three-Arm Breakdown 
+
+Supplementary Table S28. Clinical Feature Coverage (automated) and Provenance Gap per disease pair across three arms. Bootstrap 95% CIs: 10,000 resamples, seed=42, computed over 12 scenarios per pair. 
+
+Pair Metric HEG-TKG Guideline-RAG Vanilla 
+
+MG/LEMS Feature Coverage 0.814 [0 .709 , 0.909] 0.734 [0 .621 , 0.827] 0.747 [0 .642 , 0.848] ETS 0.348 0.0 0.0Prov. Gap 0.477 0.734 0.747 DMD/BMD Feature Coverage 0.659 [0 .536 , 0.776] 0.691 [0 .636 , 0.743] 0.771 [0 .674 , 0.858] ETS 0.411 0.0 0.0Prov. Gap 0.289 0.691 0.771 CIDP/GBS Feature Coverage 0.678 [0 .598 , 0.751] 0.640 [0 .538 , 0.747] 0.710 [0 .627 , 0.795] ETS 0.358 0.0 0.0Prov. Gap 0.331 0.640 0.710 
+
+Pooled 
+
+Feature Coverage 0.717 [0 .652 , 0.779] 0.688 [0 .633 , 0.741] 0.743 [0 .688 , 0.796] ETS 0.372 0.0 0.0Prov. Gap 0.366 0.688 0.743 
+
+HEG-TKG outperforms vanilla on MG/LEMS (+0 .067) but underperforms on DMD/BMD ( −0.112). The DMD/BMD deficit reflects treatment-specific scenarios (4 of 12) where the synthesis model’s parametric S29 knowledge about corticosteroid protocols and cardiac management exceeds what was captured in the abstract-only knowledge graph (66% coverage for DMD/BMD vs. 81% MG/LEMS and 68% CIDP/GBS). Guideline-RAG consistently underperforms vanilla but shows mixed results against HEG-TKG: it outperforms HEG-TKG on DMD/BMD feature coverage (0 .691 vs 0 .659) where full-text clinical guidelines compensate for treatment-heavy scenarios, but underperforms on MG/LEMS (0 .734 vs 0 .814) and CIDP/GBS (0 .640 vs 0.678). Crucially, all Guideline-RAG Provenance Gaps are ≥ 0.64 because raw text provides no structured citation mechanism. 
+
+# S29: Worked Example - From Query to Verifiable Output 
+
+A GP who suspects Lambert-Eaton syndrome in a patient with proximal weakness and autonomic dysfunc-tion. The GP asks: “Differentiate MG from LEMS given these findings.” 
+
+Vanilla GPT-4.1 produces a correct but often unverifiable response: “LEMS is associated with P/Q-type voltage-gated calcium channel antibodies and frequently occurs as a paraneoplastic syndrome. Autonomic features and areflexia help distinguish it from MG.” No citation, no way to verify any claim. 
+
+HEG-TKG retrieves a disease-specific subgraph from the knowledge graph and produces structured out-put with inline citations: “MG: fluctuating fatigable weakness affecting ocular and bulbar muscles [PMID:30470270, SILVER]; symptoms worsen with exertion [PMID:32057206, SILVER]; reflexes normal [GeneReviews, GOLD]. LEMS: proximal limb weakness precedes ocular involvement [GeneReviews, GOLD]; autonomic symptoms (dry mouth, constipation) [GeneReviews, GOLD]; reflexes reduced but increase after brief exercise [GeneRe-views, GOLD]; decremental pattern on repetitive nerve stimulation differs from MG [PMID:24332471, SIL-VER].” Every claim maps to a PMID or curated source. The GP can look up PMID:30470270, confirm it is a 2019 
+
+Neurologic Clinics article on myasthenia gravis, and verify the fatigability claim in under 30 seconds. The quality tier (GOLD = confirmed by both curated sources and literature extraction; SILVER = supported by multiple independent PMIDs) tells the GP how much weight to place on each claim. None of this is available from the vanilla output. 
+
+# S30: Knowledge Graph Structural Statistics 
+
+Supplementary Table S30. HEG-TKG structural statistics across three disease pairs.                                 
+
+> Statistic MG/LEMS DMD/BMD CIDP/GBS Total
+> PubMed abstracts 651 706 654 2,011 Unique PMIDs in KG 294 308 386 987 Total nodes 1,777 1,514 2,190 5,481 Total edges 1,999 1,686 2,631 6,316 Temporal anchors 361 483 436 1,280 GOLD quality edges 70 111 50 231 KG feature coverage †59% 52% 68% 60%
+> †
+
+KG feature coverage measures the fraction of a clinical feature checklist whose concepts appear anywhere in the knowledge graph, before synthesis. This differs from the output feature coverage in Table S28 (65.9-81.4%), which measures features present in the generated clinical output after synthesis; the model can produce features from its parametric knowledge even when the KG lacks them. S30 The 1,280 temporal anchors are structured disease-trajectory milestones: Gowers’ sign at P3Y-P5Y, loss of ambulation at P9Y-P13Y for DMD versus P16Y+ for BMD, cardiac involvement at P10Y-P15Y. The 231 GOLD-tier edges represent knowledge confirmed by both curated sources and literature extraction independently. Our automated keyword-matching feature coverage scorer reports an average of 71.7% (range 65.9-81.4% across disease pairs). However, manual inspection reveals that 70% of the 80 feature instances scored as “missing” are in fact discussed in the output but fail the rigid substring matcher (e.g., “reading frame rule 90–95% accuracy” is marked absent despite the output stating “fulfilled in ∼90% of DMD cases”). Of the 80 flagged instances, 76% have corresponding concepts present in the KG evidence manifest. The true KG coverage gap: features genuinely absent from the knowledge graph are approximately 5-10%, confined primarily to treatment specifics (dosing, titration protocols) available only in full-text articles. Among the features genuinely absent from the KG, the breakdown is: treatment specifics (30%), temporal milestones for rare phenotypic variants (21%), diagnostic procedures (16%), genotype–phenotype correlations (11%), biomarker reference ranges (5%), and other gaps (16%). 
+
+# S31: PHI-Compliant Local Deployment Details 
+
+Patient information cannot leave institutional infrastructure under HIPAA (US), GDPR Article 9 (EU), and equivalent regulations in most jurisdictions. HEG-TKG addresses this through a dual-architecture deploy-ment model. The knowledge graph itself contains no patient data. It stores only disease-level relationships extracted from public PubMed abstracts and authoritative sources. At inference time, the clinical sce-nario (which may contain PHI) is processed by the synthesis model. We validated that this synthesis step can run entirely on-premise using open-source models (Qwen 3 14B, Gemma 3 27B) served via Ollama, achieving 75-80% citation coverage on a single institutional GPU (Supplementary Table S25). The system’s 
+
+validate privacy config() function enforces deployment-time checks: in strict mode, any configuration routing patient data to cloud APIs raises an error. A regulatory compliance mapping across EU AI Act Article 14, FDA CDS Criterion 4, and GDPR Article 9/HIPAA requirements is provided in Supplementary Table S26. 
+
+End of Supplementary Materials 
+
+S31

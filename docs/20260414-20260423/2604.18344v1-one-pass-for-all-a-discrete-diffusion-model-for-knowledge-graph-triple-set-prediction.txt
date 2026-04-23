@@ -1,0 +1,4732 @@
+Title: One Pass for All: A Discrete Diffusion Model for Knowledge Graph Triple Set Prediction
+
+URL Source: https://arxiv.org/pdf/2604.18344v1
+
+Published Time: Tue, 21 Apr 2026 02:39:14 GMT
+
+Number of Pages: 13
+
+Markdown Content:
+> JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 1
+
+# One Pass for All: A Discrete Diffusion Model for Knowledge Graph Triple Set Prediction 
+
+Jihong Guan, Jiaqi Wang, Wengen Li, Hanchen Yang, Yichao Zhang, Shuigeng Zhou. 
+
+Abstract —Knowledge Graphs (KGs) are composed of triples, and the goal of Knowledge Graph Completion (KGC) is to infer the missing factual triples. Traditional KGC tasks predict missing elements in a triple given one or two of its elements. As a more realistic task, the Triple Set Prediction (TSP) task aims to infer the set of missing triples conditioned only on the observed knowledge graph, without assuming any partial information about the missing triples. Existing TSP methods predict the set of missing triples in a triple-by-triple manner, falling short in capturing the dependencies among the predicted triples to ensure consistency. To address this issue, we propose a novel discrete diffusion model termed DiffTSP that treats TSP as a generative task. DiffTSP progressively adds noise to the KG through a discrete diffusion process, achieved by masking relational edges. The reverse process then gradually recovers the complete KG conditioned on the incomplete graph. To this end, we design a structure-aware denoising network that integrates a relational context encoder with a relational graph diffusion transformer for knowledge graph generation. DiffTSP can generate the complete set of triples in a one-pass manner while ensuring the dependencies among the predicted triples. Our approach achieves state-of-the-art performance on three public datasets. Code: https://github.com/ADMIS-TONGJI/DiffTSP. 
+
+Index Terms —knowledge graph completion, triple set predic-tion, discrete diffusion model 
+
+I. I NTRODUCTION 
+
+Knowledge Graphs (KGs), which represent factual infor-mation as a collection of (head entity, relation, tail entity) 
+
+triples, have become a cornerstone of modern AI systems [1], [2], powering applications from web search [3] to question answering [4]–[6] and recommendation systems [7]. Despite their widespread applications, a fundamental and persistent problem is their inherent incompleteness. Real-world KGs usually exhibit extensive incompleteness, with a significant proportion of valid facts missing [8]. To solve this problem, Knowledge Graph Completion (KGC) has emerged as an important research topic [9], [10]. Existing KGC tasks, such as link prediction [11]–[13] and instance completion [14], have made significant strides. However, they operate under a strong and often impractical assumption that some elements of the missing triples are known in advance [15]. For example, link prediction aims to find a missing entity or relation given the other two elements, e.g., (h, r, ?) where h is the head entity and r is one certain relation [16]. In many real-world scenarios, we lack such prior 
+
+Jihong Guan, Jiaqi Wang, Wengen Li, Hanchen Yang and Yichao Zhang are with the School of Computer Science and Technology, Tongji University, Shanghai, China (jhguan, wangjq, lwengen, neoyang, yichaozhang@tongji.edu.cn). Shuigeng Zhou is with the School of Computer Science, Fudan University, Shanghai, China (sgzhou@fudan.edu.cn). Wengen Li is the corresponding author. 10         
+
+> (a) Independent Triple-by-Triple Prediction
+> Incomplete KG
+> Score
+> Model
+> Score
+> Model
+> Score
+> Model
+> Pass 1 Pass 2 Pass N
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐴𝐴 ,𝑖𝑖 𝑝𝑝 𝑖𝑖𝑖𝑖 𝑡𝑡ℎ𝑝𝑝𝑟𝑟 𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 )
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐴𝐴 ,𝑖𝑖 𝑝𝑝 𝑖𝑖 𝑜𝑜𝑡𝑡ℎ𝑝𝑝𝑟𝑟 𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 )
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐵𝐵 ,𝑖𝑖 𝑝𝑝 𝑖𝑖𝑖𝑖 𝑝𝑝𝑡𝑡𝑝𝑝𝑟𝑟 𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 )
+
+…         
+
+> √×
+> (b) DiffTSP: One -Pass Generation
+> Triple 1 Triple 2 Triple N
+> One Pass Generative Model
+> conflict
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐴𝐴 ,𝑖𝑖 𝑝𝑝 𝑖𝑖𝑖𝑖 𝑡𝑡ℎ𝑝𝑝𝑟𝑟 𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 )
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 ,𝑖𝑖 𝑝𝑝 𝑖𝑖𝑜𝑜𝑝𝑝𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐴𝐴 )
+> (𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐵𝐵 ,𝑖𝑖 𝑝𝑝 𝑖𝑖𝑖𝑖 𝑝𝑝𝑡𝑡𝑝𝑝𝑟𝑟 𝑖𝑖𝑖𝑖 ,𝑝𝑝𝑝𝑝 𝑟𝑟 𝑝𝑝 𝑜𝑜 𝑝𝑝 𝐶𝐶 )
+> Predicted Set
+
+… dependency 
+
+> …
+> …
+> √
+> Predicted Set
+> …
+> Incomplete KG
+
+Fig. 1. Independent triple set prediction vs DiffTSP. (a) Independent predic-tion scores each triple separately, and may result in conflicts in the predicted set. (b) DiffTSP (our model) generates triples in one pass, and could capture their joint distribution and preserve inter-triple dependencies. 
+
+knowledge. The ultimate goal of automatic KGC is not just to fill in a blank triple by triple, but to discover entirely new and complete factual triples from the incomplete KG. Therefore, a more practical formulation for KGC is the Triple Set Prediction (TSP) task that directly predicts the entire set of missing factual triples, given only the incomplete knowledge graph as input [17]. Despite its importance, TSP faces a critical challenge, i.e., maintaining the dependency among predicted triples. The triples in a KG are not independent, but interconnected and constrained. For example, if a model predicts the triple (person A, isFatherOf, person B) , it should be more likely to also predict the symmetric triple (person B, isSonOf, person A) .Conversely, predicting (person A, isFatherOf, person C) should preclude the prediction of (person A, isMotherOf, person C) .Existing methods for TSP, as depicted in Figure 1(a), score triples individually and select those with scores exceeding a certain threshold to obtain the final predicted set. Such an isolated approach fails to capture crucial inter-triple depen-dencies, often resulting in a set of triples that lacks accuracy and consistency. Therefore, to effectively address the TSP task, we must move beyond independent triple scoring, and instead model the joint distribution of the triple set. This calls for a generative framework, where the prediction of each triple is conditioned on the others, thereby producing outputs that faithfully capture inter-triple dependencies and maintain internal consistency. Diffusion models [18] have become exceedingly popular for their powerful capabilities in image [19], [20] and text genera-tion [21], [22], which inspires us to leverage diffusion models’ generative strength for TSP. Although some existing studies, such as KGDM [23], FDM [24] and LLM-DR [25] have applied diffusion models to knowledge graphs [25]–[27], they  
+
+> arXiv:2604.18344v1 [cs.AI] 20 Apr 2026 JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 2
+
+focus on the link prediction task and score triples individually, struggling to capture inter-triple dependencies. Furthermore, most of these approaches are based on continuous diffusion models which are not well-suited to handle the inherently sparse and structural characteristics of KGs. In this work, we introduce DiffTSP, a novel discrete dif-fusion model designed to overcome the challenge of cap-turing inter-triple dependency in the TSP task. As depicted in Figure 1(b), DiffTSP operates via a unified ”One-Pass Generation” process, where all the missing triples are gen-erated holistically rather than as a sequence of independent predictions. The core idea of DiffTSP is to capture the inter-triple dependencies that are critical for generating a coherent triple set. Therefore, we aim to learn the joint probability distribution of all triples, rather than scoring them in isolation. To this end, we model the joint distribution of the triple set via stepwise denoising, where each triple is predicted in the context of other triples in the evolving graph, naturally enforcing inter-triple dependencies. To learn the dependencies effectively, we design a structure-aware denoising network. Specifically, it consists of two synergistic modules: a Relational Context Encoder (RCE) and a Relational Graph Diffusion Transformer (RelDiT). The RCE performs relation-guided message passing to capture local structural dependencies among entities. It aggregates neighbor information conditioned on relation types, providing entity representations that reflect the local relational context. Built upon the entity representations, the RelDiT further models global structural dependencies via relational attention mechanisms. This module enables the denoising network to capture long-range dependencies among entities during the diffusion process. DiffTSP is composed of three key modules. First, a forward process systematically corrupts a graph by progressively masking its relational edges. Subsequently, our structure-aware denoising network is trained to reverse this corruption by predicting the original clean graph given a noisy graph and the incomplete graph as a condition. Finally, we employ an iterative sampling process to generate a complete and internally consistent set of triples. In sum, our contributions are threefold: 1) We propose a novel discrete diffusion model for the triple set prediction task on KGs, establishing a new paradigm for generative knowledge graph completion. 2) We propose a structure-aware denoising network that integrates a relational context encoder with a relational graph diffusion transformer to capture the inter-triple dependency in knowledge graph generation. 3) Through extensive experiments on three public datasets, we demonstrate the superiority of our approach against multiple strong baselines, as well as the effectiveness and necessity of specific designs in DiffTSP. II. R ELATED WORKS 
+
+Our work is positioned at the intersection of knowledge graph completion and generative diffusion models for graphs. We thus review relevant literature in both areas. 
+
+A. Knowledge Graph Completion 
+
+KGC aims to address the incompleteness issue of KGs by inferring missing facts [28]. This task has been formulated in different ways, e.g., Link Prediction, Instance Completion, and Triple Set Prediction [15]. Specifically, link prediction is the most widely studied KGC task. Given a triple with one missing element, either the head entity (?, r, t) , tail entity (h, r, ?) , or relation (h, ?, t) , the goal is to predict the missing element. A representative approach for link prediction in KGs is to learn low-dimensional embeddings for entities and relations (e.g., TransE [29], RotatE [30], HAKE [31], PairE [32]), and use a scoring function to rank candidate entities or relations. There are also some methods using graph networks (e.g., RGCN [33], CompGCN [34], MorsE [35], AstarNet [36], and ULTRA [37] ). While these models are powerful, they score each candidate entity or relation independently, which is insuf-ficient for capturing the dependency among predicted triples. Instance completion [14] predicts all missing relation-tail pairs 
+
+(?, ?) for a given head entity h. This formulation moves from single-element prediction to a one-to-many completion setting, but still requires the head entity to be specified beforehand. Triple Set Prediction is the most general and challenging formulation for the KGC task, and aims to predict the whole set of missing factual triples given only the existing incomplete graph. Existing methods [15], [17] for TSP usually adapt from a triple-by-triple prediction pipeline, which fail to model inter-triple dependencies well. Our work confronts this limitation by reframing TSP as a generative task to produce the whole set of missing triples in one pass. 
+
+B. Generative Diffusion Models for Graph Generation 
+
+Diffusion models [18] are a type of powerful deep gener-ative models, achieving excellent performance in image [19] and language generation [21], [22]. They progressively add noise to data in a forward process, and then learn a neural network to reverse this process, i.e., starting from pure noise to generate new data samples. Applying diffusion models to discrete and structured data like graphs presents unique challenges. Some recent studies [38] have made significant progress in this direction. DiGress [39] defines a new discrete diffusion process over graphs. GraphDiT [40] further advanced this line of research by incorporating the Dit [41] architecture into the denoising network, demonstrating that attention-based mechanisms are crucial for modeling global graph properties in a diffusion model. However, a limitation in all existing graph generation models is that they are designed for gener-ating generic graphs rather than semantic knowledge graphs. They typically assume a small set of node types and edge types, and cannot effectively handle the heterogeneity of real-world KGs that feature hundreds of relation types and tens of thousands of entities. Adapting these generative models to produce semantically rich KG structures remains an open challenge. Our work advances this direction by tailoring a new diffusion paradigm specifically for completing large-scale heterogeneous KGs. JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 3
+
+III. P RELIMINARIES 
+
+Each KG is a directed multi-relational graph G =(V, R, T ), where V is the set of entities, R is the set of relations, and T is the set of factual triples. Each triple 
+
+(h, r, t ) ∈ T consists of a head entity h ∈ V , a relation r ∈ R ,and a tail entity t ∈ V , representing a link from h to t via r.Formally, given an incomplete KG Gtrain = ( V, R, Ttrain ) as input, the goal of the TSP task is to predict the set of missing triples Tpred (Tpred ∩ T train = ∅). We use Ttest as the set of true triples in the test set to evaluate the model. For clarity and ease of reference, we summarize the key mathematical notations used throughout this paper in Table I.                                                      
+
+> TABLE I SUMMARY OF NOTATIONS
+> Symbol Description
+> KG Basics
+> G= ( V,R,T)KG with entities V, relations R, and triples T
+> bNumber of relation types
+> Ttrain ,Tpred Observed triples, and predicted triples
+> Gs, G qSupport graph, and query graph
+> Ts,TqTriple sets in the support and query graphs
+> ρ, N SRatio for support/query split, and repeat times
+> Diffusion Model
+> T,tTotal diffusion steps and current timestep tGqt, E qNoisy query graph at step t, and adjacency tensor
+> etijk State of edge between entities i, j with relation k
+> at step t
+> MMask state representing the absence of an edge
+> Qt, Q tTransition matrices for the forward process
+> αtNoise schedule parameter at timestep tpθ(Gqt−1|Gqt, G s)The learnable reverse transition distribution
+> q(Gqt|Gqt−1)The forward diffusion transition distribution
+> fθ(·)The structure-aware denoising network
+> pEθ,ijk Predicted edge existence probability by fθ(·)
+> NDit Number of RelDiT blocks
+> hi,RrHidden state vector for entity i, and relation r
+> LV LB ,Lsimple Variational Lower Bound and the simplified train-ing loss
+
+IV. M ETHODOLOGY 
+
+A. Overview of DiffTSP 
+
+As depicted in Figure 2, the training process of DiffTSP in-volves a relation-balanced learning task generation to create meta-learning tasks, each with a support graph and a query graph. Then, DiffTSP corrupts the query graph by masking relational edges in the forward diffusion process. After that, a structure-aware denoising network is optimized via a specific training objective to reverse this corruption. Finally, during the sampling process, DiffTSP uses the trained network to sample the final triple set. We introduce these modules in detail below. 
+
+B. Relation-Balanced Learning Task Generation 
+
+We employ a meta-learning framework to explicitly train DiffTSP to generate query triple sets from support sets. For the given graph G = ( V, R, T), multiple training tasks are generated. For each task, the set of triples T is partitioned into a support set T s and a query set T q . We use parameter 
+
+ρ ∈ (0 , 1) to specify the proportion of triples allocated to 
+
+T s. This yields a support graph Gs = (V, R, T s) and a query graph Gq = ( V, R, T q ). To mitigate the bias towards frequently occurring relations and ensure balance, we design a relation-balanced split strategy. It ensures that the probability distribution of relations in T s and T q mirrors that of the original graph T. Let P (r|T ) represent the probability of a relation r in a set of triples T . For any relation r ∈ R , we have: 
+
+P (r|T s) ≈ P (r|T q ) ≈ P (r|T ). (1) This process is repeated Ns times for G to generate a collec-tion of (Gs, G q ) pairs. This ensures that DiffTSP is trained in a variety of combinations of support and query graphs, thereby achieving robust graph generalization. 
+
+C. Forward Diffusion Process 
+
+We add structured noise into the query graph Gq and subsequently perform denoising to recover the original struc-ture. The support graph Gs serves as a condition during the denoising phase. For clarity in the following discussion, we denote the relations among n entities as an adjacency tensor 
+
+Eq ∈ Rn×n×b×2, where b is the number of relation types. For each relation type k between entities i and j, the edge Eqijk is a one-hot vector that indicates its existence ( [1 , 0] ) or absence ([0 , 1] ). The goal of the TSP task is to complete the KG by inferring missing edges between a fixed set of entities. This allows the diffusion process on the graph Gq to be simplified to operate directly on its adjacency tensor Eq . The assumption of fixed entities is reasonable [39]. If an entity is altered or deleted, any model-generated edges connected to it would also become invalid. The forward diffusion process is a fixed Markov chain that incrementally adds noise to the adjacency tensor Eq 
+
+> 0
+
+(=
+
+Eq ). The transition at each step t is defined by a categorical distribution (Cat): 
+
+q(Gqt |Gqt−1) = q(Eqt |Eqt−1) = Cat (Eqt ; Eqt−1Qt), (2) 
+
+Here, Eqt is the noisy adjacency tensor at timestep t. The operation Eqt−1Qt involves an independent matrix multipli-cation for each potential edge to update its state probability. 
+
+Qt ∈ R2×2 defines the transition probabilities of a relational edge from timestep t − 1 to timestep t. The entry [Qt]i,j 
+
+specifies the probability of transitioning from state i to j for a specific edge. Denoting the absence of an edge as state M, the transition matrix Qt is defined as: 
+
+[Qt]i,j =
+
+
+
+1 if i = j = M,
+
+1 − αt|t−1 if j = M, i ̸ = M,αt|t−1 if i = j̸ = M,
+
+0 otherwise .
+
+(3) 
+
+where the noise schedule parameter αt|t−1 ∈ (0 , 1) is a function decreasing with t. This formulation ensures that, at each step, a relational edge either remains its current state (with probability αt|t−1) or transitions to the absence state (with probability 1 − αt|t−1). Actually, we can sample Eqt
+
+directly from Eq 
+
+> 0
+
+:JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 4 
+
+> Fig. 2. The training process and sampling process of DiffTSP .
+
+q(Gqt |Gq
+
+> 0
+
+) = Cat (Eqt ; Eq 
+
+> 0
+
+¯Qt), with ¯Qt =
+
+> t
+
+Y
+
+> i=1
+
+Qi (4) 
+
+[ ¯Qt]i,j =
+
+
+
+1 if i = j = M,
+
+1 − αt if j = M, i ̸ = M,αt if i = j̸ = M,
+
+0 otherwise .
+
+(5) 
+
+where αt = Qti=1 αi|i−1. When t approaches infinity, Gqt will only have entity nodes and no edges. 
+
+D. Structure-Aware Denoising Network 
+
+Our structure-aware denoising network, denoted as 
+
+fθ (Gqt , G s, t ), takes the noisy query graph Gqt , the support graph Gs, and the timestep t as input. As depicted in Figure 3, to learn the inter-triple dependencies effectively, our denoising network consists of a relational context encoder and a relational graph diffusion transformer, which capture local relational structures and global structural dependencies, respectively. To effectively leverage the structural information from the support graph, we fuse Gs with the query graph 
+
+Gqt . The fusion is performed by taking the union of their relational edge sets. In this case, an edge is included in the fused graph if it appears in either Gs or Gqt . The fused graph is then used as the input of the denoising network. In the RCE module, we maintain a learnable relation embedding matrix R ∈ R2nr ×a, where nr is the number of relation types and a is the embedding dimension. This matrix stores embeddings for each relation type and its corresponding inverse, allowing the model to differentiate edge directions. The initial feature vector h(0)  
+
+> i
+
+for an entity i is computed by averaging the embeddings of all its adjacent relations:  
+
+> Fig. 3. Overview of the structure-aware denoising network.
+
+h(0)  
+
+> i
+
+= 1
+
+di
+
+ X
+
+> (i,r,j )∈T
+
+Rr + X
+
+> (j,r,i )∈T
+
+Rr−1
+
+ . (6) 
+
+Here, T represents the triples in the graph, di is the total degree of entity i, and Rr and Rr−1 are the learnable embeddings for relation r and its inverse, respectively. The entity representation h(l+1)  
+
+> i
+
+for entity i at layer l+1 is updated as below. 
+
+h(l+1)  
+
+> i
+
+= σ
+
+X
+
+> r∈R
+
+X 
+
+> j∈Nri
+
+1
+
+ci,r 
+
+W (l) 
+
+> r
+
+h(l) 
+
+> j
+
++ W (l)0 h(l)
+
+> i
+
+ , (7) 
+
+where σ is an activation function, N ri is the set of neighbors of entity i under relation r, W (l) 
+
+> r
+
+and W (l)0 are learnable weights at layer l, and ci,r is a normalization constant. In the RelDiT module, the entity features Hx ∈ Rn×a
+
+are initialized using the final entity representations from the RCE, and the edge features He ∈ Rn×n×b are initialized JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 5
+
+using the multi-hot encoding from the fused graph. These features are fused through a linear projection, i.e., H(0) =
+
+Linear (Hx, He). Following [40], the scalar timestep t is en-coded by a sinusoidal embedding τ . In each RelDiT block, the time embedding is injected via adaptive layer normalization (adaLN). Specifically, the k-th block is defined as 
+
+H(k, attn ) = H(k−1) + AdaLN (RelAttn (H(k−1) ), τ ),
+
+H(k) = H(k, attn ) + AdaLN (MLP (H(k, attn )), τ ). (8) The attention layer RelAttn( ·) operates on the representation 
+
+H(k−1) . Let hi and hj denote the representations of entities 
+
+i and j in H(k−1) . Unlike standard graph transformers that treat relations only as edge channels, we incorporate relational information into the attention computation through a relation-aware attention bias. Formally, the attention score between entity i and entity j is computed as 
+
+RelAttn (i, j ) = Softmax 
+
+ (hiWQ)( hj WK )T
+
+√d + Bij 
+
+
+
+, (9) 
+
+where Bij denotes the relation-aware attention bias that re-flects the relational dependency between the two entities. Specifically, the bias is defined as Bij = Pbk=1 Pt(i, k, j ) rk,
+
+where Pt(i, k, j ) ∈ [0 , 1] represents the probability that rela-tion type k exists between entities i and j at timestep t, b
+
+is the total number of relation types, and rk is a learnable embedding associated with relation k. After stacking multi-ple RelDiT blocks, the final representation Hfinal provides a purified representation of the latent graph structure. We then apply a reconstruction decoder to predict the probabilities of the clean relational adjacency tensor: pEθ ∈ Rn×n×b =
+
+Linear (MLP (Hfinal )) .
+
+E. Reverse Process 
+
+The structure-aware denoising network fθ is trained to reverse the forward diffusion process, i.e., predicting the clean graph Gq 
+
+> 0
+
+from its noisy version Gqt under the condition Gs.Formally, this corresponds to learning the conditional reverse process pθ (Gqt−1 | Gqt , G s) such that samples drawn from the reverse diffusion chain recover the data distribution. 
+
+a) Variational formulation of the reverse process.: To learn the reverse process, we aim to maximize the condi-tional log-likelihood of the data, log pθ (Gq
+
+> 0
+
+|Gs). However, directly optimizing this likelihood is intractable due to the marginalization over all latent diffusion states. Following the standard diffusion formulation [18] and inspired by recent works [39], [42], [43], we instead optimize a variational lower bound (VLB) of the log-likelihood. Specifically, the objective is derived as follows: 
+
+log pθ (Gq
+
+> 0
+
+|Gs) = log 
+
+Z
+
+pθ (Gq 
+
+> 0: T
+
+|Gs) dG q 
+
+> 1: T
+
+(10) 
+
+= log 
+
+Z
+
+q(Gq 
+
+> 1: T
+
+|Gq
+
+> 0
+
+) pθ (Gq 
+
+> 0: T
+
+|Gs)
+
+q(Gq 
+
+> 1: T
+
+|Gq
+
+> 0
+
+) dG q 
+
+> 1: T
+
+(11) 
+
+≥ Eq(Gq  
+
+> 1: T|Gq
+> 0)
+
+
+
+log pθ (Gq 
+
+> 0: T
+
+|Gs)
+
+q(Gq 
+
+> 1: T
+
+|Gq
+
+> 0
+
+)
+
+
+
+(denoted as L) (12) The inequality follows from Jensen’s inequality and yields a variational lower bound on the log-likelihood. 
+
+b) Decomposition of the variational lower bound.: 
+
+Taking expectation over the data distribution, the variational objective becomes 
+
+Eq [L] = Eq [log pθ (Gq 
+
+> 0: T
+
+|Gs) − log q(Gq 
+
+> 1: T
+
+|Gq
+
+> 0
+
+)] . (13) 
+
+Using the Markov factorization of the reverse and forward diffusion processes, and Bayes’ rule to each forward transition term q(Gqt |Gqt−1), we have 
+
+Eq [L] = Eq
+
+"
+
+log p(GqT |Gs) + 
+
+> T
+
+X
+
+> t=1
+
+log pθ (Gqt−1|Gqt , G s)
+
+−
+
+> T
+
+X
+
+> t=1
+
+log q(Gqt |Gqt−1)
+
+#
+
+(14) 
+
+= Eq
+
+"
+
+log p(GqT |Gs) + 
+
+> T
+
+X
+
+> t=1
+
+log pθ (Gqt−1|Gqt , G s)
+
+−
+
+> T
+
+X
+
+> t=1
+
+log q(Gqt−1|Gqt , G q
+
+> 0
+
+) − log q(GqT |Gq
+
+> 0
+
+)
+
+#
+
+(15) 
+
+= Eq [log pθ (Gq
+
+> 0
+
+|Gq
+
+> 1
+
+, G s)] + Eq
+
+" TX
+
+> t=2
+
+ log pθ (Gqt−1|Gqt , G s) − log q(Gqt−1|Gqt , G q
+
+> 0
+
+)#
+
++ Eq [log p(GqT |Gs) − log q(GqT |Gq
+
+> 0
+
+)] (16) 
+
+= Eq [log pθ (Gq
+
+> 0
+
+|Gq
+
+> 1
+
+, G s)] 
+
+−
+
+> T
+
+X
+
+> t=2
+
+Eq [DKL (q(Gqt−1|Gqt , G q
+
+> 0
+
+)|| pθ (Gqt−1|Gqt , G s))] 
+
+− DKL (q(GqT |Gq
+
+> 0
+
+)|| p(GqT |Gs)) (17) 
+
+Consequently, the negative log-likelihood is upper bounded by the negative variational lower bound: 
+
+−Eq [log pθ (Gq
+
+> 0
+
+|Gs)] ≤ − Eq [L] =: LV LB . (18) 
+
+c) From VLB to the simplified training objective.: We show how LV LB can be reduced to the simplified objective 
+
+Lsimple used in practice. First, we denote 
+
+LT = DKL (q(GqT |Gq
+
+> 0
+
+) ∥ p(GqT |Gs)) . (19) Since q(GqT |Gq
+
+> 0
+
+) converges to a standard prior independent of Gq
+
+> 0
+
+, and p(GqT |Gs) is set to the same prior, LT is approxi-mately constant and does not depend on the model parameters 
+
+fθ . Therefore, it can be safely ignored during training. Next, for each t ∈ [2 , T ], we define 
+
+Lt−1 = Eq
+
+DKL 
+
+ q(Gqt−1|Gqt , G q
+
+> 0
+
+) ∥ pθ (Gqt−1|Gqt , G s) . (20) 
+
+As shown in [18], when the reverse model fθ is parame-terized to predict the original data, minimizing this KL diver-gence is equivalent to minimizing the discrepancy between the predicted graph and the ground-truth graph Gq
+
+> 0
+
+, up to constant weighting coefficients. For relational edges with binary states, this discrepancy is naturally measured using Binary Cross-Entropy (BCE). Thus, each KL term can be approximated as 
+
+Lt−1 ≈ Eq [BCE (Gq
+
+> 0
+
+, f θ (Gqt , G s, t ))] . (21) JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 6
+
+Finally, we denote 
+
+L0 = −Eq [log pθ (Gq
+
+> 0
+
+|Gq
+
+> 1
+
+, G s)] . (22) This term corresponds to a reconstruction loss measuring the ability of the model to recover Gq 
+
+> 0
+
+from Gq
+
+> 1
+
+. Since fθ directly predicts Gq
+
+> 0
+
+, this term also reduces to a BCE loss: 
+
+L0 = Eq [BCE (Gq
+
+> 0
+
+, f θ (Gq
+
+> 1
+
+, G s, 1))] . (23) 
+
+To handle the sparse and imbalanced relation types of KGs, we treat non-existent edges between two entities as an addi-tional relation type. The non-existent edge type is never noised in the forward diffusion process because there is nothing to mask. We design a weighted Binary Cross-Entropy (BCE w)loss function to assign weights to each relation type based on its inverse frequency, thus effectively mitigating the imbalance caused by the abundance of non-existent edges and the varying counts of other relations. The final training objective is to optimize the BCE w loss between the true adjacency tensor of 
+
+Gq 
+
+> 0
+
+and the prediction by our model fθ (Gqt , G s, t ), i.e., By aggregating all terms from t = 1 to T as in DDPM [18], we obtain the simplified training objective 
+
+Lsimple = Et, (Gq  
+
+> 0,G s),G qt
+
+[BCE w(Gq
+
+> 0
+
+, f θ (Gqt , G s, t ))] . (24) where eijk ∈ { 0, 1} is the ground-truth value of the edge of relation type k between entities i and j. We denote pEθ =
+
+fθ (Gqt , G s, t ) ∈ Rn×n×b, and pEθ,ijk ∈ [0 , 1] is the predicted existence probability for edge (i, j, k ). In practice, to ensure that the model learns to generate unknown relational edges in 
+
+Gq 
+
+> 0
+
+rather than the known edges in Gs and Gqt , we exclude the relational edges in Gs and Gqt from the loss computation. 
+
+F. Sampling Process 
+
+Although the denoising network is trained to directly predict the final graph Gq
+
+> 0
+
+, the sampling process remains iterative, spanning T steps as illustrated in Figure 2. The process is initialized with two inputs, i.e., the support graph GS from the training data, and the noisy query graph GqT that contains the same set of entities as GS but has no edges. Assuming that the transitions of each relational edge in Gq are conditionally independent given the state at time t, as formulated in standard discrete diffusion models [39], [44], the probability of graph 
+
+Gqt−1 given Gqt and GS can be expressed as a product over all possible edges: 
+
+pθ (Gqt−1|Gqt , G S ) = Y
+
+> i,j,k
+
+pθ (et−1 
+
+> ijk
+
+|Gqt , G S ), (25) 
+
+where pθ (et−1 
+
+> ijk
+
+|Gqt , G S ) represents the reverse transition prob-ability for the edge of relation type k between entities i and j.To derive this probability, we first consider the true posterior distribution conditioned on the initial state. By Bayes’ rule, we have (for brevity, we define Et = Eqt ): 
+
+q(Et−1|Et, E 0) = q(Et|Et−1)q(Et−1|E0)
+
+q(Et|E0)= Cat Et−1; p = EtQ⊤ 
+
+> t
+
+⊙ E0Qt−1
+
+E0QtE⊤
+
+> t
+
+!
+
+.
+
+(26) Substituting the formulation for Q into Eq. (26), we obtain the specific transition probabilities for an edge state et:
+
+q(et−1 = 1 |et = M, e 0 = 1) = αt−1(1 − αt|t−1)1 − αt
+
+= αt−1 − αt
+
+1 − αt
+
+,q(et−1 = M|et = M, e 0 = 1) = 1 − αt−1
+
+1 − αt
+
+,
+
+(27) where et denotes the state of an edge in the timestep t. In our practical implementation, et = 1 means the existence of the edge, while et = M = 0 indicates its absence. This is equivalent to the one-hot encoding of [1,0] for existence and [0,1] for absence, as described in the main text. During the sampling process, the initial state e0 
+
+> ijk
+
+is un-known. Therefore, to sample et−1 
+
+> ijk
+
+at timestep t − 1, we com-pute the posterior probability pθ (et−1 
+
+> ijk
+
+|Gt, G S ) by marginal-izing over the unknown initial state using the denoising net-work’s prediction. The network outputs the predicted probabil-ity of existence pEθ,ijk ∈ [0 , 1] . The final transition probability is thus a weighted average of the tractable posteriors for the two hypotheses ( e0 
+
+> ijk
+
+= 1 and e0 
+
+> ijk
+
+= 0 ): 
+
+pθ (et−1 
+
+> ijk
+
+|Gt, G S ) = q(et−1 
+
+> ijk
+
+|etijk , e 0 
+
+> ijk
+
+= 1) pEθ,ijk 
+
++ q(et−1 
+
+> ijk
+
+|etijk , e 0 
+
+> ijk
+
+= 0)(1 − pEθ,ijk )=
+
+
+
+1, etijk ̸ = M, e t−1 
+
+> ijk
+
+= etijk ,
+
+1 − αt−1−αt 
+
+> 1−αt
+
+pEθ,ijk , etijk = M, e t−1 
+
+> ijk
+
+= M, 
+
+> αt−1−αt
+> 1−αt
+
+pEθ,ijk , etijk = M, e t−1
+
+> ijk
+
+̸ = M,
+
+0, otherwise .
+
+(28) 
+
+This distribution is used to sample a discrete graph Gqt−1,serving as the input for the next denoising step. We ensure the sampling process is constrained to generate relational edges that are not present in the support graph GS .
+
+G. Training and Sampling Algorithms 
+
+The overall diffusion training and sampling processes are shown in Algorithm 1 and Algorithm 2, respectively. Since we treat the non-existent edge as an additional relation type during training, for the probability distribution pEθ,ij ∈ Rb
+
+over relations between entities i and j, we first check if the maximum probability corresponds to the “non-existent” type. If it does, we set the other b − 1 relation types to zero. Otherwise, following LLaDA [21], we proceed with the sampling process based on the posterior distribution. In the experiments, we have sampling threshold γ = 0 .999 and sampling steps T = 20 .
+
+Algorithm 1 Training Process of DiffTSP 
+
+Input: A query graph Gq = ( Xq , E q ) and a support graph 
+
+Gs ▷ X q is entity feature, Eq is adjacency tensor  
+
+> 1:
+
+Sample t ∼ U (1 , . . . , T ) 
+
+> 2:
+
+Sample Gqt ∼ Eq ¯Qt ▷ Sample a noisy graph  
+
+> 3:
+
+pEθ ← fθ (Gqt , G s, t ) 
+
+> 4:
+
+optimizer.step( Lsimple (Gq , p Eθ )) ▷ BCE w loss JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 7
+
+Algorithm 2 Sampling Process of DiffTSP 
+
+Input: A graph GS from the training data, sampling threshold 
+
+γ, sampling steps T 
+
+> 1:
+
+Sample GqT = ( VS , RS , ∅) ▷ G qT consists of the same entities as GS but with no edges  
+
+> 2:
+
+for t = T to 1 step 1 do  
+
+> 3:
+
+pEθ ← fθ (Gqt , G S , t ) 
+
+> 4:
+
+for (i, j ) = (1 , 1) to (n, n ) do  
+
+> 5:
+
+if arg max k′∈{ 1,...,b } pEθ,ijk ′ = b then  
+
+> 6:
+
+et−1 
+
+> ij [1: b−1]
+
+← 0 ▷ If the last dim (“non-existent edge” type) has max probability, set b − 1
+
+relation types to 0  
+
+> 7:
+
+else ▷ Sampling for b − 1 relation types  
+
+> 8:
+
+for k = 1 to b − 1 do  
+
+> 9:
+
+if etijk ̸ = 0 then et−1 
+
+> ijk
+
+← etijk  
+
+> 10:
+
+else  
+
+> 11:
+
+With probability 1−αt−1 
+
+> 1−αt
+
+, set et−1 
+
+> ijk
+
+← 0.With probability αt−1−αt 
+
+> 1−αt
+
+, set et−1 
+
+> ijk
+
+← 1(pEθ,ijk > γ ). 
+
+> 12:
+
+end if  
+
+> 13:
+
+end for  
+
+> 14:
+
+end if  
+
+> 15:
+
+end for  
+
+> 16:
+
+end for  
+
+> 17:
+
+return G0
+
+V. T HEORETICAL ANALYSIS : M ODELING INTER -T RIPLE 
+
+DEPENDENCIES 
+
+Here, we provide a theoretical justification for why the diffusion model framework is inherently suited to capturing the inter-triple dependencies crucial for generating consistent knowledge graphs. Our argument is that by training the model to approximate the true reverse process, we implicitly train it to replicate the complex joint distribution of the data. 
+
+Theorem 1 (Perfect Denoising Recovers the True Data Distri-bution) . Let pdata (G0) be the true distribution of the complete graph (represented by their adjacency tensors E0). If the learned denoising network pθ (Gt−1 | Gt) perfectly matches the true reverse distribution q(Gt−1 | Gt) for all timesteps t,then the distribution of generated graphs pθ (G0) is identical to the true data distribution, i.e., pθ (G0) = pdata (G0).Proof. The proof is a standard result in diffusion litera-ture. The generative process is defined by the Markov chain 
+
+pθ (G0: T ) = p(GT ) QTt=1 pθ (Gt−1 | Gt). If pθ (Gt−1 | Gt)
+
+perfectly mimics the true posterior q(Gt−1 | Gt), the joint dis-tribution of the generative process matches that of the forward process in reverse. Marginalizing over the latent variables G1: T
+
+yields the desired result that the model’s marginal pθ (G0)
+
+recovers the data distribution pdata (G0).
+
+Implication for Dependencies: Since pdata (G0) contains only valid graphs from the training set, it implicitly encodes all inter-triple dependencies. By recovering this distribution, a perfect model would generate graphs with the same statistical and logical integrity. The following theorems show how our training objective works towards this ideal. 
+
+Theorem 2 (Minimizing the VLB Controls Conflict Proba-bility) . Let C be the set of all possible graphs that contain logical contradictions. Assume the true data is consistent, i.e., Ppdata (C) = 0 . The probability of the model generating a contradictory graph is then upper-bounded by the total variation distance between the model and data distributions: 
+
+Ppθ (C) ≤ TV( pθ , p data ). (29) 
+
+Furthermore, Pinsker’s inequality relates this bound to the Kullback-Leibler (KL) divergence, which is minimized by the Variational Lower Bound (VLB) objective of our diffusion model: 
+
+Ppθ (C) ≤
+
+q 12 DKL (pdata ∥ pθ ). (30) 
+
+Proof. By definition, the total variation distance is 
+
+TV( pθ , p data ) = sup A |Ppθ (A) − Ppdata (A)|. Letting 
+
+A = C and using the assumption that Ppdata (C) = 0 , we get |Ppθ (C)| ≤ TV( pθ , p data ), which gives the inequality in Eq. (29). The second inequality in Eq. (30) is a direct application of Pinsker’s inequality, noting that the VLB objective in our diffusion model is designed to minimize an upper bound on DKL (pdata ∥ pθ ):
+
+DKL (pdata ∥pθ ) = Epdata 
+
+ − log pθ (G0) − H(pdata ) (31) 
+
+≤ L VLB − H(pdata ), (32) where H(pdata ) denotes the entropy of the data distribution (a constant). Combining the above, we obtain 
+
+Ppθ (C) ≤
+
+q 12
+
+ LVLB − H(pdata ). (33) 
+
+Synthesis. These theorems provide a formal basis for our claim. Theorem 1 shows that a perfect model recovers the data’s inherent dependencies. Theorem 2 shows that mini-mizing the VLB provably tightens an upper bound on the probability of generating inconsistent triples. Therefore, by training our model to minimize the VLB loss, we are prov-ably tightening the bound on generating contradictory or structurally incomplete triple sets, thus inherently promoting consistency. VI. E XPERIMENT 
+
+A. Datasets and Evaluation Metrics 
+
+To ensure the reproducibility and fairness of the eval-uation, we conduct experiments on three widely recog-nized benchmark datasets: Wiki79k, Wiki143k, and CFamily, where Wiki79k and Wiki143k are used under the Relation Similarity-based Partial-Open-World Assumption (RS-POWA) and Closed-World Assumption (CWA), and CFamily is used under the Closed-World Assumption (CWA). It is worth noting that all these datasets, along with their ground truth, are directly sourced from GPHT [15]. We strictly adhere to the original data partitions and definitions provided by GPHT, which guarantees that our results are directly comparable with existing methods. To make our approach tractable, we use the graph partitioning strategy from the recent work of GPHT [15] on the TSP task. This method divides the full knowledge JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 8
+
+graph into a set of smaller, overlapping subgraphs. Our model, DiffTSP, is then trained and evaluated on these subgraphs. The final set of predicted triples is the union of the predictions from all subgraphs. Table II shows the details of the three datasets. Wiki79k and Wiki143k are subsets extracted from Wikidata. As they are inherently incomplete, they are usually used to evaluate model performance under the RS-POWA, a realistic setting for real-world KGs. CFamily is a smaller and synthetically completed dataset focused on family relationships. Its relative completeness makes it ideal for evaluating model performance under the CWA, where any triples not present in the graph can be considered false.                     
+
+> TABLE II STATISTICS OF DATASETS IN EXPERIMENTS .Datasets Entity Relation Train Valid Test Wiki79k 7,983 85 57,033 6,337 15,843 Wiki143k 13,928 109 103,415 14,190 28,727 CFamily 2,378 12 16,549 1,839 4,598
+
+To ensure a fair and comprehensive comparison, we use the evaluation metrics, i.e., Joint Precision ( JP recision ), Squared Test Recall ( ST Recall ), and TSP Score ( FT SP ), proposed for the TSP task in GPHT [15], where FT SP is the harmonic mean of JP recision and ST Recall . Higher values indicate better outcomes for these metrics. Joint Precision ( JP recision )measures the precision of the predicted set while accounting for the size of the set itself. Squared Test Recall ( ST Recall )measures the percentage of test triples successfully recovered by the model. TSP Score ( FT SP ) is the harmonic mean of 
+
+JP recision and ST Recall . In CWA, we have: 
+
+T CW A + 
+
+> pred
+
+= Tpred ∩ T test , T CW A − 
+
+> pred
+
+= Tpred − T CW A + 
+
+> pred
+
+,
+
+T CW A pred = T CW A + 
+
+> pred
+
+∪ T CW A − 
+
+> pred
+
+= Tpred (34) 
+
+In RS-POWA, we have: 
+
+T P OW A + 
+
+> pred
+
+= Ttest ∩ T pred , T P OW A pred = T P OW A + 
+
+> pred
+
+∪ T P OW A −
+
+> pred
+
+(35) 
+
+T P OW A − 
+
+> pred
+
+= {(h, r, t )|(h, r, t ) ∈ T pred , (h, r, t ) /∈ T test ,
+
+∃r′ ∈ R (h, r ′, t ) ∈ (Ttrain ∪ T test ) ∧ sim (r, r ′) < θ } (36) 
+
+Finally, JP recision , ST Recall and FT SP in RS-POWA and CWA are calculated as follows (W A ∈{P OW A, CW A }): 
+
+JP recision = 12
+
+|T W A + 
+
+> pred
+
+||T W A pred | + |T W A + 
+
+> pred
+
+||T pred |
+
+!
+
+,ST Recall = |T W A + 
+
+> pred
+
+||T test |
+
+! 12
+
+,FT SP = 2 × (ST Recall × JP recision )
+
+ST Recall + JP recision (37) 
+
+B. Settings 
+
+The implementation is based on PyTorch and trained on one NVIDIA GeForce RTX 4090 GPU. For our proposed model, hyperparameters are tuned on the validation set. We set the relation-balanced partitioning ratio ρ = 0 .8, repeat times Ns =100 , embedding dimension a = 16 , sampling steps T = 20 ,and the number of Dit blocks NDit = 3 . We apply a linear noise schedule function αt = 1 − t/T , and use the Adam optimizer with an initial learning rate of 1e-3. The model is trained for up to 50 epochs, with early stopping triggered if the FT SP score on the validation set does not improve for 10 consecutive epochs. 
+
+C. Baselines 
+
+We select both link prediction methods and TSP methods as baselines. The representative link prediction methods, includ-ing TensorLog [45], HAKE [31], PairRE [32], RGCN [33], CompGCN [34], AstarNet [36] and ULTRA [37], are modified for TSP by scoring all candidate triples in the graph and selecting those above a threshold as the predicted results. The threshold is determined through grid search on the validation set to achieve the best performance. The latest TSP methods, such as GPHT [15] and LLMTSP [17], are also included. DiGress [39] and GraphDit [40] are not selected since they are tailored to small graphs and simple conditioning, while our task involves large knowledge graphs and complex support-graph conditioning that they cannot accommodate. 
+
+D. Main Results 
+
+According to the main results in Tables III and IV, DiffTSP outperforms all baselines in terms of FT SP which is highlighted in gray, demonstrating its superiority. Our re-sults are based on 3 runs with different seeds, following the baselines’ setup for fair comparison. Concretely, in Wiki79k and Wiki143k, we calculate the RS-POWA and CWA metrics, where CWA is calculated using the average value of Tpred and 
+
+T P OW A + 
+
+> pred
+
+. DiffTSP achieves SOTA performance in terms of both RS-POWA and CWA metrics. In CFamily, our model also achieves SOTA performance on JP recision and FT SP .Though RGCN shows higher ST Recall , its low JP recision 
+
+results in a poor FT SP score. This indicates that its high recall is achieved by retaining a large but often false set of triples. We observe that the traditional knowledge graph embedding method HAKE achieves the second-best results in terms of 
+
+FT SP , which could be attributed to the relative simplicity of the CFamily dataset, i.e., most of the head and tail entities in the triples to be predicted are within two hops. 
+
+E. Ablation Studies 
+
+We conduct ablation studies to verify the effectiveness of each module in DiffTSP. w/o RCE removes the RCE in the denoising network and uses random embedding Hrand x
+
+as entity initialization features. w/o Attention replaces the attention in RelDiT with an MLP. w/o BCE w uses unweighted BCE loss instead of weighted BCE loss for training. w/o Exinput loss calculates loss including the edges in Gqt and Gs
+
+during training. w/o Rsplit replaces relation-balanced split with random support-query graph sampling. According to Table V, removing RCE or attention causes about 2% performance JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 9
+
+TABLE III THE RESULTS ON WIKI 79 K AND WIKI 143 K DATASETS , WHERE T P OW A + 
+
+> pred IS THE CORRECT TRIPLE SET IN TEST DATA
+
+, AND T P OW A pred IS THE TRIPLE SET THAT CAN BE CONFIDENTLY JUDGED UNDER THE RS-POWA ASSUMPTION . T HE BEST RESULTS ARE IN BOLD , AND THE SECOND -BEST RESULTS ARE UNDERLINED . T HE RESULTS WITH † ARE FROM GPHT [15]. Datasets Models Number of Triples in RS-POWA Metrics CWA Metrics 
+
+Tpred T P OW A pred T P OW A + 
+
+> pred
+
+JP recision ST Recall FT SP JP recision FT SP 
+
+Wiki79k TensorLog † 9188 ±0 1319 ±0 1292 ±0 0.560 ±0 0.128 ±0 0.208 ±0 0.141 0.134 HAKE † 125 ±87 119 ±83 30 ±7 0.246 ±14.8% 0.044 ±0.4% 0.075 ±0.3% 0.240 0.074 PairRE † 29742 ±105 10217 ±51 2901 ±7 0.191 ±0.1% 0.428 ±0.0% 0.264 ±0.2% 0.097 0.158 AstarNet 5689 ±287 1750 ±116 1328 ±52 0.496 ±0.8% 0.289 ±1.1% 0.365 ±0.2% 0.233 0.258 ULTRA 9743 ±0 2945 ±0 1062 ±0 0.235 ±0% 0.258 ±0% 0.246 ±0% 0.109 0.153 GPHT(HAKE) † 209 ±47 191 ±47 44 ±8 0.220 ±8% 0.053 ±0.4% 0.085 ±1.1% 0.210 0.084 GPHT(PairRE) † 12392 ±3813 5866 ±1262 2018 ±332 0.253 ±1.6% 0.357 ±2.8% 0.296 ±0.4% 0.162 0.224 DiffTSP 7472 ±103 4355 ±51 3472 ±87 0.630 ±1.2% 0.468 ±0.4% 0.537 ±0.5% 0.464 0.466 
+
+Wiki143k TensorLog † 24392 ±0 2570 ±0 2299 ±0 0.494 ±0 0.127 ±0 0.201 ±0 0.094 0.108 HAKE † 22215 ±1283 6182 ±43 3044 ±72 0.315 ±0.2% 0.326 ±0.3% 0.32 ±0.3% 0.137 0.193 PairRE † 19228 ±2075 3313 ±722 1191 ±77 0.211 ±3% 0.204 ±0.7% 0.207 ±1% 0.061 0.095 AstarNet 6001 ±231 2589 ±129 2275 ±31 0.581 ±0.8% 0.281 ±0.3% 0.379 ±0.2% 0.113 0.179 ULTRA 3844 ±0 1349 ±0 692 ±0 0.346 ±0% 0.155 ±0% 0.214 ±0% 0.180 0.166 GPHT(HAKE) † 17702 ±7935 4709 ±60 2700 ±681 0.363 ±4.8% 0.307 ±4.2% 0.333 ±4.6% 0.152 0.204 GPHT(PairRE) † 3011 ±233 1954 ±191 909 ±34 0.384 ±1.9% 0.178 ±0.3% 0.243 ±0.1% 0.302 0.224 DiffTSP 10162 ±530 6804 ±275 4543 ±105 0.557 ±0.3% 0.397 ±0.4% 0.464 ±0.6% 0.447 0.420 
+
+TABLE IV THE RESULTS ON CF AMILY DATASET , WHERE T CW A + 
+
+> pred IS THE CORRECT TRIPLE SET
+
+, AND T CW A pred = Tpred . T HE RESULTS WITH † ARE FROM 
+
+GPHT [15] AND THE RESULTS WITH * ARE FROM LLMTSP [17]. Models Number of Triples in CWA Metrics 
+
+Tpred T CW A pred T CW A + 
+
+> pred
+
+JP recision ST Recall FT SP 
+
+TensorLog † 911 ±0 911 ±0 572 ±0 0.628 ±0 0.158 ±0 0.252 ±0HAKE † 3186 ±543 3186 ±543 1788 ±321 0.561 ±1.8% 0.624 ±5.9% 0.591 ±3.1% PairRE † 5732 ±2062 5732 ±2062 1747 ±694 0.305 ±1.8% 0.616 ±13.7% 0.408 ±4.9% RGCN † 30608 ±3443 30608 ±3443 3026 ±137 0.093 ±6.0% 0.704 ±0.5% 0.163 ±5.2% CompGCN † 38931 ±3745 38931 ±3745 2599 ±47 0.062 ±4.8% 0.598 ±0.3% 0.114 ±1.7% AstarNet 2075 ±360 2075 ±360 911 ±187 0.439 ±1.7% 0.445 ±4.6% 0.442 ±3.3% ULTRA 32761 ±0 32761 ±0 763 ±0 0.023 ±0% 0.407 ±0% 0.044 ±0% GPHT(HAKE) † 1896 ±149 1896 ±149 1222 ±58 0.645 ±2.6% 0.516 ±1.2% 0.573 ±0.4% GPHT(PairRE) † 3739 ±593 3739 ±593 1471 ±187 0.393 ±1.3% 0.566 ±3.4% 0.464 ±0.7% LLMTSP(GPT-3.5) * 3403 ±158 3403 ±158 96 ±12 0.028 ±0.3% 0.168 ±0.8% 0.049 ±0.4% LLMTSP(GPT-4o) * 1276 ±147 1276 ±147 179 ±17 0.14 ±0.5% 0.374 ±0.7% 0.204 ±0.7% DiffTSP 2453 ±35 2453 ±35 1657 ±18 0.675 ±0.2% 0.600 ±0.3% 0.635 ±0.2% 
+
+loss on FT SP , showing the importance of structure-aware denoising network. Since w/o Exinput loss includes these edges in Gs and Gqt , the model may learn a bad mapping from input to output, causing about 8% performance drop. Using unweighted BCE loss causes the largest drop (about 30%). The non-existence edges in the KG create an extreme class imbalance, and the unweighted BCE loss could mislead the model to achieve a low loss by predicting all edges as absence. Though this minimizes the loss, it prevents the model from learning meaningful patterns, thus leading to poor performance. In contrast, the weighted BCE loss introduces relation class balancing to properly guide the learning process. 
+
+F. Sampling Process Visualization 
+
+Figure 4 visualizes DiffTSP’s sampling process on a sub-graph from the CFmaliy dataset. We run 20 denoising steps and show the snapshots at steps 4, 8, 12, 16 and 20. The first 
+
+TABLE V ABLATION STUDIES ON CF AMILY DATASET .Method CFamily 
+
+JP recision ST Recall FT SP 
+
+w/o RCE 0.602 0.623 0.612 w/o Attention 0.665 0.573 0.616 w/o BCE w 0.369 0.308 0.336 w/o Exinput loss 0.700 0.485 0.573 w/o Rsplit 0.637 0.605 0.621 DiffTSP 0.675 0.600 0.635 
+
+frame is the subgraph Ggi in training data, the last frame is the ground-truth subgraph from test data, and the middle five frames show the sampling process. Surprisingly, although the initial denoising steps predict some incorrect edges (shown in red), the errors do not accumulate. Instead, the model still JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 10 is_aunt_of 
+
+> is_nephew_of
+> is_uncle_of
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+> is_aunt_of
+> is_brother_of
+> is_niece_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_nephew_of
+
+is_son_of 
+
+> is_wife_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_niece_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_niece_of
+
+is_niece_of 
+
+> is_niece_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+
+is_uncle_of 
+
+> is_nephew_of
+> is_aunt_of
+
+is_sister_of 
+
+is_uncle_of 
+
+is_niece_of 
+
+> is_nephew_of
+> is_nephew_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_brother_of
+> is_niece_of
+
+is_father_of 
+
+> is_aunt_of
+> is_wife_of
+
+is_husband_of 
+
+> is_aunt_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+
+is_nephew_of 
+
+> is_nephew_of
+> is_uncle_of
+> is_mother_of
+> is_father_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_sister_of
+> is_mother_of
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_son_of
+> is_uncle_of
+> is_aunt_of
+
+is_aunt_of 
+
+is_niece_of 
+
+> is_sister_of
+> is_niece_of
+> is_uncle_of
+> is_daughter_of
+> is_nephew_of
+> is_nephew_of
+> is_sister_of
+
+is_aunt_of 
+
+is_brother_of 
+
+> is_son_of
+> is_uncle_of
+> is_aunt_of
+> is_niece_of
+
+is_nephew_of 
+
+> is_sister_of
+
+is_brother_of 
+
+> is_son_of
+
+is_brother_of 
+
+> is_niece_of
+> is_husband_of
+> is_uncle_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_aunt_of
+> is_father_of
+> is_nephew_of
+> is_uncle_of
+
+is_husband_of 
+
+> is_wife_of
+> is_sister_of
+> is_nephew_of
+> is_niece_of
+
+is_brother_of 
+
+> is_son_of
+
+is_nephew_of 
+
+> is_sister_of
+> is_father_of
+
+is_niece_of 
+
+> is_niece_of
+
+is_sister_of 
+
+is_aunt_of 
+
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_niece_of
+> is_husband_of
+> is_niece_of
+> is_sister_of
+> is_uncle_of
+> is_niece_of
+
+is_aunt_of 
+
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_father_of
+
+is_niece_of 
+
+is_daughter_of 
+
+> is_uncle_of
+> is_father_of
+> is_mother_of
+
+is_wife_of 
+
+> is_uncle_of
+
+is_sister_of 
+
+is_daughter_of 
+
+> is_father_of
+> is_nephew_of
+
+is_daughter_of 
+
+> is_nephew_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+
+is_aunt_of 
+
+> is_nephew_of
+> is_daughter_of
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+> is_uncle_of
+> is_father_of
+> is_sister_of is_brother_of
+> is_uncle_of
+> is_nephew_of
+> is_brother_of
+> is_nephew_of
+> is_aunt_of
+> is_sister_of
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+> is_aunt_of
+> is_aunt_of
+
+is_mother_of 
+
+is_nephew_of 
+
+> is_mother_of
+> is_uncle_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_sister_of
+> is_aunt_of
+> is_sister_of
+> is_sister_of
+> is_nephew_of
+> is_father_of
+> is_nephew_of
+> is_brother_of
+
+is_niece_of 
+
+> is_niece_of
+
+is_aunt_of 
+
+> is_nephew_of
+> is_uncle_of
+> is_aunt_of
+> is_niece_of
+> is_nephew_of
+> is_sister_of
+> is_mother_of
+> is_sister_of
+
+is_daughter_of 
+
+> is_nephew_of
+
+is_niece_of 
+
+> is_nephew_of
+
+is_wife_of 
+
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+
+is_wife_of 
+
+> is_son_of
+> is_aunt_of
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_nephew_of
+> is_nephew_of
+
+is_brother_of 
+
+> is_husband_of
+> is_nephew_of
+> is_nephew_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_husband_of
+
+is_niece_of 
+
+is_father_of 
+
+is_uncle_of 
+
+> is_sister_of
+> is_mother_of
+> is_uncle_of
+> is_nephew_of
+> is_sister_of
+
+is_uncle_of 
+
+> is_son_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_mother_of
+> is_sister_of
+> is_father_of
+> is_nephew_of
+> is_aunt_of
+> is_niece_of
+> is_sister_of
+
+is_uncle_of 
+
+> is_brother_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_niece_of
+> is_brother_of
+> is_brother_of
+> is_uncle_of
+> is_husband_of
+> is_sister_of
+> is_sister_of
+> is_wife_of
+> is_aunt_of
+> is_nephew_of
+> is_nephew_of
+> is_nephew_of
+
+is_aunt_of 
+
+is_son_of 
+
+> is_uncle_of
+> is_brother_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_brother_of
+> is_niece_of
+> is_niece_of
+> is_uncle_of
+> is_mother_of
+> is_niece_of
+> is_niece_of
+> is_brother_of
+> is_nephew_of
+> is_brother_of
+> is_aunt_of
+> is_sister_of
+> is_uncle_of
+> is_nephew_of
+> is_mother_of
+> is_husband_of
+> is_aunt_of
+> is_sister_of
+> is_son_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_husband_of
+
+is_father_of 
+
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_aunt_of
+> is_nephew_of
+
+is_niece_of 
+
+is_father_of 
+
+> is_daughter_of
+
+is_daughter_of 
+
+> is_brother_of
+> is_brother_of
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_sister_of
+> is_niece_of
+> is_son_of
+> is_aunt_of
+> is_aunt_of
+> is_aunt_of
+
+is_brother_of 
+
+> is_uncle_of
+
+is_nephew_of 
+
+> is_nephew_of
+> is_nephew_of
+
+is_nephew_of 
+
+> is_sister_of
+> is_nephew_of
+
+is_brother_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+
+is_daughter_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_nephew_of
+> is_nephew_of
+> is_uncle_of
+> is_mother_of
+> is_nephew_of
+> is_sister_of
+> is_uncle_of
+> is_nephew_of
+> is_sister_of
+
+is_brother_of 
+
+> is_brother_of
+
+is_sister_of 
+
+> is_mother_of
+> is_niece_of
+> is_aunt_of
+
+is_nephew_of 
+
+> is_brother_of
+> is_mother_of
+> is_nephew_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_sister_of
+
+is_aunt_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_niece_of
+
+is_wife_of 
+
+> is_niece_of
+> is_uncle_of
+> is_niece_of
+
+is_niece_of 
+
+is_nephew_of 
+
+is_niece_of 
+
+> is_aunt_of
+> is_niece_of
+> is_mother_of
+> is_daughter_of
+> is_nephew_of
+> is_aunt_of
+> is_sister_of
+
+is_uncle_of 
+
+> is_aunt_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_father_of
+
+is_niece_of 
+
+> is_husband_of
+> is_brother_of
+> is_sister_of
+> is_aunt_of
+> is_brother_of
+> is_nephew_of
+
+is_father_of 
+
+> is_uncle_of
+> is_brother_of
+> is_sister_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_aunt_of
+> is_sister_of
+> is_niece_of
+> is_aunt_of
+> is_daughter_of
+> is_niece_of
+> is_father_of
+> is_nephew_of
+> is_uncle_of
+> is_husband_of
+> is_aunt_of
+> is_uncle_of
+> is_aunt_of
+> is_niece_of
+> is_aunt_of
+> is_niece_of
+> is_son_of
+> is_niece_of
+
+is_uncle_of 
+
+> is_nephew_of
+> is_brother_of
+
+is_uncle_of 
+
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+> is_nephew_of
+
+is_uncle_of 
+
+is_brother_of 
+
+is_aunt_of 
+
+> is_aunt_of
+> is_aunt_of
+> is_sister_of
+> is_brother_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_niece_of
+> is_niece_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_nephew_of
+> is_brother_of
+> is_wife_of
+> is_sister_of
+> is_brother_of
+> is_niece_of
+> is_sister_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_aunt_of
+
+is_mother_of 
+
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_daughter_of
+> is_niece_of
+> is_sister_of
+> is_aunt_of
+> is_sister_of
+
+is_brother_of 
+
+is_aunt_of 
+
+> is_father_of
+> is_brother_of
+> is_nephew_of
+> is_brother_of
+
+is_brother_of 
+
+> is_aunt_of
+> is_sister_of
+> is_brother_of
+> is_sister_of
+> is_uncle_of
+> is_nephew_of
+> is_niece_of
+
+is_aunt_of 
+
+> is_sister_of
+> is_aunt_of
+> is_brother_of
+> is_niece_of
+> is_sister_of
+> is_uncle_of
+> is_son_of
+> is_niece_of
+
+is_nephew_of 
+
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_nephew_of
+> is_sister_of
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_son_of
+
+is_brother_of 
+
+> is_husband_of
+> is_son_of
+> is_nephew_of
+> is_uncle_of
+> is_father_of
+> is_brother_of
+> is_niece_of
+> is_sister_of
+
+is_niece_of 
+
+> is_aunt_of
+
+is_brother_of 
+
+is_nephew_of 
+
+is_aunt_of is_nephew_of 
+
+> is_wife_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_nephew_of
+> is_nephew_of
+> is_wife_of
+
+is_father_of 
+
+> is_brother_of
+> is_daughter_of
+> is_brother_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_aunt_of
+
+is_brother_of 
+
+> is_niece_of
+
+is_mother_of 
+
+is_brother_of 
+
+> is_niece_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_aunt_of
+> is_brother_of
+
+is_brother_of 
+
+> is_brother_of
+
+is_sister_of 
+
+is_uncle_of 
+
+is_uncle_of 
+
+> is_husband_of
+> is_brother_of
+> is_niece_of
+> is_brother_of
+> is_uncle_of
+> is_sister_of
+
+is_nephew_of 
+
+is_aunt_of 
+
+> is_son_of
+> is_daughter_of
+> is_husband_of
+> is_nephew_of
+> is_niece_of
+
+is_sister_of 
+
+> is_aunt_of
+> is_uncle_of
+> is_sister_of
+> is_brother_of
+> is_brother_of
+
+is_aunt_of 
+
+> is_daughter_of
+> is_uncle_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_brother_of
+> is_niece_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_niece_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_niece_of
+
+is_aunt_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_niece_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+
+is_father_of 
+
+> is_sister_of
+> is_niece_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_son_of
+> is_niece_of
+
+is_niece_of 
+
+> is_nephew_of
+
+is_uncle_of 
+
+> is_sister_of
+
+is_brother_of 
+
+is_nephew_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+
+is_sister_of 
+
+> is_sister_of
+
+is_uncle_of 
+
+> is_nephew_of
+
+is_niece_of 
+
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+
+is_nephew_of 
+
+is_father_of 
+
+> is_sister_of
+> is_uncle_of
+> is_niece_of
+> is_nephew_of
+> is_sister_of
+> is_daughter_of
+
+is_niece_of 
+
+> is_sister_of
+> is_nephew_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_son_of
+> is_nephew_of
+
+is_sister_of 
+
+> is_daughter_of
+> is_father_of
+
+is_brother_of 
+
+> is_aunt_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+
+is_brother_of is_niece_of 
+
+> is_sister_of
+> is_aunt_of
+
+is_aunt_of 
+
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_nephew_of
+> is_niece_of
+
+is_nephew_of 
+
+is_sister_of 
+
+> is_nephew_of
+
+is_nephew_of 
+
+> is_son_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_uncle_of
+> is_son_of
+> is_wife_of
+> is_nephew_of
+> is_uncle_of
+> is_aunt_of
+> is_nephew_of
+
+is_brother_of 
+
+is_niece_of 
+
+> is_uncle_of
+> is_uncle_of
+
+is_son_of 
+
+> is_niece_of
+> is_father_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_aunt_of
+> is_nephew_of
+> is_sister_of
+> is_brother_of
+> is_niece_of
+> is_nephew_of
+> is_niece_of
+> is_nephew_of
+
+is_sister_of 
+
+is_aunt_of 
+
+> is_aunt_of
+> is_sister_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_brother_of
+> is_sister_of
+> is_son_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+> is_son_of
+
+is_nephew_of 
+
+is_sister_of 
+
+> is_nephew_of
+> is_sister_of
+> is_nephew_of
+> is_nephew_of
+> is_uncle_of
+> is_niece_of
+> is_nephew_of
+> is_mother_of
+> is_uncle_of
+> is_father_of
+> is_uncle_of
+> is_brother_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_nephew_of
+
+is_nephew_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_brother_of
+
+is_uncle_of 
+
+> is_sister_of
+> is_niece_of
+> is_son_of
+> is_brother_of
+> is_aunt_of
+
+is_aunt_of 
+
+is_uncle_of 
+
+> is_son_of
+> is_nephew_of
+> is_nephew_of
+> is_sister_of
+> is_uncle_of
+
+is_nephew_of 
+
+is_uncle_of 
+
+> is_brother_of
+
+is_aunt_of 
+
+> is_wife_of
+> is_aunt_of
+> is_aunt_of
+
+is_brother_of 
+
+> is_nephew_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+> is_aunt_of
+> is_son_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_niece_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_uncle_of
+> is_nephew_of
+> is_uncle_of
+> is_brother_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_niece_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_aunt_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_nephew_of
+> is_father_of
+> is_mother_of
+> is_nephew_of
+> is_mother_of
+> is_sister_of
+> is_brother_of
+> is_nephew_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+
+is_husband_of 
+
+is_niece_of 
+
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_sister_of
+
+is_son_of 
+
+> is_niece_of
+> is_nephew_of
+> is_husband_of
+> is_brother_of
+> is_niece_of
+> is_son_of
+> is_niece_of
+> is_niece_of
+
+is_sister_of 
+
+> is_uncle_of
+> is_nephew_of
+> is_mother_of
+> is_brother_of
+> is_mother_of
+> is_niece_of
+> is_nephew_of
+> is_aunt_of
+
+is_sister_of 
+
+> is_daughter_of
+> is_sister_of
+> is_niece_of
+> is_uncle_of
+
+is_mother_of 
+
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+> is_sister_of
+> is_niece_of
+
+is_uncle_of 
+
+is_sister_of 
+
+> is_nephew_of
+
+is_brother_of 
+
+> is_nephew_of
+> is_aunt_of
+
+is_daughter_of 
+
+> is_uncle_of
+> is_niece_of
+> is_nephew_of
+
+is_sister_of 
+
+> is_niece_of
+> is_sister_of
+> is_uncle_of
+> is_nephew_of
+
+is_brother_of 
+
+is_niece_of 
+
+> is_niece_of
+> is_aunt_of
+> is_niece_of
+> is_brother_of
+> is_nephew_of
+> is_daughter_of
+> is_brother_of
+
+is_wife_of 
+
+> is_nephew_of
+> is_father_of
+> is_aunt_of
+> is_son_of
+> is_niece_of
+> is_aunt_of
+
+is_brother_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+
+is_brother_of 
+
+> is_nephew_of
+> is_aunt_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+> is_father_of
+
+is_daughter_of 
+
+> is_aunt_of
+
+is_aunt_of 
+
+> is_aunt_of
+
+is_aunt_of 
+
+> is_sister_of
+> is_daughter_of
+> is_mother_of
+> is_nephew_of
+> is_brother_of
+> is_brother_of is_brother_of
+
+is_son_of 
+
+is_niece_of 
+
+is_brother_of 
+
+> is_niece_of
+
+is_nephew_of is_niece_of 
+
+> is_niece_of
+> is_uncle_of
+> is_brother_of
+> is_nephew_of
+> is_niece_of
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Support_Graph 0 
+
+95 nodes, 886 edges 
+
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Step_4 0 
+
+95 nodes, 37 edges 
+
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_sister_of
+> is_sister_of
+
+is_nephew_of 
+
+> is_wife_of
+
+is_uncle_of 
+
+is_uncle_of 
+
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_brother_of 
+
+> is_niece_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_niece_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+
+is_brother_of 
+
+> is_uncle_of
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Step_8 0 
+
+95 nodes, 68 edges 
+
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_sister_of
+> is_sister_of
+
+is_nephew_of 
+
+> is_wife_of
+
+is_uncle_of 
+
+is_uncle_of 
+
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_brother_of 
+
+> is_niece_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_niece_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+
+is_niece_of 
+
+> is_niece_of
+> is_sister_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_son_of 
+
+> is_aunt_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_uncle_of
+> is_wife_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_niece_of
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Step_12 0 
+
+95 nodes, 101 edges 
+
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_sister_of
+> is_sister_of
+
+is_nephew_of 
+
+> is_wife_of
+
+is_uncle_of 
+
+is_uncle_of 
+
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_brother_of 
+
+> is_niece_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_niece_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+
+is_niece_of 
+
+> is_niece_of
+> is_sister_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_son_of 
+
+> is_aunt_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_uncle_of
+> is_wife_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+
+is_brother_of 
+
+is_aunt_of 
+
+> is_aunt_of
+> is_brother_of
+> is_aunt_of
+
+is_uncle_of 
+
+> is_sister_of
+> is_father_of
+> is_mother_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+> is_brother_of
+> is_brother_of
+
+is_sister_of 
+
+is_niece_of 
+
+> is_niece_of
+> is_niece_of
+> is_sister_of
+> is_aunt_of
+> is_husband_of
+> is_aunt_of
+> is_uncle_of
+
+is_niece_of 
+
+is_brother_of 
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Step_16 0 
+
+95 nodes, 134 edges 
+
+> is_niece_of
+> is_uncle_of
+> is_uncle_of
+> is_uncle_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_niece_of
+> is_brother_of
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_aunt_of
+> is_aunt_of
+> is_uncle_of
+> is_niece_of
+> is_sister_of
+> is_sister_of
+
+is_nephew_of 
+
+> is_wife_of
+
+is_uncle_of 
+
+is_uncle_of 
+
+> is_niece_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_brother_of 
+
+> is_niece_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_sister_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_niece_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+> is_aunt_of
+> is_sister_of
+
+is_brother_of 
+
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+
+is_niece_of 
+
+> is_niece_of
+> is_sister_of
+> is_nephew_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+> is_uncle_of
+
+is_son_of 
+
+> is_aunt_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_niece_of
+> is_uncle_of
+> is_wife_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_brother_of
+> is_uncle_of
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_niece_of
+> is_niece_of
+> is_aunt_of
+> is_uncle_of
+> is_uncle_of
+> is_brother_of
+
+is_brother_of 
+
+is_aunt_of 
+
+> is_aunt_of
+> is_brother_of
+> is_aunt_of
+
+is_uncle_of 
+
+> is_sister_of
+> is_father_of
+> is_mother_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_niece_of
+> is_aunt_of
+> is_nephew_of
+> is_brother_of
+> is_brother_of
+
+is_sister_of 
+
+is_niece_of 
+
+> is_niece_of
+> is_niece_of
+> is_sister_of
+> is_aunt_of
+> is_husband_of
+> is_aunt_of
+> is_uncle_of
+
+is_niece_of 
+
+is_brother_of 
+
+is_sister_of 
+
+> is_aunt_of
+> is_aunt_of
+
+is_husband_of 
+
+is_nephew_of 
+
+is_uncle_of 
+
+is_niece_of 
+
+> is_nephew_of
+
+is_niece_of 
+
+> is_sister_of
+> is_aunt_of
+> is_nephew_of
+> is_uncle_of
+> is_uncle_of
+> is_nephew_of
+> is_nephew_of
+> is_niece_of
+> is_aunt_of
+
+is_nephew_of 
+
+is_niece_of 
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+Result 0 
+
+95 nodes, 154 edges 
+
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_aunt_of
+
+is_nephew_of 
+
+is_son_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_brother_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_niece_of
+
+is_brother_of 
+
+> is_father_of
+> is_brother_of
+
+is_brother_of 
+
+> is_nephew_of
+> is_niece_of
+> is_nephew_of
+
+is_mother_of 
+
+is_niece_of is_aunt_of 
+
+> is_father_of
+> is_aunt_of
+> is_son_of
+> is_sister_of
+> is_husband_of
+> is_brother_of
+> is_brother_of
+> is_son_of
+
+is_niece_of 
+
+> is_nephew_of
+> is_brother_of
+> is_brother_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_sister_of
+> is_uncle_of
+> is_father_of
+> is_sister_of
+> is_sister_of
+> is_uncle_of
+> is_daughter_of
+> is_aunt_of
+> is_uncle_of
+
+is_aunt_of 
+
+> is_brother_of
+
+is_nephew_of 
+
+> is_brother_of
+> is_brother_of
+> is_nephew_of
+> is_aunt_of
+
+is_niece_of 
+
+> is_brother_of
+> is_uncle_of
+> is_aunt_of
+> is_niece_of
+> is_aunt_of
+> is_mother_of
+> is_nephew_of
+> is_nephew_of
+
+is_aunt_of 
+
+> is_daughter_of
+> is_aunt_of
+> is_brother_of
+> is_son_of
+> is_mother_of
+> is_nephew_of
+
+is_sister_of 
+
+> is_niece_of
+> is_niece_of
+> is_uncle_of
+
+is_nephew_of 
+
+> is_nephew_of
+> is_aunt_of
+> is_niece_of
+> is_daughter_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_mother_of
+
+is_brother_of 
+
+> is_wife_of
+> is_nephew_of
+> is_uncle_of
+> is_daughter_of
+
+is_niece_of 
+
+> is_niece_of
+> is_brother_of
+> is_niece_of
+> is_aunt_of
+> is_uncle_of
+
+is_aunt_of 
+
+> is_niece_of
+> is_uncle_of
+> is_niece_of
+> is_uncle_of
+> is_aunt_of
+> is_aunt_of
+
+is_aunt_of 
+
+> is_uncle_of
+> is_niece_of
+> is_aunt_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_nephew_of
+> is_niece_of
+
+is_nephew_of 
+
+> is_niece_of
+
+is_husband_of 
+
+> is_aunt_of
+> is_brother_of
+> is_sister_of
+> is_brother_of
+> is_nephew_of
+> is_nephew_of
+> is_sister_of
+> is_aunt_of
+
+is_mother_of 
+
+> is_uncle_of
+
+is_niece_of 
+
+> is_sister_of
+> is_uncle_of
+> is_uncle_of
+> is_husband_of
+
+is_nephew_of 
+
+> is_aunt_of
+> is_sister_of
+> is_aunt_of
+
+is_daughter_of 
+
+is_brother_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_mother_of
+> is_nephew_of
+> is_father_of
+
+is_nephew_of 
+
+> is_sister_of
+> is_nephew_of
+> is_aunt_of
+> is_aunt_of
+> is_nephew_of
+
+is_uncle_of 
+
+> is_aunt_of
+> is_uncle_of
+
+is_brother_of 
+
+is_husband_of 
+
+> is_wife_of
+> is_sister_of
+> is_aunt_of
+> is_niece_of
+
+is_uncle_of 
+
+> is_sister_of
+> is_uncle_of
+> is_aunt_of
+> is_uncle_of
+> is_aunt_of
+> is_brother_of
+
+is_uncle_of 
+
+> is_uncle_of
+> is_uncle_of
+> is_wife_of
+> is_aunt_of
+
+is_sister_of 
+
+> is_niece_of
+> is_brother_of
+> is_sister_of
+
+is_brother_of 
+
+is_niece_of 
+
+> is_sister_of
+> is_aunt_of
+> is_husband_of
+> is_aunt_of
+> is_uncle_of
+> is_brother_of
+> is_father_of
+
+is_aunt_of 
+
+> is_sister_of
+> is_brother_of
+> is_father_of
+
+is_niece_of 
+
+> is_aunt_of
+> is_nephew_of
+> is_aunt_of
+> is_father_of
+> is_nephew_of
+> is_sister_of
+> is_brother_of
+> is_brother_of
+
+is_niece_of 
+
+is_aunt_of 
+
+> is_wife_of
+> is_uncle_of
+> is_uncle_of
+
+is_niece_of 
+
+> is_sister_of
+> is_brother_of
+
+is_nephew_of 
+
+> is_aunt_of
+> is_father_of
+> is_son_of
+> is_nephew_of
+> is_aunt_of
+
+is_sister_of 
+
+is_aunt_of 
+
+> is_uncle_of
+> is_sister_of
+> is_sister_of
+> is_nephew_of
+> is_niece_of
+> is_nephew_of
+> is_nephew_of
+> is_aunt_of
+> is_nephew_of
+> is_brother_of
+> is_sister_of
+> is_nephew_of
+> is_niece_of
+> is_brother_of
+
+is_wife_of 
+
+is_brother_of 
+
+> is_sister_of
+> is_brother_of
+> is_niece_of
+
+is_brother_of 
+
+> is_aunt_of
+> is_aunt_of
+> is_sister_of
+> is_nephew_of
+
+is_niece_of 
+
+> is_uncle_of
+> is_brother_of
+> is_nephew_of
+
+is_sister_of 
+
+> is_niece_of
+> is_nephew_of
+
+0
+
+1
+
+2
+
+3
+
+4
+
+5
+
+6
+
+7 8
+
+9
+
+10 
+
+11 
+
+12 
+
+13 
+
+14 
+
+15 
+
+16 17 
+
+18 
+
+19 
+
+20 
+
+21 
+
+22 23 
+
+24 
+
+25 
+
+26 
+
+27 
+
+28 
+
+29 
+
+30 
+
+31 
+
+32 
+
+33 
+
+34 
+
+35 
+
+36 
+
+37 
+
+38 
+
+39 
+
+40 
+
+41 
+
+42 
+
+43 44 
+
+45 
+
+46 
+
+47 
+
+48 49 
+
+50 
+
+51 52 
+
+53 
+
+54 
+
+55 
+
+56 
+
+57 
+
+58 
+
+59 
+
+60 
+
+61 
+
+62 
+
+63 
+
+64 
+
+65 
+
+66 67 
+
+68 69 
+
+70 
+
+71 
+
+72 
+
+73 
+
+74 
+
+75 
+
+76 77 
+
+78 
+
+79 80 
+
+81 
+
+82 
+
+83 
+
+84 
+
+85 
+
+86 
+
+87 
+
+88 89 
+
+90 
+
+91 
+
+92 
+
+93 
+
+94 
+
+True_Graph 0 
+
+95 nodes, 238 edges 
+
+Fig. 4. Sampling process visualization for one subgraph in CFamily dataset. 50 100 150 
+
+Repeat Times Ns
+
+0.60 
+
+0.62 
+
+0.64 
+
+0.66 
+
+0.68 
+
+> Metrics Value
+
+0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 
+
+Ratio 
+
+0.550 
+
+0.575 
+
+0.600 
+
+0.625 
+
+0.650 
+
+0.675 
+
+1 2 3 4
+
+DIT Layer Numbers NDit 
+
+0.60 
+
+0.62 
+
+0.64 
+
+0.66 
+
+0.68 
+
+2510 15 20 50 100 
+
+Sampling Steps T
+
+0.55 
+
+0.60 
+
+0.65 
+
+0.70 
+
+010 20 30 
+
+> Time (seconds)
+
+FTSP JPrecision STRecall Time 
+
+Fig. 5. Model performance with different hyperparameter settings. 
+
+recovers a large number of correct edges (shown in green) in later steps. 
+
+G. Hyper-parameter Analysis 
+
+The primary hyperparameters of DiffTSP include the ratio 
+
+ρ for splitting graphs into support and query graphs, the number of repeat times Ns, the number of Dit blocks NDit ,and the sampling steps. Figure 5 presents the results of DiffTSP while varying these hyperparameters. We observe that a low ratio ρ leads to a slight decrease in the FT SP score but a relatively higher ST Recall . This suggests that providing less support encourages the model to predict a broader range of possible triples. Conversely, an excessively high ratio also negatively impacts the FT SP score, likely because it hinders the model’s ability to complete missing edges comprehen-sively. DiffTSP demonstrates robustness regarding Ns since its performance remains consistent regardless of the value of 
+
+Ns. For NDit , we observe that increasing the number of blocks generally leads to improved performance. However, to strike a balance between model efficiency and performance, we set 
+
+NDit = 3 . Despite DiffTSP is built on the DDPM framework, it achieves promising results with a small number of steps. This is because the model benefits from the support graph, rather than reconstructing the graph from scratch. However, as the number of steps increases, there is a slight decrease in the FT SP metric. We attribute this to the accumulation of erroneous edges during the sampling process. This issue becomes more pronounced with additional steps, leading to a decline in prediction accuracy. 
+
+H. Case Studies 
+
+Table VI presents some case studies to compare the predic-tions of HAKE, AstarNet, and DiffTSP against the “Test Data” (the ground truth). A key observation is the presence of con-flicting predictions in HAKE and AstarNet, which are notably absent in DiffTSP. For instance, in Case 1 (Head entity 35), HAKE predicts (35, is brother of, 31) and (35, is sister of, 36). This implies that entity 35 is both a brother and a sister, which is a clear logical contradiction. AstarNet also exhibits a similar pattern for entity 35, predicting (35, is daughter of, 14) and (35, is father of, 106), another type of relational conflict. In contrast, DiffTSP provides consistent predictions for entity 35: (35, is nephew of, 18), (35, is brother of, 31), and (35, is nephew of, 105), aligning well with the “Test Data” and avoiding internal contradictions. These examples highlight DiffTSP’s superior ability to maintain dependency in its predictions. 
+
+I. Effectiveness Analysis of the Generative Framework 
+
+To validate the effectiveness of the overall framework of DiffTSP, we also adapt the training and sampling strategies from Repaint [20] to DiffTSP, named as DiffTSP-repaint. The new training phase thus does not use the support-query learning paradigm. Instead, we train DiffTSP-repaint to de-noise the entire graph. The forward process gradually adds noise to the graph Ggi rather than the query graph Gq . The loss function for training the denoising network is the same as DiffTSP. This trains DiffTSP-repaint for an unconditional graph reconstruction task, without explicitly teaching it to complete a graph from a support set. During the sampling process, we use the trained denoising network to generate JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 11 
+
+TABLE VI CASE STUDIES : * INDICATES A LOGICAL CONTRADICTION WITH OTHER PREDICTIONS FOR THE SAME HEAD ENTITY .
+
+HAKE AstarNet DiffTSP Test Data (Ground Truth) 
+
+(35, is brother of, 31)* (35, is sister of, 36)* (35, is daughter of, 14)* (35, is father of, 106)* (35, is nephew of, 105) (35, is nephew of, 18) (35, is brother of, 31) (35, is nephew of, 105) (35, is nephew of, 17) (35, is brother of, 31) (35, is nephew of, 105) (87, is sister of, 88)* (87, is aunt of, 90) (87, is father of, 317) (87, is brother of, 88)* (87, is sister of, 88)* (87, is son of, 69)* (87, is uncle of, 317) (87, is daughter of, 69)* (87, is nephew of, 36) (87, is uncle of, 317) (87, is nephew of, 35) (87, is brother of, 88) (87, is uncle of, 317) (87, is son of, 69) (2630, is brother of, 2631)* (2630, is sister of, 2629)* (2630, is niece of, 481) (2630, is sister of, 2631)* (2630, is nephew of, 57) (2630, is brother of, 2631)* (2630, is nephew of, 147) (2630, is brother of, 2631) (2630, is nephew of, 57) (243, is son of, 2984)* (243, is nephew of, 2997) (243, is wife of, 239)* (243, is wife of, 239)* (243, is son of, 2984)* (243, is wife of, 239) (243, is wife of, 239) 
+
+new triples, conditioned on the known graph GS . We create a binary mask m from GS to distinguish between known and unknown edges: 
+
+m[i, j, k ] = 
+
+(
+
+1 if (vi, r k, v j ) ∈ GS
+
+0 otherwise (38) The known edges are where m = 1 , and the unknown edges are where m = 0 . For each sampling step from t to t − 1, we perform three operations: First, we use the denoising network to predict the state of the unknown edges of the graph: 
+
+Gunknown  
+
+> t−1
+
+∼ pθ (Gt−1|Gt). (39) Next, for the known edges (defined by the support graph GS ), we do not use the model’s prediction. Instead, we re-introduce them by sampling from the forward process. We take the known edges from GS and add t − 1 steps of noise to them, obtaining a noisy graph: 
+
+Gknown  
+
+> t−1
+
+∼ q(Gt−1|GS ). (40) Finally, we combine the two parts using a binary mask m
+
+derived from GS . The complete graph for the next step Gt−1
+
+is constructed as: 
+
+Gt−1 = ( m ⊙ Gknown  
+
+> t−1
+
+) + ((1 − m) ⊙ Gunknown  
+
+> t−1
+
+), (41) where ⊙ denotes element-wise multiplication. This combined graph Gt−1 then serves as the input for the next sampling step. According to Table VII, DiffTSP-repaint exhibits a per-formance degradation of approximately 4% on the FT SP 
+
+metric. This decline is attributed to its training methodology, which directly restores the entire graph without leveraging the support-query learning paradigm. Without using a support graph as a condition during training, the model’s capability to effectively restore incomplete graphs is compromised. 
+
+J. Efficiency Analytics 
+
+Figure 6 details the runtime comparison. The runtime for these methods is measured under the same experimental conditions. We specifically select GPHT and AstarNet as representative baselines for this comparison. GPHT is chosen 
+
+TABLE VII PERFORMANCE OF DIFF TSP AND DIFF TSP-REPAINT IN CF AMILY DATASET .Method CFamily 
+
+JP recision ST Recall FT SP 
+
+DiffTSP-repaint 0.508 0.704 0.590 DiffTSP 0.675 0.600 0.635 
+
+as it is the current state-of-the-art method specialized for the TSP task. AstarNet is included as a strong and efficient representative of link prediction models adapted for TSP. The comparison reveals that DiffTSP has a notable efficiency advantage for the TSP task. VII. C ONCLUSION 
+
+In this work, we treat TSP as a generative task, and propose a novel discrete diffusion model named DiffTSP which could effectively capture the interdependence among the predicted triples. In addition, we design a structure-aware denoising network to combine relation-guided message passing with global structural attention for generating knowledge graphs of high quality. Extensive experiments on multiple datasets showcase the superior performance of DiffTSP compared to strong baselines. ACKNOWLEDGMENTS 
+
+This work was supported in part by the National Natural Science Foundation of China (No. 62372326). REFERENCES [1] S. Ji, S. Pan, E. Cambria, P. Marttinen, and S. Y. Philip, “A survey on knowledge graphs: Representation, acquisition, and applications,” IEEE transactions on neural networks and learning systems , vol. 33, no. 2, pp. 494–514, 2021. [2] Y. Liu, Z. Cao, X. Gao, J. Zhang, and R. Yan, “Bridging the space gap: Unifying geometry knowledge graph embedding with optimal transport,” in Proceedings of the ACM Web Conference 2024 , 2024, pp. 2128–2137. [3] Y. Wu, Y. Xu, W. Zhang, X. Xu, and Y. Zhang, “Query2gmm: Learning representation with gaussian mixture model for reasoning over knowl-edge graphs,” in Proceedings of the ACM web conference 2024 , 2024, pp. 2149–2158. JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 12 GPHT(HAKE)  
+
+> AstarNet
+> DiffTSP 0
+> 10
+> 20
+> 30
+> Predicting Seconds  35
+> 10 7
+
+CFamily 
+
+> GPHT(HAKE)
+> AstarNet
+> DiffTSP 0
+> 2000
+> 4000
+> 6000
+> 695
+> 5532
+> 72
+
+Wiki143k 
+
+> GPHT(HAKE)
+> AstarNet
+> DiffTSP 0
+> 500
+> 1000
+> 1500
+> 135
+> 1680
+> 60
+
+Wiki79k 
+
+Fig. 6. The predicting time of different methods on CFamily, Wiki79k, and Wiki143k. [4] W. Zheng, J. X. Yu, L. Zou, and H. Cheng, “Question answering over knowledge graphs: question understanding via template decomposition,” 
+
+Proceedings of the VLDB Endowment , vol. 11, no. 11, pp. 1373–1386, 2018. [5] M. Yasunaga, H. Ren, A. Bosselut, P. Liang, and J. Leskovec, “Qa-gnn: Reasoning with language models and knowledge graphs for question answering,” arXiv preprint arXiv:2104.06378 , 2021. [6] A. Saxena, A. Kochsiek, and R. Gemulla, “Sequence-to-sequence knowl-edge graph completion and question answering,” in Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers), ACL 2022, Dublin, Ireland, May 22-27, 2022 ,S. Muresan, P. Nakov, and A. Villavicencio, Eds. Association for Computational Linguistics, 2022, pp. 2814–2828. [7] N. Zhang, Q. Jia, S. Deng, X. Chen, H. Ye, H. Chen, H. Tou, G. Huang, Z. Wang, N. Hua et al. , “Alicg: Fine-grained and evolvable conceptual graph construction for semantic search at alibaba,” in Proceedings of the 27th ACM SIGKDD conference on knowledge discovery & data mining ,2021, pp. 3895–3905. [8] N. A. Krishnan and C. R. Rivero, “A method for assessing inference patterns captured by embedding models in knowledge graphs,” in 
+
+Proceedings of the ACM Web Conference 2024 , 2024, pp. 2030–2041. [9] H. Chang, J. Ye, A. Lopez-Avila, J. Du, and J. Li, “Path-based explana-tion for knowledge graph completion,” in Proceedings of the 30th ACM SIGKDD Conference on Knowledge Discovery and Data Mining , 2024, pp. 231–242. [10] H. Chang, J. Wu, Z. Tao, Y. Ma, X. Huang, and T.-S. Chua, “Integrate temporal graph learning into llm-based temporal knowledge graph model,” arXiv preprint arXiv:2501.11911 , 2025. [11] T. Dettmers, P. Minervini, P. Stenetorp, and S. Riedel, “Convolutional 2d knowledge graph embeddings,” in Proceedings of the AAAI conference on artificial intelligence , vol. 32, 2018. [12] Y. Lin, Z. Liu, M. Sun, Y. Liu, and X. Zhu, “Learning entity and relation embeddings for knowledge graph completion,” in Proceedings of the AAAI conference on artificial intelligence , vol. 29, no. 1, 2015. [13] S. Pan, L. Luo, Y. Wang, C. Chen, J. Wang, and X. Wu, “Unifying large language models and knowledge graphs: A roadmap,” IEEE Transactions on Knowledge and Data Engineering , vol. 36, no. 7, pp. 3580–3599, 2024. [14] P. Rosso, D. Yang, N. Ostapuk, and P. Cudr´ e-Mauroux, “Reta: A schema-aware, end-to-end solution for instance completion in knowledge graphs,” in Proceedings of the Web Conference 2021 , 2021, pp. 845–856. [15] W. Zhang, Y. Xu, P. Ye, Z. Huang, Z. Xu, J. Chen, J. Z. Pan, and H. Chen, “Start from zero: Triple set prediction for automatic knowledge graph completion,” IEEE Transactions on Knowledge and Data Engineering , vol. 36, no. 11, pp. 7087–7101, 2024. [16] F. Shi, D. Li, X. Wang, B. Li, and X. Wu, “Tgformer: A graph trans-former framework for knowledge graph embedding,” IEEE Transactions on Knowledge and Data Engineering , 2024. [17] Y. Yuan, Y. Xu, and W. Zhang, “Is large language model good at triple set prediction? an empirical study,” in 2024 IEEE International Conference on Knowledge Graph (ICKG) . IEEE, 2024, pp. 470–476. [18] J. Ho, A. Jain, and P. Abbeel, “Denoising diffusion probabilistic models,” 
+
+Advances in neural information processing systems , vol. 33, pp. 6840– 6851, 2020. [19] R. Rombach, A. Blattmann, D. Lorenz, P. Esser, and B. Ommer, “High-resolution image synthesis with latent diffusion models,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition ,2022, pp. 10 684–10 695. [20] A. Lugmayr, M. Danelljan, A. Romero, F. Yu, R. Timofte, and L. Van Gool, “Repaint: Inpainting using denoising diffusion probabilistic models,” in Proceedings of the IEEE/CVF conference on computer vision and pattern recognition , 2022, pp. 11 461–11 471. [21] S. Nie, F. Zhu, Z. You, X. Zhang, J. Ou, J. Hu, J. Zhou, Y. Lin, J.-R. Wen, and C. Li, “Large language diffusion models,” arXiv preprint arXiv:2502.09992 , 2025. [22] M. Arriola, A. Gokaslan, J. T. Chiu, Z. Yang, Z. Qi, J. Han, S. S. Sahoo, and V. Kuleshov, “Block diffusion: Interpolating between autoregressive and diffusion language models,” arXiv preprint arXiv:2503.09573 , 2025. [23] X. Long, L. Zhuang, A. Li, J. Wei, H. Li, and S. Wang, “Kgdm: A diffusion model to capture multiple relation semantics for knowledge graph embedding,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 38, no. 8, 2024, pp. 8850–8858. [24] X. Long, L. Zhuang, A. Li, H. Li, and S. Wang, “Fact embedding through diffusion model for knowledge graph completion,” in Proceed-ings of the ACM Web Conference 2024 , 2024, pp. 2020–2029. [25] K. Chen, X. Song, Y. Wang, L. Gao, A. Li, X. Zhao, B. Zhou, and Y. Xie, “Llm-dr: A novel llm-aided diffusion model for rule generation on temporal knowledge graphs,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 39, no. 11, 2025, pp. 11 481–11 489. [26] Y. Cao, L. Wang, and L. Huang, “Dpcl-diff: Temporal knowledge graph reasoning based on graph node diffusion model with dual-domain periodic contrastive learning,” in Proceedings of the AAAI Conference on Artificial Intelligence , vol. 39, no. 14, 2025, pp. 14 806–14 814. [27] Y. Gao, J. Bai, Y. Huang, X. Fu, Q. Sun, and Y. Song, “Unifying deductive and abductive reasoning in knowledge graphs with masked diffusion model,” arXiv preprint arXiv:2510.11462 , 2025. [28] J. Wang, W. Li, Y. Shu, J. Guan, Y. Zhang, and S. Zhou, “Raker: A relation-aware knowledge reasoning model for inductive relation prediction,” ACM Transactions on Knowledge Discovery from Data ,2025. [29] A. Bordes, N. Usunier, A. Garc´ ıa-Dur´ an, J. Weston, and O. Yakhnenko, “Translating embeddings for modeling multi-relational data,” in Ad-vances in Neural Information Processing Systems 26: 27th Annual Con-ference on Neural Information Processing Systems 2013. Proceedings of a Meeting Held December 5-8, 2013, Lake Tahoe, Nevada, United States ,C. J. C. Burges, L. Bottou, Z. Ghahramani, and K. Q. Weinberger, Eds., 2013, pp. 2787–2795. [30] Z. Sun, Z.-H. Deng, J.-Y. Nie, and J. Tang, “RotatE: Knowledge graph embedding by relational rotation in complex space,” in 7th International Conference on Learning Representations, ICLR 2019, New Orleans, LA, USA, May 6-9, 2019 . OpenReview.net, 2019. [31] Z. Zhang, J. Cai, Y. Zhang, and J. Wang, “Learning hierarchy-aware knowledge graph embeddings for link prediction,” in Proceedings of the AAAI conference on artificial intelligence , vol. 34, no. 03, 2020, pp. 3065–3072. [32] L. Chao, J. He, T. Wang, and W. Chu, “Pairre: Knowledge graph em-beddings via paired relation vectors,” arXiv preprint arXiv:2011.03798 ,2020. [33] M. Schlichtkrull, T. N. Kipf, P. Bloem, R. Van Den Berg, I. Titov, and M. Welling, “Modeling relational data with graph convolutional networks,” in European semantic web conference . Springer, 2018, pp. 593–607. [34] S. Vashishth, S. Sanyal, V. Nitin, and P. Talukdar, “Composition-based multi-relational graph convolutional networks,” arXiv preprint arXiv:1911.03082 , 2019. [35] M. Chen, W. Zhang, Y. Zhu, H. Zhou, Z. Yuan, C. Xu, and H. Chen, “Meta-knowledge transfer for inductive knowledge graph embedding,” in 
+
+SIGIR ’22: The 45th International ACM SIGIR Conference on Research and Development in Information Retrieval, Madrid, Spain, July 11 - 15, JOURNAL OF L ATEX CLASS FILES, VOL. 18, NO. 9, SEPTEMBER 2020 13 
+
+2022 , E. Amig´ o, P. Castells, J. Gonzalo, B. Carterette, J. S. Culpepper, and G. Kazai, Eds. ACM, 2022, pp. 927–937. [36] Z. Zhu, X. Yuan, M. Galkin, L.-P. Xhonneux, M. Zhang, M. Gazeau, and J. Tang, “A* net: A scalable path-based reasoning approach for knowledge graphs,” Advances in Neural Information Processing Sys-tems , vol. 36, pp. 59 323–59 336, 2023. [37] M. Galkin, X. Yuan, H. Mostafa, J. Tang, and Z. Zhu, “Towards foundation models for knowledge graph reasoning,” in The Twelfth International Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024 . OpenReview.net, 2024. [38] J. Jo, S. Lee, and S. J. Hwang, “Score-based generative modeling of graphs via the system of stochastic differential equations,” in Interna-tional conference on machine learning . PMLR, 2022, pp. 10 362– 10 383. [39] C. Vignac, I. Krawczuk, A. Siraudin, B. Wang, V. Cevher, and P. Frossard, “Digress: Discrete denoising diffusion for graph generation,” 
+
+arXiv preprint arXiv:2209.14734 , 2022. [40] G. Liu, J. Xu, T. Luo, and M. Jiang, “Graph diffusion transformers for multi-conditional molecular generation,” Advances in Neural Informa-tion Processing Systems , vol. 37, pp. 8065–8092, 2024. [41] W. Peebles and S. Xie, “Scalable diffusion models with transformers,” in Proceedings of the IEEE/CVF international conference on computer vision , 2023, pp. 4195–4205. [42] K. Sohn, H. Lee, and X. Yan, “Learning structured output represen-tation using deep conditional generative models,” Advances in neural information processing systems , vol. 28, 2015. [43] J. Ko, I. Kong, D. Park, and H. J. Kim, “Stochastic conditional diffusion models for robust semantic image synthesis,” arXiv preprint arXiv:2402.16506 , 2024. [44] J. Austin, D. D. Johnson, J. Ho, D. Tarlow, and R. Van Den Berg, “Struc-tured denoising diffusion models in discrete state-spaces,” Advances in neural information processing systems , vol. 34, pp. 17 981–17 993, 2021. [45] W. W. Cohen, F. Yang, and K. R. Mazaitis, “Tensorlog: Deep learning meets probabilistic dbs,” arXiv preprint arXiv:1707.05390 , 2017. 
+
+VIII. B IOGRAPHY SECTION 
+
+Jihong Guan received the bachelor’s degree from Huazhong Normal University in 1991, the mas-ter’s degree from Wuhan Technical University of Surveying and Mapping (merged into Wuhan Uni-versity since 2000) in 1991, and the PhD degree from Wuhan University in 2002. She is currently a professor in the School of Computer Science and Technology, Tongji University, Shanghai, China. Before joining Tongji University, she served in the Department of Computer, Wuhan Technical Univer-sity of Surveying and Mapping from 1991 to 1997, as an assistant professor and an associate professor (since August 2000), re-spectively. She was an associate professor (2000-2003) and a professor (Since 2003) in the School of Computer, Wuhan University. Her research interests include databases, data mining, distributed computing, bioinformatics, and geographic information systems (GIS). 
+
+Jiaqi Wang received a bachelor’s degree in Com-puter Science and Technology with a dual degree in Mathematics from Tongji University, Shanghai, China, in 2022. He is currently pursuing a Ph.D. in Computer Science and Technology at Tongji Uni-versity, Shanghai, China. His main research interests include knowledge graph and data mining. 
+
+Wengen Li received the B.Eng. degree and Ph.D. degree in Computer Science from Tongji University, Shanghai, China, in 2011 and 2017, respectively. In addition, he received a dual Ph.D. degree in Computer Science from the Hong Kong Polytechnic University in 2018. He is currently an Associate Professor of the School of Computer Science and Technology at Tongji University. His research inter-ests include multi-modal artificial intelligence, and spatio-temporal intelligence for urban computing and ocean computing. He is a member of China Computer Federation (CCF), a member of IEEE, and a member of ACM. 
+
+Hanchen Yang received the Bachelor’s degree from Beijing jiaotong University, Beijing, China, in 2020. He is working toward a dual Ph.D. at the Depart-ment of Computer Science and Technology, Tongji University and Hong Kong Polytechnic University, Hong Kong, China. Also, he is currently a visit-ing scholar at the University of Illinois, Chicago. His research interests include spatial-temporal data mining, graph neural networks, and large foundation models. 
+
+Yichao Zhang received his Ph.D degree in Com-puter Science and Technology from Tongji Univer-sity, Shanghai, China. Currently, he is an Associate Professor at the Department of Computer Science and Technology of Tongji University, Shanghai, China. His research interests include information diffusion, link prediction, modelling of weighted networks, random diffusion on weighted networks, and evolutionary games on networks. 
+
+Shuigeng Zhou is a professor of School of Com-puter Science, Fudan University, Shanghai, China. He received his Bachelor degree from Huazhong University of Science and Technology (HUST) in 1988, his Master degree from University of Elec-tronic Science and Technology of China (UESTC) in 1991, and his PhD of Computer Science from Fudan University in 2000. He served in Shanghai Academy of Spaceflight Technology from 1991 to 1997, as an engineer and a senior engineer (since August 1995) respectively. He was a post-doctoral researcher in State Key Lab of Software Engineering, Wuhan University from 2000 to 2002. His research interests include big data management and analysis, artificial intelligence, and bioinformatics. He has published more than 200 papers in domestic and international journals and conferences. Currently, he is a senior member of IEEE and a member of ACM.

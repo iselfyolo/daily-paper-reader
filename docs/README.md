@@ -6,73 +6,106 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-22
-- 运行时间：2026-04-22 19:53:39 UTC
+- 最新运行日期：2026-04-14 ~ 2026-04-23
+- 运行时间：2026-04-23 07:30:03 UTC
 - 运行状态：成功
-- 本次总论文数：17
-- 精读区：6
+- 本次总论文数：28
+- 精读区：17
 - 速读区：11
 
 ### 今日简报（AI）
-今日深挖 17 篇前沿成果，重点聚焦 AI 在法律专利验证与议会辩论分析中的高精度应用。
-满分论文展示了 Lean 4 形式化验证专利的严谨性，以及计算论证在提升议会摘要质量上的突破。
-建议关注 AI 如何从单纯生成转向逻辑可验证的复杂推理，尤其是在法律、剧本推理与科研反馈领域。
-- 详情：[/202604/22/README](/202604/22/README)
+本期精选 28 篇论文，深度聚焦自动化知识图谱构建与大模型在垂直领域的落地应用。
+重点推荐 AutoPKG 框架及语言模型驱动的图谱构建技术，实现了电商属性知识的高效动态建模。
+建议关注工业长文档 RAG 优化及小样本黑盒优化，以应对复杂工业场景下的数据检索与决策挑战。
+- 详情：[/20260414-20260423/README](/20260414-20260423/README)
 
 ### 精读区论文标签
-1. [Formally Verified Patent Analysis via Dependent Type Theory: Machine-Checkable Certificates from a Hybrid AI + Lean 4 Pipeline](/202604/22/2604.18882v1-formally-verified-patent-analysis-via-dependent-type-theory-machine-checkable-certificates-from-a-hybrid-ai--lean-4-pipeline)  
-   标签：评分：10.0/10、query:q2
-   evidence：使用交互式定理证明的专利分析形式化验证框架
-2. [Evaluating LLM-Driven Summarisation of Parliamentary Debates with Computational Argumentation](/202604/22/2604.19331v1-evaluating-llm-driven-summarisation-of-parliamentary-debates-with-computational-argumentation)  
-   标签：评分：10.0/10、query:q7
-   evidence：利用计算论辩学评估摘要
-3. [LePREC: Reasoning as Classification over Structured Factors for Assessing Relevance of Legal Issues](/202604/22/2604.19464v1-leprec-reasoning-as-classification-over-structured-factors-for-assessing-relevance-of-legal-issues)  
-   标签：评分：10.0/10、query:q8
-   evidence：使用大语言模型评估法院案件中法律问题的相关性
-4. [REGREACT: Self-Correcting Multi-Agent Pipelines for Structured Regulatory Information Extraction](/202604/22/2604.12054v1-regreact-self-correcting-multi-agent-pipelines-for-structured-regulatory-information-extraction)  
-   标签：评分：9.0/10、query:q2
-   evidence：用于结构化监管信息提取的自动推理
-5. [Controlling Authority Retrieval: A Missing Retrieval Objective for Authority-Governed Knowledge](/202604/22/2604.14488v2-controlling-authority-retrieval-a-missing-retrieval-objective-for-authority-governed-knowledge)  
-   标签：评分：9.0/10、query:q4
-   evidence：在法律和监管制度中检索有效的权威前沿
-6. [RoLegalGEC: Legal Domain Grammatical Error Detection and Correction Dataset for Romanian](/202604/22/2604.19593v1-rolegalgec-legal-domain-grammatical-error-detection-and-correction-dataset-for-romanian)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：法律领域的合成并行数据生成
+1. [AutoPKG: An Automated Framework for Dynamic E-commerce Product-Attribute Knowledge Graph Construction](/20260414-20260423/2604.16950v1-autopkg-an-automated-framework-for-dynamic-e-commerce-product-attribute-knowledge-graph-construction)  
+   标签：评分：10.0/10、query:kgee
+   evidence：使用LLM自动构建产品属性知识图谱
+2. [Construction of Knowledge Graph based on Language Model](/20260414-20260423/2604.19137v1-construction-of-knowledge-graph-based-on-language-model)  
+   标签：评分：10.0/10、query:kgee
+   evidence：使用预训练语言模型构建知识图谱的全面综述
+3. [Construction of a Battery Research Knowledge Graph using a Global Open Catalog](/20260414-20260423/2604.20241v1-construction-of-a-battery-research-knowledge-graph-using-a-global-open-catalog)  
+   标签：评分：10.0/10、query:kgee
+   evidence：构建以作者为中心的知识图谱流水线
+4. [Automatic Ontology Construction Using LLMs as an External Layer of Memory, Verification, and Planning for Hybrid Intelligent Systems](/20260414-20260423/2604.20795v1-automatic-ontology-construction-using-llms-as-an-external-layer-of-memory-verification-and-planning-for-hybrid-intelligent-systems)  
+   标签：评分：10.0/10、query:kgee
+   evidence：自动化的本体构建和结构化知识图谱维护流水线
+5. [Learning Chain Of Thoughts Prompts for Predicting Entities, Relations, and even Literals on Knowledge Graphs](/20260414-20260423/2604.12651v1-learning-chain-of-thoughts-prompts-for-predicting-entities-relations-and-even-literals-on-knowledge-graphs)  
+   标签：评分：9.0/10、query:kgee
+   evidence：使用大语言模型进行知识图谱嵌入和链接预测
+6. [Text-Attributed Knowledge Graph Enrichment with Large Language Models for Medical Concept Representation](/20260414-20260423/2604.13331v1-text-attributed-knowledge-graph-enrichment-with-large-language-models-for-medical-concept-representation)  
+   标签：评分：9.0/10、query:kgee
+   evidence：知识图谱增强与医学概念表示
+7. [Using reasoning LLMs to extract SDOH events from clinical notes](/20260414-20260423/2604.13502v1-using-reasoning-llms-to-extract-sdoh-events-from-clinical-notes)  
+   标签：评分：9.0/10、query:kgee
+   evidence：从临床笔记中提取SDOH事件
+8. [EvoRAG: Making Knowledge Graph-based RAG Automatically Evolve through Feedback-driven Backpropagation](/20260414-20260423/2604.15676v1-evorag-making-knowledge-graph-based-rag-automatically-evolve-through-feedback-driven-backpropagation)  
+   标签：评分：9.0/10、query:kgee
+   evidence：基于知识图谱的RAG与知识依赖演化
+9. [Self-Reinforcing Controllable Synthesis of Rare Relational Data via Bayesian Calibration](/20260414-20260423/2604.16817v1-self-reinforcing-controllable-synthesis-of-rare-relational-data-via-bayesian-calibration)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：使用LLM和贝叶斯校准可控地合成关系数据
+10. [A phenotype-driven and evidence-governed framework for knowledge graph enrichment and hypotheses discovery in population data](/20260414-20260423/2604.16982v1-a-phenotype-driven-and-evidence-governed-framework-for-knowledge-graph-enrichment-and-hypotheses-discovery-in-population-data)  
+   标签：评分：9.0/10、query:kgee
+   evidence：知识图谱丰富化与假设发现的框架
+11. [Comparing Human and Large Language Model Interpretation of Implicit Information](/20260414-20260423/2604.17085v1-comparing-human-and-large-language-model-interpretation-of-implicit-information)  
+   标签：评分：9.0/10、query:kgee
+   evidence：从上下文句子构建结构化知识图谱
+12. [The Provenance Gap in Clinical AI: Evidence-Traceable Temporal Knowledge Graphs for Rare Disease Reasoning](/20260414-20260423/2604.17114v1-the-provenance-gap-in-clinical-ai-evidence-traceable-temporal-knowledge-graphs-for-rare-disease-reasoning)  
+   标签：评分：9.0/10、query:kgee
+   evidence：用于临床推理的时序知识图谱
+13. [One Pass for All: A Discrete Diffusion Model for Knowledge Graph Triple Set Prediction](/20260414-20260423/2604.18344v1-one-pass-for-all-a-discrete-diffusion-model-for-knowledge-graph-triple-set-prediction)  
+   标签：评分：9.0/10、query:kgee
+   evidence：使用扩散模型进行知识图谱三元组集合预测
+14. [LogosKG: Hardware-Optimized Scalable and Interpretable Knowledge Graph Retrieval](/20260414-20260423/2604.18913v1-logoskg-hardware-optimized-scalable-and-interpretable-knowledge-graph-retrieval)  
+   标签：评分：9.0/10、query:kgee
+   evidence：在大规模知识图谱上进行可扩展且可解释的k步检索
+15. [STK-Adapter: Incorporating Evolving Graph and Event Chain for Temporal Knowledge Graph Extrapolation](/20260414-20260423/2604.19042v1-stk-adapter-incorporating-evolving-graph-and-event-chain-for-temporal-knowledge-graph-extrapolation)  
+   标签：评分：9.0/10、query:kgee
+   evidence：时序知识图谱外推与事件链集成
+16. [Revisiting Catastrophic Forgetting in Continual Knowledge Graph Embedding](/20260414-20260423/2604.19401v1-revisiting-catastrophic-forgetting-in-continual-knowledge-graph-embedding)  
+   标签：评分：9.0/10、query:kgee
+   evidence：持续知识图谱嵌入与实体干扰研究
+17. [Large Language Models Meet Biomedical Knowledge Graphs for Mechanistically Grounded Therapeutic Prioritization](/20260414-20260423/2604.19815v1-large-language-models-meet-biomedical-knowledge-graphs-for-mechanistically-grounded-therapeutic-prioritization)  
+   标签：评分：9.0/10、query:kgee
+   evidence：结合生物医学知识图谱与机制推理
 
 ### 速读区论文标签
-1. [On the Complexity of the Discussion-based Semantics in Abstract Argumentation](/202604/22/2604.11480v2-on-the-complexity-of-the-discussion-based-semantics-in-abstract-argumentation)  
-   标签：评分：8.0/10、query:q1
-   evidence：形式化抽象论辩中语义的可判定性与复杂度
-2. [Collaborative Multi-Agent Scripts Generation for Enhancing Imperfect-Information Reasoning in Murder Mystery Games](/202604/22/2604.11741v1-collaborative-multi-agent-scripts-generation-for-enhancing-imperfect-information-reasoning-in-murder-mystery-games)  
+1. [Black-Box Optimization From Small Offline Datasets via Meta Learning with Synthetic Tasks](/20260414-20260423/2604.12325v1-black-box-optimization-from-small-offline-datasets-via-meta-learning-with-synthetic-tasks)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：用于合成高质量游戏剧本的多智能体框架
-3. [GoodPoint: Learning Constructive Scientific Paper Feedback from Author Responses](/202604/22/2604.11924v1-goodpoint-learning-constructive-scientific-paper-feedback-from-author-responses)  
+   evidence：提出通过合成任务生成具有优化偏差的代理学习方法
+2. [An Empirical Comparison of Methods for Quantifying the Similarity of Numeric Datasets](/20260414-20260423/2604.12327v1-an-empirical-comparison-of-methods-for-quantifying-the-similarity-of-numeric-datasets)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：策划一个新的科学论文反馈数据集
-4. [Frontier-Eng: Benchmarking Self-Evolving Agents on Real-World Engineering Tasks with Generative Optimization](/202604/22/2604.12290v1-frontier-eng-benchmarking-self-evolving-agents-on-real-world-engineering-tasks-with-generative-optimization)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：引入了一个经过人工验证的生成优化基准数据集
-5. [SIR-Bench: Evaluating Investigation Depth in Security Incident Response Agents](/202604/22/2604.12040v1-sir-bench-evaluating-investigation-depth-in-security-incident-response-agents)  
+   evidence：量化合成数据生成的训练集相似度
+3. [MultiDocFusion: Hierarchical and Multimodal Chunking Pipeline for Enhanced RAG on Long Industrial Documents](/20260414-20260423/2604.12352v1-multidocfusion-hierarchical-and-multimodal-chunking-pipeline-for-enhanced-rag-on-long-industrial-documents)  
+   标签：评分：8.0/10、query:kgee
+   evidence：将文档结构重构为分层树
+4. [KG-Reasoner: A Reinforced Model for End-to-End Multi-Hop Knowledge Graph Reasoning](/20260414-20260423/2604.12487v1-kg-reasoner-a-reinforced-model-for-end-to-end-multi-hop-knowledge-graph-reasoning)  
+   标签：评分：8.0/10、query:kgee
+   evidence：多跳知识图谱推理
+5. [Knowledge Is Not Static: Order-Aware Hypergraph RAG for Language Models](/20260414-20260423/2604.12185v1-knowledge-is-not-static-order-aware-hypergraph-rag-for-language-models)  
+   标签：评分：7.0/10、query:kgee
+   evidence：具有优先结构的知识超图构建
+6. [DocSeeker: Structured Visual Reasoning with Evidence Grounding for Long Document Understanding](/20260414-20260423/2604.12812v2-docseeker-structured-visual-reasoning-with-evidence-grounding-for-long-document-understanding)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：重放真实事件模式以生成遥测数据的框架
-6. [Adaptive Query Routing: A Tier-Based Framework for Hybrid Retrieval Across Financial, Legal, and Medical Documents](/202604/22/2604.14222v1-adaptive-query-routing-a-tier-based-framework-for-hybrid-retrieval-across-financial-legal-and-medical-documents)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：法律文档的混合检索
-7. [Formalizing Kantian Ethics: Formula of the Universal Law Logic (FULL)](/202604/22/2604.14254v1-formalizing-kantian-ethics-formula-of-the-universal-law-logic-full)  
-   标签：评分：7.0/10、query:q5
-   evidence：使用量化模态逻辑形式化道德程序
-8. [Quantifying Cross-Query Contradictions in Multi-Query LLM Reasoning](/202604/22/2604.14525v1-quantifying-cross-query-contradictions-in-multi-query-llm-reasoning)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：多查询推理中的逻辑一致性与求解器增强验证
-9. [Nested Sequents for Horn-Characterizable Quantified Modal Logics with Equality via Reachability Rules](/202604/22/2604.18403v1-nested-sequents-for-horn-characterizable-quantified-modal-logics-with-equality-via-reachability-rules)  
-   标签：评分：6.0/10、query:q6
-   evidence：量化模态逻辑的嵌套相继式系统
-10. [MASS-RAG: Multi-Agent Synthesis Retrieval-Augmented Generation](/202604/22/2604.18509v1-mass-rag-multi-agent-synthesis-retrieval-augmented-generation)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：利用多智能体合成对检索文档进行推理
-11. [MASS-RAG: Multi-Agent Synthesis Retrieval-Augmented Generation](/202604/22/2604.18509v2-mass-rag-multi-agent-synthesis-retrieval-augmented-generation)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：利用多智能体合成对检索文档进行推理
+   evidence：在通过知识蒸馏生成的高质量数据上进行有监督微调
+7. [Doc-V*:Coarse-to-Fine Interactive Visual Reasoning for Multi-Page Document VQA](/20260414-20260423/2604.13731v1-doc-vcoarse-to-fine-interactive-visual-reasoning-for-multi-page-document-vqa)  
+   标签：评分：7.0/10、query:kgee
+   evidence：在结构化工作记忆中聚合证据
+8. [CobwebTM: Probabilistic Concept Formation for Lifelong and Hierarchical Topic Modeling](/20260414-20260423/2604.14489v1-cobwebtm-probabilistic-concept-formation-for-lifelong-and-hierarchical-topic-modeling)  
+   标签：评分：7.0/10、query:kgee
+   evidence：在线构建语义层级结构用于层级主题建模
+9. [NaviRAG: Towards Active Knowledge Navigation for Retrieval-Augmented Generation](/20260414-20260423/2604.12766v1-navirag-towards-active-knowledge-navigation-for-retrieval-augmented-generation)  
+   标签：评分：6.0/10、query:kgee
+   evidence：将知识文档结构化为分层形式以进行语义导航
+10. [From Anchors to Supervision: Memory-Graph Guided Corpus-Free Unlearning for Large Language Models](/20260414-20260423/2604.13777v1-from-anchors-to-supervision-memory-graph-guided-corpus-free-unlearning-for-large-language-models)  
+   标签：评分：6.0/10、query:kgee
+   evidence：将记忆内容组织成加权局部记忆图
+11. [Generating Concept Lexicalizations via Dictionary-Based Cross-Lingual Sense Projection](/20260414-20260423/2604.14397v1-generating-concept-lexicalizations-via-dictionary-based-cross-lingual-sense-projection)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：通过义项生成扩展词汇资源
 
 
 <div class="dpr-home-promo-card">
