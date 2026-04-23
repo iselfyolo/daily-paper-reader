@@ -1,0 +1,366 @@
+Title: Topology-Aware Reasoning over Incomplete Knowledge Graph with Graph-Based Soft Prompting
+
+URL Source: https://arxiv.org/pdf/2604.12503v1
+
+Published Time: Wed, 15 Apr 2026 01:03:46 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# Topology-Aware Reasoning over Incomplete Knowledge Graph with Graph-Based Soft Prompting 
+
+Shuai Wang 1 Xixi Wang 2 Yinan Yu 11Chalmers University of Technology and University of Gothenburg, Sweden 
+
+> 2
+
+Technical University of Denmark, Kgs. Lyngby, Denmark 
+
+{shuaiwa,yinan}@chalmers.se xixiwa@dtu.dk 
+
+Abstract 
+
+Large Language Models (LLMs) have shown remarkable capabilities across various tasks but remain prone to hallucinations in knowledge-intensive scenarios. Knowledge Base Question Answering (KBQA) mitigates this by ground-ing generation in Knowledge Graphs (KGs). However, most multi-hop KBQA methods rely on explicit edge traversal, making them frag-ile to KG incompleteness. In this paper, we proposed a novel graph-based soft prompting framework that shifts the reasoning paradigm from node-level path traversal to subgraph-level reasoning. Specifically, we employ a Graph Neural Network (GNN) to encode ex-tracted structural subgraphs into soft prompts, enabling LLM to reason over richer structural context and identify relevant entities beyond immediate graph neighbors, thereby reducing sensitivity to missing edges. Furthermore, we introduce a two-stage paradigm that reduces computational cost while preserving good per-formance: a lightweight LLM first leverages the soft prompts to identify question-relevant entities and relations, followed by a more pow-erful LLM for evidence-aware answer gener-ation. Experiments on four multi-hop KBQA benchmarks show that our approach achieves state-of-the-art performance on three of them, demonstrating its effectiveness. 1
+
+1 Introduction 
+
+Large Language Models (LLMs) have demon-strated remarkable capabilities across a wide range of applications. However, despite these advances, LLMs often suffer from hallucinations and unsta-ble accuracy when handling knowledge-intensive tasks (Lavrinovics et al., 2025). To address these limitations, Knowledge Graphs (KGs) have gained increasing attention as a reliable source of struc-tured and explicit knowledge (Pan et al., 2024). By 
+
+> 1
+
+Code is available at the repository: https://github. com/Wangshuaiia/GraSP .Question : What language do the people in the area where the                              
+
+> newspaper Knews is circulated speak?
+> Knews Cyprus …
+> Circulated in
+> Knews
+> Kathimerini
+> SPP Media Group
+> Shemaine Bushnell Cyprus
+> International edition of
+> Editor in chief
+> Owned by
+> Nationality
+> Operates in
+> regional focus Turkish
+> Greek
+> language
+> language
+> Solely rely on explicit edges
+> 1-hop per step
+> Knews Cyprus …
+> Circulated in
+> 2-hop highly connected
+> Existing graph :
+> ØExisting method :node -level reasoning
+> ØOur method :topology -aware reasoning
+> Exploit implicit relations
+> Reason with structural context
+
+Figure 1: An example of multi-hop reasoning over an incomplete knowledge graph. Existing methods (mid-dle) solely rely on explicit edges and fail to perform multi-hop reasoning under graph incompleteness (e.g. missing edges). Our method (bottom) overcomes this limitation by exploiting implicit relations in the graph structure. 
+
+integrating the complementary strengths of LLMs and KGs, Knowledge Base Question Answering (KBQA) has emerged as an important research direction. KBQA frameworks improve answer reli-ability by explicitly retrieving and reasoning over relevant entities and relations on KGs, enabling more accurate and evidence-grounded responses (Song et al., 2023). Addressing complex questions often requires multi-hop reasoning, as the answer nodes are typ-ically distant from the starting topic nodes in the Knowledge Graph. To bridge this gap, repre-sentative methods start from topic entities and progressively expand along KG edges under the guidance of LLMs (Sun et al., 2024; Zhao et al., 2024). Building on this paradigm, subsequent works further make some improvements by en-hancing search efficiency via Monte Carlo Tree Search (Luo et al., 2025) or by strengthening rea-soning coherence through explicit memory of ex-plored paths (Jiang et al., 2025; Chen et al., 2024). However, such entity-to-entity traversal 
+
+> arXiv:2604.12503v1 [cs.CL] 14 Apr 2026
+
+paradigm suffers from an inherent limitation: they are strictly confined to explicit KG edges. In practice, knowledge graphs are often incomplete, making the reasoning process highly sensitive to missing relations, which can easily disrupt multi-hop inference. As illustrated in the Figure 1, answering “ What language do the people in the area where the newspaper Knews is circulated speak? ” requires identifying the newspaper’s cir-culation region and then inferring the predominant language spoken in that region. The absence of a direct edge between Knews and Cyprus blocks further forward expansion, causing the reasoning chain to break. To mitigate these bottlenecks, Wan et al. (2025) attempt to enrich the context by extracting sub-graphs and converting them into textual descrip-tions via LLMs. While this approach increases information redundancy to hedge against missing edges, such graph-to-text transformation inherently obscures the underlying structural topology, hin-dering the model’s ability to discern and exploit implicit correlations between seemingly discon-nected entities. Furthermore, this verbalization process is highly susceptible to semantic noise, as the generated narratives often incorporate extrane-ous or irrelevant information that can distract the LLM from the core reasoning task. Our key insight is that even in the absence of explicit edges, the surrounding subgraph structure often provides sufficient evidence to bridge rea-soning gaps. The topological structure of KGs often contains essential information (Sun et al., 2019). For example, as illustrated in the Figure 1, although Knews and Cyprus are not directly connected, their local subgraph exposes conver-gent associative paths, such as (Knews, owned by, SPP Media Group) → (SPP Media Group, operates in, Cyprus). Such structural patterns offer strong structural cues for inferring the missing relation 
+
+circulated in between Knews and Cyprus . Graph Neural Networks (GNNs) are well suited to exploit this information by capturing complex entity de-pendencies through message-passing mechanisms (Wu et al., 2020). Unlike previous methods that make isolated, step-by-step decisions, using GNNs allows candidate entities to be evaluated within their local structural contexts, enabling the LLM to reason beyond immediate neighbors and reach entities without direct connections. In this paper, we proposed a graph-based soft prompting ( GraSP ) framework for multi-hop KBQA. GraSP first employs a GNN to encode the retrieved subgraph, capturing its rich structural dependencies as dense entity representations. We then used a transformation layer to map these rep-resentations into soft prompts, which provides the LLM with global structural context. Inspired by the two-stage paradigm of Chen et al. (2023), we first used a small LLM to identifies question-relevant entities in the subgraph with the help of the soft prompts. Then we further injected the selected en-tities together with their associated relations into another larger LLM to generate accurate and high-quality answers. This two-stage approach, using a lightweight LLM to generate a draft and then a larger LLM to refine and verify, improves overall performance while reducing computational cost. Our contributions are summarized as follows: • We propose a novel subgraph-level reasoning paradigm that encodes structural subgraphs into graph-based soft prompts using a GNN, enabling more robust reasoning under knowledge graph incompleteness. • We propose a two-stage reasoning paradigm in which a lightweight model performs soft-prompt-based reasoning, and a powerful LLM gener-ates evidence-aware answers, reducing computa-tional cost while enabling seamless integration with off-the-shelf LLMs. • Our framework achieves state-of-the-art perfor-mance on three out of four multi-hop KBQA benchmarks, validating its effectiveness in com-plex knowledge-intensive tasks. 
+
+2 Related Work 
+
+2.1 Knowledge Graph Reasoning 
+
+Multi-hop knowledge base question answering (KGQA) requires reasoning over multiple relations to find answers. Recent work increasingly treats LLMs as reasoning agents that explore knowledge graphs. Methods such as Think-on-Graph (Sun et al., 2024) perform structured traversal over en-tities and relations, while Plan-on-Graph (Chen et al., 2024) and Debate-on-Graph (Ma et al., 2025) introduce step-wise verification or role-based col-laboration to reduce spurious reasoning. Other ap-proaches enhance exploration via auxiliary mech-anisms, including memory augmentation (Jiang et al., 2025) and iterative query decomposition (Wang and Yu, 2025; Huang et al., 2023). Learning-based methods further guide multi-hop reasoning, including transition modeling (Zhao et al., 2024) and reinforcement learning–based decision pro-cesses (Zhang and Zhao, 2025). To improve ef-ficiency, LightPROF (Ao et al., 2025) compresses reasoning graphs into compact embeddings. How-ever, these approaches still rely on explicit KG edges at inference time. LMP (Wan et al., 2025) alleviates this by linearizing subgraphs into text, but with a loss of graph structure. 
+
+2.2 Incomplete Knowledge Graphs 
+
+Incomplete knowledge graphs are traditionally ad-dressed by knowledge graph completion (KGC), which employs embedding-based, structure-aware, or large pretrained models to predict missing links (Chao et al., 2021; Zhu et al., 2021; Saxena et al., 2022; Wang et al., 2024). Some works further ex-plores inductive and foundation-model-based KGC to improve transferability (Galkin et al., 2023; Sax-ena et al., 2022; Hua et al., 2025). Despite method-ological advances, these methods are primarily de-signed to explicitly complete the KG before down-stream use. There are also some work focuses on reason-ing over incomplete KGs. To mitigate missing knowledge at inference time, Generate-on-Graph (Xu et al., 2024) employs LLMs to generate im-plicit facts, but such generation may suffer from hallucination. Alternatively, Guo et al. (2023) es-timate the likelihood of missing relations in the retrieved subgraph, but this approach still relies on explicit edge prediction and makes limited use of the global graph structure. In contrast, our work perform multi-hop KGQA directly over incomplete graphs, without requiring prior graph completion. 
+
+2.3 Soft Prompt Reasoning 
+
+Soft prompting enables parameter-efficient adap-tation of frozen language models by optimizing continuous prompt vectors (Li and Liang, 2021; Lester et al., 2021; Liu et al., 2022). Recently, this paradigm has been extended to latent reasoning (Xu et al., 2025; Hao et al., 2024; Zhang et al., 2025) as well as structured reasoning, like graph-based reasoning (Liu et al., 2024; Tian et al., 2024; Yang et al., 2024). However, existing methods typ-ically require access to model internals, which re-stricts their applicability to open-source LLMs. In contrast, our proposed two-stage paradigm applies soft prompting to a lightweight open-source model and then translates the learned representations into natural language, enabling seamless integration with any off-the-shelf closed-source LLMs. 
+
+3 Task Definition 
+
+We consider the problem of Knowledge Base Ques-tion Answering (KBQA) over a knowledge graph 
+
+G ⊆ E × R × E , where E and R denote the sets of entities and relations, respectively. Each fact in the graph is represented as a triple (e, r, e ′), indicating that a relation r holds between entities e and e′.Given a natural language question q and a topic entity et ∈ E identified from the question, the goal is to determine the corresponding answer entity 
+
+ea ∈ E by reasoning over G. This process typi-cally involves traversing the graph starting from 
+
+et. However, due to the sparsity and incomplete-ness of real-world knowledge graphs, the answer entity often cannot be reached via direct one-hop relations. Consequently, effective KBQA systems must support multi-hop reasoning, where ea is con-nected to et through a sequence of intermediate entities and relations. 
+
+4 Method 
+
+Our proposed method is illustrated in Figure 2. It consists of three components: (1) Subgraph Extrac-tion , (2) Graph-based Soft Prompting , and (3) Two-Stage Reasoning and Answering . Given a complex query, we first extract a subgraph centered on the topic entities and encode its structure using a GNN with message passing. The encoded entity repre-sentations are then used to construct soft prompts. Finally, we decouple reasoning and answering via a two-stage LLM framework, reducing computa-tional cost while enabling flexible integration with off-the-shelf LLMs. 
+
+4.1 Subgraph Extraction 
+
+We begin subgraph extraction based on a specific entity, which is the topic entity when reasoning starts. We aim to retrieve its l-hop neighborhood of the entity; however, directly expanding all neigh-bors is infeasible due to the large number of irrele-vant entities. To address this, we adopt a relevance-based retrieval strategy. Specifically, we encode the question q and each candidate entity e using a BERT-based encoder and compute their cosine similarity: 
+
+s(q, e ) = cos( q, e), (1) where q and e denote the vector representations of the question and the entity, respectively. Enti-GNN encoding Question :           
+
+> What language do the
+> people in the area where
+> the newspaper Knews is
+> circulated speak?
+
+Sub -graph extraction 
+
+LLM select (lightweigh t) 
+
+> select relevant evidence
+
+LLM answer (powerful) 
+
+> continue or answer?
+
+………
+
+> Get KG soft tokens Get entity list tokens Get q uestion tokens
+
+entities, relations                             
+
+> Answer :Knews circulates in Cyprus and the official languages there
+> are Greek and Turkish .Therefore, the answer is :Greek and Turkish .
+> Continue :Knews circulates in Cyprus ,
+> grounding the next step in Cyprus .
+
+Graph -Based soft prompting (GraSP ) 
+
+> LLM select LLM answer
+
+Running process: 
+
+or   
+
+> Second iteration :GraSP (Topic entity: Cyprus )
+> First iteration: GraSP (Topic entity: Knews )
+
+Figure 2: Overview of the proposed framework and its running process. The upper part describes the method: GraSP is used to construct structure-aware soft prompts from the sub knowledge graph, which are first processed by a compact LLM to select relevant entities and relations, and then refined by a more powerful LLM with substantially more parameters to generate high-quality answers. The lower part demonstrates an example illustrating how our framework links Knews to Cyprus and subsequently treats Cyprus as the topic entity to derive the final answer. 
+
+ties are ranked according to s(q, e ), and the top-k1
+
+entities are selected. To enable multi-hop expansion, we iteratively repeat this process: for each selected entity, we re-trieve its neighboring entities and again select the top-k2 entities based on similarity to the question. By iterating this procedure up to l hops, we obtain a question-relevant l-hop subgraph. The hop num-ber l is treated as a hyperparameter. The specific SPARQL queries used for neighbor retrieval are provided in the Appendix C. 
+
+4.2 Graph-based Soft Prompting 
+
+To encode the extracted subgraph, we employ an l-layer graph neural network. Since cosine similarity alone is insufficient to model relational dependen-cies, we adopt a graph attention network to focus on entities that are more relevant to the question. At each layer, for a target entity ei at (l + 1) -th layer and its neighbor ej at l-th layer, let h(l+1) 
+
+> i
+
+and h(l) 
+
+> j
+
+denote their representations, respectively. The node update is computed as: 
+
+h(l+1)  
+
+> i
+
+= σ
+
+X 
+
+> j
+
+aij W(l)h(l) 
+
+> j
+
++ b(l)
+
+, (2) where W(l) and b(l) are learnable parameters, σ
+
+represents an activation function, and aij is the attention weight between entities ei and ej .The attention weight aij is computed as: 
+
+aij = softmax  f  W(q ∥ hi), W(hj ∥ rij ) ,
+
+(3) where f : Rd × Rd → R is a scoring function, rij 
+
+denotes the relation embedding between ei and ej ,and ∥ represents vector concatenation. The GNN layer computes the message passing over the entire graph structure as: 
+
+H(l+1) = σ
+
+
+
+D−1/2 ˆAD −1/2H(l)W(l) + b(l)
+
+,
+
+(4) Where H is the feature matrix of entity represen-tations, D is the degree matrix which its diagonal element represent how many entities connected to each entity, and ˆA = [ aij ] denotes the adjacency matrix. After l layers, we obtain contextualized embeddings for all entities in the subgraph. We then transform the embeddings of all entities in the subgraph into a soft prompt. To bridge the modality gap between graph structures and natural language, we introduce a lightweight feed-forward network (FFN) to map these representations: 
+
+ˆH = FFN (H), (5) where ˆH represents the aggregated graph-level soft prompt matrix. We then concatenate the instruction context Iinstr ,the question Q, the list of candidate entities E, and the soft prompt ˆH as input to an LLM. 
+
+xLLM = concat [Iinstr , Q, E, ˆH], (6) All textual information together with the graph-based soft prompt constitutes the final prompt, guiding the LLM to select entities relevant to the question. 
+
+4.3 Two-Stage Reasoning and Answering 
+
+To reduce computational cost while maintaining strong performance, we borrowed the conception of draft-and-refine framework Chen et al. (2023) and utilize a two-stage answering framework. First, the generated soft prompt is fed into a lightweight LLM with fewer parameters, which is used to extract the entity (or entities) most relevant for answering the question: 
+
+ˆE = LLM select (xLLM ) (7) To efficiently leverage powerful closed-source models, we design the output of the first stage in natural language, allowing it to serve as explicit ev-idence that can be jointly consumed with the ques-tion by any powerful off-the-shelf LLM for answer generation. Beyond directly producing an answer, the LLM is first prompted to assess whether the currently available information is sufficient to an-swer the question. If so, it generates the final an-swer; otherwise, it selects an intermediate entity as the next reasoning target and repeats the subgraph extraction and reasoning process. Formally, this decision process is defined as: LLM ans (q, ˆE, ˆR) = 
+
+(
+
+answer , if sufficient; entity , otherwise .
+
+(8) Here, ˆR denotes the set of relations corresponding to the entity set ˆE.
+
+4.4 Optimization 
+
+Overall, the trainable components of our GraSP framework include the GNN and the FFN in Sec-tion 4.2. For the LLM used in entity selection (denoted as LLM select in Section 5.3), we allow two training strategies: either fine-tuning the model or keeping it frozen. Since the primary objective of this com-ponent is to identify question-relevant entities, we optimize it using a cross-entropy loss: 
+
+L = − log P (y | Iinstr , Q, E, ˆH), (9) where y denotes the ground-truth target entity. Gra-dients are backpropagated through the graph-based soft prompt ˆH to update the parameters of both the GNN and the FFN. In contrast, for LLM ans in the answer genera-tion stage, once sufficient information has been retrieved, it answers the question does not rely on task-specific modeling assumptions. Therefore, the LLM used for answer generation can be any off-the-shelf LLM and does not require fine-tuning. 
+
+5 Experiments 
+
+5.1 Datasets 
+
+We evaluated our approach on four widely-used datasets for KBQA, leveraging a large-scale general-purpose knowledge graphs Freebase: Com-plexWebQuestions (CWQ) (Talmor and Berant, 2018), WebQuestionsSP (WebQSP) (Yih et al., 2016), WebQuestions (Berant et al., 2013), and GrailQA (Gu et al., 2021). The characteristics of all datasets are provided in Table 6 in Appendix B. Following prior work (Sun et al., 2024; Zhao et al., 2024; Xiong et al., 2024), we used Hit@1 score as the evaluation metrics. The implementation details are provided in Appendix A. 
+
+5.2 Comparative Methods 
+
+We compared our approach with the following state-of-the-art methods: • ToG (Sun et al., 2024): A step-by-step reasoning framework based on LLMs. We re-implement this method using GPT-5.2. • KBQA-o1 (Luo et al., 2025): Enhances search efficiency on knowledge graphs by training a Monte Carlo Tree Search strategy, which re-quires model fine-tuning. We re-implement this based on LLaMA3.3-70B. • KG-Agent (Jiang et al., 2025): Stores previously explored reasoning paths in a memory module and leverages this memory to guide subsequent explorations. • iQUEST (Wang and Yu, 2025): Performs knowl-edge graph reasoning by iteratively generating and answering sub-questions. • LMP (Wan et al., 2025): Extracts entity-centered first-order subgraphs and converts them into nat-ural language explanations using an LLM, pro-viding textual evidence for reasoning. Table 1: Performance comparison on four KBQA datasets. Results marked with ‘*’ are taken directly from the corresponding original papers. Bold numbers indicate the best performance , while underlined numbers denote the second-best (Hits@1).                              
+
+> Method Multi-hop reasoning Generalization
+> CWQ WebQSP WebQuestion GrailQA ToG (Sun et al., 2024) 69.5 82.1 72.8 69.4 KBQA-o1 (Luo et al., 2025) 72.0 88.3 82.5 72.9 KG-Agent (Jiang et al., 2025) 72.2 ∗83.3 ∗–86.1 ∗
+> iQUEST (Wang and Yu, 2025) 73.8 ∗88.9 ∗81.2 ∗73.5 ∗
+> LMP (Wan et al., 2025) 82.2 ∗90.0 ∗80.4 ∗89.3 ∗
+> GraSP (Ours) 82.6 93.6 84.3 84.0
+
+5.3 Main Results 
+
+The main experimental results of our method are re-ported in Table 1. As shown, our approach achieves the best performance on three multi-hop datasets. On the generalization dataset, our results are also comparable to the strongest baseline. Among the compared methods, ToG exhibits the poorest per-formance, primarily because it relies solely on node-level semantic information at each reason-ing step. In contrast, KBQA-o1, iQUEST, and KG-Agent show consistent improvements, indicat-ing that incorporating sub-questions or memory mechanisms can effectively enhance reasoning per-formance. Notably, KG-Agent extracts entities from both the training and test sets in advance, sig-nificantly reducing the search space for the LLM. This substantially lowers the difficulty of evaluat-ing generalization on GrailQA, leading to relatively strong results. We also observe that LMP, which also uses sub-graphs to enhance reasoning, achieves the best per-formance among the baselines, as it can utilize richer contextual information at each reasoning step. However, this approach incurs substantial computational overhead due to repeated subgraph extraction and transformation. Also, the transfor-mation process is less effective because introduce noises, and overly large subgraphs can exceed the LLM’s effective context window, negatively affect-ing performance. In contrast, our method adopts a soft-prompt-based design and employs a GNN to efficiently compute graph representations in par-allel, resulting in a more effective and scalable utilization of graph structure. 
+
+5.4 Ablation on Graph-based Soft Prompt 
+
+To investigate in detail the effect of the Graph-based Soft prompt, we designed several variants for comparison. (1) Without Soft Prompt , we removed the soft prompting module and allowed the LLM to directly select question-relevant entities. (2) 
+
+Triplet-based Representation , where the retrieved subgraph was linearized into a list of knowledge triplets, which were then provided to the LLM as input, discarding the explicit graph structure. (3) 
+
+Text-based Soft Prompt , in which all triplets were encoded into semantic vectors using BERT, and the resulting embeddings were used as soft prompts instead of graph-structured representations. These variants enable us to isolate and analyze the contri-bution of graph-structured soft prompts to overall model performance. The experimental results are reported in Table 2. Overall, our GraSP achieves the best performance across all settings. Removing graph information entirely ( Without Soft Prompt ) leads to a substan-tial performance drop, highlighting the importance of structured knowledge for multi-hop reasoning. 
+
+Triplet-based Representation yields noticeable im-provements over the no-graph baseline, indicating that incorporating graph-derived information bene-fits reasoning. Furthermore, compared to Triplet-based Representation , Text-based Soft Prompt con-sistently performs better, demonstrating that soft prompts effectively enhance the reasoning capabil-ity of LLMs. Notably, Graph-based Soft Prompt 
+
+further outperforms Text-based Soft Prompt , con-firming that GNNs can more effectively encode and exploit structural information. These trends are highly consistent across experiments with two dif-ferent LLMs, providing strong evidence for the ef-fectiveness and robustness of the proposed GraSP. 
+
+5.5 Performance under Incomplete KGs 
+
+To evaluate the robustness of our method under incomplete KGs, we conducted experiments on the most complex dataset CWQ by randomly re-Table 2: Ablation study of the graph-based soft prompting.                                     
+
+> Method CWQ WebQSP WebQuestion GrailQA GraSP (GPT-20B as LLM select )82.58 93.63 84.32 83.99 Without Soft Prompt 78.72 89.42 81.28 78.46 Triplet-based Representation 79.63 92.13 82.26 80.74 Text-based Soft Prompt 80.15 92.41 83.55 81.63
+> GraSP (Qwen-30B-A3B as LLM select )82.28 93.16 84.07 83.46 Without Soft Prompt 77.94 88.05 82.29 79.21 Triplet-based Representation 80.23 91.17 82.10 80.16 Text-based Soft Prompt 80.53 91.41 82.18 81.27
+
+moving a portion of edges connected to the topic entities, simulating varying degrees of KG incom-pleteness. The removal ratio ranges from 5% to 25% to assess the impact of increasing incomplete-ness. We compared our approach with three rep-resentative baselines, ToG, KBQA-o1 and LMP. Notably, LMP addresses KG incompleteness by converting subgraphs into redundant natural lan-guage representations, which partially alleviates the impact of missing edges. The results are shown in Figure 3. As the proportion of removed edges increases, all methods exhibit performance degradation com-pared to using the complete KG, with more severe drops under higher levels of incompleteness, which is expected. However, across all incompleteness settings, our method consistently shows a slower degradation trend than the baselines. In particu-lar, the overall performance drop of our approach is only 10.8 points, significantly smaller than that of ToG (18.2), KBQA-o1 (17.2) and LMP (14.9). While both GraSP and LMP are more effective at mitigating the impact of KG incompleteness, ToG and KBQA-o1 suffer substantially larger perfor-mance degradation, as they rely heavily on explicit KG edge traversal for reasoning. In contrast, our method performs reasoning over a retrieved sub-graph augmented with graph-based soft prompts, which effectively mitigates the impact of missing edges. These results demonstrate that GraSP is more robust to KG incompleteness. 
+
+5.6 Effectiveness of Two-Stage Reasoning 
+
+Firstly, we evaluate the impact of the compact model LLM select in the first stage. Specifically, we experimented with LLMs of different scales, including Qwen3-0.6B, Qwen3-8B and GPT-20B, and further examined the effect of fine-tuning. We fix LLM answer as GPT-5.2 across all experiments. The results are summarized in Table 3. Overall, larger LLMselect models achieve bet-0% 5% 10% 15% 20% 25%     
+
+> Incomplete Ratio
+> 50
+> 60
+> 70
+> 80
+> Hit@1 (%)
+> -6.4
+> -11.3
+> -13.9
+> -16.2 -18.2
+> -4.8
+> -8.9
+> -12.1
+> -14.7
+> -17.0
+> -4.2
+> -7.1
+> -10.4
+> -13.0 -14.9
+> -3.9
+> -6.4
+> -8.6 -10.2 -10.8
+> ToG
+> KBQA-o1
+> LMP
+> Ours
+
+Figure 3: Results on CWQ under Knowledge Graph Incompleteness. 
+
+ter performance after fine-tuning. Notably, once fine-tuned, even an 8B model can achieve strong performance comparable to GPT-20B, suggesting that a tuned LLMselect collaborates more effec-tively with the GNN to identify relevant entities. Meanwhile, we observe that, benefiting from our paradigm, the performance remains acceptable even without fine-tuning; under this setting, the 0.6B model still delivers competitive results. We further extended our evaluation to a broader range of LLMs, with results reported in Table 7 (Appendix D).The results consistently show that our method remains stable even when using very small size LLMs. This is because LLMs are more effective at verification and refinement, making the framework more tolerant to noise introduced in the selection stage. To examine the impact of the answer LLM used in the second stage, we experimented with seven different LLMs. The results are reported in Ta-ble 8 (Appendix D). As shown, performance con-sistently improves as the model scale increases, which aligns well with our expectations. This trend further demonstrates that our two-stage frame-work can effectively leverage powerful off-the-shelf LLMs, highlighting a key practical advantage of the proposed approach. Table 3: Performance Comparison with Different LLM select Settings.                             
+
+> Select LLM CWQ WebQSP WebQuestion GrailQA Qwen3-0.6B (freeze) 61.73 69.14 58.05 62.48 Qwen3-0.6B (Finetune) 71.31 (+9.58) 81.14 (+12.00) 68.52 (+10.47) 69.87 (+7.39) Qwen3-8B (freeze) 72.55 81.54 72.31 65.38 Qwen3-8B (Finetune) 80.85 (+8.30) 88.86 (+7.32) 78.40 (+6.09) 79.16 (+13.78) GPT-20B (freeze) 77.21 86.34 78.28 76.13 GPT-20B (fine-tune) 82.58 (+5.37) 93.63 (+7.29) 84.32 (+6.04) 83.99 (+7.86)
+
+Table 4: Performance comparison of different hop settings on four benchmarks.                 
+
+> Subgraph Structure CWQ WebQSP WebQuestion GrailQA 1-Hop Subgraph 79.07 90.87 82.01 81.29 2-Hop Subgraph 82.58 93.63 84.32 83.99 3-Hop Subgraph 76.47 85.98 80.21 78.66
+
+5.7 Impact of Subgraph Structure 
+
+As described in Section 4.1, subgraph extraction starts from a topic entity and collects its l-hop neighbors to construct an induced subgraph. In-creasing the hop number introduces more multi-hop neighbors, resulting in a structurally more com-plex subgraph. To examine the impact of the hop number on subgraph construction, we evaluate our method using 1-hop, 2-hop, and 3-hop subgraphs, with the results reported in Table 4. The results show that 2-hop subgraphs achieve the best overall performance. With 1-hop extrac-tion, missing edges cannot be effectively compen-sated, making it difficult to infer potential con-nections between entities; besides, the resulting subgraph is often too simple to fully exploit the proposed method. In contrast, 2-hop subgraphs can partially recover missing relations through inter-mediate entities, as the example in Figure 1. How-ever, increasing the hop number to 3 introduces excessive entities and edges, which complicate in-formation passing and introduces substantial noise, leading to little benefit. Therefore, we adopt 2-hop subgraphs as they strike a favorable balance be-tween structural expressiveness and noise, achiev-ing effective encoding of graph-based soft prompts. 
+
+5.8 Computational Efficiency Analysis 
+
+To evaluate the computational efficiency of our approach, we compared its runtime and LLM in-vocation cost with those of ToG and LMP across different hop settings. For a fair comparison and to eliminate the influence of failure cases, we re-stricted the analysis to instances where all meth-ods successfully complete the reasoning process. The results are summarized in Table 5. As shown, 
+
+Table 5: Comparison of LLM call counts and run-time across different hop settings for our method and baseline approaches. For our method, calls to the lightweight LLM are shown in green, while calls to the powerful LLM are shown in red.                          
+
+> Method Metrics 1-Hop 2-Hop 3-Hop ToG # LLM call 2.2 5.6 8.3 Run time (s) 3.16 11.76 17.51 LMP # LLM call 2.3 4.9 7.3 Run time (s) 3.45 9.76 15.38 Ours # LLM call 1.3+1.1 3.6+2.2 5.3+2.6 Run time (s) 2.50 4.75 7.60
+
+our method consistently achieves the lowest run-time across all settings. Moreover, owing to the proposed two-stage reasoning paradigm, the num-ber of calls to large-scale LLMs is substantially reduced, which significantly improves overall in-ference efficiency. 
+
+6 Conclusion 
+
+In this paper, we proposed GraSP, a novel subgraph-level reasoning framework that encodes subgraphs into soft prompts using GNNs. By re-ducing reliance on explicit knowledge graph edges, GraSP effectively mitigates the impact of missing relations and alleviates issues caused by incom-plete knowledge graphs. We further introduced a two-stage reasoning paradigm, where a lightweight LLM identifies question-relevant entities guided by soft prompts, followed by a more powerful LLM for evidence-aware answer generation. This modular design allows GraSP to be seamlessly in-tegrated with off-the-shelf LLMs. Experiments on four benchmarks show state-of-the-art perfor-mance on three datasets, while extensive analyses further validate the effectiveness of our approach. Limitations 
+
+While our approach demonstrates promising effec-tiveness, it still has several limitations. First, our method relies on the structural information of the underlying knowledge graph. When the knowl-edge graph is severely incomplete, contains sparse information, or exhibits overly simple structures, the extracted subgraphs may provide limited use-ful evidence, which in turn constrains the effec-tiveness of our approach. Second, our framework employs soft prompts, which are continuous repre-sentations without explicit semantic grounding. As a result, the reasoning process becomes less inter-pretable, making it difficult to precisely understand how specific structural signals influence the LLM’s decision-making. 
+
+Acknowledgment 
+
+This work was partially funded by the Autonomous Systems and Software Program (WASP), supported by the Knut and Alice Wallenberg Foundation, and the Chalmers Artificial Intelligence Research Cen-tre (CHAIR). 
+
+References 
+
+Tu Ao, Yanhua Yu, Yuling Wang, Yang Deng, Zirui Guo, Liang Pang, Pinghui Wang, Tat-Seng Chua, Xiao Zhang, and Zhen Cai. 2025. Lightprof: A lightweight reasoning framework for large language model on knowledge graph. In Proceedings of the AAAI Conference on Artificial Intelligence , vol-ume 39, pages 23424–23432. Jonathan Berant, Andrew Chou, Roy Frostig, and Percy Liang. 2013. Semantic parsing on freebase from question-answer pairs. In Proceedings of the 2013 conference on empirical methods in natural language processing , pages 1533–1544. Linlin Chao, Jianshan He, Taifeng Wang, and Wei Chu. 2021. Pairre: Knowledge graph embeddings via paired relation vectors. In Proceedings of the 59th Annual Meeting of the Association for Computational Linguistics and the 11th International Joint Confer-ence on Natural Language Processing (Volume 1: Long Papers) , pages 4360–4369. Charlie Chen, Sebastian Borgeaud, Geoffrey Irving, Jean-Baptiste Lespiau, Laurent Sifre, and John Jumper. 2023. Accelerating large language model decoding with speculative sampling. arXiv preprint arXiv:2302.01318 .Liyi Chen, Panrong Tong, Zhongming Jin, Ying Sun, Jieping Ye, and Hui Xiong. 2024. Plan-on-graph: Self-correcting adaptive planning of large language model on knowledge graphs. Advances in Neural Information Processing Systems , 37:37665–37691. Mikhail Galkin, Xuan Yuan, Hasan Mostafa, Jie Tang, and Ziqiang Zhu. 2023. Towards founda-tion models for knowledge graph reasoning. CoRR ,abs/2307.15093. Yu Gu, Sue Kase, Michelle Vanni, Brian Sadler, Percy Liang, Xifeng Yan, and Yu Su. 2021. Beyond iid: three levels of generalization for question answering on knowledge bases. In Proceedings of the Web Conference 2021 , pages 3477–3488. Qimeng Guo, Xue Wang, Zhenfang Zhu, Peiyu Liu, and Liancheng Xu. 2023. A knowledge inference model for question answering on an incomplete knowledge graph. Applied Intelligence , 53(7):7634–7646. Shibo Hao, Sainbayar Sukhbaatar, DiJia Su, Tengfei Wang, Zhiting Hu, Sheng Zhu, and Jason We-ston. 2024. Training large language models to rea-son in a continuous latent space. arXiv preprint arXiv:2412.06769 .Ying Hua, Zeyu Liu, Meng Chen, Zhi Fang, and 1 oth-ers. 2025. Beyond completion: A foundation model for general knowledge graph reasoning. Findings of ACL .Xiang Huang, Sitao Cheng, Yiheng Shu, Yuheng Bao, and Yuzhong Qu. 2023. Question decomposition tree for answering complex questions over knowl-edge bases. In Proceedings of the AAAI Conference on Artificial Intelligence , volume 37, pages 12924– 12932. Jinhao Jiang, Kun Zhou, Xin Zhao, Yang Song, Chen Zhu, Hengshu Zhu, and Ji-Rong Wen. 2025. KG-agent: An efficient autonomous agent framework for complex reasoning over knowledge graph. In 
+
+Proceedings of the 63rd Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 9505–9523, Vienna, Austria. Ernests Lavrinovics, Russa Biswas, Johannes Bjerva, and Katja Hose. 2025. Knowledge graphs, large language models, and hallucinations: An nlp per-spective. Journal of Web Semantics , 85:100844. Brian Lester, Rami Al-Rfou, and Noah Constant. 2021. The power of scale for parameter-efficient prompt tuning. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing (EMNLP) , pages 3045–3059. Xiang Lisa Li and Percy Liang. 2021. Prefix-tuning: Optimizing continuous prompts for generation. In 
+
+Proceedings of the 59th Annual Meeting of the Asso-ciation for Computational Linguistics (ACL) , pages 4582–4597. Xiao Liu, Kaixuan Ji, Yicheng Fu, Weizhe Tam, Zhengxiao Du, Zhilin Yang, and Jie Tang. 2022. P-tuning v2: Prompt tuning can be comparable to fine-tuning universally across scales and tasks. In Proceedings of the 60th Annual Meeting of the Asso-ciation for Computational Linguistics (ACL) , pages 2130–2147. Ziqi Liu, Yao Zhang, Hao Chen, and Shirui Pan. 2024. Can we soft prompt large language models for graph learning tasks? In Proceedings of the ACM Web Conference (WWW) .Haoran Luo, E Haihong, Yikai Guo, Qika Lin, Xiaobao Wu, Xinyu Mu, Wenhao Liu, Meina Song, Yifan Zhu, and Anh Tuan Luu. 2025. Kbqa-o1: Agentic knowl-edge base question answering with monte carlo tree search. In Forty-second International Conference on Machine Learning .Jie Ma, Zhitao Gao, Qi Chai, Wangchun Sun, Pinghui Wang, Hongbin Pei, Jing Tao, Lingyun Song, Jun Liu, Chen Zhang, and 1 others. 2025. Debate on graph: a flexible and reliable reasoning frame-work for large language models. In Proceedings of the AAAI Conference on Artificial Intelligence , vol-ume 39, pages 24768–24776. Shirui Pan, Linhao Luo, Yufei Wang, Chen Chen, Ji-apu Wang, and Xindong Wu. 2024. Unifying large language models and knowledge graphs: A roadmap. 
+
+IEEE Transactions on Knowledge and Data Engi-neering , 36(7):3580–3599. Aman Saxena, Alexander Kochsiek, and Rainer Gemulla. 2022. Sequence-to-sequence knowledge graph completion and question answering. In Pro-ceedings of the 60th Annual Meeting of the Associa-tion for Computational Linguistics (Volume 1: Long Papers) .Yiqing Song, Wenfa Li, Guiren Dai, and Xinna Shang. 2023. Advancements in complex knowledge graph question answering: a survey. Electronics ,12(21):4395. Jiashuo Sun, Chengjin Xu, Lumingyuan Tang, Saizhuo Wang, Chen Lin, Yeyun Gong, Lionel Ni, Heung-Yeung Shum, and Jian Guo. 2024. Think-on-graph: Deep and responsible reasoning of large language model on knowledge graph. In The Twelfth Interna-tional Conference on Learning Representations .Zhiqing Sun, Zhi-Hong Deng, Jian-Yun Nie, and Jian Tang. 2019. Rotate: Knowledge graph embedding by relational rotation in complex space. In International Conference on Learning Representations .Alon Talmor and Jonathan Berant. 2018. The web as a knowledge-base for answering complex questions. In Proceedings of the 2018 Conference of the North American Chapter of the Association for Computa-tional Linguistics: Human Language Technologies, Volume 1 (Long Papers) , pages 641–651. Yuandong Tian, Yifan Chen, Bowen Jin, and Jiawei Han. 2024. Graph neural prompting with large language models. In Proceedings of the AAAI Conference on Artificial Intelligence .Junhong Wan, Tao Yu, Kunyu Jiang, Yao Fu, Weihao Jiang, and Jiang Zhu. 2025. Digest the knowledge: Large language models empowered message pass-ing for knowledge graph question answering. In 
+
+Proceedings of the 63rd Annual Meeting of the As-sociation for Computational Linguistics (Volume 1: Long Papers) , pages 15426–15442. Shuai Wang, Penghui Wei, Qingchao Kong, and Wenji Mao. 2024. A knowledge enhanced learning and semantic composition model for multi-claim fact checking. Knowledge-Based Systems , 304:112439. Shuai Wang and Yinan Yu. 2025. iQUEST: An itera-tive question-guided framework for knowledge base question answering. In Proceedings of the 63rd An-nual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 15616– 15628. Zonghan Wu, Shirui Pan, Fengwen Chen, Guodong Long, Chengqi Zhang, and Philip S Yu. 2020. A com-prehensive survey on graph neural networks. IEEE transactions on neural networks and learning sys-tems , 32(1):4–24. Guanming Xiong, Junwei Bao, and Wen Zhao. 2024. Interactive-KBQA: Multi-turn interactions for knowl-edge base question answering with large language models. In Proceedings of the 62nd Annual Meet-ing of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 10561–10582. Yao Xu, Shizhu He, Jiabei Chen, Zihao Wang, Yangqiu Song, Hanghang Tong, Guang Liu, Kang Liu, and Jun Zhao. 2024. Generate-on-graph: Treat llm as both agent and kg in incomplete knowl-edge graph question answering. arXiv preprint arXiv:2404.14741 .Yige Xu, Xu Guo, Zhiwei Zeng, and Chunyan Miao. 2025. Soft chain-of-thought for efficient reasoning with large language models. In Proceedings of the 63rd Annual Meeting of the Association for Compu-tational Linguistics (ACL) .Jiancheng Yang, Minghao Li, and Xiaohui Zhang. 2024. Soft prompting with graph-of-thought for multi-modal representation learning. In Proceedings of LREC-COLING .Wen-tau Yih, Matthew Richardson, Christopher Meek, Ming-Wei Chang, and Jina Suh. 2016. The value of semantic parse labeling for knowledge base question answering. In Proceedings of the 54th Annual Meet-ing of the Association for Computational Linguistics (Volume 2: Short Papers) , pages 201–206. Zhiqiang Zhang and Wen Zhao. 2025. A collabora-tive reasoning framework powered by reinforcement learning and large language models for complex questions answering over knowledge graph. In Pro-ceedings of the 31st International Conference on Computational Linguistics , pages 10672–10684. Ziyu Zhang, Yujia Li, Xinyu Wang, and Yiming Zhang. 2025. Soft thinking: Unlocking the reasoning poten-tial of large language models in a continuous concept space. arXiv preprint .Ruilin Zhao, Feng Zhao, Long Wang, Xianzhi Wang, and Guandong Xu. 2024. KG-CoT: Chain-of-thought prompting of large language models over knowledge graphs for knowledge-aware question an-swering. In Proceedings of the Thirty-Third Inter-national Joint Conference on Artificial Intelligence (IJCAI-24) , pages 6642–6650. International Joint Conferences on Artificial Intelligence. Zhaocheng Zhu, Zuobai Zhang, Louis-Pascal Xhon-neux, and Jian Tang. 2021. Neural bellman-ford net-works: A general graph neural network framework for link prediction. Advances in Neural Information Processing Systems 34 .
+
+A Implementation Details 
+
+In our main experiments, we use GPT-5.2 as the answer LLM and GPT-OSS-20B as the selection LLM. Specifically, we apply LoRA to the query and value projection matrices of each self-attention layer, with the LoRA rank set to r = 8 and the scaling factor set to α = 16 . A dropout rate of 0.1 is applied to the LoRA layers. During fine-tuning, only the LoRA parameters are updated while all original model parameters remain frozen. During subgraph construction, we extract 2-hop subgraphs, and accordingly employ a two-layer attention-based GNN for subgraph encoding. We adopt bert-base-uncased as the text encoder, which has a hidden size of 768, while the hid-den dimension of the GNN is set to 128. Since GPT-OSS-20B has a hidden size of 2880, the feed-forward mapping layer that projects GNN represen-tations into soft prompts has a dimension of 128 × 2880. All models are trained on 8 NVIDIA A100 GPUs (80GB each). In addition, we conduct exten-sive comparisons using LLMs of different scales, including Qwen3-0.6B, Qwen3-1.7B, Qwen3-4B, Qwen3-8B, Qwen-30B-A3B, LLaMA-3.3-7B, and GPT-4o. For constructing ground-truth labels for question-related entity selection (i.e., y in Func-tion 9), we treat the answer entity as the most relevant entity for 1-hop questions. For multi-hop questions, all entities along the shortest path between the topic entity and the answer entity are considered relevant. 
+
+B Datasets 
+
+The statistics of these four multi-hop KBQA datasets used in this work are shown in Table 6, including the number of training and test instances, question complexity, required reasoning types, and available annotation formats. 
+
+C SPARQL Query 
+
+As the SPARQL syntax for retrieving neighboring entities is fixed, a common template can be reused to systematically obtain such information. For ex-ample, to retrieve all cities located in Germany, we issue the following SPARQL query: 
+
+> SELECT ?tailEntity WHERE { ns:m.0345h ns:location.country.cities ? tailEntity . }
+
+where ns:m.0345h is the Freebase ID for Germany, and ns:location.country.cities denotes the corresponding predicate. 
+
+D Complete Experimental Results of Two-Stage Reasoning Table 6: Overview of datasets for KBQA and related tasks. 
+
+Dataset Train Test Complexity Reasoning Annotation 
+
+CWQ 27,689 3,531 Complex Qs Multi-hop SPARQL, Ans. WebQSP 3,098 1,639 Moderate Qs Single-hop (most) SPARQL, Ans. WebQuestion 3,778 2,032 Simple–Moderate Qs Single-hop (most) Ans. only GrailQA 35,138 1,000 Complex (varied) Multi-hop Logic forms, Ans. 
+
+Table 7: Performance comparison of different select LLMs. 
+
+Select LLM CWQ WebQSP WebQuestion GrailQA 
+
+Qwen3-0.6B 61.73 69.14 58.05 62.48 Qwen3-0.6B (Finetune) 71.31 81.14 68.52 69.87 Qwen3-1.7B 66.24 74.53 60.72 63.28 Qwen3-1.7B (Finetune) 73.40 84.51 71.96 72.58 Qwen3-4B 69.66 79.68 69.01 63.09 Qwen3-4B (Finetune) 77.07 86.83 76.52 77.16 Qwen3-8B 72.55 81.54 72.31 65.38 Qwen3-8B (Finetune) 80.85 88.86 78.40 79.16 Qwen-30B-A3B 76.39 88.71 78.27 77.53 Qwen-30B-A3B (Finetune) 82.28 93.16 84.07 84.16 GPT-20B 78.21 89.34 78.28 78.13 GPT-20B (Finetune) 82.58 93.63 84.32 83.99 
+
+Table 8: Performance comparison of different answer LLMs. 
+
+Answer LLM CWQ WebQSP WebQuestion GrailQA 
+
+Qwen3-8B 54.58 68.97 64.88 52.17 Qwen-30B-A3B 61.91 75.65 69.49 64.18 GPT-oss-20b 67.90 79.98 71.74 72.88 LLaMA3.3-70B 68.81 79.76 74.97 70.82 GPT-oss-120b 75.03 84.75 79.42 78.01 GPT-4o 77.64 90.95 82.39 79.82 GPT-5.2 82.58 93.63 84.32 83.99
