@@ -1,0 +1,1297 @@
+Title: Beyond Black-Box Labels: Interpretable Criteria for Diagnosing SubjectiveNLP Tasks
+
+URL Source: https://arxiv.org/pdf/2604.17022v1
+
+Published Time: Tue, 21 Apr 2026 00:48:47 GMT
+
+Number of Pages: 30
+
+Markdown Content:
+## Beyond Black-Box Labels: Interpretable Criteria for Diagnosing Subjective NLP Tasks 
+
+Nisrine Rair 1,2 , Alban Goupil 1, Valeriu Vrabie 1, Emmanuel Chochoy 2
+
+> 1
+
+CReSTIC, Université de Reims Champagne-Ardenne, Reims, France, 
+
+> 2
+
+Chochoy Conseil, Reims, France 
+
+nisrine.rair@univ-reims.fr 
+
+Abstract 
+
+Subjective NLP datasets typically aggregate annotator judgments into a single gold label, making it difficult to diagnose whether dis-agreement reflects unclear criteria, collapsed distinctions, or legitimate plurality. We propose a schema-level diagnostic for auditing expert-designed annotation schemas prior to gold-label commitment, using only multi-annotator criterion judgments. The diagnostic separates two failure modes: unstable criteria with hard-to-operationalize boundaries, and systematic overlap that blurs the boundaries between mu-tually exclusive categories. Applied to persua-sive value extraction in commercial documents, we find that disagreement is not diffuse: in-stability concentrates in a few criteria, while nearly half of covered sentences activate multi-ple categories. These signals align with where domain experts disagree, yielding an evidence-based audit for tightening guidelines, revising category structure, or reconsidering the anno-tation paradigm. Code and annotation data are publicly released 1.
+
+1 Introduction 
+
+Natural Language Processing is undergoing a criti-cal shift: many benchmarks increasingly measure subjective human judgments rather than factual ac-curacy (Uma et al., 2021; Basile et al., 2021). Yet standard practice aggregates multiple judgments into a single gold label, collapsing disagreement into noise and misrepresenting subjective assess-ments as objective truth (Pavlick and Kwiatkowski, 2019). In high-stakes settings, this opacity under-mines reliability and can conceal biases, motivating more rigorous methods for designing and validat-ing annotation schemas (Röttger et al., 2022). This challenge is especially acute in cold-start tasks, where no benchmarks or community norms 
+
+> 1https://github.com/NisrineRair/ annotation-schema-diagnostic
+
+exist. We study Persuasive Value Extraction (PVE) from commercial documents, a real application re-quiring categorization of sentences by procurement-relevant rationale. Following task decomposition practices (Sap et al., 2020), we operationalize this construct using expert-defined criteria. Yet multi-annotator labeling exhibits systematic disagree-ment, indicating that expert decomposition alone does not guarantee criteria are operationalizable in practice. The community has developed com-plementary tools: annotation paradigms to clarify labeling goals (Röttger et al., 2022), methods to quantify disagreement (Artstein and Poesio, 2008; Swayamdipta et al., 2020), and decomposition strategies to operationalize constructs (Sap et al., 2020; Ruggeri et al., 2024). Yet these advances often operate in isolation: Paradigms are often im-plicit, disagreement analyses treat schemas as fixed, and decompositions are rarely stress-tested (Uma et al., 2021; Basile et al., 2021). This matters because once gold labels are con-structed, schema failures are easily conflated with annotator noise and become expensive to diagnose or correct. When disagreement appears, its sources remain opaque. Specifically, disagreement may re-flect (i) underspecified criteria, (ii) non-separable distinctions where criteria overlap, or (iii) legiti-mate plurality. Without criterion-level procedures to distinguish these sources, schema revision re-mains ad hoc. To address this gap, we introduce a schema-level diagnostic that evaluates expert-designed schemas before committing to gold la-bels, using only multi-annotator criterion judg-ments. The diagnostic isolates two actionable fail-ure modes: (i) criterion instability, where crite-ria yield persistent borderline vote splits when en-gaged, and (ii) criterion overlap, where criteria co-activate and blur intended boundaries. Applied to PVE, disagreement is structured: instability con-centrates in a few criteria, and overlap localizes to specific boundaries. These signals align with where 
+
+> arXiv:2604.17022v1 [cs.CL] 18 Apr 2026
+
+domain experts later struggle, yielding an evidence-based audit for tightening guidelines, restructuring categories, or adopting an annotation paradigm that better reflects the inherent multi-dimensionality of the content. 
+
+2 Related Work 
+
+Subjectivity and Benchmark Reliability. Eval-uation benchmarks are central to NLP progress, yet their reliability is increasingly constrained by data quality and label consistency rather than model capabilities. Systematic label errors can distort evaluation (Northcutt et al., 2021; Swayamdipta et al., 2020), a problem amplified by the field’s shift toward inherently subjective tasks such as tox-icity detection, stance detection, and subjectivity analysis. Common practice collapses subjectivity by aggregating judgments into a single majority-vote label, producing datasets built from subjective assessments yet presented as objective truth. This motivates explicit annotation paradigms that clarify what counts as ground truth. 
+
+Annotation Paradigms. Annotation paradigms make normative and methodological commitments explicit. In a prescriptive paradigm, the goal is to reduce variation by enforcing a single inter-pretation. In a descriptive paradigm, the goal is to measure variation across legitimate judgments (Aroyo and Welty, 2015). A perspectivist view models structured viewpoints, treating disagree-ment as a reflection of coherent, underlying per-spectives (Basile et al., 2023). The perspectivist shift has inspired methods learning from disagree-ment, including learning from soft-label distribu-tions (Uma et al., 2021), analyzing training dy-namics (Swayamdipta et al., 2020), and modeling annotator-specific parameters (Mostafazadeh Da-vani et al., 2022). However, these approaches typi-cally assume the schema is adequate and do not test whether disagreement reflects underspecified crite-ria, structural overlap, or legitimate plurality. Our diagnostic instead tests schema adequacy, helping practitioners decide whether to tighten guidelines, redesign distinctions, or adopt multi-perspective annotation. 
+
+Measuring and Analyzing Label Variation. 
+
+Operationalizing any annotation paradigm requires measuring and characterizing label variation. Exist-ing methods fall into three broad families. Global agreement metrics , such as Cohen’s κ and Krip-pendorff’s α, quantify overall reliability but do not localize whether low agreement reflects anno-tator errors, inherent subjectivity, or underspeci-fied guidelines (Artstein and Poesio, 2008; Ruggeri et al., 2024; Plank, 2022). Instance-level localiza-tion treats disagreement as a property of particu-lar examples, using methods such as CrowdTruth (Aroyo and Welty, 2015) and Dataset Cartography (Swayamdipta et al., 2020) to localize contentious items. Annotator attribution models annotator behavior, either as noisy channels characterized by a confusion matrix (Paun et al., 2018; Dawid and Skene, 1979) or by adapting models to cap-ture individual perspectives (Ignatev et al., 2025; Plepi et al., 2022). Conceptual frameworks fur-ther distinguish sources of disagreement: instance ambiguity, annotator subjectivity, and task under-specification (Basile et al., 2023). Because these methods operate on labels after the schema is set, they primarily organize outputs around items and annotators, rather than testing whether criteria are applied consistently or whether intended distinc-tions are empirically separable. 
+
+Task Operationalization and Schema Decom-position. To address subjectivity, researchers in-creasingly focus on task operationalization, decom-posing high-level constructs into concrete label-ing frameworks. Documentation practices such as Data Statements (Bender and Friedman, 2018) and Datasheets for Datasets (Gebru et al., 2021) sur-face design choices, but they often leave unclear whether different annotators can apply the result-ing distinctions consistently. Recent work has also made guidelines and disagreement patterns central objects of analysis. The Guideline-Centered Anno-tation Methodology (Ruggeri et al., 2024) evaluates outcomes against a fixed expert-defined schema, emphasizing guideline adherence. Disagreement-centric frameworks such as CrowdTruth (Aroyo and Welty, 2015) and analyses such as Dataset Cartography (Swayamdipta et al., 2020) treat dis-agreement as signal about item difficulty or an-notator variation under an assumed label inven-tory. Domain-specific approaches further anchor criteria in external normative frameworks (Jikeli et al., 2023) or apply semantic componential anal-ysis (Korre et al., 2025; Salminen et al., 2018). Overall, these approaches justify schema adequacy through expert design, but provide limited empiri-cal stress-testing of whether criteria remain opera-tionally consistent or boundaries remain separable in practice. Across these lines of work, the anno-tation schema is typically treated as a fixed input, while disagreement is primarily characterized at the level of items or annotators. Consequently, existing methods rarely distinguish whether disagreement originates in (i) underspecified criterion boundaries, which is often addressable through tighter guidance, or (ii) structural overlap, where intended distinc-tions systematically co-activate and require cate-gory redesign or a different annotation paradigm. Our work addresses this gap with schema-level evaluation from criterion-level annotations , di-rectly auditing criterion stability and cross-criterion separability during schema development. 
+
+3 Methodology: Task Diagnosis 
+
+We propose a task-agnostic, schema-level diagnos-tic for subjective classification that does not assume a single correct label. Instead of inferring a latent “true” label, we analyze multi-annotator judgments as repeated applications of written criteria. Our diagnostic evaluates whether a schema behaves sta-bly and distinctly in practice, thereby probing its operationalization, particularly the clarity of its boundaries and the separability of its categories. Concretely, we test whether the schema yields dis-tinctions that are: (i) applied consistently across repeated invocations, and (ii) empirically separa-ble in joint judgments. The definition of separabil-ity depends on the intended annotation paradigm: mutually exclusive taxonomies require clear sep-arability, whereas overlap may be acceptable or even expected in multi-label or multi-perspective settings. A criterion exhibits instability when, con-ditional on annotator engagement, judgments fre-quently result in intermediate vote splits rather than converging toward unanimity. Depending on the annotation paradigm, this pattern may indicate an underspecified boundary or reflect legitimate an-notator variation, and the diagnostic surfaces this signal without prescribing its interpretation. In con-trast, a schema exhibits non-separability when mul-tiple criteria (and their induced categories) overlap on the same unit at non-trivial rates. In a single-label setting, this overlap makes it impossible to select a single, unambiguous label without an ex-plicit tie-breaking policy, though in a descriptive or multi-label paradigm, such co-activation may instead reflect the genuine multi-dimensionality of the content, with criterion-level overlap further lo-calizing which specific boundaries are under pres-sure beyond what coarse category disagreement alone reveals. 
+
+Task schema. We formalize a task schema 2 as 
+
+T = ( C, Q, μ ), where C = {c0, c 1, . . . , c C } is the set of categories. We designate c0 as the non-target category (e.g., “no persuasive value” in our setting, analogous to “neutral” or “non-offensive” in other tasks), and treat the remaining C cate-gories {ck}Ck=1 as substantive outcomes 3. The set 
+
+Q = {q1, . . . , q Q} contains Q expert-defined bi-nary criteria, each phrased as a yes/no question an-swered for each unit to test for a specific semantic signal. The mapping μ : Q → C , the criterion-to-category assignment, associates each criterion with the category it is intended to support. For each substantive category ck, we denote its supporting criteria by Qk = {q ∈ Q | μ(q) = ck}, the criteria whose positive judgment is taken as evidence for 
+
+ck, treating both Q, the set of criteria assigned to categories, and μ, their category assignments, as revisable design choices to be evaluated through our diagnostic audits during schema development. 
+
+Annotation setup. Given a corpus S =
+
+{s1, . . . , s S } of annotation units (e.g., sentences) and a panel of annotators A = {a1, . . . , a A}
+
+(human, LLM, or hybrid), each annotator pro-vides a yes/no response for each criterion q on each unit s. This yields a binary response tensor 
+
+Y ∈ { 0, 1}S×A×Q, where ysaq = 1 if annotator a
+
+marks criterion q as present in unit s, and 0 other-wise. For each unit–criterion pair (s, q ), we com-pute the positive vote count: 
+
+vsq =
+
+> A
+
+X
+
+> a=1
+
+ysaq , (1) which implies vsq ∈ { 0, . . . , A }, where vsq = 0 
+
+means no annotator marked criterion q as present for unit s, and vsq = A means full unanimity. Because criteria differ widely in how often they are triggered, a sparsely activated criterion will ap-pear highly stable simply because annotators con-sistently agree on its absence, masking genuine boundary ambiguity on the units where it actually applies, unless universal absence is itself the ex-pected and theoretically motivated outcome. To avoid masking boundary behavior, we restrict anal-ysis to units where at least t annotators marked the 
+
+> 2See Table 4 in Appendix A for a notation reference.
+> 3Depending on the task, the non-target outcome may be represented explicitly as a dedicated category or left implicit as the absence of any substantive label.
+
+criterion as present, focusing on cases where the criterion is meaningfully engaged. Formally, for a criterion q and threshold t ∈ { 0, 1, . . . , A }, we define the focus set as: 
+
+Ωq,t = { s ∈ S | vsq ≥ t }. (2) Intuitively, Ωq,t is the relevant scope for evaluating criterion q: the units for which q is meaningfully engaged. When t ≥ 1, Ωq,t restricts analysis to 
+
+engaged cases. The choice of t controls the selec-tivity of the analysis: setting t = 1 includes all units where at least one annotator marked criterion 
+
+q as present, while t = 0 recovers the full corpus 
+
+S. Higher values of t impose stricter engagement, focusing on units where multiple annotators agree the criterion applies. 
+
+Criterion stability. Stability refers to whether a criterion q yields consistent presence judgments when it is engaged. The size of the focus set Ωq,t 
+
+is itself informative: a large focus set indicates a frequently triggered criterion, while a small one signals a rare or narrow signal. We formalize this as the activation rate :
+
+Act t(q) = |Ωq,t ||S| , (3) which gives the proportion of corpus units where criterion q is engaged, capturing both its defini-tional scope and how prevalent the correspond-ing signal is in the corpus. A low activation rate may indicate a rare but task-relevant signal, while a high rate suggests a pervasive one, both infor-mative about how the schema behaves in practice. Second, given the focus set Ωq,t , the conditional vote distribution πq(· | t) provides, for each crite-rion, a distribution over agreement types: from full unanimity, where all annotators agree on presence, to near-equal splits, where the criterion sits at a boundary. Formally, for each level of agreement 
+
+k ∈ { t, . . . , A }:
+
+πq(k | t) = |{ s ∈ Ωq,t | vsq = k }| |Ωq,t | , (4) where the numerator counts engaged units receiv-ing exactly k positive votes and the denominator is the total number of engaged units, with k ranging from minimal engagement ( k = t) to full unanimity (k = A). We summarize πq(· | t) with ambiguity-based metrics in Section 4.2. Concentration near 
+
+k = A indicates consistent application, while mass at intermediate values signals boundary ambiguity. This captures the extent of disagreement but does not, by itself, distinguish diffuse uncertainty from stable splits into annotator subgroups, a distinction we return to via overlap. 
+
+Criterion separability. Stability evaluates each criterion in isolation, but does not reveal whether criteria fire independently or tend to co-activate on the same units. Co-activation is structurally infor-mative regardless of the annotation paradigm: it reveals where the schema’s intended distinctions break down in practice, whether this signals a de-sign flaw or the genuine multi-dimensionality of the content. We therefore measure the joint be-havior of criteria across the corpus using the same focus sets Ωq,t .For each unit s, we identify which criteria are simultaneously engaged by aggregating annotator votes: a criterion q is considered engaged for unit 
+
+s if at least t annotators marked it as present. Γs,t 
+
+collects all such criteria: 
+
+Γs,t = { q | s ∈ Ωq,t }, (5) and |Γs,t | counts how many criteria fire simultane-ously for unit s. If criteria were perfectly separa-ble, each unit would activate exactly one criterion. Units where |Γs,t | > 1 therefore signal potential co-activation between criteria. To measure how sys-tematically two criteria co-occur and distinguish symmetric entanglement from subset-like behavior, we define a directed conditional overlap: 
+
+CondOv t(q → q′) = |Ωq,t ∩ Ωq′,t ||Ωq,t | , (6) which estimates the empirical conditional probabil-ity that q′ is engaged when q is engaged. Asym-metry is informative: high CondOv t(q → q′) with low CondOv t(q′ → q) suggests that q tends to occur as a subset of q′, indicating potential redun-dancy or confounding rather than mutual overlap. Detecting such asymmetries is important because it reveals latent semantic structure in the schema: criteria may form implicit hierarchies where one subsumes another, signaling that the schema’s in-tended distinctions may not be operating at the same level of specificity. 
+
+Mapping to categories. Criterion co-activation captured by Γs,t does not distinguish whether co-occurring criteria belong to the same category or to distinct ones. Yet this distinction matters: criteria within the same category may tend to co-occur by construction, while co-activation across distinct cat-egories signals that the schema’s intended bound-aries may not hold in practice. To make this dis-tinction explicit, we lift engagement to the category level using the mapping μ. For each substantive category ck, we define a binary indicator that cap-tures whether the category is active for unit s, that is, whether at least one of its supporting criteria is engaged: 
+
+gsk,t = I(∃ q ∈ Q k : s ∈ Ωq,t ) , (7) where I(·) equals 1 if its argument is true and 0
+
+otherwise. Intuitively, gsk,t = 1 means the schema fires category ck for unit s, and gsk,t = 0 means it does not. Summing over all substantive categories, ms,t =
+
+PCk=1 gsk,t counts how many distinct categories are simultaneously active for unit s. We call a unit covered at threshold t if ms,t ≥ 1, meaning the schema fires at least one substantive category for that unit. Because c0 is defined implicitly as the absence of any substantive category, including uncovered units would dilute overlap rates with units where the schema simply does not fire. We therefore measure, among units where the schema fires, the fraction for which it fires on more than one category simultaneously, that is, the rate of cross-category boundary blurring conditional on coverage: 
+
+Overlap cat |cov , t =
+
+P 
+
+> s∈S
+
+I(ms,t ≥ 2) 
+
+P 
+
+> s∈S
+
+I(ms,t ≥ 1) , (8) where the numerator counts covered units activat-ing at least two categories, and the denominator counts all covered units. A high value indicates that the schema frequently fires on multiple cate-gories simultaneously, making single-label assign-ment ambiguous without an explicit tie-breaking policy. Finally, units with large |Γs,t | indicate many criteria firing at once, and units with ms,t ≥ 2 indi-cate cross-category boundary blurring, providing instance-level diagnostics for targeted schema revi-sion. 
+
+4 Case Study: Diagnosing the PVE Schema 
+
+4.1 Persuasive Value Extraction 
+
+Having introduced a task-agnostic schema diag-nostic, we instantiate it on Persuasive Value Ex-traction (PVE), a real-world formalization effort in commercial document analysis (Chochoy, 2025). We do not present PVE as a benchmark or claim the schema is definitive. Instead, it serves as a cold-start setting with no established community norms, making it well suited to demonstrate how disagreement can stress-test a schema and guide revision. PVE targets statements that articulate a benefit, advantage, or requirement relevant to pur-chase justification, as opposed to purely descriptive content. Domain experts initially formulated PVE as a sentence-level single-label classification task to support procurement workflows that require mu-tually exclusive categories. The task comprises four categories: • Non-Persuasive (c0): descriptive content with no explicit value claim. • Performance & Efficiency (c1): cost, effi-ciency, or measurable outcomes. • User Experience & Brand Value (c2): well-being, perceived quality, reputation, or appeal. • Obligation & Safety (c3): compliance, re-quirements, risk reduction, or security. Initial annotation revealed systematic disagree-ment. Persuasive value admits multiple defensible readings: the same sentence can be interpreted as emphasizing different advantages (financial, opera-tional, compliance, or reputational), and annotators may weigh these advantages over different time horizons. In particular, what looks like a short-term advantage can be judged less persuasive when potential longer-term downsides are taken into ac-count, producing conflicting but reasonable single-label assignments. Figure 1 shows a boundary case where experts split across categories. Ad-ditional task details and examples are provided in Appendix B. 
+
+Schema instantiation. To instantiate the PVE schema for diagnosis, we define T = ( C, Q, μ )
+
+with C = {c0, c 1, c 2, c 3}. Domain experts decom-posed the persuasive categories ( c1–c3) into three yes/no criteria each, reflecting an initial consen-sus on a small set of core signals per category rather than a definitive decomposition. This yields 
+
+M = 9 criteria, Q = {q1, . . . , q 9}. The mapping 
+
+μ : Q → C assigns each criterion to exactly one cat-egory, with {q1, q 2, q 3} 7 → c1, {q4, q 5, q 6} 7 → c2,and {q7, q 8, q 9} 7 → c3. The criteria provide a higher-resolution probe of the single-label PVE schema: they allow us to test whether the intended category distinctions are applied consistently and remain separable in annotator behavior, or whether multi-faceted value statements systematically trig-ger multiple signals. Full criterion wording, deci-sion guidance, and the iterative calibration process through which these criteria were developed are detailed in Appendix C. “Our platform uses advanced machine learning to automate data processing, freeing your team to focus on strategic analysis.”  
+
+> Performance & Efficiency
+> Automation drives operational efficiency through task elim-ination. By removing repetitive work, the primary value is shifted toward measurable business outcomes and higher-level productivity.
+> User Experience & Brand Value
+> Reducing manual labor enhances job satisfaction and team well-being. This interpretation views the technology as a way to enhance organizational reputation and improve qual-ity of work-life.
+> Obligation & Safety
+> Automated processing ensures systematic compliance with data policies. This viewpoint emphasizes the reduction of human error as a critical path toward regulatory adherence and overall safety.
+
+Figure 1: PVE boundary case: the same sentence sup-ports multiple defensible readings tied to different or-ganizational priorities, yielding conflicting single-label assignments. 
+
+4.2 Experimental Setup Corpus and data collection. Our dataset S com-prises |S| = 4 ,701 sentences (annotation units 
+
+s) extracted from 65 B2B commercial documents spanning five clients and multiple sectors (e.g., cy-bersecurity, mobility, regulatory affairs, infrastruc-ture, environmental services). Documents are pri-marily in French, with English technical terminol-ogy and a small number of fully English documents. For schema-level diagnosis, coverage of diverse document types is more informative than scale. Text was extracted from PDFs using layout-aware processing to recover reading order, followed by rule-based sentence segmentation. We avoid heavy cleaning of extraction artefacts, as they are part of the real input distribution and influence how cri-teria are applied. Additional corpus statistics are provided in Appendix D. 
+
+Annotation protocol. To instantiate Y at scale, we use a panel of LLMs as a reproducible probe of how written criteria behave under repeated applica-tion: each criterion is queried independently using a fixed template. We use this LLM panel as a stress-test instrument for the written criteria, to expose where the schema is unstable or non-separable, rather than as a proxy for human ground truth. Since the goal is schema auditing rather than label collection, LLM-specific variation is treated as any annotator variation would be in a multi-annotator study: a measurable signal rather than noise, whose structure can be analyzed, decomposed, and inter-rogated independently of its source. The diagnos-tic is agnostic to annotator type (human, LLM, or hybrid): here, LLMs are used to surface criterion-level instability and co-engagement patterns, and we validate key findings against expert human an-notations on a subset of sentences. Each model was independently queried on the corpus S using the same instruction prompt 4 and the Q = 9 yes/no PVE criteria q, with deterministic decoding (tem-perature = 0 ) and a short output budget (max to-kens = 3 ). We use a diverse panel of A = 5 mod-els as annotators drawn from distinct model fam-ilies: gpt-4.1-mini , gpt-4.1 , llama-3.3-70b ,
+
+mistral-large-2411 , and Qwen-2.5-72B . Out-puts were parsed into binary criterion decisions. Two sentences were removed due to persistent for-matting failures, yielding Y ∈ { 0, 1}4,699 ×5×9.
+
+Human validation subset. To anchor diagnostic patterns in human judgment, five domain experts with procurement expertise annotated a validation subset of 500 units: 389 unique sentences strati-fied by industry sector, plus 111 repeats to assess reliability. Experts assign exactly one category from C = {c0, c 1, c 2, c 3} per unit, matching the intended single-label task design. This subset is used only to test whether criterion-level instabil-ity and overlap correlate with category-level ex-pert disagreement and recurrent boundary confu-sions. We asked experts to assign categories di-rectly rather than answer all Q = 9 criteria, as criterion-level annotation would be substantially more time-consuming. Moreover, since the criteria were defined by domain experts to operationalize the categories, category-level judgments better re-flect their intended holistic reading of persuasive value in procurement settings. These annotations are therefore treated as an external validity check rather than ground truth: alignment between di-agnostic signals and expert disagreement patterns 
+
+> 4Full prompt text is in Appendix E, response handling details are in Appendix F, and model panel details are in Appendix G.
+
+confirms that instability and overlap reflect schema-level structure rather than LLM-specific artifacts. Details appear in Appendix H. 
+
+Focus-set thresholding. PVE criteria are sparse because many units are purely descriptive and map to the non-target category c0. We therefore use 
+
+t = 1 in the main analysis and define the focus set Ωq, 1 = { s ∈ S | vsq ≥ 1 }, i.e., units where criterion q receives at least one positive vote. We default to t = 1 because higher thresholds condi-tion on majority agreement and would systemati-cally exclude borderline or minority-but-defensible applications, precisely the cases most informative about boundary clarity. Robustness to stricter en-gagement regimes is reported in Appendix I. Condi-tioning on Ωq, 1 ensures that Act 1(q) and πq(· | 1) 
+
+characterize criterion behavior when it is engaged ,rather than being dominated by universal absence. We summarize the distribution πq(· | 1) (Eq. 4) with three interpretable rates for the A = 5 case, partitioning the vote distribution into three diagnos-tic zones: • UY (unanimous yes) : πq(5 | 1) .• AS (asymmetric split) : πq(4 | 1) + πq(1 | 1) ,capturing 4–1 and 1–4 vote splits. • NT (near-tie) : πq(3 | 1) + πq(2 | 1) , captur-ing boundary pressure via 3–2 and 2–3 splits. While the diagnostic procedure is task-agnostic, the instability and overlap patterns reported below are properties of this PVE instantiation and should not be interpreted as universal regularities. 
+
+5 Results and Discussion 
+
+Subjectivity is diagnosable: criteria exhibit sys-tematic instability. A core goal of schema di-agnosis is to test whether each criterion acts as a stable measurement instrument when invoked. With t = 1, Table 1 and Fig. 2 show strong criterion-specific variation in activation and con-ditional vote structure. Some criteria are compar-atively crisp: q6 (Perceived Quality ) is frequently engaged ( Act 1(q6) = 24 .0% ) and often yields unanimity (UY = 44 .9% ), consistent with clearer operational boundaries. Others show persistent boundary ambiguity: q9 (Mandatory Requirement )has the highest near-tie mass (NT = 38 .2% ) and low unanimity (UY = 20 .1% ), indicating that its boundary is systematically harder to operationalize even conditional on engagement. This instabil-ity is not diffuse: disagreement concentrates in a                                                              
+
+> ID Criterion Act 1(%) NT% AS% UY% |Ωq, 1|
+> q1Financial Gain 2.8 22.9 45.8 31.3 131
+> q2Operational Ben. 9.4 28.2 43.3 28.4 443
+> q3Performance Imp. 12.6 28.9 44.8 26.4 592
+> q4User Well-being 9.7 35.8 48.3 15.9 458
+> q5Brand Reputation 17.6 34.0 52.3 13.7 826
+> q6Perceived Qual. 24.0 23.3 31.9 44.9 1130
+> q7Regulatory Comp. 5.8 25.6 44.7 29.7 273
+> q8Risk Mitigation 14.1 27.8 36.9 35.3 662
+> q9Mandatory Req. 10.3 38.2 41.7 20.1 482
+
+Table 1: Criterion stability at t = 1 (A = 5 ). Act 1(qj ) is activation (Eq. 3), NT (near-tie), AS (asymmetric split), and UY (unanimous yes) are derived from πj (· | 1) 
+
+(Eq. 4) over focused units, |Ωj, 1| is focus-set size. Full criterion wording: Appendix C. 
+
+small subset of criteria (notably q4, q5, q9) rather than spreading uniformly across the schema. This concentration makes the diagnostic actionable by pinpointing specification bottlenecks. 0.05 0.10 0.15 0.20 0.25  
+
+> Activation rate
+> 22.5
+> 25.0
+> 27.5
+> 30.0
+> 32.5
+> 35.0
+> 37.5
+> 40.0
+> NT (%)
+> Unstable
+> & Rare
+> Unstable
+> & Frequent
+> Stable
+> & Rare
+> Stable
+> & Frequent
+> q1
+> q2 q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40
+> UY (%)
+
+Figure 2: Stability landscape at t = 1 . Each criterion is positioned by activation rate Act 1(q) (x-axis) and near-tie rate NT (y-axis), computed over the focus set 
+
+Ωq, 1. Color encodes unanimity UY .
+
+A plausible explanation is that criteria differ in how directly they anchor to document-internal cues. Criterion q6 is often signaled by explicit evalu-ative markers (e.g., “premium”, “high-quality”), whereas q4 (User Well-being ) is frequently im-plicit and inference-heavy (comfort, reduced ef-fort, health), yielding more borderline calls. This suggests that a measurable component of subjectiv-ity arises from operationalization choices (scope, cue anchoring, examples), motivating targeted revi-sions to the most unstable criteria rather than blan-ket schema changes. These stability patterns are ro-bust to stricter engagement thresholds and to panel perturbations (Appendix I, Appendix J), ensuring that we are measuring task stability rather than model bias or idiosyncratic artifacts. We next turn to structural non-identifiability: systematic overlap across categories that underdetermines single-label assignment. Model-level annotation behavior, in-cluding criterion-specific activation profiles and inter-model agreement patterns, is analyzed in Ap-pendix L. 
+
+Multi-dimensionality is measurable: overlap re-veals structural bottlenecks. PVE is framed as mutually exclusive single-label classification, as-suming persuasive evidence maps cleanly to one category. Our criterion-level audit shows that this assumption fails precisely on the subset where the schema is engaged. Table 2 reports category over-lap conditional on coverage, showing that 44.6% of 
+
+covered sentences activate at least two non-target categories ( ms,t ≥ 2), yielding Overlap cat |cov , t =44 .6% (Eq. 8). Under a single-label design, any sentence with ms,t > 2 is inherently underdeter-mined unless the guidelines provide an explicit tie-breaking policy. In these cases the schema is non-identifying : persuasive evidence is present (ms,t ≥ 1), yet it does not determine a unique category label. This ambiguity is already visible at the measurement layer. On covered sentences, Table 2 shows that 64.6% engage at least two cri-teria (i.e., |Γs,t | ≥ 2), and 26.5% engage four or more ( |Γs,t | ≥ 4), where |Γs,t | is the count of cri-terion engagements defined in Eq. 5. Single-label assignment is therefore often underdetermined: an-notators may agree on which criteria are present yet diverge on the final category because the schema provides no policy for resolving concurrently valid dimensions. Crucially, this overlap is structured rather than dif-fuse. Figure 3 shows that a few criterion pairs dominate cross-category co-activation, localizing the strongest leakage at the c1–c2 boundary. These core overlap patterns are robust to stricter engage-ment thresholds (Appendix K), demonstrating they are inherent features of the schema, not method-ological artifacts. The nature of this structured overlap is revealing. Performance-related crite-ria often co-occur with user-experience and brand-value evidence, whereas c3 (Obligation & Safety) remains comparatively distinct. The directional-ity is informative: several high-leakage pairs are markedly asymmetric (as quantified by the directed conditional overlap in Eq. 6), suggesting subset-like behavior rather than symmetric entanglement. Together, these patterns identify a structural bottle-neck in the taxonomy: commercial persuasion is inherently multi-dimensional at the c1–c2 bound-ary, so enforcing mutual exclusivity produces sys-tematic ambiguity rather than isolated edge cases. Practically, this motivates either adding explicit tie-breaking guidance for c1 vs. c2 when both are supported, or adopting a multi-label or multi-perspective paradigm on that boundary.                         
+
+> A. Criteria Count ( |Γs, 1|)
+> Count # Units % of covered 1690 35.4 2419 21.5 3325 16.7
+> ≥4517 26.5
+> B. Category Metrics
+> Metric # Units % of covered Covered ( ms, 1≥1)1,951 41.5 Overlap ( ms, 1≥2)870 44.6 Mean |Γs, 1|2.56 –
+
+Table 2: Measurement-layer engagement and induced category ambiguity at t = 1 . (A) Criterion engage-ment counts |Γs, 1| over covered units ( ms, 1 ≥ 1), 64 .7% 
+
+of covered units engage ≥ 2 criteria. (B) Coverage (ms, 1 ≥ 1) and category overlap among covered units (Pr[ ms, 1 ≥ 2 | ms, 1 ≥ 1] = 44 .6% ). q1 q2 q3 q4 q5 q6 q7 q8 q9 
+
+> Target criterion q0
+> q1
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Source criterion  q
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CondOv 1(q!q0)
+
+Figure 3: Cross-category leakage at t = 1 . Each cell reports directed conditional overlap CondOv 1(q → q′),the probability that q′ is engaged given that q is engaged. Within-category blocks (by μ) are masked to emphasize cross-category co-activation. 
+
+Humans as the black box: reframing disagree-ment as a design signal. High inter-annotator disagreement on criteria such as q9 (“Mandatory Requirement”) is often dismissed as annotator noise or irreducible subjectivity. In our audit, it more often reflects a specification gap: the crite-rion underspecifies expert intent, forcing annotators to implicitly supply a missing decision policy (e.g., does “mandatory” mean legally, contractually, or operationally required?). The task feels subjective not because the phenomenon is inherently ambigu-ous, but because the specification delegates intent resolution to the annotator, a design decision left implicit rather than made explicit. A second, struc-turally distinct source of disagreement emerges even when criteria are individually crisp. Perfor-mance criteria ( q1–q3) and q6 (“Perceived Quality”) frequently co-activate on sentences like “This runs 10 × faster and feels intuitive.” Here, annotators can agree on the evidence yet disagree on the final label, because the single-label paradigm lacks a rule for resolving simultaneously valid persuasive dimensions. This is not a definitional failure but a design mismatch: the schema never made explicit which dimension to foreground when multiple are present. Both failure modes ultimately trace back to implicit human choices in schema design, where more deliberate effort upfront could have prevented the ambiguity downstream. They demand different remedies: the first requires revising the instrument ,tightening scope, adding anchors, and making in-tent explicit, while the second requires revising the task design , introducing tie-breaking policies, restructuring categories, or adopting a multi-label paradigm. The appropriate remedy also depends on the intended annotation paradigm. What looks like a specification gap may sometimes be deliber-ate: in a descriptive paradigm, leaving room for annotator interpretation is a feature, not a flaw. The diagnostic does not prescribe which remedy to apply; it makes the source of disagreement ex-plicit and reportable, turning disagreement from an endpoint into a starting point for principled re-vision. Concrete examples of how these signals guided criterion-level refinements are discussed in Appendix M. 
+
+Human validation: diagnostic signals predict and explain expert disagreement. To validate the diagnostic, we test whether its signals align with expert judgment on a held-out set of 500 sentences labeled by five domain experts. The correspondence is strong. Sentences flagged as cross-category co-activated ( ms,t ≥ 2) show sub-stantially higher expert disagreement than single-category cases ( ms,t = 1 ). Critically, the diagnos-tic pinpoints the same problematic boundary that most confuses experts: the c1–c2 boundary shows both the highest diagnostic co-activation (83.8%) and the highest expert split rate (37.5%), far above                   
+
+> Pair Human split (%) Diag. co-act (%)
+> c1–c237.5 83.8
+> c1–c316.5 44.4
+> c2–c314.9 50.7
+> Table 3: Boundary alignment on the human-validation subset (covered sentences only at t= 1 ,ms, 1≥1). Hu-man split : fraction of covered sentences where experts assign both caand cb.Diag. co-act : fraction of covered sentences where both categories are diagnostically ac-tive (Eq. 7).
+
+other boundaries. This alignment confirms that the diagnostic reveals stable, schema-level flaws, not artifacts of the LLM panel. More importantly, it provides an actionable intervention map. We can now distinguish whether expert struggle stems from criterion ambiguity (e.g., underspecified defi-nitions) or a schema mismatch (multi-dimensional evidence forced into a single label). Each requires a distinct remedy, tightening definitions versus adding tie-breaking rules or shifting paradigms, as illustrated qualitatively in Appendix N. Thus, the diagnostic completes the diagnosis phase, pro-viding an evidence-based map for targeted inter-vention. This transforms schema refinement from guesswork into a precise engineering task: first di-agnose the source of disagreement, then apply the appropriate remedy. 
+
+6 Conclusion 
+
+Progress in subjective NLP requires moving be-yond treating annotator disagreement as mere noise. We introduce a diagnostic that instead character-izes its source, distinguishing between instability from underspecified criteria and non-separability from intrinsically multidimensional evidence. This characterization provides a critical, evidence-based map for schema design. It allows designers to make a principled choice: to operationalize a pre-scriptive task by tightening definitions and adding tie-breakers, or to formalize a descriptive task by adopting a multi-label or multi-perspective paradigm that captures legitimate plurality. Thus, our work shifts the goal from enforcing consensus to understanding the task structure. By making these design choices explicit and auditable, we pro-vide a foundation to reorient benchmark creation for building resources that are not just larger, but more interpretable, deliberate, and authentically aligned with the phenomena they aim to capture. 7 Limitations 
+
+Limitation: LLM-based annotation panel. Our diagnostic relies on an LLM panel to enable scal-able and reproducible schema stress-testing, a prag-matic choice for auditing written criteria. The trade-off is that LLM judgments may reflect shared training priors or similar instruction-following be-havior, which can shape the observed patterns of instability and overlap. Our held-out expert valida-tion indicates that the main diagnostic signals are meaningful, but LLM-specific artifacts may per-sist, especially for niche or domain-specific criteria. Accordingly, these results should be interpreted as revealing the schema’s failure modes under a consistent automated judgment regime , not as esti-mates of population-level human agreement. Full validation requires replication with diverse human panels and hybrid human–LLM designs to charac-terize where judgments converge and where they systematically diverge. 
+
+Corpus specificity and generalization. Our analysis is grounded in one corpus of real commer-cial documents. While this improves ecological validity for PVE, diagnostics are corpus-sensitive: different organizations, sectors, or preprocessing choices may shift which criteria appear unstable or entangled. The diagnostic is most informative when run on the actual target distribution and re-peated across diverse corpora. 
+
+Single-task instantiation. We validate the diag-nostic on one schema and one domain: Persuasive Value Extraction in commercial documents. While the diagnostic framework is model-agnostic and applies to any task with human-defined criteria and multi-annotator criterion judgments, empiri-cal conclusions about which failure modes domi-nate and how overlap concentrates may not transfer to other domains, label spaces, or discourse gen-res. Demonstrating generality requires replication on additional subjective tasks with independently designed schemas and different operational con-straints (e.g., moderation, stance, clinical narra-tives). 
+
+Criterion wording, binarization, and language dependence. Our criteria are binary yes/no ques-tions under an explicit-only rule, and diagnostic outcomes inherit these design choices. Binariza-tion compresses graded evidence and can increase near-ties around implicit thresholds. Moreover, the corpus is primarily French with English techni-cal terminology; lexical cues, modality markers, and regulatory language vary significantly across languages and sectors. As a result, stability and overlap should be interpreted as properties of this operationalization in this linguistic setting, not as language-invariant properties of the underlying con-structs. Applying the diagnostic elsewhere will re-quire re-calibration of criterion wording and may change which boundaries appear unstable or entan-gled. 
+
+Task framing and the single-label constraint. 
+
+PVE is framed as single-label due to downstream procurement workflows, yet the corpus frequently expresses multiple value dimensions in the same sentence. Observed co-activation may therefore reflect a mismatch between the phenomenon and the forced-choice framing as much as any schema deficiency. Our diagnostic localizes where this mismatch is concentrated, but it does not determine which resolution is appropriate (tighten boundaries, restructure categories, adopt multi-label, or impose a stakeholder-specific tie-breaker). These choices depend on external requirements and normative commitments outside the diagnostic. 
+
+Data access and reproducibility. Raw source documents cannot be released due to client con-fidentiality. The released repository contains anonymized sentence data and the full annotation tensor, enabling reproduction of all diagnostic pro-cedures. End-to-end reproducibility from raw doc-uments is not possible, but all diagnostic method-ology is fully specified and applicable to other datasets. 
+
+Scope and future work. Our diagnostic flags unstable or non-separable criteria but does not pre-scribe solutions. Future work should validate on public datasets with diverse annotator pools, con-nect diagnostic signals to concrete interventions (revised definitions, multi-label protocols, tie-break policies), and evaluate downstream effects on eval-uation across domains and cultures. This aligns with emerging shared-task efforts replacing coarse labels with dimensional supervision (e.g., SemEval-2026 Task 3 Track B: DimStance). References 
+
+Lora Aroyo and Chris Welty. 2015. Truth Is a Lie: Crowd Truth and the Seven Myths of Human Anno-tation. AI Magazine , 36(1):15–24. Ron Artstein and Massimo Poesio. 2008. Survey Arti-cle: Inter-Coder Agreement for Computational Lin-guistics. Computational Linguistics , 34(4):555–596. Valerio Basile, Federico Cabitza, Andrea Campagner, and Michael Fell. 2023. Toward a Perspectivist Turn in Ground Truthing for Predictive Computing. Pro-ceedings of the AAAI Conference on Artificial Intelli-gence , 37(6):6860–6868. ArXiv:2109.04270 [cs]. Valerio Basile, Michael Fell, Tommaso Fornaciari, Dirk Hovy, Silviu Paun, Barbara Plank, Massimo Poesio, and Alexandra Uma. 2021. We Need to Consider Disagreement in Evaluation. In Proceedings of the 1st Workshop on Benchmarking: Past, Present and Future , pages 15–21, Online. Association for Com-putational Linguistics. Emily M. Bender and Batya Friedman. 2018. Data Statements for Natural Language Processing: To-ward Mitigating System Bias and Enabling Better Science. Transactions of the Association for Compu-tational Linguistics , 6:587–604. Place: Cambridge, MA Publisher: MIT Press. Emmanuel Chochoy. 2025. La méthode MSMKC : Réin-venter la vente à l’ère du chaos numérique . Econom-ica & L’Éditeur à part. A. P. Dawid and A. M. Skene. 1979. Maximum Likeli-hood Estimation of Observer Error-Rates Using the EM Algorithm. Journal of the Royal Statistical Soci-ety. Series C (Applied Statistics) , 28(1):20–28. Pub-lisher: [Royal Statistical Society, Oxford University Press]. Timnit Gebru, Jamie Morgenstern, Briana Vecchione, Jennifer Wortman Vaughan, Hanna Wallach, Hal Daumé, and Kate Crawford. 2021. Datasheets for Datasets. arXiv preprint . ArXiv:1803.09010 [cs]. Daniil Ignatev, Denis Paperno, and Massimo Poesio. 2025. Hypernetworks for Perspectivist Adaptation. 
+
+arXiv preprint . ArXiv:2510.13259 [cs]. Gunther Jikeli, Sameer Karali, Daniel Miehling, and Katharina Soemer. 2023. Antisemitic Mes-sages? A Guide to High-Quality Annotation and a Labeled Dataset of Tweets. arXiv preprint .ArXiv:2304.14599 [cs]. Katerina Korre, Arianna Muti, Federico Ruggeri, and Alberto Barrón-Cedeño. 2025. Untangling Hate Speech Definitions: A Semantic Componential Anal-ysis Across Cultures and Domains. arXiv preprint .ArXiv:2411.07417 [cs]. Aida Mostafazadeh Davani, Mark Díaz, and Vinodku-mar Prabhakaran. 2022. Dealing with Disagreements: Looking Beyond the Majority Vote in Subjective Annotations. Transactions of the Association for Computational Linguistics , 10:92–110. Place: Cam-bridge, MA Publisher: MIT Press. Curtis G. Northcutt, Anish Athalye, and Jonas Mueller. 2021. Pervasive Label Errors in Test Sets Destabi-lize Machine Learning Benchmarks. arXiv preprint .ArXiv:2103.14749 [stat]. Silviu Paun, Bob Carpenter, Jon Chamberlain, Dirk Hovy, Udo Kruschwitz, and Massimo Poesio. 2018. Comparing Bayesian Models of Annotation. Trans-actions of the Association for Computational Linguis-tics , 6:571–585. Place: Cambridge, MA Publisher: MIT Press. Ellie Pavlick and Tom Kwiatkowski. 2019. Inherent Disagreements in Human Textual Inferences. Trans-actions of the Association for Computational Linguis-tics , 7:677–694. Place: Cambridge, MA Publisher: MIT Press. Barbara Plank. 2022. The “Problem” of Human Label Variation: On Ground Truth in Data, Modeling and Evaluation. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Process-ing , pages 10671–10682, Abu Dhabi, United Arab Emirates. Association for Computational Linguistics. Joan Plepi, Béla Neuendorf, Lucie Flek, and Charles Welch. 2022. Unifying Data Perspectivism and Per-sonalization: An Application to Social Norms. In 
+
+Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing , pages 7391–7402, Abu Dhabi, United Arab Emirates. As-sociation for Computational Linguistics. Federico Ruggeri, Eleonora Misino, Arianna Muti, Ka-terina Korre, Paolo Torroni, and Alberto Barrón-Cedeño. 2024. Let Guidelines Guide You: APrescriptive Guideline-Centered Data Annotation Methodology. arXiv preprint . ArXiv:2406.14099 [cs]. Paul Röttger, Bertie Vidgen, Dirk Hovy, and Janet Pier-rehumbert. 2022. Two Contrasting Data Annotation Paradigms for Subjective NLP Tasks. In Proceedings of the 2022 Conference of the North American Chap-ter of the Association for Computational Linguis-tics: Human Language Technologies , pages 175–190, Seattle, United States. Association for Computational Linguistics. Joni Salminen, Hind Almerekhi, Milica Milenkovi´ c, Soon-gyo Jung, Jisun An, Haewoon Kwak, and Bernard Jansen. 2018. Anatomy of Online Hate: De-veloping a Taxonomy and Machine Learning Models for Identifying and Classifying Hate in Online News Media. Proceedings of the International AAAI Con-ference on Web and Social Media , 12(1). Maarten Sap, Saadia Gabriel, Lianhui Qin, Dan Juraf-sky, Noah A. Smith, and Yejin Choi. 2020. Social Bias Frames: Reasoning about Social and Power Im-plications of Language. In Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics , pages 5477–5490, Online. Association for Computational Linguistics. Swabha Swayamdipta, Roy Schwartz, Nicholas Lourie, Yizhong Wang, Hannaneh Hajishirzi, Noah A. Smith, and Yejin Choi. 2020. Dataset Cartography: Map-ping and Diagnosing Datasets with Training Dynam-ics. In Proceedings of the 2020 Conference on Em-pirical Methods in Natural Language Processing (EMNLP) , pages 9275–9293, Online. Association for Computational Linguistics. Alexandra N. Uma, Tommaso Fornaciari, Dirk Hovy, Silviu Paun, Barbara Plank, and Massimo Poesio. 2021. Learning from Disagreement: A Survey. 
+
+Journal of Artificial Intelligence Research , 72:1385– 1470. A Supplementary Method Details 
+
+Notation consistency. We use the same indices as in Section 3: s indexes sentences (units), q indexes criteria, and a indexes annotators. Table 4 summarizes the notation used in Section 3 for quick reference. 
+
+Symbol Meaning 
+
+T = ( C, Q, μ ) Task schema: categories C, criteria Q, and mapping μ.
+
+C = {c0, c 1, . . . , c C } Category set ( |C| = C + 1 ); c0 denotes the non-target / default category. 
+
+Q = {q1, . . . , q Q} Set of expert-defined binary criteria (yes/no questions), |Q| = Q.
+
+μ : Q → C Mapping from each criterion to the (single) category it is intended to support. 
+
+Qc Supporting criteria for category cc: Qc = { q ∈ Q | μ(q) = cc }.
+
+S = {s1, . . . , s N } Corpus of annotation units (e.g., sentences), with |S| = N .
+
+A = {a1, . . . , a A} Annotator panel of size A.
+
+Y ∈ { 0, 1}|S|× A×Q Binary response tensor; ysaq = 1 if annotator a marks criterion q as present in unit s.
+
+vsq Positive vote count for (s, q ): vsq = PAa=1 ysaq ∈ { 0, . . . , A }.
+
+t Vote threshold used to define focus sets, t ∈ { 0, 1, . . . , A }.
+
+Ωq,t Focus set for criterion q at threshold t: Ωq,t = { s ∈ S | vsq ≥ t }.
+
+Act t(q) Activation rate at threshold t: Act t(q) = |Ωq,t ||S| .
+
+πq (k | t) Conditional vote distribution over k ∈ { t, . . . , A }: πq (k | t) = |{ s∈Ωq,t |vsq =k }| |Ωq,t | .
+
+Γs,t Engaged criteria for unit s at threshold t: Γs,t = { q ∈ Q | s ∈ Ωq,t }.
+
+Overlap crit ,t Criterion-level overlap rate at threshold t: Overlap crit ,t = 1
+
+> |S|
+
+P 
+
+> s∈S
+
+1[|Γs,t | ≥ 2] .
+
+CondOv t(q → q′) Directed conditional overlap at threshold t: CondOv t(q → q′) = |Ωq,t ∩Ωq′,t ||Ωq,t | (asymmet-ric in q, q ′). 
+
+gsc,t Category engagement indicator at threshold t: gsc,t = 1[∃ q ∈ Q c : s ∈ Ωq,t ].
+
+ms,t Number of active non-target categories for unit s at threshold t: ms,t = PCc=1 gsc,t .
+
+Overlap cat ,t Category-level overlap rate at threshold t: Overlap cat ,t = 1
+
+> |S|
+
+P 
+
+> s∈S
+
+1[ms,t ≥ 2] .
+
+Overlap cat |cov ,t Category overlap conditional on coverage (ms,t ≥ 1): Overlap cat |cov ,t = 
+
+> P
+> s∈S 1
+
+[ms,t ≥2] 
+
+> P
+> s∈S 1
+
+[ms,t ≥1] .
+
+Table 4: Notation used in Section 3. 
+
+B Task Examples and Boundary Cases 
+
+Why PVE matters in practice. PVE arises from a commercial document-analysis workflow used by a procurement-focused consulting partner. In this setting, analysts read vendor-facing documents (offers, technical notes, product brochures) and restructure them into decision-ready summaries for buyers. A recurring pain point is that persuasive content is interleaved with technical description, boilerplate, and formatting artefacts, making it time-consuming to identify what actually justifies the purchase .PVE therefore targets sentences that express a procurement-relevant justification, rather than descriptive background. 
+
+Practitioner rationale for the four categories. The schema is grounded in a practitioner view that buyers typically justify purchases along a small set of recurring axes. In our partner’s framework, a sentence is persuasive when it supports at least one of four broad motivations: (i) improved performance or efficiency (e.g., productivity, savings, measurable outcomes), (ii) improved experience or brand value (e.g., perceived quality, attractiveness, reputation, trust), (iii) obligation or safety (e.g., compliance requirements, risk reduction, security), or (iv) none of the above (descriptive content that does not provide a justification). These axes reflect how procurement teams communicate internally: they map technical statements to decision narratives that are financial, experiential/reputational, or compliance- and risk-driven. 
+
+What makes PVE difficult. Commercial writing often compresses multiple motivations into one sentence (e.g., automation and compliance, security and trust), and the same statement can be plausibly interpreted through different organizational priorities. This produces boundary cases under a single-label design: even when all annotators act in good faith, choosing one label can require committing to one foregrounded rationale and down-weighting others. A further source of difficulty is that persuasive value is often implicit rather than explicit: the same statement can carry different weight depending on who is reading it, their organizational role, and the procurement context. Annotators with domain expertise naturally draw on this background knowledge, sometimes completing the interpretation beyond what is explicitly stated, introducing variation that reflects legitimate contextual reasoning rather than annotation error. 
+
+Illustrative examples. Table 5 provides representative cases spanning clear non-activations, strong multi-criterion activations, and boundary cases with LLM disagreement. These examples illustrate instability (split votes) and overlap (multiple criteria activating simultaneously), the core phenomena detected by our diagnostic.                               
+
+> ID Sentence (English) LLM criterion votes (Yes/No, panel size = 5 )
+> 2414 In this context and at the request of elected officials, a regional agricultural authority offers a new seasonal accommodation service. None triggered (all 0/5) 233 Ecological recycling of end-of-life IT equipment through awareness campaigns, sorting points, collection of used materials, secure document destruction and GDPR-compliant data erasure, followed by refurbishment of reusable components.
+> q5:(2/3), q6:(1/4), q7:(5/0), q8:(5/0), q9:(3/2) 887 We help reduce employees’ commute times to improve quality of life and reduce lateness, absenteeism, turnover, and carbon footprint.
+> q2:(5/0), q3:(5/0), q4:(5/0), q6:(5/0) 159 Consider filing an export-support application to obtain a subsidy for international expansion. q1:(3/2) 708 Our agreement specifies GDPR-compliant data processing procedures between you, our organization, and the employer providing the data.
+> q5:(1/4), q6:(2/3), q7:(5/0), q8:(5/0), q9:(4/1) 2360 To ensure continuity, we must give young professionals visibility through profitability, projects, and recognition via a positive public image.
+> q1:(4/1), q3:(2/3), q4:(2/3), q5:(5/0), q6:(5/0),
+> q9:(4/1) 4555 Our innovation protects tree bases against erosion and compaction, enabling better rooting and improved infiltration of runoff water.
+> q2:(5/0), q3:(4/1), q4:(1/4), q6:(5/0), q8:(5/0),
+> q9:(3/2)
+
+Table 5: Representative examples illustrating criterion activation patterns at t = 1 . Vote tallies (Yes/No out of 5 LLM models) reveal consistent activations (e.g., 5/0), borderline splits (e.g., 3/2), and non-activations. These patterns illustrate the instability and overlap phenomena detected by our diagnostic. 
+
+C Persuasive Value Extraction Criteria 
+
+From coarse labels to operational criteria. When we first discussed persuasive value with our procurement-focused consulting partner, they could readily distinguish non-persuasive content (technical description, boilerplate, formatting artefacts) from persuasive content (sentences that justify a purchase decision). The difficulty emerged when translating this intuition into a stable annotation scheme: even practitioners disagreed on why a sentence is persuasive, who benefits from the stated action, and whether the value is directly stated or only inferred. Rather than treating this as a fixed taxonomy from the start, the definition evolved through calibration discussions, and experts converged on nine binary criteria (q1–q9), phrased as yes/no questions, to capture recurring procurement rationales and make disagreements observable rather than hidden under a single label. 
+
+Iterative calibration process. The nine criteria were initially drafted by the lead coordinator based on domain analysis of persuasive value in B2B commercial documents. These draft constructs were then discussed and refined in structured workshops with domain experts prior to any large-scale annotation. The process involved four stages: (i) construct decomposition into binary decision rules, (ii) pilot annotation on a subset of documents, (iii) structured discussion of disagreement cases supported by concrete sentence examples reviewed collectively, and (iv) wording refinement guided by observed boundary failures. Criteria definitions are treated as living artifacts: they remain open to revision as new boundary cases surface, and the diagnostic is precisely designed to support this ongoing stabilization. A central challenge during calibration was separating signals that are conceptually related but opera-tionally distinct. For instance, defining what counts as a return on investment required explicit choices: does ROI refer strictly to measurable financial return, or does any stated gain qualify? Such decisions were made collaboratively by domain experts and reflect the company’s current operational priorities rather than universal definitional truths. These choices are assumed for now but remain open to revision as the schema matures. Once sufficiently stable, the schema could itself become an object of study, for instance to investigate how procurement-relevant value is constructed and communicated in commercial discourse, at the intersection of organizational sociology and computational linguistics. To illustrate, the initial formulation of q5 (Reputation & Recognition) conflated brand visibility signals with perceived quality judgments, a tension that only became measurable after applying the diagnostic. This signal prompted structured reconsideration, leading to the introduction of a refined criterion and reduced overlap between recognition and quality signals. This exemplifies how the diagnostic supports iterative schema development rather than prescribing a fixed endpoint. For practitioners applying this framework to new tasks, we recommend: (i) explicit construct de-composition, (ii) operationalizing each construct as clear binary decision rules, (iii) pilot annotation with structured disagreement review supported by shared sentence examples, (iv) explicit articulation of the chosen annotation paradigm prior to large-scale annotation, and (v) diagnostic evaluation prior to committing to gold labels. 
+
+Why an explicit-only rule was adopted. One key design choice to emerge from calibration was the adoption of an explicit-only annotation rule, motivated by the need to anchor judgments to textual evidence rather than background assumptions. During calibration, experts repeatedly encountered sentences that support multiple plausible readings once background assumptions are introduced. For example, a capability might seem to save time, or a policy change might produce financial return, but these inferences require stepping beyond what the text explicitly states. This created unstable judgments, especially when distinguishing between performance/efficiency rationales and experience/brand-value rationales, because annotators could legitimately “complete the story” beyond the sentence’s explicit content. Consider the sentence: “We are deploying more police officers in the city.” Different experts foreground different rationales: one sees this as a compliance/safety measure (public security mandate), another as improved user well-being (citizens feel safer), while a third connects it indirectly to economic value (a safer city attracts tourism and revenue). To reduce this drift and keep the criteria anchored to textual evidence, experts adopted an explicit-only principle: a criterion is marked Yes only if the corresponding value claim is explicitly stated in the sentence. If the value requires inference or external context, the answer should be No . Each criterion is evaluated independently as Yes /No .
+
+Examples of the explicit-only rule in practice. Below are illustrative cases showing how the explicit-only rule prevents “story completion” beyond the sentence: • Inference-only capability (explicit-only: No ). “The platform provides automated incident workflows and configurable dashboards.” Tempting inference: time savings / productivity. Explicit-only: No 
+
+for q2 (Operational Efficiency) and q3 (Organizational Impact), since no benefit (faster, reduced workload, improved results) is explicitly stated. • Explicit operational gain (explicit-only: Yes ). “Automation reduces processing time by 30% and cuts manual workload.” Explicit-only: Yes for q2 (Operational Efficiency) because the efficiency gain is directly asserted, No for q1 unless a financial gain is explicitly mentioned. • Multi-signal sentence (explicit-only: multiple Yes ). “The new module runs 10 × faster and offers an intuitive interface.” Explicit-only: Yes for q3 (Organizational Impact / Performance) and Yes for 
+
+q4 or q6 (User Well-Being / Perceived Quality), since both performance and experience are explicitly present. Under a single-label design, this creates a principled overlap case rather than annotator error. • Compliance vs. “mandatory” (explicit-only: distinguish q7 and q9). “This procedure is required to comply with GDPR.” Explicit-only: Yes for q7 (Regulatory Compliance). Mark q9 (Manda-tory Requirement) only if the sentence explicitly frames necessity as avoiding danger/sanction or guaranteeing minimum protection (e.g., “to avoid sanctions” / “to ensure minimum safety”). • Mandatory for safety (explicit-only: q9 = Yes ). “This control is mandatory to avoid safety incidents and ensure minimum protection for users.” Explicit-only: Yes for q9 (Mandatory Requirement) and often also q8 (Risk Prevention / Security), since danger/protection is explicitly stated. 
+
+D Corpus Composition and Statistics 
+
+Corpus diversity. Table 7 summarizes the corpus used for schema diagnosis. It spans five anonymized clients from distinct sectors (e.g., cybersecurity, mobility/environment, regulatory affairs, and infrastruc-ID Category Criterion name Criterion (EN) 
+
+q1 Performance & Effi-ciency Cost Reduction Does the sentence mention financial gain, cost reduction, or measurable return on investment? 
+
+q2 Performance & Effi-ciency Operational Efficiency Does the sentence highlight a clear functional improvement (time, workload, automation, . . . ) framed as an operational advantage? 
+
+q3 Performance & Effi-ciency Organizational Impact Does the sentence frame the effect as an impact on an orga-nization’s results, resources, or performance? 
+
+q4 User Experience & Brand Value User Well-Being Does the sentence emphasize improved well-being, comfort, quality of life, or work environment for a user? 
+
+q5 User Experience & Brand Value Reputation & Recogni-tion Does the sentence highlight a label, recognition, attractive-ness, or a positive image of a service, place, or organization? 
+
+q6 User Experience & Brand Value Tangible/Perceived Qual-ity Does the sentence suggest a visible, tangible, or positively perceived impact on the environment, usage, or user experi-ence? 
+
+q7 Obligation & Safety Regulatory Compliance Does the sentence mention the need to comply with a stan-dard, law, or regulatory requirement? 
+
+q8 Obligation & Safety Risk Prevention/Security Does the sentence refer to a security measure or risk preven-tion (physical, digital, legal, . . . )? 
+
+q9 Obligation & Safety Mandatory Requirement Does the sentence frame an action as necessary to avoid danger, sanction, or to guarantee minimum protection? 
+
+Table 6: PVE criteria by category (expert-defined). Each criterion is evaluated independently as Yes /No under an explicit-only annotation rule: implied value is marked No .
+
+Client Sector # Docs # Sents Mean len. 
+
+Client A Mobility, Environment & Well-being 6 577 19.02 Client B Cybersecurity & Digital Safety 6 397 14.73 Client C Regulatory Affairs & Legal 40 2,212 17.50 Client D Infrastructure, Construction & Energy 4 1,227 18.35 Client E Buildings & Environment 9 288 17.60 
+
+Table 7: Corpus composition for schema diagnosis by anonymized client. Counts are reported before removing two sentences due to persistent formatting failures during response parsing (final analysis: N = 4 ,699 ). Mean length is measured in whitespace-delimited tokens per sentence after sentence segmentation. 
+
+ture/energy) and includes heterogeneous document sources. The corpus is therefore constructed to capture variation in commercial writing style and procurement-relevant content rather than reflecting a single narrow domain. 
+
+E Prompt Design and Model Interaction 
+
+Original prompt (English translation). All model queries were issued in French to match the corpus language and practitioner setting. For readability, we provide an English translation of the shared prompt below. The template is identical across calls: we instantiate the sentence s ∈ S and the criterion text associated with q ∈ Q (denoted {sentence} and {question_text} in the template). 
+
+Analysis Context – Detection of Persuasive Value 
+
+The sentences to be analyzed come from documents written in a B2B context (brochures, reports, solution descrip-tions, etc.). These texts are part of a persuasive communication logic, aiming to highlight the value of a solution to a professional buyer. Although the entire corpus pursues a persuasive objective, the analysis focuses only on the content explicitly formulated in each sentence. Do not take into account presumed vendor intentions or implicit inferences. Persuasive value is an improvement, a positive effect, an advantage, or a necessity that is clearly expressed. If the sentence merely describes a fact, a feature, or a situation without an explicit benefit, it does not contain persuasive value. Instructions: 
+
+Read the sentence below carefully, then answer **Oui** or **Non** to the following question. Sentence: “{sentence}” Question: {question_text} Respond only with Oui or Non .
+
+Criterion-level querying. Each of the nine PVE criteria ( q1–q9, Appendix C) is queried independently for each sentence. That is, for each pair (s, q ) with s ∈ S and q ∈ Q , we issue a separate prompt instantiation, producing one binary response per (sentence, model, criterion) triple. Treating models as annotators, this yields a response tensor (prior to cleaning) with shape |S| × A × Q, where A is the number of models in the panel. 
+
+Model panels used in the paper and appendix. We initially queried a panel of A = 6 models on 
+
+|S| = 4 ,701 sentences to characterize raw response formats and cleaning behavior (Appendix F). All main-paper diagnostics are computed on a core panel of A = 5 models (Section 4.2); the sixth model is used only for appendix-level quality and normalization analysis. 
+
+Interaction and decoding settings. All models are queried independently using the same template and each sentence is annotated in isolation (no cross-sentence context). We use deterministic decoding (temperature = 0 ) and a short output budget (max tokens = 3 ) to encourage categorical responses and reduce explanatory completions. 
+
+F Response Collection, Cleaning, and Quality Metrics 
+
+Data collection. We queried an initial panel of A = 6 large language models on a corpus S of 
+
+|S| = 4 ,701 sentences using the nine PVE criteria ( q1–q9, Appendix C), yielding |S| × A × Q = 253 ,854 
+
+sentence–model–criterion responses (“tuples”). All main-paper diagnostics are computed on a core panel of A = 5 models (Section 4.2). We retain the full 6-model grid in this appendix to document response formats, cleaning, and quality statistics. 
+
+Normalization of raw responses. Models were instructed to return binary decisions in French ( Oui /Non ). In practice, surface forms varied (e.g., punctuation, markdown emphasis), and some models occasionally produced truncated positives (e.g., “O” as a shortened form of “Oui”). We applied a deterministic normalization to map these variants into a boolean response tensor Y ∈ { 0, 1}. Positive variants (e.g., 
+
+Oui , Oui. , O, **Oui** , **Oui ) were mapped to 1, and negative variants (e.g., Non , Non. , **Non** ) were mapped to 0. Table 8 reports the distribution of observed raw forms by model prior to normalization. 
+
+Model Non Oui O Non. Oui. **Oui** **Non** **Oui Mal. 
+
+Gemini 2.0 Flash 36,370 5,609 0 0 0 277 53 0 0GPT-4.1-mini 38,784 3,524 0 0 0 0 0 0 0GPT-4.1 38,988 3,270 0 50 1 0 0 0 0Llama-3.3-70B 39,426 0 2,883 0 0 0 0 0 0Mistral-Large-2411 36,467 3,340 0 2,475 23 0 0 1 3Qwen-2.5-72B 40,327 0 1,982 0 0 0 0 0 0
+
+Total (extracted) 230,362 15,743 4,865 2,525 24 277 53 1 3
+
+> Table 8: Raw response types by model (non-missing tuples, before normalization). “Mal.” denotes malformed outputs that could not be normalized to a binary decision.
+
+Invalid tuples. Across the full grid, we observed four invalid tuples (0.0016%): one missing response from GPT-4.1-mini and three malformed responses from Mistral-Large-2411 that could not be mapped to a binary value (Table 9). 
+
+Sentence-level filtering for a fully observed tensor. For downstream analyses that assume a fully observed tensor, we excluded any sentence s ∈ S for which at least one model–criterion response was missing or malformed. This removed two sentences (IDs 2066 and 3973), yielding a filtered tensor with 
+
+|S| = 4 ,699 sentences, A = 6 models, and Q = 9 criteria ( |S| × A × Q = 253 ,746 valid tuples; 100% coverage over the filtered grid). Model Total Missing Malformed Valid 
+
+Gemini 2.0 Flash 42,309 0 0 42,309 GPT-4.1-mini 42,309 1 0 42,308 GPT-4.1 42,309 0 0 42,309 Llama-3.3-70B 42,309 0 0 42,309 Mistral-Large-2411 42,309 0 3 42,306 Qwen-2.5-72B 42,309 0 0 42,309 
+
+TOTAL 253,854 1 3 253,850 
+
+> Table 9: Per-model tuple quality (before filtering).
+
+Metric Value 
+
+Sentences ( |S| ) 4,699 Models ( A) 6Criteria ( Q) 9Total tuples ( |S| × A × Q) 253,746 Positive (1 / Oui ) 20,909 (8.2%) Negative (0 / Non ) 232,837 (91.8%)  
+
+> Table 10: Filtered tensor summary ( A= 6 ).
+
+Dropped sentences. Table 11 reports the exact text of the two removed sentences (French original and English translation). Sentence 2066 (“EXEMPLE DE TRAME REÇUE”) appears to have triggered malformed output in Mistral-Large-2411 . Sentence 3973, a long administrative title, resulted in a single missing response from GPT-4.1-mini .
+
+G Model Panel Details 
+
+Models used. All main-paper diagnostics are computed on a core panel of A = 5 models (treated as annotators in Y): • openai/gpt-4.1-mini (OpenAI) • openai/gpt-4.1 (OpenAI) • meta-llama/llama-3.3-70b-instruct (Meta, via OpenRouter) • mistralai/mistral-large-2411 (Mistral, via OpenRouter) • qwen/qwen-2.5-72b-instruct (Qwen, via OpenRouter) We additionally report response format and normalization statistics for the gemini-2.0-flash model (via OpenRouter), this model is not used in the main diagnostic results. 
+
+Panel rationale. We deliberately select models from different families/providers to reduce dependence on any single training lineage or instruction style, and to probe whether stability/overlap patterns persist across heterogeneous LLM annotators. 
+
+Shared decoding settings. All models are queried independently with deterministic decoding (tempera-ture = 0 ) and a short output budget (max tokens = 3 ). Each criterion is prompted in a separate call, and each sentence is annotated in isolation (no cross-sentence context). 
+
+On the use of LLMs as annotators. Using LLMs as annotators is an acknowledged limitation and an open research question. LLM judgments may reflect shared training priors or similar instruction-following behavior, which can shape observed instability and overlap patterns. However, this concern applies equally to human panels: annotators sharing the same professional background, institutional context, ID French (original) English (translation) 
+
+2066 EXEMPLE DE TRAME RECUE EXAMPLE OF TEMPLATE RE-CEIVED 3973 Diagnostic agricole dans le cadre du Plan local d’urbanisme intercommunal de la Communauté de communes de la région de Suippes Agricultural diagnostic within the frame-work of the inter-municipal local urban planning scheme of the Suippes Region Community of Communes 
+
+> Table 11: Text of dropped sentences (French original and English translation).
+
+or domain expertise may similarly align in their operationalizations, introducing correlated variation that is not unique to LLMs. Panel homogeneity is a general issue in multi-annotator settings, and the framework does not assume annotator independence; rather, it is designed to quantify how disagreement structures vary as panel composition changes. In this sense, sensitivity to annotator diversity, whether human or LLM, is not an uncontrolled confound, but an observable and empirically measurable property of the diagnostic. The human validation subset, which operates at the category level rather than the criterion level, provides a complementary external anchor: alignment between diagnostic signals and expert category-level disagreement confirms that instability and overlap reflect schema structure rather than LLM-specific behavior. 
+
+H Human Annotation Setup and Reliability 
+
+Expert panel and task. Five domain experts with procurement experience annotated a validation subset using the intended task framing: each sentence receives exactly one label from C = {c0, c 1, c 2, c 3}
+
+(Non-Persuasive, Performance & Efficiency, User Experience & Brand Value, Obligation & Safety). The category definitions were the outcome of prior calibration discussions with these experts during schema development: they jointly agreed on the category meanings and the underlying criterion decomposition used in the diagnostic (Appendix C). 
+
+Annotation instructions. Experts were instructed to label sentences based on what is explicitly stated in the sentence (explicit-only principle, Appendix C), without relying on unstated assumptions or inferred vendor intent. For the human validation, experts did not answer the nine criteria directly, instead, they assigned a single category label per sentence, consistent with the intended downstream single-label task design. This choice reduces annotation burden and reflects how practitioners apply the schema holistically in procurement workflows, while still allowing us to test whether criterion-level instability/overlap predicts where experts disagree. 
+
+Sampling and accountability. We construct a validation set of 500 annotation assignments designed to reflect corpus diversity rather than maximize i.i.d. representativeness. The set covers multiple clients/sectors and includes a mix of diagnostic profiles (e.g., clear non-persuasive, clear persuasive, and multi-dimensional cases where multiple criteria/categories are engaged by the diagnostic). This stratified construction ensures that human validation includes both easy reference cases and challenging boundary cases that drive the schema-level conclusions. 
+
+Unique sentences and repeated items. The validation set contains 389 unique sentences plus 111 repeated sentences (i.e., the same sentence shown twice to the same expert) used to estimate within-expert consistency under the single-label task. We report test–retest consistency as the fraction of repeated items for which an expert assigns the same category both times (equivalently, 1 − flip rate ). 
+
+Within-expert (test–retest) reliability. Across experts, each annotated 62 repeated items. Test–retest consistency varies across experts (approximately 0.71–0.90 in our runs), with flips concentrating in diagnostically complex cases (e.g., multi-dimensional overlap) rather than in clear non-persuasive items. This pattern is consistent with the main claim that disagreement is structured around specific boundaries and overlap regimes, not diffuse annotation noise. E1 E2 E3 E4 E5       
+
+> E1
+> E2
+> E3
+> E4
+> E5
+> 0.25
+> 0.18 0.46
+> 0.17 0.41 0.35
+> 0.21 0.53 0.39 0.25
+> Inter-Expert Agreement ( =0.28)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Spearman
+
+Figure 4: Pairwise inter-expert agreement (binary agreement on whether two experts assign the same category), with overall Fleiss’ κ reported for the expert panel. 
+
+Between-expert agreement. We quantify inter-expert agreement using Fleiss’ κ over the categorical labels. Agreement is moderate-to-low ( κ ≈ 0.28 in our setting), reflecting the inherent difficulty of forced single-label assignment for sentences that can support multiple procurement-relevant rationales. To localize this disagreement, we also visualize pairwise agreement between experts (Figure 4), which shows that agreement varies substantially by expert pair, again consistent with the task admitting multiple defensible readings rather than a single latent ground truth. 
+
+Interpretation. These reliability statistics are not used to adjudicate a “correct” label. Instead, they serve as an external anchor for the diagnostic: items flagged as multi-category by the criterion-level audit are also the items where experts are most likely to diverge under forced single-label assignment, supporting the interpretation that observed overlap reflects a schema/taxonomy bottleneck rather than random annotation error. 
+
+I Robustness to Engagement Threshold 
+
+Motivation. All diagnostics in Section 3 are computed conditional on engagement , using focus sets 
+
+Ωq,t = { s ∈ S | vsq ≥ t } (Eq. 2), where vsq = PAa=1 ysaq is the number of positive votes (out of A)for criterion q on unit s (Eq. 1). Because criteria are sparse (many sentences are purely descriptive), summary statistics computed over the full corpus would be dominated by shared non-activation rather than meaningful agreement when a criterion is actually applicable . A natural concern is that the stability patterns reported in the main analysis could depend on the engagement threshold t (e.g., because t = 1 
+
+admits singleton endorsements). To assess robustness, we recompute all quantities under multiple thresholds: 
+
+t = 1 t = 2 t =
+
+ A
+
+2
+
+
+
+,
+
+which correspond (for A = 5 ) to t ∈ { 1, 2, 3}. Each threshold induces a criterion-specific focus set Ωq,t 
+
+and activation rate Act t(q) = |Ωq,t |/|S| (Eq. 3). 
+
+Agreement structure under different thresholds. For each criterion q and threshold t, we recompute the conditional vote-count distribution πq(k | t) (Eq. 4) over k ∈ { t, . . . , A }. To summarize boundary pressure with a single scalar, we define an ambiguity rate as the mass of near-ties among engaged units. For A = 5 , near-ties correspond to vote counts {2, 3}, so we define: 
+
+Amb t(q) = πq(2 | t) + πq(3 | t).
+
+Note that Amb t is always computed within the threshold-specific focus set Ωq,t ; increasing t changes which units enter the conditioning set, not the definition of “near-tie” itself. q1       
+
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Criterion
+> 0.30
+> 0.35
+> 0.40
+> 0.45
+> 0.50
+> 0.55
+> Ambiguity  Amb t(q)
+> t= 1 t= 2 t=dL= 2e
+
+Figure 5: Sensitivity of the ambiguity profile to threshold choice (computed conditional on the threshold-specific focus set Ωq,t ). The relative ordering of criteria is preserved across t = 1 , t = 2 , and t = ⌈A/ 2⌉, indicating threshold-robust hotspot identification.                                                                                          
+
+> Ambiguity ( Amb t)Activation (Act t, %) Criterion t= 1 t= 2 t=⌈A/ 2⌉t= 1 t= 2 t=⌈A/ 2⌉Rank Range Top-3
+> q50.480 0.547 0.508 20.56 14.13 10.68 1–2 3/3
+> q90.462 0.521 0.479 12.77 8.77 6.81 2–3 3/3
+> q40.457 0.568 0.524 17.02 8.96 6.15 1–3 3/3
+> q30.423 0.487 0.419 19.17 11.22 8.15 4–4 0/3
+> q20.407 0.478 0.397 17.85 9.07 6.34 5–5 0/3
+> q70.394 0.419 0.361 6.24 4.41 3.58 6–7 0/3
+> q10.381 0.426 0.312 4.72 2.45 1.66 6–8 0/3
+> q80.370 0.380 0.324 14.54 11.47 9.62 7–8 0/3
+> q60.347 0.353 0.284 34.35 23.37 19.15 9–9 0/3
+
+Table 12: Robustness of ambiguity hotspots to threshold choice. Ambiguity is defined as near-tie mass Amb t(q) = 
+
+πq (2 | t) + πq (3 | t) for A = 5 . While coverage decreases under stricter thresholds (lower Act t), the identity of the most ambiguous criteria is stable: q5, q9, and q4 appear in the top-3 ambiguity ranking under all three regimes (Top-3 frequency = 3 /3). 
+
+Why ambiguity can increase under stricter thresholds. Amb t(q) can increase from t = 1 to stricter regimes due to a compositional shift induced by conditioning. Under t = 1 , Ωq, 1 includes many weak activations (e.g., singleton endorsements), which can dilute the share of borderline splits. Stricter thresholds filter to units with stronger multi-annotator engagement; in subjective settings, these are often precisely the most contentious units and therefore more likely to concentrate around 2–3 / 3–2 splits. 
+
+Robustness summary (ambiguity + activation). Across thresholds, stricter engagement reduces coverage (lower Act t(q)), but the qualitative picture of which criteria produce borderline splits is stable: the same criteria remain disproportionately ambiguous, and hotspot identification is not an artifact of a particular threshold choice (Figure 5, Figure 6, Table 12). 
+
+Unanimity robustness. The main paper also interprets stability through the unanimity rate, which captures how often a criterion yields full agreement when engaged . We therefore recompute the unanimity rate UY t(q) = πq(A | t) across thresholds. Figure 7 shows the same qualitative pattern as the ambiguity analysis: criteria that are comparatively crisp at t = 1 (notably q6) remain consistently more unanimous across t ∈ { 1, 2, ⌈A/ 2⌉} , while ambiguity hotspots (e.g., q4, q5, q9) remain low-unanimity. Together, these checks indicate that the main stability findings are not artifacts of the permissive t = 1 regime. q1       
+
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Criterion
+> 5
+> 10
+> 15
+> 20
+> 25
+> Near-tie Rate  ¼q(©2; 3ª j t) (\%)
+> t= 1 t= 2 t=dL= 2e
+
+Figure 6: Sensitivity of near-tie rates to threshold choice (conditional on Ωq,t ). For A = 5 , the near-tie rate equals 
+
+Amb t(q) = πq (2 | t) + πq (3 | t).
+
+J Robustness to Model Selection 
+
+Motivation. A natural concern is whether the criterion-specific instability patterns reported in the main paper depend on the particular models chosen for the panel (e.g., one model being systematically stricter or looser), rather than reflecting properties of the criterion definitions interacting with the corpus. We therefore test whether the criterion-level signatures persist under controlled perturbations of panel composition. 
+
+Fixed-size leave-one-model-out design. To preserve the voting geometry, we perform a leave-one-model-out (LOO) analysis at a fixed panel size A = 5 . We temporarily expand the candidate pool to six models by adding gemini-2.0-flash-001 solely for this check, yielding A⋆ = 6 candidate models and thus six distinct 5-model panels (5-of-6), each obtained by removing one model. Keeping A fixed avoids confounding effects from changing the probability of ties or near-ties and ensures that all agreement quantities (e.g., near-tie mass at {2, 3} when A = 5 ) remain directly comparable across panels. Crucially, the ablations also probe model-specific bias : different models can be systematically more permissive or conservative, and they differ in training lineage, prompting style, and parameter scale. By rotating which model is excluded while holding the aggregation and conditioning rules constant, we test whether the criterion-level patterns persist under controlled perturbations of panel composition rather than being driven by any single model’s idiosyncratic thresholding. We include Gemini as an additional, lightweight but frontier-level model from a different family to broaden the pool and reduce the risk that the robustness check merely re-tests highly similar model behaviors. 
+
+Recomputed quantities (same notation as the main paper). Let ysaq ∈ { 0, 1} denote the vote of model a on unit s ∈ S for criterion q ∈ Q , and let vsq = PAa=1 ysaq be the number of positive votes under a given 5-model panel. For each ablated panel, we recompute the same conditional agreement statistics as in the main analysis using focus sets 
+
+Ωq,t = { s ∈ S | vsq ≥ t },
+
+and we report results under the permissive engagement rule t = 1 (triggered-at-least-once). Within each 
+
+Ωq, 1, we recompute the conditional vote-count distribution πq(k | 1) over k ∈ { 1, . . . , A } and its derived summaries (NT, AS, UY). 
+
+Results: near-tie profiles are stable across ablations. Because the main paper interprets instability through mass near the decision boundary, we first examine the near-tie rate NT derived from πq(· | 1) .q1       
+
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Criterion
+> 0.1
+> 0.2
+> 0.3
+> 0.4
+> 0.5
+> Unanimity rate  ¼q(5  j t)
+> t= 1 t= 2 t=dL= 2e
+
+Figure 7: Sensitivity of unanimity rates to threshold choice (computed conditional on the threshold-specific focus set Ωq,t ). The plot reports UY t(q) = πq (A | t) for each criterion under t = 1 , t = 2 , and t = ⌈A/ 2⌉ (A = 5 ). Despite reduced coverage under stricter thresholds, the relative ordering of criteria is preserved: criteria that are crisp at t = 1 (notably q6) remain highly unanimous, while ambiguity hotspots remain low-unanimity. 
+
+For A = 5 , near-ties correspond to k ∈ { 2, 3}, so NT( q) = πq(2 | 1) + πq(3 | 1) . Figure 8 overlays 
+
+NT( q) for all six 5-model panels (each curve drops one model from the 6-model pool). The profiles are qualitatively similar across ablations, indicating that the criteria exhibiting high boundary mass under the main panel remain the same under panel perturbations. 
+
+Audit table: rank stability under model ablations. To make robustness easy to verify, Table 13 reports, for each criterion q, (i) the near-tie rate under the main panel (the original five-model panel), (ii) the min–max range across LOO panels, and (iii) how often the criterion appears among the three largest NT values across the six ablations.                         
+
+> Criterion NT main Range ∆NT (pp) Top-3 freq.
+> q530.7% 30.7–38.4% 7.7 6/6
+> q929.5% 29.5–38.2% 8.7 6/6
+> q427.3% 27.3–35.8% 8.5 4/6
+> q728.5% 23.7–28.5% 4.8 1/6
+> q328.4% 24.0–29.8% 5.8 1/6
+
+Table 13: Near-tie robustness across 5-of-6 LOO panels at t = 1 (A = 5 ). NT main is computed on the main panel (the original five-model panel). “Top-3 freq.” counts how often each criterion appears among the three largest NT values across the six ablations. 
+
+Complementary view: unanimity ordering is stable. We also verify that the criteria identified as comparatively crisp in the main analysis remain so under panel perturbations. Specifically, we recompute the unanimity rate UY( q) = πq(A | 1) for each LOO panel. Figure 9 shows that the relative ordering is preserved: criteria with high unanimity under the main panel remain high-unanimity across ablations, while low-unanimity criteria remain low. This supports the interpretation that panel perturbations do not qualitatively change which criteria behave as stable measurement instruments. 
+
+Implications for schema diagnosis. Across all 5-of-6 ablations, both the near-tie profile (NT) and the unanimity profile (UY) remain qualitatively stable. When multiple model backends yield similar criterion-specific boundary patterns under fixed A and identical conditioning, the most plausible explanation is that these patterns reflect properties of the criterion definitions and their operational boundaries, rather than idiosyncrasies of a single model in the panel. This robustness strengthens the main paper’s q1 
+
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Criterion
+> 0.325
+> 0.350
+> 0.375
+> 0.400
+> 0.425
+> 0.450
+> 0.475
+> 0.500
+> Ambiguity  Amb t(q)
+
+Ambiguity Profile Under Leave-One-Model-Out Ablations 
+
+> drop Gemini-2.0-flash-001
+> drop GPT-4.1-mini
+> drop GPT-4.1-mini
+> drop Llama-3.3-70b
+> drop Mistral-Large-2411
+> drop Qwen-2.5-72b-instruct
+
+Figure 8: Leave-one-model-out robustness of near-tie rates at t = 1 (A = 5 ). Each curve recomputes NT( q) = 
+
+πq (2 | 1) + πq (3 | 1) after dropping one model from the 6-model candidate pool ( A⋆ = 6 ). The qualitative criterion ordering is preserved across ablations, indicating that boundary-mass patterns are not driven by a single model. 
+
+claim that subjectivity is diagnosable at the criterion level. We also verified that the activation profile 
+
+Act 1(q) = |Ωq, 1|/|S| remains qualitatively similar across ablations, so the stability of NT and UY is not explained by drastic changes in coverage. 
+
+K Additional Overlap Diagnostics and Robustness 
+
+Why we mask within-category blocks in the main figure. In the main paper, we visualize cross-category conditional overlap to directly stress-test the schema’s intended separations. Within-category co-engagement is expected because multiple criteria may support the same category, and these within-block interactions can visually dominate the matrix. We therefore mask within-category blocks in Figure 3 to emphasize boundary blurring across categories. This appendix provides the corresponding unmasked view for auditability. 
+
+Full conditional overlap structure. Figure 10 reports the complete conditional overlap matrix at t = 1 .The matrix confirms that within-category co-engagement can be substantial, but it also reveals strong cross-category dependencies. In particular, several criteria exhibit broad cross-category co-engagement patterns (i.e., when they are engaged, multiple criteria from other categories are frequently engaged), consistent with structured rather than diffuse overlap. 
+
+Sensitivity to engagement thresholding. A natural concern is that overlap could be inflated by per-missive engagement (e.g., retaining single-annotator activations at t = 1 ). To test robustness, Table 14 recomputes overlap under stricter engagement thresholds t ∈ { 1, 2, ⌈A/ 2⌉} (for A = 5 , t ∈ { 1, 2, 3}). As expected, stricter thresholds reduce coverage and lower overlap rates by filtering weaker activations. However, cross-category co-activation among covered units remains substantial across thresholds, indicat-ing that boundary blurring is not an artifact of t = 1 but a stable property of the schema on units where the schema applies. 
+
+Consistency of overlap structure across thresholds. Beyond aggregate rates, we test whether the 
+
+structure of overlap is stable under stricter engagement. Figure 11 shows conditional overlap matrices for 
+
+t ∈ { 1, 2, 3}. The qualitative pattern is consistent: the strongest cross-category interactions persist, while weaker links fade as t increases. q1 
+
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> Criterion
+> 20.0
+> 22.5
+> 25.0
+> 27.5
+> 30.0
+> 32.5
+> 35.0
+> 37.5
+> Near-tie rate  ¼q(©2; 3ª j t) (\%)
+> Leave-One-Out Robustness of Near-Tie Rates
+> drop GPT-4.1-m
+> drop GPT-4.1
+> drop Llama-3.3
+> drop Mistral-L
+> drop Qwen-2.5
+> drop Gemini
+
+Figure 9: Leave-one-model-out robustness of unanimity rates at t = 1 (A = 5 ). Each curve recomputes UY( q) = 
+
+πq (A | 1) after dropping one model from the 6-model candidate pool ( A⋆ = 6 ). The preserved criterion ordering indicates that “crisp” versus “ambiguous” behavior is not panel-specific.                   
+
+> Threshold tCovered Coverage Overlap cat |cov ,tPr( |Γs,t| ≥ 2)11,951 41.5% 44.6% 26.8%
+> 21,605 34.2% 39.1% 19.9%
+> 31,358 28.9% 36.4% 16.3%
+
+Table 14: Engagement robustness for overlap diagnostics. Covered counts units with at least one active non-target category ( ms,t ≥ 1). Overlap cat |cov ,t is the fraction of covered units that co-activate at least two categories (ms,t ≥ 2, Eq. 8). Pr( |Γs,t | ≥ 2) measures criterion-level multi-signal engagement (Eq. 5). 
+
+Directed asymmetry: subset-like behavior persists across thresholds. Overlap is often markedly 
+
+asymmetric , consistent with subset-like behavior rather than symmetric entanglement (Eq. 6). As a representative example, Table 15 reports the pair (q2, q 6) across thresholds. The asymmetry is stable: q6
+
+is almost always engaged when q2 is engaged, but the reverse is substantially weaker, suggesting that q2
+
+frequently appears as a more specific instance or proxy of the broader signal captured by q6.
+
+L Model Panel Sensitivity and Annotator Bias 
+
+Construct-dependent model behavior. A key assumption behind multi-model annotation panels is that model diversity introduces heterogeneous operationalizations of the criteria, making the diagnostic more robust than any single annotator’s judgment. The per-model activation profiles (Figure 12) confirm that this heterogeneity is real but construct-dependent rather than uniform. Gemini activates criteria related to user experience and brand value ( q4–q6) at substantially higher rates than other models, while remaining conservative on obligation-related criteria ( q7–q9). Qwen consistently shows the lowest activation rates across all criteria. These are not random differences: they reflect how each model’s training and instruction-following style interact with the semantic nature of each criterion. This pattern is not unique to LLMs. Human annotators similarly exhibit construct-dependent thresholds: an annotator with a legal background may apply compliance criteria more strictly than one with a marketing background, while showing similar behavior on performance criteria. Model bias, like human bias, is not a uniform property of the annotator but a property of the annotator-criterion interaction. Acknowledging this construct-dependence is more informative than simply asserting that a panel is diverse. 
+
+No model pair aligns consistently across all criteria. Inter-model correlation matrices per criterion (Figure 13) show that correlations range from approximately −0.06 to 0.73 depending on the criterion, with no model pair consistently aligning across all nine criteria. Gemini shows near-zero or negative correlations with other models on unstable criteria ( q4, q5, q9), precisely where disagreement is most q1 q2 q3 q4 q5 q6 q7 q8 q9                                                                        
+
+> q1
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> 1.00 0.59 0.80 0.31 0.34 0.84 0.03 0.14 0.17
+> 0.17 1.00 0.76 0.51 0.36 0.95 0.05 0.32 0.27
+> 0.18 0.57 1.00 0.42 0.42 0.93 0.05 0.31 0.33
+> 0.09 0.50 0.55 1.00 0.53 0.96 0.06 0.30 0.32
+> 0.05 0.19 0.30 0.30 1.00 0.68 0.06 0.17 0.15
+> 0.10 0.37 0.48 0.39 0.50 1.00 0.05 0.25 0.25
+> 0.01 0.08 0.11 0.10 0.18 0.22 1.00 0.48 0.41
+> 0.03 0.21 0.27 0.21 0.22 0.42 0.20 1.00 0.51
+> 0.05 0.24 0.41 0.30 0.27 0.59 0.23 0.70 1.00
+
+Full Conditional Overlap Matrix (Unmasked) 
+
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CondOv( q!q0)
+
+Figure 10: Full conditional overlap matrix at t = 1 (unmasked). Cell (q, q ′) reports the directed conditional overlap 
+
+CondOv 1(q → q′) (Eq. 6). Q1 Q2 Q3 Q4 Q5 Q6 Q7 Q8 Q9                       
+
+> Q1
+> Q2
+> Q3
+> Q4
+> Q5
+> Q6
+> Q7
+> Q8
+> Q9
+> Consistency Check: t= 1
+> Q1 Q2 Q3 Q4 Q5 Q6 Q7 Q8 Q9
+> Q1
+> Q2
+> Q3
+> Q4
+> Q5
+> Q6
+> Q7
+> Q8
+> Q9
+> Consistency Check: t= 2
+> Q1 Q2 Q3 Q4 Q5 Q6 Q7 Q8 Q9
+> Q1
+> Q2
+> Q3
+> Q4
+> Q5
+> Q6
+> Q7
+> Q8
+> Q9
+> Consistency Check: t= 3
+
+Figure 11: Consistency check for overlap structure across engagement thresholds ( t = 1 , 2, 3). Each panel reports 
+
+CondOv t(q → q′) (Eq. 6). Strong cross-category interactions remain visible across thresholds, while weaker links diminish under stricter engagement. 
+
+diagnostically informative. This heterogeneity is what makes a diverse panel valuable: instability that persists despite model disagreement is more likely to reflect genuine criterion ambiguity than any single model’s idiosyncratic threshold. 
+
+Implications and open directions. The observation that model behavior varies by construct opens a broader methodological question: rather than a fixed panel applied uniformly across all criteria, one could in principle select models per criterion based on their semantic alignment with the construct being measured. A model that applies compliance criteria conservatively and precisely might be more informative for q7–q9, while a more permissive model might better surface boundary cases for q5. This criterion-adaptive panel design is an open research direction. More broadly, the results reinforce that model selection is itself a design decision with epistemic consequences. Reporting which models were used, how their activation profiles differ, and where they agree or disagree should become standard practice in LLM-based schema auditing. The diagnostic framework proposed in this paper is annotator-agnostic by design, but the specific signals it surfaces are shaped by the panel composition. Making this sensitivity explicit, as we do here, is part of what makes the diagnostic interpretable rather than opaque. Threshold t CondOv t(q2 → q6) CondOv t(q6 → q2)1 0.95 0.37 
+
+2 0.96 0.32 
+
+3 0.97 0.29 
+
+Table 15: Directional asymmetry example for (q2, q 6) across engagement thresholds. Values are directed conditional overlaps CondOv t(q → q′) (Eq. 6). gemini-2.0-flash gpt-4.1-mini gpt-4.1 llama-3.3-70b mistral-large qwen-2.5-72b                                              
+
+> Model
+> q1 q2 q3 q4 q5 q6 q7 q8 q9
+> Criterion
+> 4.3 1.9 1.2 2.1 1.8 1.1
+> 17.4 5.0 5.3 5.1 8.0 3.9
+> 17.1 8.2 6.8 5.9 9.1 5.6
+> 15.9 6.4 7.0 4.9 4.4 2.4
+> 14.6 13.0 8.9 10.0 11.5 3.2
+> 33.3 16.9 18.4 16.9 18.3 14.1
+> 3.5 4.0 4.2 2.9 3.4 3.0
+> 9.0 11.7 10.8 9.3 8.6 5.8
+> 10.2 7.9 7.0 4.2 6.5 3.2
+> Per-model activation rates per criterion
+> (higher = more permissive)
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> Activation rate (%)
+
+Figure 12: Per-model activation rates per criterion. Higher values indicate a more permissive model for that criterion. Activation rates are corpus-level (fraction of all sentences where the model voted yes). Gemini shows substantially higher rates on experiential criteria ( q4–q6), while Qwen is consistently conservative. 
+
+M Schema Refinement in Practice 
+
+From diagnostic signal to targeted revision. The diagnostic identified q5 (Reputation & Recognition) as the most structurally problematic criterion: it exhibited both high near-tie rates and systematic overlap with q6 (Perceived Quality). Manual analysis of sentences activated by q5 revealed the root cause: the criterion conflated two fundamentally different signal families. The first captures evidence-based credibility , explicit labels, certifications, awards, and rankings, which are verifiable and trigger stable annotator agreement. The second captures claim-based reputation , positive image, attractiveness, prestige, which are subjective and highly open to inference. When both families are grouped under a single criterion, strict annotators accept only verifiable proof while permissive annotators also accept implicit image signals, producing systematic near-tie splits. 
+
+What was invisible before. Prior to the diagnostic, this disagreement was attributed to annotator subjectivity or document ambiguity. The criterion-level analysis made it structurally visible: q5 was simultaneously too broad and too ambiguous, mixing two operationally distinct signals under a single label. This tension was not identified during initial schema design, where the single-label assumption was taken as given. The diagnostic revealed that the problem was not in the annotators but in the instrument, and that the instrument itself was forcing humans to resolve a structural ambiguity that had never been made explicit. 
+
+Criterion decomposition and its limits. Guided by these signals, domain experts decomposed q5 into two focused criteria: • q10 (formerly q5a): “Does the sentence explicitly highlight a label, certification, award, or third-party recognition?” Targets verifiable credibility markers only, producing a more stable binary signal. • q11 (merging q5b and q6): “Does the sentence suggest a positive perception of the environment, usage, or user experience?” Captures the subjective image and perceived quality signals that were previously split across two unstable criteria. gemini-2 
+
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 -0.05 0.19 -0.03 0.06 0.14 
+
+-0.05 1.00 0.63 0.49 0.58 0.56 
+
+0.19 0.63 1.00 0.62 0.68 0.73 
+
+-0.03 0.49 0.62 1.00 0.59 0.57 
+
+0.06 0.58 0.68 0.59 1.00 0.67 
+
+0.14 0.56 0.73 0.57 0.67 1.00 
+
+q1 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 0.01 0.05 -0.04 0.02 0.07 
+
+0.01 1.00 0.73 0.59 0.58 0.64 
+
+0.05 0.73 1.00 0.61 0.58 0.62 
+
+-0.04 0.59 0.61 1.00 0.51 0.65 
+
+0.02 0.58 0.58 0.51 1.00 0.52 
+
+0.07 0.64 0.62 0.65 0.52 1.00 
+
+q2 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 0.07 0.08 0.10 -0.06 0.01 
+
+0.07 1.00 0.61 0.53 0.40 0.48 
+
+0.08 0.61 1.00 0.62 0.42 0.59 
+
+0.10 0.53 0.62 1.00 0.45 0.61 
+
+-0.06 0.40 0.42 0.45 1.00 0.53 
+
+0.01 0.48 0.59 0.61 0.53 1.00 
+
+q3 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 -0.06 -0.03 0.03 0.02 0.05 
+
+-0.06 1.00 0.55 0.45 0.48 0.43 
+
+-0.03 0.55 1.00 0.52 0.48 0.42 
+
+0.03 0.45 0.52 1.00 0.44 0.48 
+
+0.02 0.48 0.48 0.44 1.00 0.49 
+
+0.05 0.43 0.42 0.48 0.49 1.00 
+
+q4 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 -0.00 0.30 0.18 0.01 0.25 
+
+-0.00 1.00 0.48 0.30 0.28 0.29 
+
+0.30 0.48 1.00 0.50 0.34 0.41 
+
+0.18 0.30 0.50 1.00 0.29 0.38 
+
+0.01 0.28 0.34 0.29 1.00 0.28 
+
+0.25 0.29 0.41 0.38 0.28 1.00 
+
+q5 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 0.06 0.07 0.08 0.04 0.12 
+
+0.06 1.00 0.67 0.60 0.59 0.63 
+
+0.07 0.67 1.00 0.61 0.60 0.65 
+
+0.08 0.60 0.61 1.00 0.64 0.67 
+
+0.04 0.59 0.60 0.64 1.00 0.66 
+
+0.12 0.63 0.65 0.67 0.66 1.00 
+
+q6 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 0.11 0.25 0.47 0.25 0.41 
+
+0.11 1.00 0.43 0.34 0.16 0.44 
+
+0.25 0.43 1.00 0.41 0.21 0.50 
+
+0.47 0.34 0.41 1.00 0.42 0.58 
+
+0.25 0.16 0.21 0.42 1.00 0.39 
+
+0.41 0.44 0.50 0.58 0.39 1.00 
+
+q7 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 0.19 0.39 0.47 0.50 0.47 
+
+0.19 1.00 0.28 0.19 0.25 0.27 
+
+0.39 0.28 1.00 0.46 0.44 0.42 
+
+0.47 0.19 0.46 1.00 0.54 0.54 
+
+0.50 0.25 0.44 0.54 1.00 0.53 
+
+0.47 0.27 0.42 0.54 0.53 1.00 
+
+q8 
+
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+> gemini-2
+> gpt-4.1-
+> gpt-4.1
+> llama-3.
+> mistral-
+> qwen-2.5
+
+1.00 -0.00 0.14 0.19 0.11 0.16 
+
+-0.00 1.00 0.56 0.43 0.23 0.38 
+
+0.14 0.56 1.00 0.42 0.42 0.40 
+
+0.19 0.43 0.42 1.00 0.35 0.55 
+
+0.11 0.23 0.42 0.35 1.00 0.37 
+
+0.16 0.38 0.40 0.55 0.37 1.00 
+
+q9 
+
+Inter-model correlations per criterion (focus set) Figure 13: Inter-model pairwise correlations per criterion, computed on the focus set Ωq, 1. No model pair aligns consistently across all nine criteria. Gemini shows near-zero or negative correlations on unstable criteria ( q4, q5, q9), while correlations among the four non-Gemini models are moderate and heterogeneous ( ≈ 0.10 –0.73 depending on the criterion). 
+
+Post-refinement overlap analysis confirmed that q10 isolates verifiable cases with low overlap (CondOv( q10 → q5) = 0 .17 ), while q11 introduces a complementary rather than redundant signal (CondOv( q11 → q6) = 0 .23 ), as visible in Figure 14 which reports the full directed conditional overlap matrix over all 11 criteria. The detailed stability metrics for both the original and refined criteria, including activation rates and vote distributions, are provided in Table 16 However, as Figure 15 illustrates, modifying criteria does not eliminate instability: it shifts and relocates it. Changing a criterion is changing a definition, which introduces new semantic boundaries and new zones of ambiguity. q11 , by merging two previously separate signals, inherits a broader and more subjective scope, reflected in its position in the stability landscape. q10 , while more precise, activates rarely ( Act 1 = 1 .8% ), suggesting that explicit credibility markers are sparse in this corpus. Refinement does not converge toward a uniquely correct schema; it navigates a space of design tradeoffs where each decision reshapes what the schema measures. 
+
+The structural challenge humans face. Beyond criterion wording, the diagnostic surfaces a deeper tension that cannot be resolved algorithmically. Domain experts consistently expressed a preference for single-label output, motivated by downstream procurement workflows that require mutually exclusive categories. Yet the corpus is inherently multi-dimensional: the same sentence routinely activates signals from multiple categories simultaneously. This mismatch between task design and content structure is not a wording problem but a paradigm problem. q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11                                                                                                                
+
+> Target criterion q′
+> q1 q2 q3 q4 q5 q6 q7 q8 q9 q10 q11
+> Source criterion  q
+> 1.00 0.59 0.80 0.31 0.34 0.84 0.03 0.14 0.17 0.02 0.79
+> 0.17 1.00 0.76 0.51 0.36 0.95 0.05 0.32 0.27 0.02 0.94
+> 0.18 0.57 1.00 0.42 0.42 0.93 0.05 0.31 0.33 0.03 0.88
+> 0.09 0.50 0.55 1.00 0.53 0.96 0.06 0.30 0.32 0.02 0.92
+> 0.05 0.19 0.30 0.30 1.00 0.68 0.06 0.17 0.15 0.08 0.73
+> 0.10 0.37 0.48 0.39 0.50 1.00 0.05 0.25 0.25 0.03 0.88
+> 0.01 0.08 0.11 0.10 0.18 0.22 1.00 0.48 0.41 0.07 0.19
+> 0.03 0.21 0.27 0.21 0.22 0.42 0.20 1.00 0.51 0.02 0.39
+> 0.05 0.24 0.41 0.30 0.27 0.59 0.23 0.70 1.00 0.02 0.52
+> 0.04 0.11 0.19 0.11 0.82 0.45 0.21 0.15 0.11 1.00 0.45
+> 0.09 0.37 0.46 0.37 0.53 0.88 0.05 0.23 0.22 0.03 1.00
+> Full conditional overlap matrix (11 criteria)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CondOv 1(q q′)
+
+Figure 14: Directed conditional overlap matrix CondOv 1(q → q′) for all 11 criteria including refined q10 and q11 .Cyan borders mark within-category blocks. The low overlap between q10 and q5 confirms that the decomposition successfully isolates the explicit credibility signal. The moderate overlap between q11 and q6 confirms that q11 
+
+extends rather than duplicates the perceived quality signal. 
+
+ID Criterion Act 1 (%) NT% AS% UY% |Ωq, 1|
+
+q1 Cost Reduction 2.8 22.9 45.8 31.3 131 
+
+q2 Operational Efficiency 9.4 28.2 43.3 28.4 443 
+
+q3 Organizational Impact 12.6 28.9 44.8 26.4 592 
+
+q4 User Well-Being 9.8 35.8 48.3 15.9 458 
+
+q5 Reputation & Recognition 17.6 34.0 52.3 13.7 826 
+
+q6 Tangible/Perceived Quality 24.1 23.3 31.9 44.9 1130 
+
+q7 Regulatory Compliance 5.8 25.6 44.7 29.7 273 
+
+q8 Risk Prevention/Security 14.1 27.8 36.9 35.3 662 
+
+q9 Mandatory Requirement 10.3 38.2 41.7 20.1 482 
+
+q10 Explicit Credibility 1.8 28.6 54.8 16.7 84 
+
+q11 Perceived Positive 24.1 32.0 33.9 34.1 1130 
+
+Table 16: Criterion stability at t = 1 (A = 5 ) for original ( q1–q9) and refined ( q10 , q11 ) criteria. q10 replaces the explicit credibility signal from q5; q11 merges the implicit image signal from q5 with the perceived quality signal from q6. Refined criteria are separated by a horizontal rule. 
+
+The options under consideration reflect this tension: enforcing strict single-label assignment requires an explicit tie-breaking policy, where stakeholder-defined priorities determine which dimension to foreground when multiple criteria fire. This weighting would be a human rule, not an emergent property of the data. Alternatively, adopting a multi-label or hierarchical paradigm would better reflect the content structure but requires rethinking downstream workflows. Neither option is purely technical: both require normative commitments about what the annotation is intended to capture. 
+
+What the diagnostic contributes. The goal of schema refinement is not to maximize unanimity. High unanimity on a poorly specified criterion may simply mean that all annotators are consistently misapplying the same ambiguous rule. What the diagnostic provides is not a target to optimize, but a structured map of where disagreement concentrates and why. It separates specification gaps from paradigm mismatches, making implicit design decisions explicit and measurable, so that schema revision becomes an evidence-based process rather than a cycle of trial and error. 
+
+N Qualitative Examples of Diagnostic Signals 
+
+Goal. This appendix provides qualitative examples connecting the LLM-based diagnostic to expert behavior. We contrast (i) single-category diagnostic cases (one induced category) with (ii) cross-category 0.00 0.05 0.10 0.15 0.20 0.25 
+
+> Activation rate Act (q)
+> 24
+> 26
+> 28
+> 30
+> 32
+> 34
+> 36
+> 38
+> NT (%)
+> Stability landscape: original (circle) vs refined (diamond) criteria
+> q1
+> q2
+> q3
+> q4
+> q5
+> q6
+> q7
+> q8
+> q9
+> q10
+> q11
+> Original (q01-q09)
+> Refined (q10, q11)
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40
+> 45
+> UY (%)
+
+Figure 15: Stability landscape for original criteria (circles, q1–q9) and refined criteria (diamonds, q10 , q11 ). Color encodes unanimity UY. Refined criteria are outlined in blue. q10 is rare but moderately stable; q11 is frequent but more ambiguous than the original q6 it partially replaces, reflecting the broader subjective scope of the merged criterion. 
+
+co-activation cases (multiple induced categories). For each sentence, we report the diagnostic category pattern, the triggered criteria, and the distribution of expert labels (5 experts, single-label task). Criteria identifiers q1–q9 follow Appendix C. Representative examples are provided in Table 17. 
+
+Category key. C0 = Description (non-persuasive), C1 = Performance & Efficiency, C2 = User Experi-ence & Brand Value, C3 = Obligation & Safety. 
+
+ID Sentence (EN translation) Diagnostic pat-tern Criteria (LLM) Expert labels ( n = 5 ) Signal 708 Our agreement specifies GDPR-compliant data processing between you, us, and the employer providing the data. 
+
+c3 q7, q 8, q 9 c3 : 5 Single-category (easy) 
+
+1132 To minimize risks related to the customer’s application, adequate safe-guards must be implemented to reduce hazards. 
+
+c3 q8, q 9 c3 : 4 , c 0 : 1 Mostly single-category 
+
+1011 Designed to generate savings and be profitable. c1+c2 q1, q 2, q 3, q 6 c1 : 4 , c 0 : 1 c1–c2 split 
+
+2238 Its role is to improve farm performance while promoting sustainable development of local agriculture. 
+
+c1+c2 q2, q 3, q 6 c1 : 3 , c 2 : 2 c1–c2 split 
+
+1345 Monitor outdoor air quality: alert when levels exceed standards. c2+c3 q6, q 7, q 8, q 9 c2 : 1 , c 1 : 2 , c 3 : 2 Cross-boundary (mixed) 
+
+199 They integrate innovative technologies to improve the security posture. c1+c2+c3 q2, q 3, q 6, q 8, q 9 c3 : 4 , c 2 : 1 Multi-category (hard) 
+
+Table 17: Qualitative examples linking diagnostic flags to expert splits. “Diagnostic pattern” reports induced category activity, and “Criteria (LLM)” lists triggered criterion IDs q1–q9 (Appendix C). Expert labels are summarized as counts over five experts (single-label task). Cross-category cases align with expert disagreement, whereas single-category c3 cases are largely stable.

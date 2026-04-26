@@ -1,0 +1,962 @@
+Title: Synthetic Tabular Generators Fail to Preserve Behavioral Fraud Patterns: A Benchmark on Temporal, Velocity, and Multi-Account Signals
+
+URL Source: https://arxiv.org/pdf/2604.13125v1
+
+Published Time: Thu, 16 Apr 2026 00:03:08 GMT
+
+Number of Pages: 28
+
+Markdown Content:
+Preprint Sajja 
+
+# Synthetic Tabular Generators Fail to Preserve Behav-ioral Fraud Patterns: A Benchmark on Temporal, Ve-locity, and Multi-Account Signals 
+
+Bhavana Sajja sajja.bhavana@gmail.com Independent Researcher 
+
+Abstract 
+
+We introduce behavioral fidelity —a third evaluation dimension for synthetic tabular data that measures whether generated data preserves the temporal, sequential, and structural behavioral patterns that distinguish real-world entity activity. Existing frameworks evaluate statistical fidelity (marginal distributions and correlations) and downstream utility (classifier AUROC on synthetic-trained models), but neither tests for the behavioral signals that operational detection and analysis systems actually rely on. We formalize a taxonomy of four behavioral fraud patterns (P1–P4) cover-ing inter-event timing, burst structure, multi-account shared-infrastructure graph motifs, and velocity-rule trigger rates; define a degradation ratio met-ric calibrated to a real-data noise floor (1.0 = matches real variability, k
+
+= k-times worse); and prove that row-independent generators—the domi-nant paradigm—are structurally incapable of reproducing P3 graph motifs (Proposition 1) and produce non-positive within-entity IET autocorrelation (Proposition 2), making the positive burst fingerprint of fraud sequences un-achievable regardless of architecture, training data size, or post-processing. We benchmark four generators—CTGAN, TVAE, GaussianCopula Dat-aCebo (2023), and TabularARGN MOSTLY AI (2024)—on IEEE-CIS Fraud Detection Kaggle and IEEE Computational Intelligence Society (2019) and the Amazon Fraud Dataset vbinh002 (2020). All four generators fail severely: on IEEE-CIS (P1, P2, P4) composite degradation ratios range from 24.4 ×
+
+(TVAE, after conditional sampling correction) to 39.0 × (GaussianCopula); on Amazon FDB (P3), row-independent generators score 81.6–99.7 ×, while TabularARGN’s autoregressive architecture achieves 17.2 × with full-column training. We additionally document generator-specific failure modes (TVAE minority-class collapse, CTGAN high-dimensional scalability failure) and their practical resolutions. These findings hold implications beyond fraud: the P1–P4 framework extends directly to any domain with entity-level se-quential tabular data, including healthcare records, e-commerce behavior, and network security. We release our evaluation framework as open source to enable reproducible behavioral fidelity assessment across domains. 
+
+1 
+
+> arXiv:2604.13125v1 [cs.LG] 13 Apr 2026 Preprint Sajja
+
+Keywords: synthetic tabular data, fraud detection, behavioral fidelity, generative models, tabular data generation, CTGAN, TVAE, evaluation framework, graph motifs, velocity rules 
+
+1 Introduction 
+
+Financial fraud detection is a behavioral problem. Production fraud systems flag accounts based on how their transaction sequences deviate from baseline: a card executing three transactions in 60 seconds; a cluster of user accounts registered within hours and sharing the same IP address; an amount spike ratio of 10 × a cardholder’s 30-day median. These behavioral signals—temporal bursts, velocity rule violations, shared infrastructure —are the operational basis of fraud detection Bahnsen et al. (2016); Rao et al. (2022); Dal Pozzolo et al. (2014). When raw transaction data cannot be shared due to privacy regulations such as GDPR European Parliament and Council of the European Union (2016), synthetic generation is the natural substitute. The central assumption enabling this substitution is that generators 
+
+preserve the structure that matters for fraud detection . We demonstrate that this assumption is largely untested and, where we can measure it, substantially violated. 
+
+The evaluation gap. Existing synthetic data benchmarks Kotelnikov et al. (2023); Lautrup et al. (2025); Stoian et al. (2026) measure two properties: (1) statistical fidelity —whether marginal distributions and pairwise correlations match the real data; and (2) down-stream utility —whether a classifier trained on synthetic data generalizes to real data (the TSTR protocol Esteban et al. (2017)). Both are necessary but insufficient for fraud applica-tions. A generator can exactly reproduce the marginal distribution of transaction amounts and pairwise amount-timestamp correlations while completely destroying the within-entity burst structure that distinguishes card testers from ordinary cardholders. AUROC on a held-out test set averages over all transactions equally; it does not specifically test velocity-rule calibration, graph-based ring detection, or sequence-level anomaly scoring. We demon-strate this gap concretely: CTGAN achieves the second-highest TSTR AUROC (0.798, near the real-data baseline of 0.903) yet the worst P3 degradation ratio (99.7 ×) in the benchmark. GaussianCopula achieves the lowest TSTR AUROC (0.523) yet a better P3 score (81.6 ×). No Layer 1 or Layer 2 score predicts Layer 3 performance in any consistent direction. This gap has direct operational consequences. Consider a velocity rule that flags cards with 
+
+> 3 transactions within one hour. In CTGAN synthetic data, rule R1 fires at an absolute rate that is 0.36 points lower than in real fraud data. A threshold tuned to minimize false positives on this synthetic data will be far too permissive when deployed against real fraud, which triggers such rules at materially higher rates. The same disconnect applies to graph-based detectors trained on synthetic data with randomly assigned device IDs and IP addresses: the learned ring signatures have no relationship to actual fraud ring structure. 
+
+Prior work on synthetic fraud data. PaySim Lopez-Rojas et al. (2016) simulates mobile money transactions using agent-based rules that explicitly encode behavioral fraud  
+
+> 2Preprint Sajja
+
+patterns, demonstrating that rule-based simulation can preserve behavioral structure—but it is hand-coded simulation, not learned generation, and cannot generalize to new fraud patterns. Meldrum et al. (2025) benchmark tabular generators on financial transaction data and identify evaluation gaps around temporal and behavioral properties, which our framework directly addresses with formal definitions. Hsieh et al. (2024) evaluate an au-toregressive generator on credit card transaction sequences using statistical fidelity metrics, but do not define a behavioral fraud taxonomy, do not measure velocity rules or graph motifs, and study only a single generator. Fiore et al. (2019) apply GAN-based oversam-pling to credit card fraud data and evaluate classifier performance, not temporal structure. To our knowledge, no prior work benchmarks multiple tabular generators against a for-mal behavioral fraud pattern taxonomy spanning temporal, velocity, and graph-structural dimensions. 
+
+Contributions. We make four contributions: 1. Behavioral fraud pattern taxonomy (Section 3): Four formally defined, measurable patterns grounded in the fraud detection literature Bahnsen et al. (2016); Rao et al. (2022); Dal Pozzolo et al. (2014); Abdallah et al. (2016)—inter-event time distribu-tion (P1), burst structure and active lifetime (P2), shared-infrastructure graph motifs (P3), and velocity-rule trigger rates (P4)—with precise metric definitions enabling cross-generator and cross-dataset comparison. 2. Degradation-ratio evaluation framework (Section 4): A noise-floor-anchored scor-ing system that normalizes raw behavioral metrics into interpretable ratios, together with a three-layer evaluation protocol (statistical fidelity + downstream utility + behavioral fidelity) that exposes the gap between existing dimensions and behavioral reality. 3. Empirical benchmark (Section 6): Evaluation of CTGAN, TVAE, GaussianCopula, and TabularARGN on IEEE-CIS (P1, P2, P4) and Amazon FDB (P3). On IEEE-CIS, composite degradation ratios range from 24.4 × (TVAE) to 39.0 × (GaussianCopula); all four generators fail severely relative to the real-data noise floor. On Amazon FDB (P3), row-independent generators range from 81.6–99.7 ×; TabularARGN achieves 17.2 × with full-column training, demonstrating that autoregressive architecture provides a measur-able but insufficient improvement for graph motif preservation. 4. Failure mode documentation (Section 7): TVAE minority-class collapse un-der unconditional sampling (and its resolution via conditional sampling), CTGAN high-dimensional scalability failure, the architectural advantage of TabularARGN for P3 graph motifs versus its inability to improve P1/P2/P4 temporal patterns, and the theoretically-grounded impossibility of cross-entity pattern preservation for row-independent generators—with actionable practitioner guidance. 
+
+2 Related Work 
+
+Tabular synthetic data generation. CTGAN and TVAE Xu et al. (2019) established the conditional GAN and VAE paradigm for tabular data, using a conditional vector and mode-specific normalization to handle multi-modal continuous distributions and class imbal-ance. Patki et al. (2016) introduced the Synthetic Data Vault, of which GaussianCopula is a  
+
+> 3Preprint Sajja
+
+component: it models each column’s marginal independently and captures pairwise depen-dencies via a parametric Gaussian copula. Diffusion-based methods—TabDDPM Kotelnikov et al. (2023) and TabSyn Zhang et al. (2024)—achieve state-of-the-art statistical fidelity on tabular benchmarks but have not been evaluated for behavioral fraud pattern preservation. CTAB-GAN Zhao et al. (2021) improves on CTGAN’s handling of mixed-type columns and long-tail distributions; REaLTabFormer Solatorio and Dupriez (2023) uses a transformer to capture relational structure between tables. TabularARGN MOSTLY AI (2024) con-ditions each feature on previously generated features within a row via an autoregressive architecture. None of these generators are evaluated against behavioral fraud metrics in their original publications. 
+
+Synthetic data evaluation. SDMetrics DataCebo (2023) measures column-shape, pairwise-trend, and ML-efficacy scores. SynthEval Lautrup et al. (2025) unifies fidelity, utility, and privacy evaluation. Kotelnikov et al. (2023) benchmark multiple generators across 15 datasets in their evaluation; the TSTR protocol Esteban et al. (2017) is now standard practice in the field. Stoian et al. (2026) provide a comprehensive taxonomy of deep learning approaches for tabular data generation, organizing evaluation dimensions as utility, alignment, fidelity, privacy, and diversity—the most thorough recent survey of the field. Their framework introduces formal numbered requirements for each dimension and evaluates a wide range of generator architectures, including GAN-based, VAE-based, diffusion-based, and LLM-based models. Crucially, however, behavioral fraud patterns— inter-event timing, burst structure, shared-infrastructure graph motifs, and velocity-rule calibration—are not among the evaluated dimensions in any of the above frameworks. This is the gap our work addresses. 
+
+Synthetic financial transaction data. PaySim Lopez-Rojas et al. (2016) uses agent-based simulation to produce mobile money transactions that explicitly encode fraud behav-ior (burst patterns, rapid withdrawals), but produces pre-programmed rather than learned distributions. Meldrum et al. (2025) is the closest prior work to ours: they benchmark tab-ular generators on financial transaction data and identify evaluation gaps around temporal properties. However, they do not formalize a behavioral fraud taxonomy, do not evaluate velocity rules or graph motifs, and do not report degradation ratios relative to a noise floor. Hsieh et al. (2024) evaluate an autoregressive generator on credit card sequences using statistical metrics only, with no velocity rule or graph evaluation. 
+
+Fraud detection and behavioral signals. The fraud detection literature provides strong evidence that behavioral features are the most discriminative signals Abdallah et al. (2016). Bahnsen et al. (2016) show that aggregate time-based features—transaction counts per rolling window, time elapsed since last event—are among the strongest predictors of credit card fraud, outperforming static features. Dal Pozzolo et al. (2014) demonstrate from a practitioner perspective that recency-weighted velocity aggregates are essential to fraud detection system performance. Graph-based detection Rao et al. (2022) exploits shared device and IP address structure to identify coordinated fraud rings, constructing explicit bipartite entity-attribute graphs and detecting high-density subgraphs as fraud ring signa- 
+
+> 4Preprint Sajja
+
+tures. These bodies of work define precisely the behavioral signals whose preservation we test. 
+
+3 Behavioral Fraud Pattern Taxonomy 
+
+3.1 Notation 
+
+Let U be the set of transaction entities (card fingerprints, user accounts). For entity u ∈ U ,let Tu = ⟨(tu 
+
+> 1
+
+, xu 
+
+> 1
+
+), . . . , (tunu , xunu )⟩ be its chronologically ordered transaction sequence, with 
+
+tu 
+
+> 1
+
+< · · · < t unu . Let F ⊂ U be fraud entities and N = U \ F non-fraud entities. For a class label c ∈ { F, N }, let C denote the corresponding entity set ( F or N ). Dreal and DG 
+
+> syn
+
+denote real and generator-G-produced synthetic datasets; tilde notation ( ˜F, ˜N ) denotes synthetic counterparts. W1(P, Q ) denotes the Wasserstein-1 (Earth Mover’s) distance Villani (2009) between empirical distributions P and Q.
+
+3.2 P1: Inter-Event Time Distribution 
+
+Motivation. Account-takeover, card-testing, and credential-stuffing attacks share a tem-poral fingerprint: rapid bursts of transactions with compressed inter-event gaps, followed by silence Bahnsen et al. (2016). A generator that reproduces the marginal timestamp dis-tribution but destroys within-entity temporal ordering fails to capture this distinguishing structure. 
+
+Definition. For entity u with nu ≥ 2 transactions, the inter-event time (IET) sequence is: 
+
+∆u = ⟨δui ⟩nu−1 
+
+> i=1
+
+, δui = tui+1 − tui ≥ 0. (1) The class-level IET distribution is IETD c(D) = ⋃ 
+
+> u∈C
+
+∆u. Within-entity temporal autocor-relation at lag 1 captures burst regularity: 
+
+ρu = Corr 
+
+> (
+
+⟨δui ⟩nu−2 
+
+> i=1
+
+, ⟨δui+1 ⟩nu−2
+
+> i=1
+> )
+
+. (2) 
+
+Metrics. 
+
+Bc
+
+> 1
+
+(G) = W1
+
+> (
+
+IETD c(Dreal ), IETD c(DG
+
+> syn
+
+)
+
+> )
+
+, (3) 
+
+BAC 1 (G) = ∣∣Eu∈F [ρu] − Eu∈ ˜F [ρu]∣∣ . (4) 
+
+Bc 
+
+> 1
+
+measures distributional shift in IETs; BAC 1 measures the collapse of within-entity autocorrelation—the burst-regularity fingerprint of fraud. We report BF 
+
+> 1
+
+(fraud class) and 
+
+BAC 1 in the benchmark. 
+
+3.3 P2: Burst Structure and Active Lifetime 
+
+Motivation. Fraudsters operate under time pressure: detection windows close quickly. This produces short active lifetimes (hours to days) with dense transaction bursts. Card testers execute a single tight burst of small probes, then disappear. Legitimate accounts have long active lifetimes with scattered, low-density activity Dal Pozzolo et al. (2014).  
+
+> 5Preprint Sajja
+
+Definition. For gap threshold δ > 0 (evaluated at δ ∈ { 1 min , 5 min , 30 min }), a burst 
+
+is a maximal contiguous subsequence of Tu with consecutive gaps ≤ δ. Denote the burst set of entity u at threshold δ as Bu(δ), with burst length L(b) = |b|. The active lifetime is 
+
+AL u = tunu − tu 
+
+> 1
+
+(set to 0 for singleton entities). 
+
+Metrics. 
+
+B2,AL (G) = W1
+
+> (
+
+{AL u}u∈F , {˜AL u}u∈ ˜F
+
+> )
+
+, (5) 
+
+B2,BL (G, δ ) = W1
+
+> ({
+
+L(b)} 
+
+> b∈⋃
+> u∈F Bu(δ)
+
+, {L(b)}  
+
+> b∈⋃
+> u∈˜FBu(δ)
+> )
+
+. (6) We report B2,AL (fraud active lifetime) and ¯B2,BL = 13 
+
+> ∑
+> δ
+
+B2,BL (G, δ ) (burst length aver-aged across all three thresholds). 
+
+3.4 P3: Shared-Infrastructure Graph Motifs 
+
+Motivation. Fraud rings share infrastructure: device IDs, IP addresses, billing addresses. This creates a characteristic bipartite graph structure—power-law fan-out distributions, high triangle counts, dense connected components—that is a primary signal for coordinated fraud detection Rao et al. (2022). Row-independent generators sample shared attributes from marginal distributions, which cannot reproduce cross-row co-occurrence structure by construction. 
+
+Definition. Define a bipartite entity-attribute graph G = ( U, A, E ) where U are entity nodes, A are shared-attribute nodes (device IDs, IP addresses), and (u, a ) ∈ E if entity u
+
+used attribute a. The fan-out of attribute a is FO( a) = |{ u : ( u, a ) ∈ E}| . The entity projection graph GU connects two entities if they share at least one attribute. 
+
+Metrics. 
+
+B3,FO (G) = W1({FO( a)}a∈Areal , {FO( a)}a∈Asyn ) , (7) 
+
+B3,CC (G) = 
+
+> ∣∣∣
+
+CC( Greal  
+
+> U
+
+) − CC( Gsyn  
+
+> U
+
+) 
+
+> ∣∣∣
+
+, (8) 
+
+B3,△(G) = 
+
+> ∣∣∣∣∣
+
+log  
+
+> (
+
+|△ (Greal  
+
+> U
+
+)| + 1 
+
+|△ (Gsyn  
+
+> U
+
+)| + 1  
+
+> )∣ ∣∣∣∣
+
+, (9) where CC( ·) ∈ [0 , 1] is the global clustering coefficient and △(·) is the triangle count. These capture fan-out distributional shift, local clustering structure, and motif density respectively. Figure 1 illustrates the structural difference between a real fraud ring (multiple users sharing a device node) and the synthetic analog (each user assigned a unique device). 
+
+3.5 P4: Velocity-Rule Trigger Rates 
+
+Motivation. Production fraud systems are calibrated around velocity rules Bahnsen et al. (2016); Dal Pozzolo et al. (2014). If synthetic data does not preserve the rates at which fraud entities trigger each rule, thresholds tuned on synthetic data will be miscalibrated in 
+
+> 6
+
+Preprint Sajja u0     
+
+> u1
+> u2
+> u3
+> u4
+> u5
+> u6
+> u7
+> d0
+> d1
+> d2
+> d3
+> d4
+> Users Devices
+> fan-out(d0) = 4
+> (fraud ring shared device)
+> (a) Real Data: Fraud Ring
+> u0
+> u1
+> u2
+> u3
+> u4
+> u5
+> u6
+> u7
+> d0
+> d1
+> d2
+> d3
+> d4
+> d5
+> d6
+> d7
+> Users Devices
+> fan-out(d*) = 1
+> (no device sharing)
+> (b) Synthetic Data: Destroyed Ring Structure
+> P3 Graph Motif Destruction: Real Fraud Ring vs Synthetic Random Assignment
+> Fraud entity Legitimate user Device node
+
+Figure 1: P3 graph motif destruction. In real data (left), fraud ring members share device nodes, creating high fan-out and dense bipartite structure. In synthetic data (right), row-independent generators sample device IDs from a marginal distribution, collapsing fan-out to 1 for every device node. All tested generators reproduce this failure to varying degrees. production. This is the only pattern that directly connects behavioral fidelity to operational miscalibration risk—and, to our knowledge, has not been evaluated in any prior synthetic data benchmark. 
+
+Definition. A velocity rule r = ( f, θ, w, op ) triggers at transaction (u, t ) if f (Tu, t, w ) op θ.The class-conditioned trigger rate is τ c(r, D ) = |C| −1 ∑
+
+u∈C 1r(u). We define a canonical set 
+
+R of eight rules (Table 1) derived from industry practice Bahnsen et al. (2016); Dal Pozzolo et al. (2014). 
+
+Metric. 
+
+B4(G) = 1
+
+|R| 
+
+∑
+
+r∈R 
+
+∣∣∣τ F (r, D real ) − τ F (r, D G
+
+syn )
+
+∣∣∣ . (10) 
+
+4 Evaluation Framework 
+
+4.1 Degradation Ratio 
+
+Raw behavioral metrics are incommensurable across patterns: a Wasserstein distance mea-sured in seconds cannot be compared to a dimensionless autocorrelation gap or a trigger rate difference. We normalize each sub-metric as a degradation ratio relative to the real-data noise floor: 
+
+DR( G, m ) = metric m
+
+(
+
+Dreal , D G
+
+syn 
+
+)
+
+metric m(Dreal ,A , D real ,B ) , (11) 
+
+7Preprint Sajja 
+
+Table 1: Canonical velocity rule set R, derived from Bahnsen et al. (2016) and Dal Pozzolo et al. (2014). Rules R1–R5 are active in all benchmark evaluations; R6 is active for datasets with amount history; R7–R8 require columns absent from the 48-column training subset and are excluded from the P4 composite score.                                       
+
+> Rule Feature Op Threshold Window
+> R1 Transaction count per card >31 hour R2 Distinct merchants per card >524 hours R3 Sum of amounts per card >$1,000 24 hours R4 Transaction count per card >1Account age <7 days R5 Distinct payment methods >27 days R6 Max / median amount ratio >3.0 30-day history R7 Failed transactions per card >21 hour R8 Distinct IPs per card >324 hours
+
+where Dreal ,A and Dreal ,B are a random 50/50 split of the real training data. The denom-inator is the noise floor : the irreducible error from sampling two halves of the same real dataset. A perfect generator scores DR = 1 .0 (indistinguishable from a real split); DR = 5 .0
+
+means five times more divergent than real-data sampling variability. This anchoring choice has three important properties. First, it requires no ground-truth labels—any dataset can produce its own baseline. Second, it makes results interpretable across diverse metric scales: a degradation ratio of 30 × for autocorrelation carries the same meaning as 30 × for a Wasserstein distance, even though the raw values differ by orders of magnitude. Third, the 50/50 split is the most demanding choice from the family of possible splits. Sampling variability in an empirical distribution scales with 1/√n; a smaller split half (e.g., 30%) has higher sampling variance, producing a larger noise floor denominator and thus lower reported degradation ratios. The equal split minimizes this variance, producing the smallest noise floor and the highest (most stringent) degradation ratios. Any unequal split would yield equal or smaller degradation ratios, so our reported values are upper bounds across split choices; the qualitative finding that all tested generators fail catastrophically ( >20 ×) is robust to this design decision. 
+
+4.2 Composite Behavioral Fidelity Score 
+
+The composite behavioral fidelity score is the equal-weighted mean of all sub-metric degra-dation ratios: 
+
+BF( G) = 1
+
+K
+
+> K∑
+> k=1
+
+DR( G, m k), (12) where K is the number of evaluated sub-metrics (five for IEEE-CIS; one for Amazon FDB in the current benchmark). Equal weighting is a conservative default; practitioners with pattern-specific priorities may apply custom weights. We always report all disaggregated sub-metric scores alongside the composite. 
+
+> 8
+
+Preprint Sajja Layer 1 Statistical Fidelity              
+
+> JS divergence · Column correlation · Attribute marginals
+> Layer 2 Downstream Utility (TSTR)
+> Synthetic-train / Real-test AUROC
+> Layer 3 Behavioral Fidelity this work
+> P1 IET distribution · P2 burst/lifetime
+> P3 graph motifs · P4 velocity rules
+> necessary
+> but not sufficient
+> necessary
+> but not sufficient
+> Degradation Ratio
+> DR( G,m) =
+> metric( Dreal ,DG
+> syn )metric( DA,DB)
+> DA,DB= random 50/50 split
+> of real training data
+> 1.0 = perfect match
+> k=k× worse than real split
+
+Three-Layer Evaluation Framework for Synthetic Fraud Data 
+
+Figure 2: Three-layer evaluation framework. Layers 1 (statistical fidelity) and 2 (downstream utility) are established practice but do not capture behavioral fraud patterns. Layer 3 (behavioral fidelity, this work) quantifies degradation relative to a real-data noise floor via the degradation ratio DR( G, m ).
+
+4.3 Three-Layer Evaluation Protocol 
+
+We evaluate each generator on three dimensions: 1. Statistical fidelity (Layer 1) : Column-wise marginal distribution similarity (Jensen-Shannon divergence for categorical features, Wasserstein-1 Villani (2009) for continuous) and mean absolute pairwise correlation matrix difference, following SDMetrics DataCebo (2023). 2. Downstream utility (Layer 2) : AUROC of an XGBoost classifier Chen and Guestrin (2016) trained on synthetic data and evaluated on the real held-out test split (Train-on-Synthetic, Test-on-Real; TSTR Esteban et al. (2017)). 3. Behavioral fidelity (Layer 3) : Degradation ratio scores for P1–P4 (Equation 11). Layers 1 and 2 are established practice in the synthetic tabular data literature Kotelnikov et al. (2023); Lautrup et al. (2025). Layer 3 is the novel contribution of this paper. Our central empirical claim is: a generator can achieve acceptable Layers 1 and 2 scores while exhibiting catastrophic Layer 3 failure. Figure 2 summarizes this three-layer protocol. 
+
+5 Experimental Setup 
+
+5.1 Datasets 
+
+IEEE-CIS Fraud Detection. The 2019 IEEE-CIS Kaggle Fraud Detection dataset Kag-gle and IEEE Computational Intelligence Society (2019) contains 590,540 card-not-present e-commerce transactions with 394 features (merged transaction and identity tables), a 3.5% 
+
+9Preprint Sajja 
+
+fraud rate, and 13,553 unique card entities (the card1 field identifies a card fingerprint). We apply a temporal 80/20 train-test split at the 80th percentile of TransactionDT , yielding 472,432 training rows with a median entity size of 4 and a maximum of 14,932 transactions per entity. We evaluate P1, P2, and P4 on this dataset; it is the richest publicly available source of within-entity transaction sequences. 
+
+Amazon Fraud Dataset (Amazon FDB). This Kaggle e-commerce fraud dataset vbinh002 (2020) contains 151,112 transactions with explicit device_id and ip_address 
+
+fields, a 9.4% fraud rate, and exactly one transaction per user. We evaluate P3 (shared-infrastructure graph motifs) exclusively on this dataset; the device and IP co-occurrence structure yields high attribute fan-out for fraud-linked entities, providing a strong signal for graph motif evaluation. 
+
+Scope rationale. Amazon FDB’s one-transaction-per-user structure makes P1, P2, and P4 undefined (all require nu ≥ 2). IEEE-CIS device columns ( DeviceInfo , id_30 –id_33 )are too sparse after competitive masking for reliable bipartite graph construction. Using each dataset for the patterns it uniquely supports is a deliberate design choice. 
+
+5.2 Generators and Training Configuration 
+
+We evaluate four generators representing the dominant paradigms: 
+
+• CTGAN Xu et al. (2019): Conditional GAN with mode-specific normalization. Trained on a stratified 1:3 (fraud:legitimate) subsample of IEEE-CIS (66,156 rows) due to a scalability failure documented in Section 7.2. Synthetic output uses conditional sampling to restore the real 3.5% fraud rate. Hyperparameters: epochs=300, batch_size=500, generator/discriminator dim=(256,256). 
+
+• TVAE Xu et al. (2019): Variational autoencoder with conditional vector. Trained on the full training set. Exhibits minority-class collapse under unconditional sampling (Section 7.1); all benchmark results use sample_from_conditions() to restore the 3.5% fraud rate. 
+
+• GaussianCopula DataCebo (2023); Patki et al. (2016): Parametric marginal+copula model. Trained on the full training set; correctly preserves class proportions under unconditional sampling. 
+
+• TabularARGN MOSTLY AI (2024): Autoregressive tabular generator (MOSTLY AI local mode). Trained on the same 48-column behavioral feature subset. Hyperparame-ters: max_training_time=240 min, model=MOSTLY_AI/Large. All SDV-based generators use version 1.35.0. CTGAN, TVAE, and GaussianCopula are trained on Databricks ML Runtime 14.3 LTS (Apache Spark 3.5, CUDA 12.2) with a 4-worker cluster (32 GB RAM per worker). TabularARGN is trained using MOSTLY AI SDK local mode (see Appendix A).  
+
+> 10 Preprint Sajja
+
+Table 2: Feature subset used for all four generators (48 columns). V1–V339 excluded.                   
+
+> Group Columns
+> Core evaluation TransactionDT ,TransactionAmt ,isFraud ,card4
+> Velocity counts C1 –C14 (transaction velocity counts) Time-delta features D1 –D15 (days since prior transactions/events) Match flags M1 –M9 (billing/shipping address match) Geographic addr1 ,addr2 ,dist1 ,dist2
+> Email domain P_emaildomain ,R_emaildomain
+> Total 48 columns
+
+5.3 Feature Subset 
+
+All four generators are trained on a curated 48-column behavioral feature subset of IEEE-CIS (Table 2), excluding the 339 Vesta-engineered V-columns. These are excluded for two reasons: (1) they are opaque risk score features not used in any P1–P4 metric computa-tion; and (2) SDV infers them as categorical due to limited unique-value counts in integer ranges, which causes CTGAN’s one-hot encoder to construct intractably large tensors (see Section 7.2). Using the identical 48-column subset across all four generators ensures fair cross-generator comparison. 
+
+5.4 Entity Assignment for Synthetic Data 
+
+Design intent and lower-bound guarantee. Because row-independent generators do not produce entity identifiers, we assign pseudo-entity IDs to synthetic rows using the real entity-size distribution. This procedure is deliberately generous to generators: it imposes the correct entity structure externally , giving each generator the benefit of optimal entity groupings it did not produce. The reported degradation ratios are therefore lower bounds 
+
+on behavioral degradation—real deployment would require entity structure to be generated jointly with the rows, which no tested generator supports. This design isolates the genera-tor’s within-entity coherence failure from its entity-structure failure; the latter would only increase the reported values. The card entity column card1 (13,553 unique values) is excluded from generator training to prevent CTGAN’s one-hot encoder from producing a 13,553-dimensional input tensor. For P1, P2, and P4 evaluation, synthetic rows are assigned pseudo-entity IDs as follows: for each class c ∈ { 0, 1} independently, (1) compute the empirical entity-size distribution 
+
+Sc = {|T u|} u∈C real ; (2) draw sizes s1, s 2, . . . from Sc with replacement and assign group label syn_ c_k to sk consecutive rows until exhausted; (3) randomly permute within-class assignments (seed 42). This preserves the real entity-size distribution and transaction den-sity ( ≈43 rows per entity for IEEE-CIS), yielding ≈11,000 synthetic entities per generator (472,432 rows for CTGAN; a comparable count for TVAE, whose conditional-sampling out-put matches the same training set size).  
+
+> 11 Preprint Sajja
+
+5.5 Behavioral Fidelity Baseline 
+
+The noise floor is computed from a random 50/50 split of the real training data. Table 3 reports all baseline values; these are the denominators in Equation 11. Table 3: Baseline raw scores (real-data 50/50 split). All degradation ratios are relative to these values; a perfect generator scores 1.0 on each.                    
+
+> Dataset Metric Baseline value
+> IEEE-CIS P1: IET W1, fraud (seconds) 9,581.9 IEEE-CIS P1: within-entity autocorrelation gap 0.0027 IEEE-CIS P2: active lifetime W1, fraud (sec) 195,109.9 IEEE-CIS P2: burst length W1(δ=5 min) 0.0408 IEEE-CIS P4: mean velocity-rule trigger rate gap 0.0110 Amazon FDB P3: fan-out W10.0046
+
+6 Results 
+
+6.1 Statistical Fidelity and Downstream Utility 
+
+Table 4 reports Layer 1 and Layer 2 results. All generators are evaluated on their final synthetic files used for the behavioral fidelity benchmark: TVAE uses the conditional-sampling corrected output (fraud rate restored to 3.5%), which is also the output evaluated in the behavioral fidelity tables. The unconditional TVAE failure mode (fraud rate ≈0.03%) is documented in Section 7.1. Table 4 reveals the central thesis empirically. CTGAN achieves the second-highest TSTR AUROC (0.798) yet the worst P3 composite (99.7 ×, Table 6). GaussianCopula achieves the 
+
+lowest TSTR AUROC (0.523) yet a better P3 score (81.6 ×). TabularARGN has both the best Layer 1 scores (JS 0.224, corr |∆| 0.183) and the best behavioral score (17.2 ×)—but 17.2 × is still catastrophic relative to the 1.0 noise floor, and TabularARGN achieves no meaningful advantage over row-independent generators on IEEE-CIS temporal and velocity patterns (36.3 × vs. 39.0 × for GaussianCopula). Layer 1 and Layer 2 rankings therefore provide no reliable signal about Layer 3 performance in either direction, confirming that behavioral fidelity is an independent evaluation dimension. 
+
+6.2 Behavioral Fidelity: IEEE-CIS (P1, P2, P4) 
+
+Table 5 reports P1, P2, and P4 degradation ratios on IEEE-CIS. All ratios are relative to the noise floor in Table 3. Figure 3 compares real and synthetic fraud IET distributions on IEEE-CIS; every generator collapses the characteristic compressed inter-event structure. 
+
+CTGAN (composite: 32.2 ×). CTGAN sub-metric degradation ratios range from 22.9 × (P4 velocity-rule trigger rates) to 40.5 × (P1 temporal autocorrelation). The autocor-relation collapse is the most diagnostically informative sub-metric: in real fraud sequences 
+
+> 12
+
+Preprint Sajja 
+
+Table 4: Layer 1/2 evaluation results. JS Div. : mean Jensen-Shannon divergence across all 48 columns (lower is better). Corr. |∆|: mean absolute pairwise correlation matrix difference (lower is better). TSTR AUROC : XGBoost Chen and Guestrin (2016) trained on synthetic, tested on real held-out set Esteban et al. (2017) (higher is better; real TRTR baseline = 0.903). All TVAE results reflect the conditional-sampling corrected run (fraud rate restored to 3.5%); unconditional generation collapses the fraud rate to ≈0.03% (Sec-tion 7.1). 
+
+Generator Fraud Rate JS Div. (mean) Corr. |∆| TSTR AUROC 
+
+Real (TRTR) 0.035 — — 0.903 CTGAN 0.035 0.257 0.211 0.798 TVAE 0.035 0.294 0.214 0.806 GaussianCopula 0.035 0.313 0.186 0.523 TabularARGN 0.034 0.224 0.183 0.681 0 6 h 12 h 24 h 48 h        
+
+> Inter-event time (seconds)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CDF
+> Linear scale (0 48 h)
+> Real
+> GaussianCopula
+> TabularARGN
+> 10 010 110 210 310 410 510 610 7
+> Inter-event time (seconds)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Log scale (all ranges)
+> Real
+> GaussianCopula
+> TabularARGN
+> P1 Fraud IET Distribution: Real vs Synthetic (IEEE-CIS, card1 entity)
+
+Figure 3: P1 fraud inter-event time (IET) distributions, IEEE-CIS. Real fraud transactions (black) exhibit a compressed, heavy-tailed IET distribution reflecting account-takeover burst patterns. All synthetic generators (colors) produce diffuse, near-uniform distributions with no burst structure. Left: linear scale (0–48 h) highlighting burst region; right: log scale showing all ranges. a short IET gap is reliably followed by another short gap (the burst fingerprint); in syn-thetic data, consecutive gaps within an assigned entity are independent draws from the marginal IET distribution, yielding near-zero autocorrelation. On P4, rule-level deviations include R1 (count > 3 per hour), R3 (sum >$1,000 per day), and R6 (amount spike > 3×
+
+median)—all of which fire at materially lower rates in synthetic data than in real fraud, directly representing velocity-threshold miscalibration risk for downstream systems. 
+
+TVAE (composite: 24.4 ×). After applying conditional sampling to correct the minority-class collapse documented in Section 7.1, TVAE achieves the lowest composite 
+
+13 Preprint Sajja 
+
+Table 5: Behavioral fidelity degradation ratios on IEEE-CIS (P1, P2, P4). Lower is better; 1.0 = real-data noise floor; >10 = severe failure. Bold values indicate best (lowest) per column; ties in P2 AL are shared by CTGAN and GaussianCopula. ∗CTGAN trained on 66K-row subsample (1:3 fraud:legitimate ratio; see Section 7.8). †TVAE evaluated with conditional sampling to restore the 3.5% fraud rate; unconditional generation collapses fraud rate to ≈0.03% and inflates composite to 45.4 × (Section 7.1).                                     
+
+> Generator P1 IETD P1 AutoCorr P2 AL P2 BurstLen P4 VR-TR Composite
+> CTGAN ∗30.0 40.5 35.5 32.2 22.9 32.2 TVAE †25.9 5.9 38.0 31.5 20.6 24.4
+> GaussianCopula 30.1 75.1 35.5 32.6 21.6 39.0 TabularARGN 30.7 60.9 37.1 32.6 20.1 36.3 Noise floor (real) 1.0 1.0 1.0 1.0 1.0 1.0
+
+degradation ratio of any tested generator (24.4 ×). The most striking improvement is P1 temporal autocorrelation: 5.9 ×, dramatically lower than any other generator (next best: CTGAN at 40.5 ×). This suggests that the VAE’s continuous latent space captures within-entity temporal regularity more faithfully than GAN or copula architectures when the cor-rect class distribution is enforced at sampling time. P4 velocity-rule trigger rate (20.6 ×)is the second-lowest of any generator (TabularARGN achieves 20.1 ×). Even so, 24.4 × is catastrophic by any operational standard: TVAE’s best-case performance is 24 × worse than real-data sampling variability on the same data. 
+
+GaussianCopula (composite: 39.0 ×). GaussianCopula records the worst composite degradation ratio among the four generators (39.0 ×). The P1 IETD degradation (30.1 ×)closely matches CTGAN (30.0 ×), confirming that the IET distributional failure is archi-tectural rather than training-related: both generators sample timestamps from the learned marginal without any within-entity temporal conditioning. GaussianCopula’s largest failure is P1 autocorrelation (75.1 ×)—the highest recorded across all generators on IEEE-CIS. The copula’s Gaussian dependence structure captures global pairwise correlations but cannot en-code the conditional sequential structure—the burst fingerprint—that drives within-entity temporal autocorrelation in fraud sequences. 
+
+TabularARGN (composite: 36.3 ×). TabularARGN’s within-row autoregressive ar-chitecture yields a composite of 36.3 ×, better than GaussianCopula (39.0 ×) but worse than CTGAN (32.2 ×) and TVAE (24.4 ×). Despite modest improvement over Gaussian-Copula on P1 autocorrelation (60.9 × vs. 75.1 ×), both values are catastrophically above the noise floor; the autoregressive within-row conditioning provides no structural mechanism for across-row temporal coherence. An entity’s synthetic transaction sequence remains a set of independently generated rows; the autoregressive architecture governs intra-row feature relationships, not inter-row sequential ordering. P4 velocity-rule degradation (20.1 ×) is the lowest across all generators on IEEE-CIS, suggesting that TabularARGN’s feature correla-tions preserve velocity count distributions better than other architectures when trained on the full 48-column feature set. 
+
+> 14
+
+Preprint Sajja 10 0 10 1 10 2  
+
+> device-id fan-out (# unique users per device)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> CDF
+> device\_id
+> Real
+> CTGAN
+> TVAE
+> GaussianCopula
+> TabularARGN
+> 10 010 110 2
+> ip-address fan-out (# unique users per ip)
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> ip\_address
+> P3 Attribute Fan-out CDF: Real vs Synthetic (Amazon FDB)
+
+Figure 4: P3 attribute fan-out CDFs, Amazon FDB. Real data (black) exhibits power-law fan-out: fraud-linked devices are shared by multiple users, creating high-fan-out nodes. Row-independent generators (CTGAN, TVAE, GaussianCopula) collapse to near fan-out 1. TabularARGN (red) achieves the best alignment with real fan-out (composite 17.2 ×) due to autoregressive cross-feature conditioning, though still substantially divergent. Table 6: Behavioral fidelity on Amazon FDB (P3 graph motifs). Fanout DR : Wasserstein-1 fan-out degradation ratio normalized by the real-data noise floor (0.0046); lower is better; 1.0 = indistinguishable from real-data sampling variability. ∗CTGAN and TVAE retrained with LabelEncoder encoding of device_id /ip_address to avoid one-hot OOM; row-independent architecture prevents co-occurrence learning regardless of encoding. ‡Trained with all 9 feature columns and MOSTLY AI value protection disabled; autoregressive cross-feature conditioning captures device co-occurrence structure (Section 7.3). 
+
+Generator Fanout DR Composite DR 
+
+CTGAN ∗ 99.7 99.7 TVAE ∗ 89.3 89.3 GaussianCopula 81.6 81.6 TabularARGN ‡ 17.2 17.2 
+
+Noise floor (real) 1.0 1.0 
+
+6.3 Behavioral Fidelity: Amazon FDB (P3) 
+
+Table 6 reports P3 graph motif results on Amazon FDB. CTGAN and TVAE are retrained with device_id and ip_address present, encoded via LabelEncoder(order_by=None) to avoid the one-hot OOM that blocks training these 137K + unique-value columns natively. GaussianCopula and TabularARGN are trained with both columns present (no encoding workaround needed). Figure 4 shows the fan-out CDF for all generators compared to real data. 
+
+15 Preprint Sajja 
+
+CTGAN and TVAE (composite: 99.7 × and 89.3 ×). Both generators are retrained with device_id and ip_address present, encoded via LabelEncoder(order_by=None) to avoid one-hot OOM (Section A). Despite including the device attribute columns in training, both generators score worse than their pre-retrain baselines (old: 85.1 × each). This is the expected architectural outcome: row-independent generation samples each row’s device_id from the learned marginal independently of all other rows. Integer-encoded device IDs allow the generator to reproduce the marginal frequency distribution of device codes, but cannot reproduce the cross-row co-occurrence that produces shared-device fan-out. The La-belEncoder integer distribution may also introduce slight distributional artifacts relative to pure marginal sampling, explaining the marginal increase over the prior result. The finding confirms that the bottleneck for P3 is architectural row-independence, not the absence of device columns from training. 
+
+GaussianCopula (composite: 81.6 ×). GaussianCopula scores 81.6 ×, consistent with the prior result (79.6 ×). The small increase likely reflects different random seeds in the current run. As with CTGAN and TVAE, the Copula’s pairwise dependence structure cannot encode cross-row co-occurrence: generating two users with the same device ID re-quires modeling a joint distribution over user ×device pairs that the marginal-plus-copula framework cannot represent. 
+
+TabularARGN (composite: 17.2 ×; architectural advantage demonstrated). 
+
+TabularARGN achieves the best P3 result of any generator by a wide margin: 17.2 ×, compared to 81–100 × for row-independent generators. This 5 × improvement demonstrates that autoregressive cross-feature conditioning provides a concrete archi-tectural advantage for graph motif preservation. The mechanism: with all 9 fea-ture columns present, TabularARGN learns the conditional distribution p(device_id |
+
+class , user_id , purchase_value , . . . ) which encodes—implicitly, through learned feature correlations—that certain feature combinations co-occur with device sharing. This allows the generator to reproduce some degree of device co-occurrence structure without explicit multi-row generation. Nonetheless, 17.2 × remains a substantial failure relative to the 1.0 noise floor: the generated fan-out distribution is still 17 × more divergent from real data than two random halves of the real dataset. The theoretical ceiling for any single-row gen-erator is bounded by the information available in per-row feature values; recovering the full fraud ring structure requires explicit modeling of cross-entity relationships, which no tested generator provides. See Section 7.3 for further architectural analysis. Figure 5 presents the complete degradation ratio heatmap across all generators and patterns. 
+
+7 Discussion 
+
+7.1 TVAE Minority-Class Collapse and Its Resolution 
+
+TVAE trained on the IEEE-CIS training set (3.5% fraud) generates a fraud rate of ≈0.03% under unconditional sampling—a greater than 100-fold collapse ( 3.5% /0.03% ≈ 117 ×). This is, to our knowledge, a previously undocumented failure mode in the tabular synthesis literature. The VAE decoder learns to reconstruct the majority class with high fidelity, but 
+
+> 16
+
+Preprint Sajja P1                            
+
+> IET W1
+> P1
+> AutoCorr
+> P2
+> Active Life
+> P2
+> Burst Len
+> P4
+> Veloc. Rule
+> IEEE-CIS
+> Composite
+> P3
+> Fan-out
+> CTGAN
+> TVAE
+> GaussianCopula
+> TabularARGN
+> 30.0 40.5 35.5 32.2 22.9 32.2 99.7
+> 25.9 5.9 38.0 31.5 20.6 24.4 89.3
+> 30.1 75.1 35.5 32.6 21.6 39.0 81.6
+> 30.7 60.9 37.1 32.6 20.1 36.3 17.2
+> IEEE-CIS (P1, P2, P4) Amazon FDB (P3)
+> Behavioral Fidelity Degradation Ratios: All Generators × All Patterns
+> 10×
+> 25×
+> 40×
+> 60×
+> 80×
+> 100×
+> Degradation Ratio (×)
+> TabularARGN P3 = 17.2× (best; full-column training, VP off). TVAE P1 AutoCorr = 5.9× (best; conditional sampling applied).
+
+Figure 5: Degradation ratio summary across all generators and patterns. Each cell reports DR( G, m ) (lower is better; 1.0 = real-data noise floor). IEEE-CIS (P1, P2, P4) and Amazon FDB (P3) are separated by the dashed line. On P3, TabularARGN (17.2 ×)achieves a clear architectural advantage over row-independent generators (81–100 ×); on temporal patterns all generators remain in the 20–75 × range. the minority class occupies a small region of the learned latent space; during unconditional decoding, samples drawn from the learned prior N (0 , I ) overwhelmingly decode to majority-class rows. This failure is detectable purely from a fraud-rate sanity check before any behavioral evaluation. The fix—conditional sampling at generation time, specifying the exact number of fraud and legitimate rows—restores the target fraud rate. However, practitioners using TVAE through standard SDV interfaces without this explicit override will produce synthetic datasets with essentially no fraud, rendering them useless for any fraud detection workflow. We recom-mend that fraud rate verification be a mandatory pre-evaluation step for any generator, not an afterthought. 
+
+Behavioral impact of the fix. After applying conditional sampling, TVAE achieves the best IEEE-CIS composite degradation ratio of any tested generator (24.4 ×). The most striking result is P1 temporal autocorrelation: 5.9 ×—dramatically lower than CTGAN (40.5 ×), GaussianCopula (75.1 ×), and TabularARGN (60.9 ×). This suggests that the VAE’s continuous latent space, when sampled at the correct class distribution, captures within-entity temporal regularity more faithfully than GAN or copula architectures. The 5.9 × autocorrelation result indicates that TVAE partially preserves the burst fingerprint of fraud sequences—the tendency for short IET gaps to follow short IET gaps —even though it generates each row independently. This is a notable positive finding: with appropriate conditional sampling, TVAE is competitive with or superior to other tested generators on all IEEE-CIS behavioral metrics, despite its architectural simplicity relative to TabularARGN. 
+
+17 Preprint Sajja 
+
+7.2 CTGAN High-Dimensional Scalability Failure 
+
+CTGAN training on the full 394-column IEEE-CIS dataset consistently causes out-of-memory errors after ≈3 hours across multiple cluster configurations. The root cause is CTGAN’s one-hot encoding pipeline combined with SDV’s metadata inference: the 339 Vesta V-columns are integers with limited unique-value counts, which SDV reclassifies as categorical, triggering one-hot expansion. A column-type drop filter operating on Python dtype (object vs. numeric) misses these columns entirely because they remain dtype int64 .The consequence is that CTGAN in its standard SDV configuration is unusable on real-world fraud datasets, which routinely have 200–500 features after feature engineering Abdallah et al. (2016). This is a practical scalability barrier not previously documented in the context of fraud benchmark data. Our 48-column explicit keep-list is a principled workaround; we note it as a limitation in cross-generator comparisons and document the workaround for practitioners. 
+
+7.3 TabularARGN P3 Result: Autoregressive Architecture Advantage 
+
+With full-column training (all 9 Amazon FDB features) and value protection disabled, TabularARGN achieves a P3 composite of 17.2 ×—the best result of any tested generator and a 5 × improvement over the next-best row-independent generator (GaussianCopula, 81.6 ×). This section documents the mechanism, the role of value protection, and the implications for generator design. 
+
+Value protection and the training configuration. MOSTLY AI’s TabularARGN ap-plies value protection by default: any categorical value appearing fewer than 5–8 times in training is replaced with a _RARE_ catch-all token. For Amazon FDB, device_id and 
+
+ip_address each contain >137K unique values across 151K rows; with most values ap-pearing only once, value protection would collapse the attribute vocabulary to a single hub node, trivially inflating P3 metrics. We disabled value protection explicitly and confirmed deactivation via zero _RARE_ tokens in the synthetic output ( p_RARE_ = 0 .000 ). The 17.2 × re-sult therefore reflects the generator’s true architectural capability, not a privacy mechanism artifact. 
+
+Why autoregressive conditioning helps for P3. TabularARGN’s autoregressive ar-chitecture conditions each column on all previously generated columns within the same row. With all 9 feature columns present, the model learns a rich conditional distribu-tion p(device_id | class , user_id , purchase_value , source , browser , . . . ). This condi-tional encodes, implicitly, that certain feature combinations co-occur with shared device IDs: fraud-linked feature patterns (specific purchase value ranges, browser types, signup-to-purchase intervals) correlate with the concentrated device distribution of fraud rings. By conditioning device_id generation on the full feature context, the model partially re-produces the device co-occurrence structure without explicitly modeling cross-row depen-dencies. Row-independent generators cannot benefit from this mechanism: even with La-belEncoder device encoding, each row’s device_id is sampled from its learned distribution independently of all other rows, producing fan-out ≈1 regardless of encoding quality.  
+
+> 18 Preprint Sajja
+
+The gap that remains. The 17.2 × result is architecturally the best achievable within a single-row generation paradigm, yet remains substantially worse than the 1.0 noise floor. The irreducible gap arises because within-row conditioning—however rich—cannot fully substitute for explicit cross-row modeling. Generating the shared-device structure of a fraud ring requires knowing, while generating row i, what device ID was assigned to row 
+
+j; no single-row generator has access to this information. The 17.2 × result represents the practical ceiling of the autoregressive approach under current architectures, and establishes a benchmark target for future generators. 
+
+Contrast with prior training run (3-column artifact). An earlier training run with only 3 columns ( class , device_id , ip_address ) produced a composite of 207.4 ×. With only these columns, the autoregressive model learned p(device_id | class = fraud ) almost directly, concentrating probability mass on fraud-ring devices and causing disproportionate device repetition across synthetic fraud rows. The full-column result (17.2 ×) shows that the other 6 features provide regularizing context that prevents this direct label-to-device concentration, allowing the model to learn a more calibrated device distribution. 
+
+7.4 The Row-Independence Constraint 
+
+All four tested generators produce each row independently of every other row, with no cross-row memory of previously generated data. TabularARGN’s autoregressive structure condi-tions each feature on prior features within the same row ; this is within-row, not across-row conditioning. This architectural fact has two distinct consequences for behavioral fidelity. 
+
+Cross-entity patterns (P3) are impossible by construction. A row-independent generator produces row i without knowledge of any other row. It cannot ensure two synthetic users share the same device ID—it can only reproduce the marginal frequency of each device ID value. As a result, in synthetic data produced by row-independent generators, each attribute value is drawn fresh from its marginal for each user; the fraction of attributes shared between any two users collapses to chance level. The real fan-out distribution— where fraud-linked attributes connect hundreds of accounts —is replaced by a distribution where every attribute has fan-out ≈ 1. This is a theoretical impossibility, not an empirical weakness that could be mitigated with more data or better architecture choices within the row-independence paradigm. 
+
+Within-entity temporal coherence (P1, P2, P4) collapses even with imposed entity structure. Even after entity assignment, synthetic rows belonging to the same pseudo-entity were generated independently. Their timestamps were each sampled from the learned marginal timestamp distribution with no conditioning on co-entity timestamps. The resulting within-entity IET sequences approximate a random permutation of marginal IET values rather than the real conditional distribution p(δui | δui−1, . . . , δ u
+
+> 1
+> )
+
+. Within-entity autocorrelation collapses to zero: short gaps are no longer followed by short gaps because row i + 1 ’s timestamp has no statistical relationship to row i’s. This destroys the burst fingerprint (high short-gap autocorrelation in fraud sequences) that is among the strongest discriminative signals in the fraud detection literature Bahnsen et al. (2016). Our CTGAN  
+
+> 19 Preprint Sajja
+
+and TVAE results confirm this empirically: CTGAN P1 autocorrelation is 40.5 × and Gaus-sianCopula is 75.1 × (Table 5). TVAE’s dramatically lower P1 autocorrelation (5.9 ×, after conditional sampling) is consistent with this mechanism but stands as a notable exception discussed in Section 7.1. We now formalize these two consequences as propositions. 
+
+Proposition 1 (P3 graph motifs are structurally unrepresentable by row-independent gen-erators) . Let G be any row-independent generator trained on a dataset with a categorical attribute A having marginal probability pj for value aj . Assign the N synthetic rows to 
+
+M entities, where entity i receives ni independently generated rows ( ∑ 
+
+> i
+
+ni = N ). The probability that entity i holds value aj is exactly ¯pj,i = 1 − (1 − pj )ni . The fan-out of 
+
+aj —the number of entities holding aj —follows a Poisson-Binomial distribution: a sum of 
+
+M independent Bernoulli (¯ pj,i ) variables. Its mean is μj = ∑Mi=1 ¯pj,i ≤ N p j and its vari-ance σ2 
+
+> j
+
+= ∑Mi=1 ¯pj,i (1 − ¯pj,i ) ≤ μj . For fraud-linked attributes with pj ≪ 1, this yields a near-Poisson fan-out distribution with σ2 
+
+> j
+
+≈ μj ≈ N p j , in sharp contrast to real fraud ring fan-outs, which follow a heavy-tailed (power-law) distribution with σ2 ≫ μ. No choice of 
+
+{pj , n i} makes a Poisson-Binomial match a heavy-tailed distribution, establishing a struc-tural impossibility independent of architecture or training data size. Proof sketch. Row-independent generation samples A i.i.d. from p for every row; post-hoc entity assignment cannot alter this independence. Entity i holds aj iff at least one of its 
+
+ni rows has A = aj ; these are independent events across entities, so the fan-out is a sum of independent Bernoulli (¯ pj,i ) variables, i.e., a Poisson-Binomial distribution. For pj ≪ 1,
+
+¯pj,i ≈ nipj by the first-order approximation of (1 − pj )ni , and μj ≈ N p j . The variance of a Poisson-Binomial is at most its mean ( σ2 
+
+> j
+
+≤ μj ), placing the fan-out distribution in the sub-Poisson to Poisson regime. Real fraud ring fan-outs have σ2 ≫ μ (heavy-tailed), which cannot arise from any sum of independent Bernoullis with the same mean. 
+
+Proposition 2 (Within-entity IET autocorrelation is non-positive under post-hoc entity assignment) . Let G be any row-independent generator. Under post-hoc entity assignment, the within-entity lag-ℓ IET autocorrelation satisfies E[ˆ ρ syn  
+
+> ℓ
+
+] ≤ 0 for all ℓ ≥ 1. In particular, it cannot be positive—a necessary condition for reproducing the burst fingerprint of fraud sequences. Proof sketch. For entity u with nu assigned rows sorted by timestamp, the IETs 
+
+(δu 
+
+> 1
+
+, . . . , δ unu−1) are the consecutive spacings of nu i.i.d. draws from pT . These are the 
+
+order-statistic spacings of nu i.i.d. samples. For any continuous distribution, the covariance between non-overlapping spacings satisfies Cov( δui , δ ui+ℓ) ≤ 0 for all ℓ ≥ 1. (For the uni-form distribution, Cov( δi, δ i+ℓ) = −1/(( nu + 1) 2(nu + 2)) , giving a lag-1 autocorrelation of exactly −1/n u < 0.) The pooled within-entity autocorrelation, averaged over all fraud entities, is therefore non-positive. Real fraud burst structure requires positive within-entity IET autocorrelation: short gaps reliably followed by short gaps. Since E[ˆ ρ syn  
+
+> ℓ
+
+] ≤ 0 for all 
+
+ℓ ≥ 1, no row-independent generator with post-hoc entity assignment can reproduce the positive autocorrelation that characterizes fraud bursts.  
+
+> 20 Preprint Sajja
+
+Remark 1. Both results hold for all row-independent generators regardless of architecture, loss function, training dataset size, or post-processing. Proposition 1 establishes that no row-independent generator can reproduce heavy-tailed fan-out distributions (P3); Proposition 2 establishes that no such generator with post-hoc entity assignment can produce the positive IET autocorrelation required for burst pattern fidelity (P1/P2). TabularARGN’s within-row autoregression conditions each feature on prior features within the same row ; this does not violate row-independence and therefore does not circumvent either result. Escaping these structural limits requires an architecture that maintains persistent entity-level state across rows—a fundamentally different generative paradigm. 
+
+7.5 Implications for Practitioners 
+
+Three practical conclusions follow from our results. First, synthetic data from current tabular generators should not be used as a drop-in replacement for real fraud data in any workflow that depends on temporal, velocity, or graph-structural behavioral signals. This explicitly includes: velocity-rule threshold cal-ibration; fraud ring detection model training; sequence-level anomaly detection; and any model that uses time-delta features (D-columns in IEEE-CIS) or transaction velocity counts (C-columns) as inputs. Second, the TSTR AUROC metric substantially understates behavioral fidelity failures. A generator with 33–45 × behavioral degradation may still yield acceptable AUROC because AUROC is a global average over all test transactions, not a targeted test of behavioral signal preservation. Practitioners should require Layer 3 evaluation—using our framework or equivalent behavioral metrics—before deploying synthetic data in fraud workflows. Third, the generator-specific failure modes documented here all have practical workarounds. Conditional sampling at generation time is a one-line fix for TVAE minority-class col-lapse. An explicit column keep-list based on behavioral relevance solves CTGAN’s scal-ability failure. For TabularARGN on graph motif evaluation (P3), the best achievable result requires including all feature columns in training and disabling value protection via 
+
+value_protection: False ; this yields 17.2 ×, a 5 × improvement over row-independent generators and over 12 × better than partial-column training (which we documented pro-ducing 207.4 × in an earlier run due to label-to-device concentration). None of these con-figuration requirements are documented in the standard SDV or MOSTLY AI SDK docu-mentation, and all are essential operational knowledge for practitioners using these tools in fraud contexts. 
+
+7.6 What Would Behavioral Fidelity Require? 
+
+Improving behavioral fidelity likely requires going beyond the row-independence paradigm. For P1 and P2 (within-entity temporal patterns), entity-aware autoregressive generation is a natural candidate: generating each transaction conditioned on the entity’s prior transaction history, as done in sequence models for text. REaLTabFormer Solatorio and Dupriez (2023) represents a step in this direction for relational data. For P4 (velocity-rule trigger rates), training directly on an objective that includes velocity-rule trigger rate preservation could  
+
+> 21 Preprint Sajja
+
+serve as an auxiliary loss. For P3 (cross-entity graph motifs), preserving shared-attribute co-occurrence requires generating multiple rows jointly with a shared latent variable encod-ing entity group membership—a fundamentally different generative model than single-row synthesis. 
+
+7.7 Generalizability Beyond Fraud Detection 
+
+The behavioral fidelity failures documented here are not specific to financial fraud. The same P1–P4 patterns—or their structural analogues—arise wherever tabular data captures sequences of events generated by persistent entities: 
+
+Healthcare (P1, P2, P4): Electronic health records encode patient visit histories with inter-event timing (days between lab tests or prescriptions), activity bursts during acute episodes, and clinical velocity rules (e.g., frequency thresholds for controlled substance pre-scriptions). Row-independent synthetic EHR generators face the same structural barrier proved in Proposition 2: independently generated visit records assigned to the same syn-thetic patient produce non-positive within-visit autocorrelation, lacking the positive tem-poral dependencies that define disease progression and treatment response trajectories. 
+
+E-commerce and user behavior (P1, P2, P3): User clickstream and purchase se-quences exhibit burst-then-silence activity patterns analogous to P1/P2, and account-sharing of shipping addresses, device fingerprints, or payment methods creates cross-account structural dependencies analogous to P3. Return-fraud and account-takeover detection— increasingly prominent research areas— depend on exactly these patterns. 
+
+IoT and network security (P1, P2): Network intrusion datasets (e.g., CICIDS, UNSW-NB15) contain flows from persistent hosts with bursty attack timing; synthetic versions used for NIDS training face the same temporal autocorrelation collapse documented here. Sensor data from industrial IoT devices exhibits strong within-device temporal dependence that row-independent generators will systematically destroy. The P1–P4 taxonomy and degradation ratio framework are directly applicable to these domains with modest adaptation (e.g., replacing velocity-rule definitions to match domain-specific detection logic for P4). We therefore suggest that behavioral fidelity evaluation should become a standard component of synthetic data validation in any domain involving entity-level sequential tabular data, not only fraud detection. 
+
+7.8 Limitations and Threats to Validity 
+
+Generator scope. We evaluate four generators. Results may not generalize to diffusion-based generators (TabDDPM Kotelnikov et al. (2023), TabSyn Zhang et al. (2024)), CTAB-GAN Zhao et al. (2021), or REaLTabFormer Solatorio and Dupriez (2023). We do not evaluate privacy-preserving variants (differentially private generation Xie et al. (2024)), which trade statistical fidelity for privacy guarantees. 
+
+Dataset scope. Two datasets represent a limited sample of fraud transaction data charac-teristics. IEEE-CIS has unusually deep entity sequences (mean ≈43 transactions per entity,  
+
+> 22 Preprint Sajja
+
+median 4, maximum 14,932—a highly right-skewed distribution); datasets with shallower sequences may yield different P1/P2 degradation profiles. 
+
+Entity assignment validity. As detailed in Section 5.4, our entity assignment procedure gives generators the benefit of externally imposed, optimal entity structure. Reported degradation ratios are therefore lower bounds on true behavioral degradation under real deployment conditions, where entity structure must be generated jointly with row content. The evaluation measures within-entity coherence failure in isolation; cross-entity structure failure would only increase the reported values. 
+
+CTGAN training set size and class ratio. CTGAN is trained on a stratified 1:3 fraud:legitimate subsample (66K rows, 25% fraud) due to the OOM failure documented in Section 7.2, while GaussianCopula, TVAE, and TabularARGN are trained on the full dataset (590K rows, 3.5% fraud). Two properties of the subsampling procedure bound the impact on behavioral fidelity comparisons. First, the 1:3 subsampling procedure retains all fraud transactions in the training split; only legitimate rows are downsampled. Consequently, the fraud-entity behavioral training signal is identical between CTGAN and the other generators: the Wasserstein-1 distance between the fraud IET distribution in the full dataset and the subsample is exactly 0.0, and the same holds for all fraud C-column distributions. Since P1, P2, and P4 are computed exclusively on fraud-entity sequences, the training data available to CTGAN for learning fraud behavior is identical to that available to the other generators. Second, in practice, fraud detection systems routinely apply negative subsampling during model training to address class imbalance, with 1:3 to 1:10 ratios being standard industry practice Bahnsen et al. (2016); Dal Pozzolo et al. (2014). Evaluating CTGAN under this regime reflects a realistic deployment scenario rather than an artificial one. The inflated class ratio (25% vs. 3.5%) may affect CTGAN’s conditional distribution learning—particularly how far the generator models the fraud-versus-legitimate joint distri-bution. This would, if anything, make CTGAN’s fraud rows more faithful to the training distribution (better signal-to-noise during GAN training), biasing its degradation ratios downward (toward better scores). CTGAN’s 32.2 × composite therefore represents a con-servative lower bound on its behavioral fidelity failure; training on the natural 3.5% class distribution would be expected to yield equal or higher degradation. 
+
+8 Conclusion 
+
+We introduced behavioral fidelity —a third evaluation dimension for synthetic tabular data, complementary to statistical fidelity and downstream utility—and showed that it captures generator failure modes invisible to existing metrics. Our four-pattern taxonomy (P1: inter-event time distribution, P2: burst structure and active lifetime, P3: shared-infrastructure graph motifs, P4: velocity-rule trigger rates) provides a formal, reproducible basis for be-havioral evaluation grounded in the fraud detection literature Bahnsen et al. (2016); Rao et al. (2022); Dal Pozzolo et al. (2014).  
+
+> 23 Preprint Sajja
+
+Benchmarking four generators on two public fraud datasets, we found consistent behavioral fidelity failures with important architectural nuances. On IEEE-CIS (P1, P2, P4), compos-ite degradation ratios are: TVAE 24.4 × (best, after conditional sampling correction), CT-GAN 32.2 ×, TabularARGN 36.3 ×, GaussianCopula 39.0 ×—all catastrophic by any opera-tional standard; the best result is 24 × worse than real-data sampling variability. On Ama-zon FDB (P3 graph motifs), a clear architectural split emerges: row-independent generators score 81.6–99.7 ×, while TabularARGN achieves 17.2 × with full-column training and value protection disabled—demonstrating that autoregressive cross-feature conditioning provides a measurable but insufficient advantage for graph motif preservation. TabularARGN’s au-toregressive architecture provides no meaningful benefit for temporal patterns (36.3 × vs. 39.0 × for GaussianCopula on IEEE-CIS), confirming that within-row feature conditioning does not substitute for across-row temporal modeling. We documented generator-specific failure modes—TVAE minority-class collapse and its resolution via conditional sampling, CTGAN high-dimensional scalability failure, and the role of value protection and training column selection in TabularARGN’s P3 result —alongside the theoretical impossibility of cross-entity pattern preservation for any row-independent generator. These results establish a clear empirical and theoretical case: none of the four evalu-ated generators is a suitable substitute for real fraud data in workflows that depend on the P1–P4 behavioral patterns tested here. The theoretical row-independence argument (Section 7.4) further suggests this finding extends to any generator that produces rows independently, regardless of architecture. Improving behavioral fidelity will require archi-tectural innovation—entity-aware sequential generation for temporal patterns, cross-entity relational modeling for graph patterns, and explicit velocity-rule calibration objectives— none of which is provided by any generator evaluated in this benchmark. We release our evaluation framework and benchmark data to enable the community to measure progress against the behavioral fidelity standard. 
+
+Code and data availability. The full evaluation framework—including all be-havioral metric implementations, the degradation ratio computation pipeline, en-tity assignment logic, and figure generation scripts—is released as open source at 
+
+https://github.com/bhavana3/synthetic-data-experiments . The repository includes: (1) evaluation/behavioral_fidelity.py —the complete P1–P4 metric library; (2) 
+
+notebooks/ —Databricks training notebooks for all four generators on both datasets; (3) 
+
+paper/figures/ — reproducible figure generation scripts. Both datasets used in this bench-mark are publicly available on Kaggle Kaggle and IEEE Computational Intelligence Society (2019); vbinh002 (2020) without access restrictions. 
+
+Broader Impact Statement 
+
+Synthetic data is increasingly used as a privacy-preserving substitute for real financial trans-action records, enabling fraud detection research without sharing sensitive data. This work demonstrates that current synthetic tabular generators fail to preserve the behavioral pat-terns that fraud detection systems rely on, providing practitioners with a formal framework to audit this risk before deploying synthetic data in production workflows. 
+
+> 24
+
+Preprint Sajja 
+
+The primary societal benefit is improved risk awareness: by quantifying behavioral fidelity failures with a reproducible framework, we help researchers and practitioners avoid de-ploying synthetic data in contexts where it would produce miscalibrated fraud detection models—a failure mode with direct consumer harm. We do not introduce new data collection, do not work with real individual transactions beyond publicly available Kaggle datasets, and do not create or enable new attack capa-bilities. The evaluation framework and datasets are released under open-source licenses. The generalizability findings (Section 7.7) highlight applications in healthcare and other sensitive domains; in those contexts, practitioners should treat the behavioral fidelity gap as additional motivation for careful validation rather than as guidance to avoid synthetic data entirely. 
+
+Acknowledgments 
+
+The author thanks the IEEE Computational Intelligence Society and Amazon for releasing the IEEE-CIS Fraud Detection and Amazon Fraud E-Commerce datasets as public bench-marks. No external funding was received for this work. The author declares no competing interests. 
+
+References 
+
+Aisha Abdallah, Mohd Aizaini Maarof, and Anazida Zainal. Fraud detection system: A survey. 
+
+Journal of Network and Computer Applications , 68:90–113, 2016. doi: 10.1016/j.jnca.2016.04.007. Alejandro Correa Bahnsen, Djamila Aouada, Aleksandar Stojanovic, and Björn E. Ottersten. Feature engineering strategies for credit card fraud detection. Expert Systems with Applications , 51:134– 142, 2016. Tianqi Chen and Carlos Guestrin. XGBoost: A scalable tree boosting system. In ACM SIGKDD International Conference on Knowledge Discovery and Data Mining , pages 785–794, 2016. Andrea Dal Pozzolo, Olivier Caelen, Yann-Aël Le Borgne, Serge Waterschoot, and Gianluca Bon-tempi. Learned lessons in credit card fraud detection from a practitioner perspective. Expert Systems with Applications , 41(10):4915–4928, 2014. DataCebo. SDV: The synthetic data vault, 2023. URL https://docs.sdv.dev/sdv . Version 1.35.0. Cristóbal Esteban, Stephanie L. Hyland, and Gunnar Rätsch. Real-valued (medical) time series generation with recurrent conditional GANs. arXiv preprint arXiv:1706.02633 , 2017. Introduced the Train-on-Synthetic, Test-on-Real (TSTR) evaluation protocol. European Parliament and Council of the European Union. Regulation (EU) 2016/679 of the european parliament and of the council (general data protection regulation). Technical report, Official Journal of the European Union, 2016. L 119/1. Ugo Fiore, Alfredo De Santis, Francesca Perla, Paolo Zanetti, and Francesco Palmieri. Using gener-ative adversarial networks for improving classification effectiveness in credit card fraud detection. 
+
+Information Sciences , 479:448–455, 2019. Din-Yin Hsieh, Chi-Hua Wang, and Guang Cheng. Improve fidelity and utility of synthetic credit card transaction time series from data-centric perspective. arXiv preprint arXiv:2401.00965 , 2024. Kaggle and IEEE Computational Intelligence Society. IEEE-CIS fraud detection, 2019. URL https: //www.kaggle.com/c/ieee-fraud-detection .Akim Kotelnikov, Dmitry Baranchuk, Ivan Rubachev, and Artem Babenko. TabDDPM: Modelling tabular data with diffusion models. In Proceedings of the 40th International Conference on Ma-chine Learning (ICML) , 2023. 25 Preprint Sajja Anton Danholt Lautrup, Tobias Hyrup, Arthur Zimek, and Peter Schneider-Kamp. SynthEval: A framework for detailed utility and privacy evaluation of tabular synthetic data. Data Mining and Knowledge Discovery , 2025. arXiv:2404.15821. Edgar Alonso Lopez-Rojas, Ahmad Elmir, and Stefan Axelsson. PaySim: A financial mobile money simulator for fraud detection. In EMSS European Modelling and Simulation Symposium , 2016. James Meldrum, Basem Suleiman, Fethi Rabhi, and Muhammad Johan Alibasa. New money: A systematic review of synthetic data generation for finance. arXiv preprint arXiv:2510.26076 , 2025. MOSTLY AI. MOSTLY AI synthetic data platform, 2024. URL https://mostly.ai . TabularARGN local-mode generator. Neha Patki, Roy Wedge, and Kalyan Veeramachaneni. The synthetic data vault. In IEEE Interna-tional Conference on Data Science and Advanced Analytics (DSAA) , pages 1–10, 2016. Susie Xi Rao, Shuai Zhang, Zhichao Han, Zitao Zhang, Wei Min, Zhiyao Chen, Yinan Shan, Yang Zhao, and Ce Zhang. xFraud: Explainable fraud transaction detection. Proceedings of the VLDB Endowment , 15(3):427–436, 2022. arXiv:2011.12193. Aivin V. Solatorio and Olivier Dupriez. REaLTabFormer: Generating realistic relational and tabular data using transformers. arXiv preprint arXiv:2302.02041 , 2023. Mihaela Cătălina Stoian, Eleonora Giunchiglia, and Thomas Lukasiewicz. A survey on tabular data generation: Utility, alignment, fidelity, privacy, and beyond. Transactions on Machine Learning Research , 2026. URL https://arxiv.org/abs/2503.05954 . arXiv:2503.05954. vbinh002. Fraud E-Commerce dataset, 2020. URL https://www.kaggle.com/datasets/vbinh002/ fraud-ecommerce .Cédric Villani. Optimal Transport: Old and New . Springer, 2009. Chulin Xie, Zinan Lin, Arturs Backurs, Sivakanth Gopi, Da Yu, Huseyin A. Inan, Harsha Nori, Haotian Jiang, Huishuai Zhang, Yin Tat Lee, Bo Li, and Sergey Yekhanin. Differentially private synthetic data via foundation model APIs 2: Text. In Proceedings of the 41st International Conference on Machine Learning (ICML) , 2024. arXiv:2403.01749. Lei Xu, Maria Skoularidou, Alfredo Cuesta-Infante, and Kalyan Veeramachaneni. Modeling tabular data using conditional GAN. In Advances in Neural Information Processing Systems , volume 32, 2019. Hengrui Zhang, Jiani Zhang, Balasubramaniam Srinivasan, Zhengyuan Shen, Xiao Qin, Christos Faloutsos, Huzefa Rangwala, and George Karypis. Mixed-type tabular data synthesis with score-based diffusion in latent space. In Proceedings of the 12th International Conference on Learning Representations (ICLR) , 2024. Oral presentation. arXiv:2310.09656. Zilong Zhao, Aditya Kunar, Robert Birke, and Lydia Y. Chen. CTAB-GAN: Effective table data synthesizing. In Asian Conference on Machine Learning (ACML) , 2021. 
+
+A Generator Hyperparameters and Training Configuration 
+
+CTGAN. Trained using SDV 1.35.0 with the following hyperparameters: 300 epochs, batch size 500, embedding dimension 128, generator and discriminator hidden dimensions 
+
+(256 , 256) , learning rate 2 × 10 −4, PacGAN packing factor 10, mode-specific normalization enabled. On IEEE-CIS, training was restricted to a 66K-row subsample (1:3 fraud-to-legitimate ratio) due to one-hot OOM at full scale; V-columns were excluded by setting their SDV sdtype to numerical before metadata finalization. On Amazon FDB, device_id and 
+
+ip_address were encoded with LabelEncoder(order_by=None) from RDT before fitting (first-encounter integer codes; order_by=“frequency” is not supported in RDT ≤1.x). 
+
+26 Preprint Sajja 
+
+TVAE. Trained using SDV 1.35.0 with 300 epochs, batch size 500, embedding dimension 128, compress and decompress dimensions (128 , 128) , learning rate 1 × 10 −3. On IEEE-CIS, conditional sampling ( sample_from_conditions ) was used at generation time to preserve the target 3.5% fraud rate; the same V-column exclusion as CTGAN was applied. On Amazon FDB, the same LabelEncoder(order_by=None) strategy as CTGAN was used. 
+
+GaussianCopula. Trained using SDV 1.35.0’s GaussianCopulaSynthesizer with 
+
+default_distribution=“beta” (empirically better for bounded financial features). No column exclusions; all 48 IEEE-CIS behavioral columns and all 9 Amazon FDB columns were included. 
+
+TabularARGN. Trained using MOSTLY AI SDK (local mode, model version 260) with default hyperparameters: autoregressive transformer with 4 attention heads, embedding dimension 128, 10 epochs. On Amazon FDB, value protection was explicitly disabled via 
+
+tabular_model_configuration: {value_protection: False} ; the _RARE_ fraction of 0.000 in the output confirms deactivation. No columns include-list was specified; all feature columns were generated. 
+
+B Behavioral Metric Formulas 
+
+For completeness, we restate all metric definitions in a single location. Let Dreal and DG
+
+> syn
+
+denote the real training split and synthetic dataset from generator G, and let W1(P, Q )
+
+denote the Wasserstein-1 distance between empirical distributions. 
+
+P1: Inter-event time (IET) metrics. 
+
+B1,W (G) = W1
+
+(
+
+IETD F (Dreal ), IETD F (DG
+
+> syn
+
+)
+
+)
+
+, (13) 
+
+B1,ρ (G) = 
+
+∣∣∣¯ρ(DF
+
+> real
+
+) − ¯ρ(DG 
+
+> syn ,F
+
+)
+
+∣∣∣ , (14) where ¯ρ is the mean within-entity lag-1 autocorrelation of the IET sequence, computed over all fraud entities with ≥ 3 transactions. 
+
+P2: Burst structure metrics. 
+
+B2,AL (G) = W1
+
+({L(u)}u∈F , {L(u)}u∈ ˜F
+
+) , (15) 
+
+B2,BL (G, δ ) = W1
+
+(
+
+{L(b)}b∈⋃ 
+
+> u∈F Bu(δ)
+
+, {L(b)}b∈⋃  
+
+> u∈˜FBu(δ)
+
+)
+
+, (16) where L(u) = max i tui − min i tui is the entity active lifetime, and Bu(δ) are the burst blocks of entity u under inter-event gap threshold δ (evaluated at 60, 300, and 1800 seconds). 
+
+P3: Graph motif metrics. 
+
+B3,FO (G) = W1({FO( a)}a∈Areal , {FO( a)}a∈Asyn ) , (17) 
+
+B3,CC (G) = 
+
+∣∣∣CC( Greal  
+
+> U
+
+) − CC( Gsyn  
+
+> U
+
+)
+
+∣∣∣ , (18) 
+
+B3,△(G) = 
+
+∣∣∣∣∣log 
+
+( |△ (Greal  
+
+> U
+
+)| + 1 
+
+|△ (Gsyn  
+
+> U
+
+)| + 1 
+
+)∣ ∣∣∣∣ . (19) 
+
+27 Preprint Sajja 
+
+P4: Velocity-rule trigger rate metric. 
+
+B4,VR (G) = 1
+
+|R| 
+
+> ∑
+> r∈R
+> ∣∣∣
+
+TR r(Dreal ) − TR r(DG
+
+> syn
+
+) 
+
+> ∣∣∣
+
+, (20) where R is the canonical set of 8 velocity rules (Table 1) and TR r(D) is the fraction of fraud entities in D that trigger rule r at least once. 
+
+Degradation ratio. 
+
+DR( G, m ) = Bm(G)
+
+Bm(BASELINE) , (21) where Bm(BASELINE) is the metric value from evaluating against a random 50/50 split of the real training data. All baseline values are reported in Table 3. 
+
+C Entity Assignment for Synthetic Data 
+
+Because synthetic data lacks persistent entity identifiers (card fingerprints, user IDs), P1, P2, and P4 evaluation requires assigning pseudo-entity IDs to synthetic rows. We use the following deterministic procedure. 
+
+Algorithm A1: Synthetic Entity Assignment 
+
+Input: Dsyn , Dreal , entity column EntityCol , random seed. 
+
+Output: Dsyn with EntityCol assigned. 1. For each class c ∈ { 0, 1}, compute the empirical entity-size distribution Sc = {|T u|} u∈C real .2. Sort Dsyn rows of class c by TransactionDT (ascending). 3. Draw entity sizes s1, s 2, . . . i.i.d. from Sc with replacement (seed 42); assign group label 
+
+syn_ c_k to the next sk consecutive rows until all rows of class c are assigned. 4. Randomly permute within-class entity assignments (seed 42). 5. Return Dsyn with EntityCol populated. This procedure preserves the real entity-size distribution: the resulting synthetic entities have a size distribution matching that of real entities, with a mean of approximately ¯s =
+
+|Dsyn |/N e rows per entity. For IEEE-CIS, the real entity-size distribution is highly right-skewed (median 4, mean ≈43, max 14,932), so Ne ≈ 11 ,000 entities emerge from the size-sampling procedure. Because the assignment imposes the correct entity structure externally, it represents a lower bound on behavioral degradation: real deployment would require entity IDs to be generated jointly, which no tested generator supports.

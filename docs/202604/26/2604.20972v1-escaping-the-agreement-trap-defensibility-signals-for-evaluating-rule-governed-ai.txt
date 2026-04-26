@@ -1,0 +1,439 @@
+Title: Escaping the Agreement Trap: Defensibility Signals for Evaluating Rule-Governed AI
+
+URL Source: https://arxiv.org/pdf/2604.20972v1
+
+Published Time: Fri, 24 Apr 2026 00:06:37 GMT
+
+Number of Pages: 22
+
+Markdown Content:
+# Escaping the Agreement Trap: Defensibility Signals for Evaluating Rule-Governed AI 
+
+Michael O’Herlihy ∗
+
+Reddit, Inc. 
+
+michael.oherlihy@reddit.com 
+
+Rosa Català ∗
+
+Reddit, Inc. 
+
+rosa.catala@reddit.com 
+
+# Abstract 
+
+Content moderation systems are typically evaluated by measuring agreement with human labels. In rule-governed environments this assumption fails: multiple de-cisions may be logically consistent with the governing policy, and agreement met-rics penalize valid decisions while mischaracterizing ambiguity as error—a failure mode we term the Agreement Trap . We formalize evaluation as policy-grounded correctness and introduce the Defensibility Index (DI) and Ambiguity Index (AI). To estimate reasoning stability without additional audit passes, we introduce the Probabilistic Defensibility Signal (PDS), derived from audit-model token log-probs. We harness LLM reasoning traces as a governance signal rather than a classification output by deploying the audit model not to decide whether con-tent violates policy, but to verify whether a proposed decision is logically deriv-able from the governing rule hierarchy. We validate the framework on 193,000+ Reddit moderation decisions across multiple communities and evaluation cohorts, finding a 33–46.6 percentage-point gap between agreement-based and policy-grounded metrics, with 79.8–80.6% of the model’s false negatives correspond-ing to policy-grounded decisions rather than true errors. We further show that measured ambiguity is driven by rule specificity: auditing 37,286 identical deci-sions under three tiers of the same community rules reduces AI by 10.8 pp while DI remains stable. Repeated-sampling analysis attributes PDS variance primarily to governance ambiguity rather than decoding noise. A Governance Gate built on these signals achieves 78.6% automation coverage with 64.9% risk reduction .Together, these results show that evaluation in rule-governed environments should shift from agreement with historical labels to reasoning-grounded validity under explicit rules. 
+
+> ∗Equal contribution. Preprint.
+> arXiv:2604.20972v1 [cs.AI] 22 Apr 2026
+
+# 1 Introduction 
+
+Automated content moderation systems operating under explicit governance rules face an evaluation problem that agreement-based metrics cannot solve. When a platform’s rules permit multiple distinct decisions for a given piece of content, as they frequently do in grey areas, human moderators resolve the ambiguity using context, precedent, and interpretive norms in concert with the written policy [1, 15, 17, 21]. A model that learns from these labels learns to reproduce the interpretive pathway, not the rule structure. Measured by F1 it appears to perform well; measured against the governing rules it may be systematically less aligned than a model with lower agreement scores. We term this the Agreement Trap . It arises whenever correctness is set-valued: when the set of policy-defensible outcomes contains more than one element, agreement penalizes valid deci-sions and conflates three distinct failure modes—model error, moderator divergence, and policy ambiguity—into a single undifferentiated signal [18, 21]. Each requires a different intervention; none is distinguishable from the others under F1.Legal theory has long recognized that rule systems contain a penumbra of interpretive ambiguity where multiple outcomes are defensible under the same rule structure [9]. Rules exist at varying levels of specificity—from headline titles to detailed guidelines with examples and exceptions—and the interpretive latitude available to moderators depends on which layer is visible, a dynamic we term Normative Underspecification . This observation is consistent with prior work showing that moderation practice is often tacit and contextual [2, 6, 7]. Policy ambiguity is not a deficiency but a deliberate design feature of principle-based rules. It preserves human moderator flexibility and judgment in novel or unexpected situations without re-quiring constant policy rewrites. Policies that are overly specific can ironically create loopholes; Reddit’s principle-based approach keeps rules elastic enough to cover new contexts. The Defensi-bility Framework and Ambiguity Index do not treat this elasticity as error. Instead, they quantify it as a measurable governance property so that automation can be deployed safely and transpar-ently precisely where defensibility is high, while preserving the human judgment that the rules were designed to enable. We make three contributions. First , we formalize evaluation as policy-grounded correctness and introduce DI and AI as metrics that separate policy-defensible from indefensible decisions. Second ,we introduce PDS, a logprob-based stability signal extracted at zero additional cost from the audit model’s reasoning trace. Third , we operationalize DI and AI in a Governance Gate that achieves principled automation thresholds with empirically validated coverage-risk tradeoffs. We validate on Reddit’s production moderation infrastructure and present adversarial analysis of the framework’s failure modes. We validate the framework on 193,000+ offline model decisions spanning multiple Reddit communi-ties and cohorts, audited against both platform-wide rules ( RG) and community-specific rules ( RC ); no decision in this study was used for live enforcement. We find a large gap between agreement-based and policy-grounded evaluation, with most model false negatives corresponding to policy-grounded decisions rather than true errors. We further show that PDS provides a calibrated reasoning-stability signal, that its variance is driven primarily by governance ambiguity rather than sampling noise, and that a Governance Gate built on these signals achieves substantial automation coverage with meaningful risk reduction. Finally, adversarial analysis shows that the framework’s escape surface aligns with the same policy-ambiguity regions identified by the Ambiguity Index. 
+
+# 2 Related Work 
+
+Disagreement as signal. Aroyo and Welty [1] argue that annotator disagreement often reflects genuine task ambiguity rather than error; Mostafazadeh Davani et al. [15] show this in subjective annotation settings such as hate speech; Uma et al. [21] survey the broader literature on learning from disagreement; Plank [18] argues that label variation should be treated as a first-class modeling and evaluation concern; and Pavlick and Kwiatkowski [17] show that disagreement can be inherent to the task itself. 
+
+LLM-as-judge. LLM-based evaluation typically raises calibration and self-enhancement concerns when models assess outputs against implicit or subjective standards [14, 22]. Our approach differs 2structurally from these paradigms. The audit model is not asked to evaluate whether an output is 
+
+good or preferable; it evaluates whether a proposed decision ˆy is logically derivable from an explicit rule system (R, P ). The governing rules are treated as the external source of truth, and the audit model functions as a constrained reasoning engine over this rule set. The task therefore has a formal answer: given (C, R, P, ˆy), does a valid derivation exist? This distinction is critical—the audit model is not substituting for human judgment or preference, but is operationalizing rule-consistency under an explicit policy. By ensuring that the model commits to a rule citation before assigning a defensibility level, errors are characterized as failures of derivation rather than disagreements with subjective intent. Circularity is addressed through four independent triangulation channels (Section 10). This shifts the evaluation target from preference judgment to reasoning-grounded validity under an explicit rule structure. 
+
+Logprob uncertainty. Kadavath et al. [10] show that language models can assess their own uncer-tainty via logprobs; Kuhn et al. [11] extend this to semantic uncertainty. PDS differs by extracting uncertainty at reasoning-critical token positions rather than at the output label, and by conditioning on an explicit governance structure. Lanham et al. [13] and Turpin et al. [20] motivate extracting uncertainty over chain-of-thought tokens specifically. 
+
+Calibration and selective prediction. We follow standard Expected Calibration Error (ECE) methodology [8, 16] and adapt selective prediction [5] to governance-aware deployment. 
+
+# 3 The Defensibility Framework 
+
+3.1 Formalization 
+
+Let C be the content under review, R = ( RG, R C ) the applicable rule hierarchy (platform-wide 
+
+RG, community-specific RC ), P the community precedent corpus, and ˆy ∈ { REMOVE , APPROVE }
+
+a proposed decision. This formalization treats moderation evaluation as derivability under an explicit rule structure, in the spirit of rule-based reasoning traditions in legal theory and AI & law [9]. A decision ˆy is defensible under (C, R, P ) if a valid logical derivation D from (C, R, P ) to ˆy exists— a chain of inference steps grounded in the explicit rule text, requiring no premises absent from 
+
+(C, R, P ). Defensibility levels: • L1—Robustly Defensible : an explicit rule directly and unambiguously authorizes ˆy.• L2—Plausibly Defensible : rules are genuinely ambiguous about this scenario but could rea-sonably support ˆy.• L3—Indefensible : no explicit rule authorizes ˆy, or the content complies with the literal re-quirements of the cited rule, or the reasoning invokes concepts absent from the rule set. Defensibility Index (DI) = |{ i : level (i) ∈ { L1, L 2}}| 
+
+N . Target: DI ≥ 0.90 . (1) Ambiguity Index (AI) = |{ i : inverse_check (i) = Yes }| 
+
+N , Target: AI ≤ 0.15 . (2) AI decomposes into AI G (platform-level underspecification in RG) and AI C (community-level un-derspecification in RC ). These components indicate different interventions: AI G suggests platform policy revision; AI C suggests community precedent development. The Normative Underspecifica-tion experiment (Section 6) provides an empirical estimate of AI C by varying rule specificity within a single community. 
+
+3.2 The Agreement Trap 
+
+The Agreement Trap arises when AI > 0: human moderators must resolve ambiguity using context in concert with the written rules, producing labels that reflect the resolution pathway rather than the rule structure [18, 21]. A model trained on these labels learns the pathway, not the derivation. The empirical signature is false negatives that are L1 or L2—agreement-based evaluation penalizing 3policy adherence. If 80% of the model’s false negatives are defensible, the evaluation is measuring interpretive alignment rather than rule-grounded validity. 
+
+3.3 Audit Implementation 
+
+The framework is operationalized through a structured audit. Audit model Ma receives 
+
+(C, R, P, ˆy) and generates a JSON reasoning trace with fields in this order: logic_chain →
+
+policy_citation (κ) → precedent_weight (ω ∈ {High , Medium , Low }) →
+
+inverse_check (ι ∈ { Yes , No }) → defensibility_level (ξ ∈ { 1, 2, 3}). This ordering is a deliberate design choice: committing to a rule citation before assigning defensibility level en-sures that classification is grounded in an explicit governance reference. Ma is not generating a moderation decision—it is auditing whether ˆy is derivable from (R, P ).
+
+Figure 1: The Defensibility Framework. Rule hierarchy R = ( RG, R C , P ) flows into audit model 
+
+Ma alongside content C and proposed decision ˆy. Ma generates trace A = ( κ, ω, ι, ξ ) and classifies 
+
+ˆy as L1 (Robustly Defensible), L2 (Plausibly Defensible), or L3 (Indefensible). DI aggregates the 
+
+L1 ∪ L2 fraction; AI aggregates cases where the inverse check fires. Root cause taxonomy decom-poses disagreement into Model Error (19.4%), Implicit Norm Enforcement, and Policy Ambiguity. The Governance Gate restricts automated enforcement to decision cohorts satisfying DI ≥ 0.90 ,AI ≤ 0.15 (minimum 25 decisions). The threshold pair was selected as the knee of the coverage-risk tradeoff from scenario sensitivity analysis (Table 7). 
+
+3.4 Operational Deployment 
+
+The Defensibility Framework can be integrated into existing moderation systems with minimal ar-chitectural changes. The following pipeline describes a reference integration; the framework has not been deployed in production at the time of writing. 1. Audit pass. For each decision ˆy produced by a moderation model Mc, run the audit model Ma
+
+on (C, R, P, ˆy) to produce a JSON reasoning trace. 2. Metric computation. Aggregate defensibility outcomes to compute the Defensibility Index (L1 ∪ L2 rate) and Ambiguity Index (inverse-check rate) over decision cohorts. 43. Ambiguity diagnosis. Identify high-AI regions to distinguish platform-level ( AI G) or community-level ( AI C) policy underspecification from true model error. 4. Governance Gate. Restrict automated enforcement to decision cohorts satisfying DI ≥ 0.90 
+
+and AI ≤ 0.15 , selecting operating points along the coverage–risk frontier (Section 9). This pipeline converts moderation evaluation from agreement-based scoring to policy-grounded con-trol, enabling the safe expansion of automation while preserving auditability. 
+
+# 4 Probabilistic Defensibility Signal 
+
+4.1 Motivation and Architecture 
+
+Standard output confidence fails as a stability signal: it remains uniformly high (0.95–0.99) even dur-ing extreme classification reversals. This occurs because confidence is measured at the final output token, after the model has committed to a reasoning path [10, 11]. PDS instead extracts uncertainty at token positions that precede the defensibility verdict, motivated by evidence that chain-of-thought outputs may not faithfully reflect the underlying computation and can behave like post-hoc rational-izations [13, 20]. The architecture is two-model: Mc produces ˆy; Ma audits whether ˆy is derivable from (R, P ), with ˆy
+
+as a fixed input. The Audit Independence Assumption (AIA) holds when Mc and Ma are sufficiently independent that Ma has no systematic prior toward justifying Mc’s outputs. The Same-Backbone Condition (SBC) is violated when they share a backbone, inflating PDS for labels consistent with 
+
+Mc’s prior. Calibration corrects operationally for SBC but the decomposition interpretation (that PDS components proxy specific ambiguity types) is stronger under AIA. 
+
+4.2 Three-Component Vector 
+
+PDS extracts three scalars from Ma’s single forward pass: 
+
+λξ —Label log-confidence. λξ = log pθa (ξ∗ | C, R, P, ˆy) where ξ∗ = arg max l∈{ 1,2,3} pθa (l |
+
+C, R, P, ˆy) is the MAP defensibility level (argmax over the softmax distribution, not the sampled token; at T ≥ 0.7 the distinction matters). Generated last in the template, conditioning on the full preceding trace. Nearly uninformative standalone but captures commitment failure. 
+
+H[κ]—Citation span entropy. Mean conditional entropy over the policy_citation token span: 
+
+H[κ] = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+H[κi | κ1: i−1, C, R, P, ˆy], (3) where each term is the Shannon entropy of Ma’s next-token distribution at position i in the citation span. Extracted by character-offset matching of the JSON field delimiter; 100% detection rate across 56,883 cases (mean span 25 tokens). Leading indicator: generated before ξ. Proxy for AI G.
+
+H[w]—Precedent weight entropy. Shannon entropy of the softmax distribution over 
+
+{High , Medium , Low } at the precedent_weight token position. Single-token proxy for H[κ],exploiting the template’s structured categorical output. Both operationalizations yield equivalent calibration behavior (see Section 4.3). 
+
+σ(ρ)—Inverse-check log-odds. ρ = log p(Yes | π) − log p(No | π) where π =[C; R; P ; ˆ y; logic_chain ; κ∗; precedent_weight ] is the full token prefix at the inverse_check 
+
+position. Note: ξ∗ is generated after ι in the template and is not in π. σ(ρ) is the primary discrimina-tor between L1 (committed rule correctly applied, low σ(ρ)) and L3 (rule contradicted, high σ(ρ)). Intermediate in generation order: after κ but before ξ. Proxy for AI C when H[κ] is low. The full PDS vector: PDS Ma (C, R, P, ˆy) = ( λξ , −H[w], −σ(ρ)) , (4) 5all oriented so higher values indicate greater stability. Scalar collapse: 
+
+S = exp α · λξ + β · (−H[w]) + γ · (−σ(ρ)) , α + β + γ = 1 , α, β, γ > 0. (5) 
+
+S is calibrated as P (Not Indefensible | C, R, P, ˆy, M a).
+
+4.3 Calibration 
+
+Weight vector (α∗, β ∗, γ ∗) is fit on the Balanced Sample ( N = 19 ,899 ) by MLE against hard de-fensibility labels ( yi = 1 if L1/L2, yi = 0 if L3), using softmax reparameterization (α, β, γ ) = 
+
+softmax (u) and L-BFGS-B optimization on unconstrained u ∈ R3, following standard post-hoc calibration methodology [8, 16]. Table 1: Calibrated PDS weights, N = 19 ,899 Balanced Sample. Results consistent across H[w]
+
+and H[κ].                                          
+
+> Component Weight H[w]Weight H[κ]Role Interpretation
+> α(λξ)0.629 0.605 Label confidence Dominant signal ( ∼63% )
+> β(−H[·])0.011 0.040 Entropy Near-zero—see below
+> γ(−σ(ρ))0.360 0.354 Inverse check Strong second signal ( ∼36% )Loss (binary CE) 0.313 ——ECE =0.076 (calibration set); held-out ECE =0.042 –0.057 across T∈{0.1,0.3,0.7,1.0}on Random Sam-ple ( N= 26 ,009 –26 ,512 ). See Sec-tion A.3.1.
+
+The near-zero weight on the entropy component ( β∗ ≈ 0) is a structural result of the framework’s design, not a limitation of the signal. Under the binary calibration target, which groups Robustly De-fensible (L1) and Plausibly Defensible (L2) cases against Indefensible (L3) cases, entropy primarily serves to distinguish L1 from L2. However, because L2 cases are considered policy-grounded, en-tropy does not effectively separate them from L3 errors. As a result, the optimal decision boundary collapses onto λξ (label log-confidence) and σ(ρ) (inverse-check log-odds), which directly capture the L2/L3 distinction. Consistency of β∗ ≈ 0 across two independent operationalizations ( H[w] and 
+
+H[κ]) confirms this reflects the binary target structure, not a measurement artifact. The calibrated scalar is approximately S ≈ exp[0 .63 · λξ − 0.36 · σ(ρ)] .This reveals an important property of policy-grounded evaluation: ambiguity (L2) is not treated as error. Therefore, features that characterize ambiguity do not contribute to binary correctness prediction. A multi-class calibration that explicitly separates L1 and L2—isolating rule-grounded from precedent-dependent defensibility—would be expected to recover a non-zero role for entropy-based components, identifying a clear target for future work. 6Figure 2: Single-pass signal correlation with reasoning instability ( T = 0 .1, 100 cases × 1,000 replicates). λξ (label log-confidence) is the strongest single-pass predictor ( |ρ| = 0 .503 ); H[w]
+
+(precedent entropy) is weakest ( |ρ| = 0 .163 ), explaining β∗ ≈ 0 under the binary calibration target. 7Figure 3: PDS calibration validation. (A) Calibrated S distribution by defensibility level. (B) σ(ρ)
+
+is 63% higher in disagreement vs agreement cases; S drops 7%. (C) Governance Gate trade-off frontier: Standard threshold ( S ≥ 0.90 ) is the knee. (D) Single-pass S vs σ(ρ) with Earned Auton-omy and Normative Complexity clusters labeled. 
+
+# 5 Empirical Evaluation 
+
+5.1 Setup 
+
+We evaluate on 193,000+ Reddit moderation decisions drawn from multiple cohorts. 2 Two pri-mary cohorts: Random Sample ( N = 26 ,902 valid audits across 398 communities, representative of production traffic) and Balanced Sample ( N = 19 ,899 valid audits, overrepresenting contested cases with ground-truth human annotations). Audit model: Gemini 2.5 Flash Lite at T = 0 .2. Community-specific rules serve as RC ; Reddit’s platform-wide content policy as RG.
+
+5.2 Agreement–Defensibility Gap 
+
+The 33–46 pp gap is the central result. The 79.8–80.6% defensible false negative rate is the Agree-ment Trap signature: agreement evaluation is penalizing policy adherence. The Accurate but In-defensible finding (5.8–6%) reveals cases where human-model agreement conceals shared policy  
+
+> 2This work presents a research evaluation framework applied retrospectively to historical moderation data. It is not integrated into Reddit’s production moderation systems and has not directly influenced individual moderation decisions.
+
+8failure—a pattern consistent with prior work showing that moderation labels can encode systematic disagreement and bias [3, 19]. Table 2: Agreement-based versus policy-grounded metrics.                        
+
+> Metric Random Balanced Interpretation
+> F1(agreement-based) 45.7% 54.3% Standard metric Defensibility Index (DI) 92.3% 87.3% Policy alignment Gap (DI vs. F1)+46.6 pp +33 pp The Agreement Trap penalty Ambiguity Index (AI) 18.3% 24.9% Structural ambiguity False negatives that are defensible 79.8% 80.6% Agreement Trap evidence Accurate but indefensible ∼6% 5.8% Agreement masks policy gap
+
+Figure 4: The Agreement–Defensibility Gap. F1 (red) and Defensibility Index diverge by 33–46 percentage points. 79.8–80.6% of model false negatives are L1 or L2—policy-grounded decisions penalized by agreement-based evaluation. Root cause analysis of the 6,760 disagreement cases in the Balanced Sample: Model Error (L3 clas-sification) in 19.4% (1,311 decisions); Policy-Grounded Disagreement in 80.6% (5,449 decisions) comprising Implicit Norm Enforcement (model adheres to written rules while human applies uncod-ified context) and Policy Ambiguity (both outcomes defensible, model and human chose different valid paths). Agreement-based evaluation counts all 6,760 identically as model errors. 
+
+5.3 Fleet-Level Diagnostics 
+
+Analysis of 270 communities (minimum 25 decisions) reveals three governance states: Earned Au-tonomy (N = 165 , mean DI = 96.8%, AI = 7.0%), Policy Gaps (N = 40 , DI = 67.7%, AI = 36.0%), and Normative Complexity (N = 65 , DI = 92.2%, AI = 23.0%). Normative Complexity commu-nities are the critical case: the model reasons correctly but operates in genuinely underspecified community-specific rule environments ( RC )—the AI signal identifies where interpretive ambigu-ity is highest, not where model retraining is needed. This refers specifically to subreddit-level rules ( RC ), not to platform-wide policies ( RG). 9Figure 5: Fleet diagnostics across 270 communities. Earned Autonomy ( N = 165 , circles) clusters in the Governance Gate pass zone (DI ≥ 90% , AI ≤ 15% ); Policy Gaps ( N = 40 , squares) shows reasoning failures; Normative Complexity ( N = 65 , triangles) reasons correctly under underspeci-fied rules. Dashed lines mark Standard Gate thresholds; shaded region is the 78.6% coverage zone. 
+
+5.4 PDS vs Standard Confidence 
+
+ˆσPDS is 54% higher in disagreement cases than agreement cases (mean ˆσPDS = 0 .081 vs 0.052 ). Standard output confidence remains uniformly high (0.95–0.99) in both regimes—it is uninformative about reasoning stability. Human audit validation ( N = 30 cases, K = 121 independent respondents): Spearman ρ = 0 .66 
+
+between PDS and human defensibility ratings ( p < 10 −4). DI-level correlation ρ = 0 .66 (p < 10 −4), confirming strong alignment between model and human assessments of policy-grounded validity. 
+
+σ(ρ) validates as a proxy for AI C across two independent datasets. On the Random Sample ( N ≈
+
+26 .9k), Spearman rank correlation between σ(ρ) and the binary inverse check label is ρ = 0 .57 –
+
+0.59 (p < 10 −15 ) across T ∈ { 0.1, 0.3, 0.7, 1.0}, with mean σ(ρ) 6–7 × higher for ambiguous cases than unambiguous cases. On the Expert-Labeled Policy Set ( N = 199 , single-policy evaluation), 
+
+ρ = 0 .19 (p = 0 .007 ). The weaker effect on this set reflects both reduced sample size ( N = 199 ,only 31 ambiguous cases) and restricted policy scope (single policy against a narrow rule set); the per-level structure is consistent across both datasets: L1 shows low σ(ρ) and low AI; L2 shows high σ(ρ) and high AI; L3 shows the highest σ(ρ) and highest AI. Crucially, both datasets reach significance independently and in the same direction. The per-level structure confirms the paper’s predictions exactly. L1 (Robustly Defensible): AI =1.7–2.9% , mean σ(ρ) = 0 .063 –0.083 —a committed derivation forecloses the opposite outcome. L2 (Plausibly Defensible): AI = 58 .8–61 .4% , mean σ(ρ) = 0 .783 –0.809 —genuine policy ambiguity where both outcomes are reachable. L3 (Indefensible): AI = 86 .1–90 .5% , mean σ(ρ) = 0 .910 –
+
+0.932 —the same strong rule supports both actions, and the model’s derivation contradicts it. 10 Table 3: σ(ρ) as AI C proxy—primary and secondary validation. ∗∗∗ p < 10 −15 , ∗∗ p < 0.01 . GS 
+
+= Expert-Labeled Policy Set (single-policy evaluation at T = 0 .2). σ(ρ) Yes/No = mean σ(ρ) for cases where the inverse check fires vs does not. AI = Ambiguity Index (fraction of cases where inverse check = Yes).                                                      
+
+> TNAI Spearman ρpσ(ρ)Yes σ(ρ)No Ratio
+> T= 0 .126,935 22.2% 0.592 ∗∗∗ <10 −15 0.894 0.127 7.04 ×
+> T= 0 .326,858 22.5% 0.593 ∗∗∗ <10 −15 0.900 0.129 6.95 ×
+> T= 0 .726,611 22.4% 0.581 ∗∗∗ <10 −15 0.907 0.142 6.38 ×
+> T= 1 .026,519 22.8% 0.573 ∗∗∗ <10 −15 0.905 0.151 5.97 ×
+> GS 199 15.6% 0.190 ∗∗ 0.007 0.474 0.304 1.56 ×
+
+# 6 Normative Underspecification 
+
+We conduct a controlled rule-specificity experiment on N = 37 ,286 decisions from r/AskReddit, one of Reddit’s largest and longest-running communities. r/AskReddit maintains an exceptionally well-developed governance structure: its moderators have iteratively refined their rules over more than a decade, producing documentation at three distinct layers of specificity—a rare example of mature, community-driven policy evolution. This layered rule architecture makes r/AskReddit an ideal natural experiment for isolating the effect of rule specificity on measured ambiguity. We audit each decision against three versions of the same rules at increasing levels of detail: (i) Title Only —rule headings alone (e.g., “Rule 8: No questions seeking professional advice”), (ii) Side-bar —headings plus brief descriptions and examples, and (iii) Wiki —full rule text with exceptions, edge cases, and worked examples. All three runs use identical content and the same audit model; only the rule text varies. This isolates rule specificity as the causal variable, ruling out the possibility that DI/AI differences reflect differences in rule content rather than rule detail. Table 4: Normative Underspecification—effect of rule specificity on defensibility and ambiguity (r/AskReddit, N = 37 ,286 ).                    
+
+> Rule Specificity DI AI Indefensible ∆AI (from Title) Title Only 97.4% 18.2% 962 —Sidebar (+ Descriptions) 98.0% 8.8% 757 −9.4pp Wiki (+ Examples/Exceptions) 98.1% 7.4% 722 −10 .8pp
+
+AI drops from 18.2% to 8.8% to 7.4% as layers of rule detail are added. Each layer reduces ambigu-ity, with the first layer (adding descriptions) doing the most work ( −9.4 pp). DI, by contrast, barely moves (97.4% → 98.1%)—the decisions are defensible either way. The framework is not saying different things about the decisions; it is saying the same thing with less uncertainty. The effect is concentrated in removals: removal AI drops from 32.0% (Title Only) to 10.2% (Sidebar and Wiki), while removal L1 rises from 48.5% to 74.6%. Removals require affirmative justification—a specific rule must authorize the action—so vague rules leave them stranded at L2. Approvals under prohibitive rules are justified by the absence of a violation, making them inherently less sensitive to rule specificity. The primary mechanism is L2 →L1 conversion: vague rules do not create indefensible decisions (L3 barely changes from 962 to 722); they create ambiguous ones. The 10.8 pp AI reduction is our empirical estimate of community-level underspecification ( AI C): the fraction of decisions that are genuinely contested under headline rules but become determinate when the full rule text is available. This is consistent with prior work showing that moderation practice depends heavily on tacit, contextual knowledge that is only partially discernable from public-facing rule titles alone [2, 6, 7]. 11 7 Stochastic Stability Analysis 
+
+7.1 Monte Carlo Estimator 
+
+We estimate per-case reasoning stability by drawing K = 1 ,000 independent samples from Ma at temperature T , computing S for each replicate, and measuring 
+
+ˆσPDS = std (S(1) , . . . , S (K)) (6) (sample standard deviation, K − 1 denominator). A case is boundary-unstable if P (ξ(k) = L3) ∈
+
+(0 .10 , 0.90) across K replicates—the governance gate decision is non-deterministic for that case. 
+
+Figure 6: Defensibility level distribution per case, T = 0 .1, K = 1 ,000 replicates. Sorted by L3 fraction. Stably Defensible zone (48 cases): L1/L2 dominant. Boundary-Unstable zone (44 cases): substantial L3 mass (10–90% threshold). Stably Indefensible (8 cases): L3 dominant. Stability classes by dominant label percentage across K replicates: Rock Solid (≥95%), Mostly Stable (80–95%), Moderate (60–80%), Highly Unstable (<60%). This repeated-sampling stability analysis is analogous in spirit to broader approaches that estimate predictive uncertainty through stochastic forward passes or ensembles [4, 12]. 
+
+7.2 Temperature Sweep 
+
+We run T ∈ { 0.1, 0.3, 0.7, 1.0} on a 100-case contested cohort (50 Flippers, 50 Stable by pre-evaluation), K = 1 ,000 replicates per case per temperature, N = 400 ,000 total simulations ( Ma =
+
+Gemini 2.5 Flash Lite). Table 5: Temperature sweep results. N = 400 ,000 simulations. Stability class distribution at T = 0 .1:Rock Solid 27%, Mostly Stable 23%, Moderate 27%, Highly Unstable 23%.                                                   
+
+> Metric T= 0 .1T= 0 .3T= 0 .7T= 1 .0
+> Mean ˆσPDS all 0.1827 0.1993 0.2141 0.2195 Mean ˆσPDS Stable 0.1391 0.1509 0.1663 0.1742 Mean ˆσPDS Flippers 0.2263 0.2476 0.2618 0.2649
+> ˆσratio (Flippers/Stable) 1.63 1.64 1.57 1.52 Boundary flip rate (Flippers) 62% 68% 74% 78% Boundary flip rate (Stable) 26% 30% 28% 36%
+> H[κ]rank corr with T= 0 .11.000 0.963 0.901 0.878 DI (aggregate) 71.1% 71.3% 72.2% 73.0%
+
+12 Figure 7: PDS predicts reasoning instability under repeated evaluation across temperatures ( N = 100 
+
+cases × 1,000 replicates). Spearman ρ between ˆσPDS and dominant label consistency: T = 0 .1 →
+
+ρ = −0.641 , T = 0 .3 → ρ = −0.651 , T = 0 .7 → ρ = −0.681 , T = 1 .0 → ρ = −0.632 . LOWESS shape preserved across tenfold temperature increase, consistent with HG over HN .Key findings: (1) The ˆσ ratio (Flippers/Stable) is flat at 1.52–1.64 across a tenfold temperature increase. Under sampling-noise dominance ( HN ) this ratio would converge to 1.0; its flatness is inconsistent with HN and supports governance ambiguity ( HG) as the primary variance driver. (2) H[κ] rank correlation with T = 0 .1 remains 0.878 at T = 1 .0—the rank ordering of cases by citation entropy is substantially preserved, indicating H[κ] measures a stable case property rather than a temperature artifact. (3) DI is temperature-invariant, confirming the governance gate’s aggre-gate pass rate is independent of sampling temperature. (4) At T = 0 .1, action decisions are perfectly stable (84,000 APPROVE / 16,000 REMOVE , zero flips) while 50% of cases show Moderate or Highly Unstable reasoning—reasoning instability is dissociated from action instability. 
+
+# 8 Adversarial Robustness 
+
+8.1 Two-Layer Defense 
+
+Recent work on LLM-based evaluation has shown that evaluators can be biased, unstable, or vulner-able in non-verifiable settings [14, 22]. We therefore evaluate on N = 1 ,000 cases (800 clean base-line, 123 action-flip adversarial, 77 hallucinated-grounding adversarial); we refer to this adversarial evaluation set as the Spurious-Grounding Benchmark (SG-Bench). The two-layer defense combines PDS with a lexical grounding verifier (token-overlap matching of the cited rule against (R, P )). De-tection rates: action-flip 115/123 (93.5%); hallucinated-grounding 54/77 (70.1%). Analysis of the 77 hallucinated-grounding cases reveals two structurally distinct attack archetypes. 
+
+8.2 Attack Archetypes 
+
+Table 6 characterizes the two archetypes by citation entropy H[κ], model confidence, and PDS. 13 Table 6: Adversarial attack archetype characterization.                      
+
+> Subset H[κ](bits) Confidence PDS Detection mechanism Escaped fabrications ( n= 39 )0.129 0.971 0.795 Policy penumbra—not detected Caught fabrications ( n= 38 )0.021 0.997 0.002 Low-entropy fabrication—PDS detects Clean baseline ( n= 800 )0.078 0.979 0.737 —
+
+Low-entropy fabrication (caught). Invented citations with low H[κ] (0.021 bits)—the audit model generates fluent but non-existent rule text with high internal confidence. These are caught because the auditor is extremely confident the decision is indefensible (PDS = 0.002 ) and the grounding verifier finds no token overlap with (R, P ).
+
+Policy penumbra attack (escaped). Real citations (mean overlap 0.741 with actual rule text, 
+
+H[κ] = 0 .129 bits—within the normal range of the clean baseline at 0.078). These exploit interpre-tive latitude in Subjective Content Rules (74.4% of escaped cases vs 50.0% of caught; zero involve Vague Directives). All 39 escaped cases are False Negatives: APPROVE actions against ground-truth 
+
+> REMOVE
+
+. A cluster of 6/39 escaped cases originates from bilingual communities where content is in a language not represented in the community’s precedent corpus P .The policy penumbra attack is information-theoretically indistinguishable from genuine L2 defensi-bility by PDS or the grounding verifier. PDS fails because H[κ] is within normal range; the verifier fails because the citation is real. The structural 29.9% escape rate identifies a precise research target: semantic grounding verification (does the derivation from κ to ξ respect κ’s actual scope in (R, P )?), as opposed to lexical grounding verification (does κ exist in (R, P )?). Critically, the attack surface of the escaped cases and the AI’s policy clarification targets are the same community and rule type. This convergence from two independent analyses—adversarial es-cape rates and Ambiguity Index diagnostics—on the same Subjective Content Rule communities constitutes independent corroboration that both instruments are measuring the same underlying con-struct: normative underspecification. 
+
+# 9 Governance Gate 
+
+The Governance Gate restricts automated enforcement to communities satisfying DI ≥ 0.90 , AI ≤
+
+0.15 , minimum 25 decisions. In this sense it functions as a governance-aware selective prediction mechanism, trading coverage for risk reduction [5]. Threshold selection from scenario sensitivity on N = 270 communities, N = 109 ,186 decisions: Table 7: Governance Gate scenario sensitivity. Standard ( ⋆) selected as knee of coverage-risk trade-off. Note: Moderate and Standard configurations share identical operational metrics, indicating the binding constraint at Standard is the AI threshold (15%), not the DI threshold.                                     
+
+> Scenario DI AI Comm. cov. †Fleet DI Fleet AI Indef. rate Risk red. Lenient 80% 20% 84.7% 96.9% 8.5% 3.08% 57.1% Moderate 85% 15% 77.4% 97.2% 7.7% 2.76% 64.9% Standard ⋆90% 15% 77.4% 97.2% 7.7% 2.76% 64.9% Strict 95% 10% 62.7% 97.6% 6.7% 2.36% 75.7%
+> †Fraction of communities meeting thresholds. Decision-weighted coverage is higher (e.g. 78.6% at Standard) because passing communities tend to have larger decision volumes.
+
+The Standard configuration achieves 78.6% decision coverage while reducing the indefensible deci-sion rate from 5.66% to 2.72% (64.9% risk reduction). The Moderate = Standard degeneracy reveals that the AI threshold is the binding constraint: tightening DI from 85% to 90% admits no additional communities beyond those already excluded by AI ≤ 15% . At this operating point, governance gate selectivity is determined by policy ambiguity, not reasoning validity. The reported indefensible rates 14 and risk reduction apply to the automated portion of the fleet—decisions in communities that pass the gate thresholds. Decisions in communities that fail the DI or AI threshold are routed to human review. The gate does not reduce the fleet-wide indefensible rate directly; it restricts automated enforcement to decision cohorts where the model’s policy-grounded error rate is acceptably low. 
+
+# 10 Addressing Circularity 
+
+The primary methodological concern is that DI and AI formalize audit model preferences rather than an independent construct, a concern that is natural in light of recent work on bias and instability in LLM-based evaluation [14, 22]. We address this through four independent channels: • Large-scale gap (Section 5.2): If Ma simply preferred Mc’s outputs, DI would be low for Mc’s decisions. The opposite holds—79.8–80.6% of false negatives are defensible—inconsistent with auditor self-agreement. • Human validation (Section 5.4): ρ = 0 .66 (p < 10 −4) alignment between independent human verification and model defensibility classifications, without audit model participation in the human assessment. • Normative Underspecification (Section 6): If DI/AI reflected auditor preferences rather than rule properties, the same auditor applied to three versions of the same rules should produce identical results. The 10.8 pp AI reduction with asymmetric removal/approval effects contra-dicts this null hypothesis. • PDS convergent validity : Cases the AI identifies as ambiguous also independently exhibit elevated ˆσPDS . Convergence of categorical audit results and continuous probabilistic signals via different instruments provides mutual validation. 
+
+# 11 Limitations 
+
+Audit model dependence. PDS Ma is a property of Ma. Raw scores are not comparable across audit models without per-model calibration (Appendix A.5, Proposition A.1). Under SBC, PDS reflects a combination of governance ambiguity and backbone-specific uncertainty. 
+
+Held-out ECE. ECE on the calibration set is 0.076 (target 0.05). Held-out ECE on the Random Sample ranges from 0.042 to 0.057 across T ∈ { 0.1, 0.3, 0.7, 1.0}—below the calibration-set ECE at all four operating points and below the 0.05 target at two of four ( T = 0 .3 and T = 0 .7). Full results in Section A.3.1. 
+
+Human validation sample size. The human validation study uses N = 30 cases rated by K = 121 
+
+independent respondents. The resulting ρ = 0 .66 (p < 10 −4) provides strong statistical evidence of alignment, and per-case estimates are robust given ∼115–118 ratings per case. The case-level N ,however, limits stratified analysis (e.g., by content type or rule complexity) and detection of small conditional effects. 
+
+Structural escape rate. 29.9% of hallucinated-grounding attacks escape both defense layers. This is a structural limit requiring semantic grounding verification to close, not a calibration failure. 
+
+Closed-weight audit model. Gemini 2.5 Flash Lite was selected for its combination of structured-JSON output fidelity, 128k-token context window (required for the full (C, R, P, ˆy) input), and inference cost compatible with 400,000 Monte Carlo simulations. Replication with open-weight models is desirable; Proposition A.1 ensures calibration transfers across architectures. 
+
+Domain generalization. The framework is validated on Reddit’s moderation infrastructure. Transfer to other governance domains (loan underwriting, medical authorization, hiring compliance) requires domain-appropriate rule representation and precedent corpus construction. 15 12 Conclusion 
+
+We have introduced the Defensibility Framework for evaluating AI systems in rule-governed do-mains. The central empirical finding—a 33–46.6 pp gap between F1 and DI, with 79.8–80.6% of false negatives being policy-grounded decisions—establishes that agreement-based evaluation systematically mischaracterizes rule adherence as error in governance-structured settings. The Nor-mative Underspecification experiment provides an empirical decomposition of where interpretive specificity originates and what agreement-based evaluation cannot see. PDS complements DI/AI with a deployment-time stability signal extractable at zero additional in-ference cost. Calibration reveals an operationally two-component signal ( λξ and σ(ρ)) that pre-dicts indefensibility; temperature-controlled simulation supports governance ambiguity as the pri-mary variance driver. The Governance Gate operationalizes these signals as deployment thresholds achieving principled automation coverage. Collectively, PDS demonstrates that LLM reasoning traces—specifically, the logprob distribution over reasoning-critical token positions—can be har-nessed as calibrated uncertainty signals for governance automation, independent of output-label confidence. The adversarial analysis reveals that the framework’s escape surface and its policy clarification tar-gets coincide: the rules most vulnerable to policy penumbra attacks are the same rules the Ambiguity Index identifies as needing clarification. This convergence suggests that PDS, DI, and the adversarial attack surface are three empirical signatures of a single underlying phenomenon: normative under-specification. More broadly, the Defensibility Framework demonstrates that LLMs can be harnessed as formal reasoning auditors in governance-structured environments—extending the LLM-as-judge paradigm from subjective quality assessment to rule-grounded logical verification, and providing the evaluation infrastructure that policy-grounded deployment requires. 
+
+# References 
+
+[1] Lora Aroyo and Chris Welty. Truth is a lie: Crowd truth and the seven myths of human annotation. AI Magazine , 36(1):15–24, 2015. doi:10.1609/aimag.v36i1.2564. [2] Eshwar Chandrasekharan, Mattia Samory, Shagun Jhaver, Hunter Charvat, Amy Bruckman, Cliff Lampe, Jacob Eisenstein, and Eric Gilbert. The internet’s hidden rules: An empirical study of Reddit norm violations at micro, meso, and macro scales. Proceedings of the ACM on Human-Computer Interaction , 2(CSCW):Article 32, 2018. doi:10.1145/3274301. [3] Antigoni Maria Founta, Constantinos Djouvas, Despoina Chatzakou, Ilias Leontiadis, Jeremy Blackburn, Gianluca Stringhini, Athena Vakali, Michael Sirivianos, and Nicolas Kourtellis. Large scale crowdsourcing and characterization of Twitter abusive behavior. In Proceedings of the International AAAI Conference on Web and Social Media , volume 12, pages 491–500, 2018. [4] Yarin Gal and Zoubin Ghahramani. Dropout as a Bayesian approximation: Representing model uncertainty in deep learning. In Proceedings of the 33rd International Conference on Machine Learning , pages 1050–1059, 2016. [5] Yonatan Geifman and Ran El-Yaniv. Selective classification for deep neural networks. In 
+
+Advances in Neural Information Processing Systems , volume 30, 2017. [6] Tarleton Gillespie. Custodians of the Internet: Platforms, Content Moderation, and the Hidden Decisions That Shape Social Media . Yale University Press, 2018. [7] Robert Gorwa, Reuben Binns, and Christian Katzenbach. Algorithmic content moderation: Technical and political challenges in the automation of platform governance. Big Data & Society , 7(1), 2020. doi:10.1177/2053951719897945. [8] Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q Weinberger. On calibration of modern neural networks. In Proceedings of the 34th International Conference on Machine Learning , pages 1321–1330, 2017. [9] Herbert Lionel Adolphus Hart. The Concept of Law . Oxford University Press, 1961. 16 [10] Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. [11] Lorenz Kuhn, Yarin Gal, and Sebastian Farquhar. Semantic uncertainty: Linguistic invariances for uncertainty estimation in natural language generation. In Proceedings of ICLR 2023 , 2023. [12] Balaji Lakshminarayanan, Alexander Pritzel, and Charles Blundell. Simple and scalable pre-dictive uncertainty estimation using deep ensembles. In Advances in Neural Information Pro-cessing Systems , volume 30, 2017. [13] Tamera Lanham, Anna Chen, Ansh Radhakrishnan, Benoit Steiner, Carson Denison, Danny Hernandez, Dustin Li, Esin Durmus, Evan Hubinger, Jackson Kernion, et al. Measuring faith-fulness in chain-of-thought reasoning. arXiv preprint arXiv:2307.13702 , 2023. [14] Yixin Liu, Yue Yu, DiJia Su, Sid Wang, Xuewei Wang, Song Jiang, Bo Liu, Arman Cohan, Yuandong Tian, and Zhengxing Chen. Examining reasoning LLMs-as-judges in non-verifiable LLM post-training. arXiv preprint arXiv:2603.12246 , 2026. [15] Aida Mostafazadeh Davani, Mark Díaz, and Vinodkumar Prabhakaran. Dealing with dis-agreements: Looking beyond the majority vote in subjective annotations. Transactions of the Association for Computational Linguistics , 10:92–110, 2022. doi:10.1162/tacl_a_00449. [16] Mahdi Pakdaman Naeini, Gregory F Cooper, and Milos Hauskrecht. Obtaining well calibrated probabilities using Bayesian binning. In Proceedings of the Twenty-Ninth AAAI Conference on Artificial Intelligence , pages 2901–2907, 2015. [17] Ellie Pavlick and Tom Kwiatkowski. Inherent disagreements in human textual infer-ences. Transactions of the Association for Computational Linguistics , 7:677–694, 2019. doi:10.1162/tacl_a_00293. [18] Barbara Plank. The “problem” of human label variation: On ground truth in data, modeling and evaluation. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing , pages 10671–10682, 2022. [19] Maarten Sap, Dallas Card, Saadia Gabriel, Yejin Choi, and Noah A Smith. The risk of racial bias in hate speech detection. In Proceedings of the 57th Annual Meeting of the Association for Computational Linguistics , pages 1668–1678, 2019. [20] Miles Turpin, Julian Michael, Ethan Perez, and Samuel R Bowman. Language models don’t al-ways say what they think: Unfaithful explanations in chain-of-thought prompting. In Advances in Neural Information Processing Systems , volume 36, 2023. [21] Alexandra Uma, Tommaso Fornaciari, Dirk Hovy, Silviu Paun, and Barbara Plank. Learning from disagreement: A survey. Journal of Artificial Intelligence Research , 72:1385–1470, 2021. [22] Lianmin Zheng, Wei-Lin Chiang, Ying Sheng, Siyuan Zhuang, Zhanghao Wu, Yonghao Zhuang, Zi Lin, Zhuohan Li, Dacheng Li, Eric P Xing, Hao Zhang, Joseph E Gonzalez, and Ion Stoica. Judging LLM-as-a-judge with MT-Bench and Chatbot Arena. In Advances in Neural Information Processing Systems , volume 36, 2023. 17 A Formal PDS Development 
+
+A.1 Two-Model Probability Space 
+
+Mc : ( C, R, P ) → ˆy with parameters θc. Ma generates trace A = ( κ, ω, ι, ξ ) conditioned on fixed 
+
+ˆy. Template ordering enforces the factorization: 
+
+pθa (A | C, R, P, ˆy) = p(κ | · ) p(ω | κ, ·) p(ι | ω, κ, ·) p(ξ | ι, ω, κ, ·), (7) where ω ∈ { H, M, L } is the precedent weight. AIA holds when θa and θc are sufficiently indepen-dent that Ma has no systematic prior toward justifying Mc’s outputs. SBC violation inflates PDS for labels consistent with Mc’s prior; calibration corrects operationally. 
+
+Proposition A.1 (Calibration Transferability): separate per-model MLE calibration against shared hard DI labels produces valid and comparable calibrated predictors S, S′ across different audit model architectures. 
+
+A.2 Component Definitions 
+
+λξ . ξ∗ = arg max l∈{ 1,2,3} pθa (l | C, R, P, ˆy) (MAP, not sampled token); λξ = log pθa (ξ∗ |
+
+C, R, P, ˆy). Extracted at defensibility_level position. Lagging: generated last in the template. 
+
+H[κ].
+
+H[κ] = 1
+
+n
+
+> n
+
+X
+
+> i=1
+
+H[κi | κ1: i−1, C, R, P, ˆy] (8) where each per-token entropy is − P 
+
+> v∈V
+
+pθa (v | κ1: i−1, ·) log pθa (v | κ1: i−1, ·). V is the top-20 vo-cabulary candidates (renormalized; stated approximation). Span boundaries identified by character-offset matching of JSON field delimiters: 100% detection across 56,883 cases, mean span ∼25 
+
+tokens. Leading: generated before ω, ι, ξ.
+
+H[w]. Single-token proxy for H[κ] at the precedent_weight position: H[w] =
+
+− P 
+
+> w∈{ H,M,L }
+
+p(w) log 2 p(w). Precedent weight distribution validates the L1/L2/L3 structure: L1 
+
+→ High 86–90%, L2 → Medium/split, L3 → High 57–85% (rule exists and is clear, but reasoning fails to apply it correctly—the L3-High finding is critical to the policy penumbra attack mechanism). 
+
+σ(ρ). ρ = log p(Yes | π) − log p(No | π) where π =[C; R; P ; ˆ y; logic_chain ; κ∗; precedent_weight tokens ]. Note: ξ∗ is generated after ι in the template and is not in π. σ(ρ) is intermediate: after κ and ω, before ξ. Primary discriminator: L1 has low σ(ρ) (committed derivation forecloses opposite outcome); L3 has high σ(ρ) (same strong rule supports both); L2 has elevated σ(ρ) with elevated H[κ].
+
+Component ordering summary. Causal ordering enforced by the prompt template is κ → ω →
+
+ι → ξ:Table 8: PDS component properties under the correct κ → ω → ι → ξ causal ordering.                             
+
+> Component Conditioning set Captures Proxy for Leading/lagging
+> λξFull prefix incl. ιOutput com-mitment Label boundary Most lagging (gen-erated last)
+> H[κ]/H [w](C, R, P, ˆy) + κprefix Rule selection AI GLeading (before ι,
+> ξ)
+> σ(ρ)Full prefix to κ∗+ωCounterfactual AI C(when H[κ]
+> low) Intermediate ( κ→
+> σ(ρ)→ξ)
+
+18 Figure 8: Monte Carlo validation—100 cases × 100 replicates ( T = 0 .3). (A–B) Single-pass S and mean S do not predict σ(S) (|ρ| < 0.11 ). (C) Single-pass S vs label stability: ρ = 0 .352 . (D) σ(S)
+
+monotonically increases by stability class. (E) σ(ρ) uncorrelated with σ(S). (F) Gate threshold vs stability composition: Rock Solid fraction and coverage trade off at S = 0 .90 knee. 19 Figure 9: Flipper vs Stable analysis (100 cases × 100 replicates, T = 0 .3). Flippers show higher 
+
+σ(S) (A), lower label stability (B), and overlapping σ(ρ) (C). Key metric separation is significant for S and dominant fraction (D, ∗∗ , ∗∗∗ ). 
+
+A.3 Scalar Collapse and Calibration 
+
+S = exp α · λξ + β · (−H[w]) + γ · (−σ(ρ)) , (α, β, γ ) = softmax (u1, u 2, u 3) (9) for unconstrained u ∈ R3. MLE objective: 
+
+(α∗, β ∗, γ ∗) = arg max X
+
+> i
+
+yi log Si+(1 −yi) log(1 −Si), yi = 1{defensibility_level (i) ∈ { 1, 2}} .
+
+(10) Optimized via L-BFGS-B. The log-linear form is not justified by component independence (they are sequentially conditioned) but by three properties: monotonicity in each component, suppression under extreme values in the dominant components ( α∗ = 0 .629 for λξ , γ∗ = 0 .360 for σ(ρ)), and convexity under softmax reparameterization. ECE validation uses equal-frequency binning ( B = 10 
+
+bins, N/ 10 cases each) on the Random Sample to avoid sparse bins in the right-skewed S distribu-tion, following standard calibration practice [8, 16]. 
+
+A.3.1 Held-out calibration validation 
+
+Held-out ECE on the Random Sample ( N = 26 ,009 –26 ,512 , held out from calibration) ranges from 0.042 to 0.057 across T ∈ { 0.1, 0.3, 0.7, 1.0}—below the calibration-set ECE (0.076) at all four operating points and below the 0.05 target at two of four. The improvement over the calibration set is expected: the Balanced Sample deliberately overrepresents contested (L2/L3 boundary) cases, which are harder to calibrate, while the Random Sample reflects the production distribution where the base rate of defensible decisions is 92.3–92.7%. 20 Three features of the held-out results merit comment. First, ECE is temperature-robust: the total range across a tenfold temperature increase is 0.015 (0.042 at T = 0 .7 to 0.057 at T = 0 .1), con-firming that the calibration learned at T = 0 .2 transfers across operating temperatures. Second, the calibrated scalar S discriminates cleanly between defensible and indefensible cases: mean S
+
+for defensible decisions (0.901–0.908) is separated from indefensible decisions (0.708–0.715) by approximately 0.20 at every temperature, indicating stable decision-relevant signal. Third, PDS ex-traction success rate decreases modestly with temperature (98.3% at T = 0 .1 to 96.4% at T = 1 .0), consistent with increased output entropy causing target tokens to fall outside the top-k logprob can-didates returned by the API. This extraction attrition is small and does not bias the ECE estimate (skipped cases are missing at random with respect to defensibility level). Table 9: Held-out ECE on the Random Sample across operating temperatures. T = 0 .7 row achieves the lowest ECE (0.042), below the 0.05 target. Cal row is the calibration-set ECE for reference. ¯Sdef 
+
+and ¯Sindef are mean calibrated scalar for defensible (L1/L2) and indefensible (L3) cases respectively; the ≈0.20 separation is stable across all temperatures.                                                     
+
+> TNSkip Extr% ECE ¯Sall ¯Sdef ¯Sindef Def% Cal 19,899 ——0.076 ————
+> T= 0 .126,512 472 98.3% 0.0567 0.8930 0.9083 0.7099 92.3%
+> T= 0 .326,442 542 98.0% 0.0514 0.8921 0.9072 0.7075 92.4%
+> T= 0 .726,130 854 96.8% 0.0419 0.8901 0.9050 0.7092 92.4%
+> T= 1 .026,009 975 96.4% 0.0468 0.8873 0.9009 0.7150 92.7%
+
+Figure 10: Corrected PDS ( T = 0 .1, 100k simulations)— S = exp[ α·λξ +β·(−H[w])+ γ·(−σ(ρ))] .Left: ˆσPDS vs label stability ( ρ = −0.641 ). Centre: ˆσPDS vs L3 indefensible fraction—cases with high 
+
+ˆσPDS have elevated L3 probability, tracking the DI gate threshold (dashed red, 10%). Right: ˆσPDS 
+
+vs inverse check probability—cases with high ˆσPDS show elevated mean inverse check probability, tracking the AI gate threshold (dashed orange, 20%). 
+
+A.4 Stochastic Stability: Governance Ambiguity Attribution 
+
+The null hypothesis HN (sampling noise dominates) predicts that the ˆσ ratio (Flippers/Stable) con-verges to 1.0 as T increases. The governance ambiguity hypothesis HG predicts a flat ratio. This repeated-sampling analysis is analogous in spirit to broader uncertainty estimation via stochastic passes or ensembles [4, 12]. Observed: 1.63 → 1.64 → 1.57 → 1.52 across T ∈ { 0.1, 0.3, 0.7, 1.0}. Flat, inconsistent with HN .Supporting: H[κ] rank correlation with T = 0 .1 declines slowly ( 1.000 → 0.878 at T = 1 .0), indicat-ing case-level citation entropy reflects a stable property of cases rather than temperature-dependent noise. DI temperature invariance (71.1–73.0%) confirms aggregate gate behavior is temperature-independent. 21 Stability class definition (defensibility boundary flip rate, corrected): a case is boundary-unstable if 
+
+P (ξ(k) = L3) ∈ (0 .10 , 0.90) across K replicates. The earlier “at least 1 replicate” definition was a computation artifact producing inflated boundary flip rates (e.g., 37% for Rock Solid cases); under the corrected 10–90% definition, Rock Solid boundary flip rate = 0% at T = 0 .1 and T = 0 .2,confirming the stability classification tracks operationally relevant gate non-determinism. 
+
+A.5 Single-Architecture Calibration Illustration 
+
+Proposition A.1 is evaluated on the Balanced Sample case set using Gemini 2.5 Flash Lite as both 
+
+Mc and Ma, following the methodology in Section A.3. All inputs (C, R, P, ˆy) are identical; weight differences reflect audit model properties, not case properties. MLE calibration yields α∗ = 0 .629 ,
+
+β∗ = 0 .011 , γ∗ = 0 .360 with ECE = 0 .076 (equal-frequency binning, B = 10 ). On the Monte Carlo contested cohort (Section 7), the calibrated scalar separates Stable from Flipper cases: ¯S Stable =0.863 , ¯S Unstable = 0 .793 . Cross-architecture evaluation (e.g. different Ma backbone) to isolate the SBC inflation effect on ¯S separation is left to future work. 
+
+# B Implementation Notes 
+
+ξ∗ MAP implementation. ξ∗ = max( probs , key =probs.get ) over the softmax-normalized 
+
+{1, 2, 3} candidate probabilities from the top-20 logprob distribution at the defensibility_level 
+
+token position. All calibration and sweep results use the MAP implementation. At T ≤ 0.2 the MAP and sampled token are nearly always identical; at T ≥ 0.7 the distinction materially affects λξ .
+
+Citation span detection. _find_citation_span builds a cumulative character string from the token sequence, locates "policy_citation" by rfind , advances to the opening quote of the JSON value, and scans forward to the unescaped closing quote. Token boundaries are mapped by character offset. Detection rate: 100% across all three evaluation datasets (Balanced Sample N = 19 ,899 :mean span 25.6 tokens; Random Sample N = 26 ,902 : mean span 24.4 tokens; Monte Carlo N =10 ,000 : mean span 24.2 tokens). H[κ] non-null 100%. 
+
+Calibration reproducibility. Fitted weights saved to pds_weights.json . Fallback to equal weights ( 1/3 each) when file absent. Both calibration entry points (standalone calibrate_pds.py 
+
+and built-in calibrate_pds_weights() ) use L-BFGS-B for consistency. 
+
+pds_weights.json contents. {"alpha": 0.6289, "beta": 0.0114, "gamma": 0.3598, "component": "h_w", "loss": 0.3127, "n_samples": 19899} .
+
+# C Dataset Statistics 
+
+Table 10: Evaluation dataset summary.                                                    
+
+> Dataset N(valid audits) Communities Role Notes Random Sample 26,902 398 DI/AI primary eval Production-representative Balanced Sample 19,899 —PDS calibration Overrepresents contested cases Monte Carlo (contested cohort) 100 ×1,000 reps —Stability sweep 50 Flippers, 50 Stable Normative Underspecification 37,286 1Rule specificity 3 tiers: title, sidebar, wiki Fleet (Governance Gate) 109,186 4,565 Gate evaluation 4,565 subreddits; 270 with
+> ≥25 decisions (gate co-hort). Nis decision-level audits. Adversarial (SG-Bench) 1,000 —Robustness eval 800 clean, 123 action-flip, 77 hallucinated Human audit 30 —Human validation 121 independent respon-dents via structured survey Expert-Labeled Policy Set 199 —Expert-label comparison DI =98.0%, AI =27% re-movals
+
+22

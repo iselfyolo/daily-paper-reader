@@ -1,0 +1,380 @@
+Title: Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis
+
+URL Source: https://arxiv.org/pdf/2604.20577v1
+
+Published Time: Thu, 23 Apr 2026 01:08:19 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis 
+
+# Fariz Ikhwantri 
+
+fariz@simula.no Simula Research Laboratory Oslo, Norway 
+
+# Dusica Marijan 
+
+dusica@simula.no Simula Research Laboratory Oslo, Oslo 
+
+## Abstract 
+
+An assurance case is a structured argument document that jus-tifies claims about a system’s requirements or properties, which are supported by evidence. In regulated domains, these are cru-cial for meeting compliance and safety requirements to industry standards. We propose a graph diagnostic framework for analysing the structure and provenance of assurance cases. We focus on two main tasks: (1) link prediction , to learn and identify connections between argument elements, and (2) graph classification , to dif-ferentiate between assurance cases created by a state-of-the-art large language model and those created by humans, aiming to de-tect bias. We compiled a publicly available dataset of assurance cases, represented as graphs with nodes and edges, supporting both link prediction and provenance analysis. Experiments show that graph neural networks (GNNs) achieve strong link prediction per-formance (ROC-AUC ≈0.760) on real assurance cases and generalise well across domains and semi-supervised settings. For provenance detection, GNNs effectively distinguish human-authored from LLM-generated cases (F1 ≈ 0.94). We observed that LLM-generated as-surance cases have different hierarchical linking patterns compared to human-authored cases. Furthermore, existing GNN explanation methods show only moderate faithfulness, revealing a gap between predicted reasoning and the true argument structure. 
+
+## CCS Concepts 
+
+• Computing methodologies → Neural networks ; • Software and its engineering → Software organization and properties ; •
+
+Information systems → Data mining .
+
+## Keywords 
+
+Knowledge Representation, Evaluation Methodologies, Bias and Safety, Requirements Engineering 
+
+ACM Reference Format: 
+
+Fariz Ikhwantri and Dusica Marijan. 2026. Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis. In Proceed-ings of The 30th International Conference on Evaluation and Assessment in Software Engineering (EASE 2026). ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/nnnnnnn.nnnnnnn  
+
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> EASE 2026, Glasgow, Scotland, United Kingdom
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 978-1-4503-XXXX-X/2018/06 https://doi.org/10.1145/nnnnnnn.nnnnnnn
+
+## 1 Introduction 
+
+An assurance case is a set of structured arguments supported by ev-idence to demonstrate that a system has certain claimed properties in a particular context and environment [ 29 ]. An assurance case provides confidence in safety, security, or regulatory compliance for a complex system. For example, in aircraft safety [ 3 , 6], software security [24, 35], or an Artificial Intelligence (AI) system [34]. 
+
+Figure 1: Comparison of human-authored and LLM-generated assurance cases. The LLM-generated case (right) shows a different hierarchical linking pattern and node dis-tribution compared to the human-authored ground truth (left). Different colours represent heterogeneous node types (e.g., Goal, Strategy, Evidence) in the GSN notation. 
+
+These assurance cases typically comprise a hierarchical argu-ment structure, consisting of claims, supporting arguments, and associated evidence in a tree structure [ 1, 20 ] or graphical nota-tion [ 19 ]. Assurance cases are manually constructed and reviewed [ 12 ]. This made them labour-intensive, error-prone [ 25 ], and difficult to scale across complex systems [4]. Automating the analysis of assurance cases becomes increas-ingly critical as assurance documentation might grow in size and complexity throughout the product life cycle [ 6, 28 ]. This automa-tion introduces new challenges for the evaluation and review of assurance cases, particularly in assessing the structure, traceability, and provenance of LLM-generated data. Recent studies have increasingly focused on automating the gen-eration of assurance cases using large language models (LLMs) [ 17 ,27 , 31 ]. The first two studies synthesise GSN assurance cases based on predefined templates or safety patterns. The latter generates assurance arguments directly from GDPR for data protection and privacy requirements.  
+
+> arXiv:2604.20577v1 [cs.SE] 22 Apr 2026 EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom Fariz Ikhwantri and Dusica Marijan
+
+However, the automatic generation of assurance cases intro-duces new challenges in trust, traceability, and bias. Automatically generated arguments may appear structurally valid but can lack logical coherence or omit critical evidential links. Moreover, distin-guishing between human-authored and LLM-generated assurance cases could be difficult, such as in very large safety requirements. These issues raise concern about reliability and explainability in certification contexts [12]. To address these issues, we propose a Textual Attributed Graphs (TAGs)-based modelling approach that leverages Graph Neural Network (GNN) as a representation to reason over and validate the assurance case structures. Unlike previous text-based methods that rely on text similarity [ 8] or natural language inference [ 17 ], our approach models assurance cases as graphs to capture complex inter-dependencies between different elements in an assurance case. Link Prediction     
+
+> Graph Classification
+> OR
+> Human LLM
+> Claim
+> Argument 1
+> SubClaim 1 SubClaim 2
+> Argument 2
+> Evidence 1 Evidence 2 Evidence 3
+> GNNExplainer
+> Edge Importance
+> Node Importance
+> ?
+
+Figure 2: Overview of graph evaluation framework on Assur-ance Case as text-attributed graphs. Link prediction legend: –– correct link, –– incorrect link, and −− missing link. 
+
+This paper combines a data-centric evaluation of assurance case datasets with an empirical study of AI models applied to structured arguments in Requirements Engineering. Our study makes three primary contributions: (1) A curated dataset of human and LLM-generated assurance case graphs. We compile a publicly available assurance case dataset, supporting further research in assurance cases in a graph representation and evaluation .(2) An empirical evaluation of structural and provenance-related properties of the curated dataset. We focused on two comple-mentary tasks: (1) Link prediction : infer missing or implicit relationships within assurance case structures; (2) Graph classification : distinguish between LLM-generated and hu-man ground-truth assurance cases for bias detection. (3) An analysis pipeline using a graph explainability method for graph-based models to study model behaviour. Figure 2 illustrates our proposed evaluation framework. This framework aims to provide empirical insights into data-centric chal-lenges for evaluating assurance cases, as AI-generated arguments may differ from human-authored ones in structure, connectivity, and provenance. We make the code and data available 1 
+
+> 1https://github.com/farizikhwantri/assuregraph
+
+## 2 Background & Related Work 2.1 Assurance Case 
+
+Assurance cases can be represented in different structural formats, which present unique challenges for automated reasoning, scalabil-ity, and traceability. 
+
+Tree Structure. Early assurance cases were typically modelled using tree structures [ 19 , 20 ], which decompose a top-level claim into subclaims or supporting arguments linked to evidence. This Claim–Argument–Evidence (CAE) model is favoured in safety-critical industries for its simplicity and traceability [ 1]. However, the rigid parent–child hierarchy of trees limits the sharing of nodes, disallows cyclic reasoning, and complicates cross-referencing of assumptions [ 25 ]. As systems grow in complexity and certification needs evolve, these constraints drive a shift toward graph-based as-surance case formats that accommodate richer inter-dependencies and flexible argumentation. 
+
+Graph Structure. Goal Structuring Notation (GSN) is a widely used graph-based assurance case notation in industry [ 1, 19 ]. GSN represents the assurance argument using Goals, Strategies, Con-texts, Justifications, Assumptions, and Solutions, allowing multiple reasoning paths, reusable argument fragments, and cross-linked contextual information. Safety analysis checking must handle cy-cles, shared nodes, and varying graphical conventions across organ-isations, making evaluation more complex compared to tree-based formats [ 17 , 25 ]. These challenges underscore the importance of de-veloping graph-based evaluation and quantitative analysis methods for assurance cases, which is the focus of this study. Recent studies explore assurance case generation and analysis using natural language processing (NLP) and large language models (LLMs). For example, Murugesan et al . [25] proposed goal-directed rule-based and logic programming to automate the semantic analy-sis of assurance cases. Other studies [ 27 , 31 ] investigated prompt-based argument generation for safety case templates. Another re-cent study [ 17 ] introduces multi-hop reasoning in assurance case structures to model textual semantic relationships. However, most of these previous approaches operate on rule-based or textual representations. These limit their ability to model the structure of the argumentation . Moreover, explain-ability and bias detection in automated assurance case evaluation have received limited attention [ 17 ]. Explainability is important, particularly when the assurance cases are partially or fully gener-ated by LLMs [12]. 
+
+## 2.2 Graph Neural Network (GNN) 
+
+Graph neural networks have demonstrated remarkable success in many domains where relational information is critical, including bioinformatics [ 10 , 42 ], social network analysis [ 13 , 37 ], recommen-dation systems [ 40 ], and knowledge graph reasoning [ 33 ]. In recent years, GNNs have been explored in natural language processing (NLP) and reasoning tasks, where graph representations can cap-ture sentence structures, discourse relations, or inter-document dependencies [ 37 , 39 ]. In particular, combining GNNs with Large Language Models (LLMs) has shown promise for enhancing struc-tured reasoning, interpretability, and factual consistency [ 15 ]. Such Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom 
+
+integration allows leveraging the semantic richness of LLMs while preserving the relational reasoning capabilities of GNNs. Jin et al. [18] categorised three relationships of text and graphs scenarios: (1) pure graphs, (2) text-paired graphs, and (3) text-attributed graphs. In our problem, the assurance case learning on graphs is a type of text-attributed graphs problem. This textual element is the node features x𝑖 , which are typically obtained by encoding textual descriptions (e.g., title and abstract in academic paper networks and claims, strategies, or claim, argument, and evi-dence in assurance cases) using a pre-trained language model such as BERT [ 7]. The resulting text embeddings serve as input node features for the GNN, allowing the network to model semantic and structural dependencies within the graph jointly. This work is related to real-world graph assessment, where the goal is to distinguish real-world topologies from synthetic graphs generated by neural models or classical graph generators. Prior works [ 23 ] formalise generated graph detection and show that GNN-based classifiers can reliably identify graphs generated by generative models. Our work extends this line of research to a new generator class: large language models that synthesise argumentation graphs rather than structural graphs .
+
+## 3 Methods: Graph-Based Evaluation Framework on Assurance Case 
+
+We consider two primary evaluation tasks: (1) link prediction , which captures the model’s ability to learn predicate structure and infer missing or implicit relations between assurance case elements, and (2) graph classification , which distinguishes between assurance cases authored by humans and those generated by large language models (LLMs). These two tasks are designed to reflect different aspects of assurance case reasoning: structural coherence and provenance bias analysis, respectively. We emphasise that the proposed frame-work evaluates assurance cases through graph-based analyses. The GNN models are used as diagnostic tools to analyse structural patterns rather than to assess assurance case quality directly .
+
+## 3.1 Linking Assurance Case elements 
+
+A graph is formally defined as G = (V , E) , where V is the set of nodes (or vertices), and E ⊆ V × V is the set of edges representing relationships between nodes. Each node 𝑣 𝑖 ∈ V can be associated with an initial features vector x𝑖 ∈ R𝑑 and edge-features vector e𝑖 𝑗 .The first task aims to predict whether a link should exist between a pair of nodes (𝑣 𝑖 , 𝑣 𝑗 ) in an assurance case as a graph G. Formally, given node embeddings h𝑖 and h𝑗 learned through a GNN encoder 
+
+𝑓 𝜃 , the link prediction function estimates the probability of an edge as: 
+
+𝑝 (𝑒 𝑖 𝑗 ∈ E) = 𝜎 (h⊤ 
+
+> 𝑖
+
+Wh 𝑗 )
+
+where 𝜎 (·) denotes the sigmoid activation, and W is a learnable parameter matrix. The objective is to maximise the likelihood of existing edges while minimising false predictions for non-existent ones. This task learns and quantifies connections between elements in the assurance case. By training the model on the link prediction task , we aim to learn recurring structural and semantic dependen-cies that generalise across different assurance case representations. Specifically, tree-structured safety cases and graph-structured Goal Structuring Notation (GSN) models. 
+
+## 3.2 Graph Classification: Human vs LLMs-generated Detection 
+
+The second task operates at the graph level and classifies an entire assurance case graph G as either human-authored or LLM-generated .Given a set of node embeddings {h𝑖 }| V |  
+
+> 𝑖 =1
+
+learned by the GNN en-coder, we apply a graph-level pooling function READOUT (·) , such as mean pooling or attention pooling, to obtain a global representa-tion h𝐺 :
+
+h𝐺 = READOUT ({ h𝑖 }) 
+
+A classification layer then predicts the label ˆ𝑦 = softmax (W𝐺 h𝐺 +
+
+b𝐺 ), where W𝐺 and b𝐺 are trainable parameters. This task aims to detect structural and stylistic biases inherent in LLM-generated assurance cases. The graph classification provides a structure-aware representation to learn provenance detection by distinguishing between human-authored and machine-generated graphs. This provenance detection serves as a diagnostic tool rather than directly assessing the logical validity or regulatory compliance of the case. It can notify safety engineers to automatically generate arguments, flagging them for closer human inspection to ensure they do not contain the hallucinations or generative biases common to LLMs. Together, these two tasks provide complementary views of assur-ance cases modelled as text-attributed graphs. Link prediction acts as an auxiliary objective that encourages the model to capture recur-ring structural and semantic relationships between elements. At the same time, graph classification enables structure-aware provenance detection of an assurance case. Combined, this framework offers a unified perspective for analysing structural characteristics and generation patterns of assurance cases across different structures. Importantly, the framework is intended to support empirical analysis rather than replace expert review or formal check-ing .
+
+## 4 Datasets 
+
+We evaluate our proposed framework on three publicly available assurance case datasets collected from prior studies [ 3 , 27 , 31 ]. The dataset statistics are summarised in Table 1. These datasets vary in structure, domain, and source of provenance (human vs LLM), covering both Graph structure by Goal Structured Notation (GSN) and Tree structure by Safety Tree format. The first dataset follows a safety tree structure organised per requirement , while the last two datasets follow the Goal-Structured Notation format, organised per product . This diversity allows us to evaluate the generality of our approach across different assurance case modelling paradigms. 
+
+## 4.1 Safety Tree by Requirement 
+
+The safety tree drone dataset from Agrawal et al . [3] follows a safety tree format, where each graph corresponds to the assurance argu-ment for a single requirement. Unlike the GSN datasets, the linking structure was explicitly defined in the original data, providing an interpretable tree hierarchy among safety claims and supporting evidence. This dataset contains only human-authored assurance EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom Fariz Ikhwantri and Dusica Marijan 
+
+Table 1: Collections of publicly available Assurance case data from previous studies used in this paper 
+
+Dataset Src Avg N Avg E Count Agrawal et al. [3] Human 28.25 27.27 39 Sivakumar et al. [31] Human 11.50 10.50 2LLM 16.15 15.10 32 Odu et al. [27] Human 24.20 22.40 5LLM 17.14 16.40 185 cases and serves as a complementary benchmark to evaluate model generalisation across different structural representations. 
+
+## 4.2 GSN Graph by Product 
+
+We compiled these datasets [ 27 , 30 ] from Odu et al . [27] and Sivaku-mar et al . [31] . This dataset is in the GSN form. Each graph cor-responds to the assurance case of a specific product. Each case is composed of textual nodes representing Goal , Context , Solution ,
+
+Strategy Argument , Justifications , and Evidence . For both datasets, we use two variants: human-authored cases and LLM-generated cases produced by GPT-4o [16]. In the original datasets, only the node-level textual content was provided for the LLM-generated cases. The linking information (i.e., edges between nodes) was generated in this study using a controlled approach following the complete context prompt with complete contextual information of the context of the Assurace Case, Predicate from the Odu et al . [27] . We adjust the prompt to make the same LLM GPT-4o 2 to infer the predicate structure linking among the argument elements in the generated assurance case. The prompt used for the Linking Prompt for Data Construction with GPT-4o is provided in our replication package. By including both GSN-style and safety tree-style assurance cases with node and edge annotation, our evaluation captures the full range of structural and semantic characteristics found in real-world assurance cases. 
+
+## 5 LLM-generated Data Quality Analysis 
+
+Before evaluating downstream models, we assess the quality of the LLM-generated (GPT-4o) assurance cases relative to human-authored cases. In the previous study [ 27 ], text similarity measures, such as exact string match, BLEU and cosine similarity, were used between all node texts in the ground-truth and all generated node texts by GPT-4o. Since only node-level text, they measured the metrics without considering structure or comparing each node. In this study, we quantify the semantic and structural quality of LLM-generated data using alignment-based metrics adapted from hierarchical evaluation in dependency parsing [ 26 ]. These mea-sures are used solely to characterise dataset properties and are not part of the proposed graph learning framework .
+
+> 2We generated the linking using GPT-4o only, because we did not have access to GPT-4-turbo at the time of the study; this decision was supported by evidence from Odu et al. [27] demonstrating higher similarity to human ground-truth.
+
+## 5.1 Semantic and Structural Quality Metrics 
+
+Semantic Node Matching. Let 𝐻 = {ℎ1, . . . , ℎ 𝑛 } denote the set of human-authored nodes and 𝐿 = {𝑙 1, . . . , 𝑙 𝑚 } is the set of LLM-generated nodes, where each node is associated with a textual description. Let 𝑠 (ℎ𝑖 , 𝑙 𝑗 ) ∈ [ 0, 1] be a semantic similarity function between node descriptions. We define a one-to-one semantic matching 𝑀 ⊆ 𝐻 × 𝐿 as: 
+
+𝑀 = arg max 
+
+> 𝑀 ′
+
+∑︁ (ℎ,𝑙 ) ∈ 𝑀 ′
+
+𝑠 (ℎ, 𝑙 ) (1) From the matched node, we can calculate node recall for measuring how many nodes in the LLM-generated nodes are relevant to the human ground-truth. The node recall is defined as: 
+
+Node Recall = |𝑀 ||𝐻 | . (2) 
+
+Edge-Level Structural Matching. Since the assurance case is a type of directed acyclic graph, it is difficult to define the graph matching without further study. Hence, we simplify it by computing edge-level matching with the matched nodes. Let 𝐸 𝐻 ⊆ 𝐻 × 𝐻 and 𝐸 𝐿 ⊆ 𝐿 × 𝐿 denote the parent–child rela-tions in the human ground-truth and LLM-generated assurance cases, respectively. Using the matching 𝑀 , we project the human-authored edge set into the LLM node space by retaining only those parent–child pairs for which both endpoints are matched. Each human edge (ℎ𝑝 , ℎ 𝑐 ) ∈ 𝐸 𝐻 with ℎ𝑝 , ℎ 𝑐 ∈ dom (𝑀 ) is mapped to the corresponding LLM edge (𝑀 (ℎ𝑝 ), 𝑀 (ℎ𝑐 )) , yielding the projected edge set 𝐸 𝑀 𝐻 .Similarly, we restrict the LLM-generated edge set to those edges whose parent and child nodes both lie within the range of the match-ing 𝑀 . The resulting set 𝐸 𝑀 𝐿 therefore contains only relationships between LLM nodes that correspond to matched human nodes. These mappings ensure that both edge sets are defined over a com-mon node space, which enables structural comparison between the human as ground-truth and LLM-generated assurance cases. Edge-level precision ( Edge-Prec ), recall ( Edge-Rec ), are computed as: 
+
+Precision = |𝐸 𝑀 𝐻 ∩ 𝐸 𝑀 𝐿 ||𝐸 𝑀 𝐿 | , Recall = |𝐸 𝑀 𝐻 ∩ 𝐸 𝑀 𝐿 ||𝐸 𝑀 𝐻 | , (3) Then, we could compute the Edge F1-score ( Edge-F1 ) using 𝐹 1 = 2𝑃𝑅 𝑃 +𝑅 
+
+from Edge Precision (P) and Edge Recall (R) score. The edge-level precision, recall, and F1 used here are conceptu-ally similar to attachment-based evaluation metrics in dependency parsing [ 26 ], where predicted structural relations are compared against a reference tree. Unlike dependency parsing, human and LLM-generated assurance case node correspondence is not fixed and needs to be established through node matching with text simi-larity before edge comparison. 
+
+## 5.2 Semantic and Structural Quality of LLM-generated Data 
+
+Table 2 summarises the semantic and structural alignment between LLM-generated assurance cases and human-authored ground truth. 
+
+These measurements are used solely to characterise LLM-generated part dataset quality and are not part of the pro-posed learning framework .Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom 
+
+Table 2: Semantic: Cosine, Node Recall (Node-Rec) and Struc-tural: Edge Precision (Edge-Prec), Recall (Edge-Rec) and F1 (Edge-F1) quality measurement between LLM-generated data from GPT-4o and Human Ground-truth. 
+
+Source Metric Cosine Node-Rec Edge-Prec Edge-Rec Edge-F1 Sivakumar et al. [31] .042 .990 .197 .167 .176 Odu et al. [27] .105 .753 .489 .529 .503 
+
+While average cosine similarity scores are low (0.04 to 0.1), aver-age node recall is high (0.75 to 0.9), indicating that LLM-generated data largely recovers the set of human-authored assurance elements at a semantic level. In contrast, edge-level precision, recall, and F1 scores vary be-tween the two dataset sources. Notably, the observed edge F1-scores 
+
+could provide a practical upper bound on achievable perfor-mance when trained on LLM-generated data only and tested on human ground-truth , as downstream models cannot recover structural relations that are absent or inconsistent in the underlying data. These results highlight that LLM-generated assurance cases cap-ture content more reliably than structure, reinforcing the need for structure-aware evaluation in downstream analyses. 
+
+## 6 Experiments 6.1 Research Questions 
+
+RQ1. How well do GNNs learn and generalise link structures in assurance cases across different data provenances? 
+
+RQ1a. How do GNN models perform link prediction on human-authored assurance cases? 
+
+RQ1b. How do GNN models trained on LLM-generated as-surance cases transfer to human-authored cases in cross-provenance link prediction? 
+
+RQ1c. Does semi-supervised learning that combines human and LLM-generated assurance cases improve GNN robust-ness and generalisation in link prediction? 
+
+RQ2 Can graph models distinguish human-authored from GPT-4o-generated assurance cases, and what signals may drive predictions? 
+
+RQ2a How accurately can provenance be classified? 
+
+RQ2b What do explanation methods suggest about model behavior? 
+
+## 6.2 GNN Models 
+
+Standard GNN Baselines . We first employ three widely used GNN architectures—Graph Convolutional Network (GCN) [ 21 ], Graph Attention Network (GAT) [ 32 ], and GraphSAGE [ 13 ]. These serve as our primary baselines to establish how well GNN neighbourhood aggregation and attention mechanisms capture the local structural and semantic relations within assurance graphs. 
+
+Table 3: Dataset split statistics and graph property. H = Hu-man, M = LLMs                                                                   
+
+> Split Train Train Val Val Test Test Source HMHMHM#graphs 30 106 550 11 61 Avg. #nodes 30.43 18.56 13.00 19.92 24.36 16.70 Avg. #edges 29.47 18.14 11.00 19.18 23.45 15.41 Avg. #words 8.41 7.67 10.07 7.57 8.95 10.20 Avg. #chars 56.47 54.09 67.88 54.41 62.71 75.07 Density 0.13 0.06 0.12 0.06 0.06 0.06 Avg_in_deg 0.87 0.96 0.83 0.95 0.95 0.92 Avg_out_deg 0.87 0.96 0.83 0.95 0.95 0.92 Homophily 0.41 0.03 0.29 0.02 0.35 0.25
+
+Graph Foundation Model (UniGraph) . To address the chal-lenges of data scarcity and cross-domain generalisation inher-ent in our dataset , we incorporate UniGraph [ 14 ]. As a state-of-the-art graph foundation model, UniGraph unifies masked language models and GNNs within a single learning algorithm through self-supervised pre-training ( MLM Self-Supervised+GNN ). The prior study shows it is capable of few-shot learning. This capability al-lows the model to extract complex structural semantics effectively without requiring massive, multi-source training datasets, making it ideal for our proof-of-concept evaluation. 
+
+Few-Shot Graph Classification (GraphPrompt) . For the graph classification task, we additionally evaluate GraphPrompt [ 22 ], a re-cent framework that adapts the link prediction task for pre-training graph models. The pre-trained models could be used in downstream tasks via soft-prompt. This soft-prompt enables few-shot inference where the human-authored ground-truth dataset is limited in size and naturally imbalanced compared to the LLM-generated data. We initialise GraphPrompt using the best-performing weights from the link prediction pre-training, enabling the model to maximise structural knowledge transfer for provenance detection. All graph-based models in the experiment use BERT-base-uncased, which are fixed with no gradient update except the UniGraph model. We use HuggingFace Transformer [ 36 ] and Pytorch Geometric [ 9]to implement experiments for this study. 
+
+Hyperparameters. We set the learning rate to 1e-5, the weight decay to 0.01, and 200 epochs. The GCN/GAT/SAGE baselines use hidden size 256; “-3 layers” denotes three stacked GNN layers (the base variants use a single layer). GAT uses one attention head. UniGraph follows its default configuration with hidden size 768, two layers, eight heads, dropout 0.1, 𝜆 =0.1, and mask_rate=0.30. The batch sizes are one for the baselines and four for UniGraph. 
+
+## 6.3 Text-Only Models 
+
+Decoder LLM We evaluate LLMs as link predictors on assurance case graphs. Similarly, with GNN for assurance case training and testing, we build a balanced set of candidate edges by taking all directed parent →child links as positives and sampling an equal number of non - edges as negatives. Each candidate pair is converted to a short instruction prompt asking whether a link exists between the two node descriptions and requiring a Yes/No answer. To obtain a probability, the LLM is queried five times with stochastic decoding. Each generation is parsed into a binary vote; the predicted link probability for a pair is the empirical frequency of “Yes” across EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom Fariz Ikhwantri and Dusica Marijan 
+
+samples. This frequency also serves as an uncertainty indicator (values near 0.5 denote ambiguity). To perform in - context learning (ICL), we include labelled exam-ples of assurance case graphs from the training set with balanced positives/negatives that exclude the queried nodes. The procedure is model - agnostic and works with any decoder LLM. In this study, we use Llama 3 models (3.2-1B and 3.1-8B) [ 11 ] and Qwen2.5-7B [ 38 ]. We set the models to take 6 in-context pairs of node examples from the training set pool, which consists of 3 positives and 3 negatives in the link prediction task. In the graph classification task, we set the model to take 4 graph examples, which consist of 2 human and 2 llm sample from the training set pool. For the decoder LLM baseline, we explicitly evaluate uncertainty arising from both stochastic decoding and prompt conditioning. We perform five independent sampling runs per instance to cap-ture inference-time stochasticity. In addition, as fine-tuning or re-training LLMs with different model seeds is computationally prohibitive, we approximate model-level variability by randomly resampling the in-context examples. For each prediction, we record the sampled outputs, the selected in-context examples, and the ran-dom seed as part of the released evaluation artefact. Full prompt templates, example instantiations, and generation scripts are re-leased as part of the public replication package. 
+
+## 6.4 Metrics 
+
+To evaluate the proposed framework, we consider metrics for both 
+
+link prediction , graph classification , as well as explanation faithfulness for the graph classification. For link prediction , we report area under the Receiver Operat-ing Characteristic Curve ( ROC-AUC ) and F1-score ( F1 ). We compute precision, recall, and F1 with 0.5 threshold probabilities. These met-rics measure the model’s ability to infer valid and missing links between assurance case elements. These metrics are computed by comparing predicted links against verified human-annotated connections. For graph classification , we evaluate the model’s capacity to distinguish between human-authored and LLM-generated assur-ance cases using standard metrics: Accuracy ( Acc ) and F1-score ( F1 ). High classification performance indicates that the model captures structural or semantic biases between human and LLM-generated reasoning patterns. To assess explainability of learned graph classification mod-els, we use the graph fidelity ( Fid ) metrics following Amara et al .[5] and graph explanation faithfulness ( GEF ) [ 2] from PyTorch Geometric by using GNNExplainer [ 41 ]. GEF actually measures unfaithfulness as the deviation between the model’s output change and the masked subgraph’s predicted score. Fidelity quantifies the consistency between the explanation and the model’s decision. 
+
+## 7 Results 7.1 RQ1: Link Prediction 
+
+RQ1a: Gold Standard Link Prediction. Table 4 presents the per-formance of various baseline and graph-based models evaluated on human-authored assurance cases. GNN models trained and tested on human-authored assurance cases achieve strong performance, with several architectures, especially SAGE and Table 4: [RQ1] Performance comparison across three training and testing scenarios: Human (H) → Human, LLM (M) → H, and Mix (Human +LLM) → H. Metrics reported are ROC-AUC and F1 (mean ± std over 5 seeds).                                                                                                                                                
+
+> Model [RQ1a] H→H[RQ1b] M→H[RQ1c] Mix →H
+> ROC-AUC F1 ROC-AUC F1 ROC-AUC F1
+> Decoder LLM (Text Only) In-Context-Learning
+> Llama-3.2-1B .509 ±.02 .609 ±.02 .485 ±.02 .591 ±.02 .504 ±.02 .566 ±.02 Llama-3.1-8B .577 ±.03 .627 ±.01 .552 ±.02 .532 ±.01 .559 ±.02 .542 ±.02 Qwen-2.5-7B .588 ±.03 .369 ±.07 .592 ±.01 .263 ±.07 .570 ±.02 .208 ±.06
+> Encoder LM+GNN
+> GCN-1-layer .687 ±.06 .611 ±.13 .490 ±.02 .037 ±.06 .599 ±.08 .411 ±.11 SAGE-1-layer .796 ±.03 .816 ±.02 .636 ±.05 .525 ±.24 .768 ±.02 .802 ±.02
+> GAT-1-layer .704 ±.05 .634 ±.08 .513 ±.02 .201 ±.18 .609 ±.08 .455 ±.15
+> MLM Self-Supervised+GNN
+> UniGraph .855 ±.02 .717 ±.02 .667 ±.01 .448 ±.05 .868 ±.02 .769 ±.02
+
+UniGraph, substantially outperforming text-only decoder LLM baselines . Across the Human → Human setting, GNN-based models achieve higher AUC than Decoder LLM, with SAGE (.796 AUC, .816 F1) and UniGraph (.848 AUC, .739 F1), except for GCN. This indicates that structural information in assurance case graphs is highly predictive for link inference. 
+
+RQ1b: LLM-generated data only Link Prediction. Table 4 reports the cross-domain performance where models are trained on LLM-generated assurance cases and evaluated on human-authored (gold) data. This setting assesses the model’s ability to transfer structural reasoning learned from LLM-generated data, potentially biased data, to authentic human reasoning structures. When trained solely on LLM-generated assurance cases, GNN models transfer poorly to human-authored cases, showing significant drops in both AUC and F1 . All GNN variants’ performance degraded in the LLM → Human scenario—for example, SAGE drops from (.796/.816) to (.636/.525), and GCN falls to (.490/.037). This indicates that distributional mismatch between LLM-generated and human-authored arguments hinders cross-provenance generalisation. In contrast, Decoder LLMs are not affected by LLM-generated data only and achieved better performance than GCN and GAT. These results answer RQ2 by showing that LLM-generated data to human data on the link prediction task remains challenging, and models must explicitly address the reasoning bias introduced by LLM-generated data to achieve reliable human-level generalisation. 
+
+RQ1c: Semi-Supervised Link Prediction . Table 4 presents the re-sults of the semi-supervised scenario, where models are trained jointly on both human-authored and LLM-generated assurance cases and evaluated on the gold human dataset. This setup ex-amines whether incorporating LLM-generated data can improve generalisation and robustness in link prediction when gold data is limited. The answer to RQ1c is: Yes, combining human and LLM-generated cases substantially boosts GNN performance, with UniGraph achieving the strongest generalisation across all models . In the Mix → Human setting, nearly all GNN models improve over the LLM-only condition, and UniGraph reaches the Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom 
+
+Table 5: Ablation study for RQ1 (Link Prediction) evaluating the contribution of graph propagation and GNN depth on Gold Standard. 
+
+Configuration ROC-AUC F1 
+
+UniGraph (1-layer GNN) .855 ± .02 .717 ± .02 w/o GNN (Fixed Encoder Only) .677 ± .02 .675 ± .05 
+
+Table 6: Effect of GNN depth on link prediction performance (RQ1). Shallow models AUC outperform deeper variants across architectures except GCN on the Gold Standard. 
+
+Model 1-layer 3-layer 
+
+GCN .687 ± .06 ↓ .707 ± .03 ↑
+
+GraphSAGE .796 ± .03 ↑ .766 ± .05 ↓
+
+GAT .704 ± .05 ↑ .690 ± .05 ↓
+
+UniGraph .855 ± .02 ↑ .833 ± .01 ↓
+
+highest overall scores (.868 AUC, .769 F1), demonstrating that in-corporating diverse training sources mitigates distributional gaps and enhances model robustness. 
+
+RQ1: Ablation. To isolate the contribution of graph-based prop-agation, we compared the 1-layer UniGraph model against a text-only baseline 5. Removing the GNN layer resulted in a significant performance decrease, with ROC-AUC dropping from 0.855 to 0.677. This confirms that structural connectivity provides a critical signal for link prediction that cannot be captured by semantic text embed-dings alone, directly addressing concerns regarding the motivation for a graph-based approach. Furthermore, we evaluated the impact of GNN depth across architectures 6. Results indicate that 1-layer models generally out-perform 3-layer variants, with UniGraph showing a decrease in AUC from 0.855 to 0.833 at greater depths. This suggests that link inference in assurance cases relies primarily on local neighbour-hood information; deeper architectures likely introduce noise or suffer from over-smoothing due to the hierarchical nature of ar-gument graphs. GCN was the sole exception, showing improved performance with increased depth. 
+
+## 7.2 RQ2: Graph classification for Provenance Detection 
+
+RQ2a: Graph classification Human vs LLMs. The results in Table 7 indicate that graph-based models can effectively differentiate be-tween human-authored and LLM-generated assurance cases, achiev-ing high accuracy and F1 scores. Models like GCN, GraphSAGE, and SAGE-3 layers reach near-perfect performance (Acc ≈ 0.97, F1 ≈ 0.98), highlighting the presence of semantic biases between human and LLM-generated in the graphs. In contrast, GAT and Un-igraph show slightly lower performance, suggesting that attention-based approaches may reduce sensitivity to superficial differences. These findings reveal that LLM-generated assurance cases irreg-ularities can be detected in the graph structure which diverges from typical in human-authored cases. This structural bias can serve as a 
+
+Table 7: [RQ2] Graph classification performance between Human vs LLMs assurance case to analyse bias in the data.                                                         
+
+> Model Acc F1
+> Decoder LLM (Text-Only) ICL
+> Llama3.2-1B-ICL-4 .608 ±.271 .076 ±.069 Llama3.1-8B-ICL-4 .208 ±.098 .178 ±.059 Qwen2.5-7B-ICL-4 .628 ±.094 .120 ±.149 Encoder LM + GNN GCN-1 layer .972 ±.00 .984 ±.00 SAGE-1 layer .972 ±.00 .984 ±.00 GAT-1 layer .944 ±.05 .969 ±.03
+> MLM Self-Supervised+GNN
+> UniGraph .939 ±.03 .964 ±.02
+> Few-Shot Graph Cls (Encoder LM+GNN)
+> GPrompt-GCN .747 ±.21 .834 ±.17 GPrompt-SAGE .831 ±.07 .894 ±.05
+
+Table 8: [RQ3] The GNNExplainer result of Node and Edge explanation metrics results from the graph classification task.                                                                                                                         
+
+> [RQ3] Node Edge Model Fid (+) (↑) Fid (−) (↓) GEF( ↓)Fid (+) (↑) Fid (−) (↓) GEF ( ↓)GCN-1 layer .425 ±.33 .550 ±.30 .091 ±.02 .017 ±.02 .003 ±.01 .015 ±.00 SAGE-1 layer .703 ±.40 .128 ±.06 .048 ±.02 .011 ±.02 .000 ±.00 .015 ±.00 GAT-1 layer .569 ±.44 .431 ±.44 .081 ±.03 .031 ±.07 .000 ±.00 .012 ±.00 UniGraph .567 ±.31 .433 ±.31 .114 ±.01 .161 ±.14 .044 ±.03 .032 ±.02 GPrompt-GCN .431 ±.38 .569 ±.38 .057 ±.02 .036 ±.06 .025 ±.06 .006 ±.01 GPrompt-SAGE .067 ±.08 .708 ±.31 .101 ±.06 .092 ±.09 .089 ±.10 .036 ±.03
+
+diagnostic signal for improving structured arguments in generated data. 
+
+RQ2b: Exploratory Analysis of Explainability on Provenance Clas-sification. The faithfulness analysis evaluates whether the explana-tions provided by GNNs accurately capture the nodes and edges most influential to their predictions. The fidelity and GEF metrics in Table 7 reveal different results across models. Among all meth-ods, GCN shows relatively balanced positive and negative node fidelity (Fid (+) ≈ 0.53, Fid (−) ≈ 0.47), suggesting moderate but in-terpretable attribution alignment with the model’s decision process. In contrast, SAGE-3 layers achieve near-zero or perfectly polarised fidelity values, reflecting overconfident decision boundaries where only a few nodes dominate the prediction. To assess the influence of specific argument elements, we anal-ysed GNNExplainer importance scores categorised by GSN node type (Figure 3). Human-authored data shows a distributed weight-ing across Argument, Claim, and Goal nodes. In contrast, LLM-generated data show a statistically skewed distribution, with dis-proportionate importance assigned to high-level Goal and Strategy elements. Furthermore, Context nodes in the LLM cohort show a bimodal distribution, suggesting inconsistent structural integration. These findings indicate that GNN provenance detection succeeds by identifying systematic hierarchical imbalances in LLM-generated EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom Fariz Ikhwantri and Dusica Marijan 
+
+Figure 3: Node Importance Distribution by Type. Importance scores are obtained by GNNExplainer attributions from UniGraph model inference on the test set. Human-authored cases (blue) show a balanced distribution, while LLM-generated cases (orange) demonstrate high reliance on Goal/Strategy scaffolding and polarised Context integration. The        
+
+> machine
+> learning ...
+> Assumption
+> in safety
+> ...
+> technical
+> systems
+> context
+> technical
+> safety
+> requirements
+> Strengths
+> and
+> weaknesses ...
+> The
+> machine
+> learning ...
+> Description
+> of ML ... Review of
+> generated
+> ...
+> Evidence
+> of
+> robustness ...
+> Weakness
+> in the ...
+> Uncertainty
+> qualification Evidence
+> that
+> prototype ...
+> Maximum
+> distance
+> threshold
+> Out of
+> distribution
+> ...
+> Explanation masks (Prediction: LLM, Target: Human)
+> fidelity(+)=1.000, fidelity(-)=0.000, unfaithfulness=0.058
+> 10.0
+> 10.2
+> 10.4
+> 10.6
+> 10.8
+> 11.0
+> 11.2
+> Node importance
+> 0.060 0.065 0.070 0.075 0.080 0.085 0.090 0.095
+> Edge importance
+
+Figure 4: GNNExplainer output for UniGraph model showing high positive fidelity and low unfaithfulness with incorrect predictions. Colour bars indicate the intensity of attribution scores for the node and edge explanations. 
+
+data. Figure 4 shows the node and importance edges of the Uni-Graph model with high positive fidelity and low unfaithfulness; however incorrectly predicts the graph as LLM-generated. For edge-level fidelity, all models yield lower and more consistent scores (Fid (+) ≈ 0.04–0.07), indicating that link structures are less explicitly used for discrimination compared to node-level features. Overall, the faithfulness results indicate that while standard GNNs can effectively distinguish between human and LLM assur-ance cases, their explanations may not always reflect the true causal reasoning links that drive predictions. 
+
+## 8 Discussion 
+
+Our findings demonstrate that, as a form of synthetic data, assur-ance cases generated by models like GPT-4o contain structural regularities and topological biases that differ from human-authored artefacts. While the specific nature of these structural signatures may vary across different proprietary or open-source LLMs, our framework demonstrates that GNNs can successfully detect these synthetic patterns. When using synthetic data as training data for the link prediction task, while GPT-4o-generated assurance cases offer a valuable pre-training signal, their structural biases limit transferability to real assurance data. GNNs trained solely on synthetic graphs internalise stylistic patterns that are different from hierarchical patterns created by humans. This results in poor generalisation in linking prediction tasks. UniGraph’s robustness indicates that self-supervised objectives promote structure-aware learning regardless of specific graph topologies. The semi-supervised setting provides the best balance between generalisation and alignment with human reasoning. Models trained on both human and LLM-generated data show improved recall and robustness compared to those trained exclusively on one type. These results suggest that, despite their biases, LLM-generated as-surance cases offer useful auxiliary supervision that aids GNNs in generalising reasoning link patterns in data-scarce situations. Specifically, GraphSAGE and UniGraph indicate that diverse linking distributions can enhance structural learning. Previous studies, including the structured argument in a natural language inference model by Ikhwantri and Marijan [17] and the traceability framework by Etezadi et al . [8] , mainly focused on pre-dicting links between individual text elements. These approaches framed reasoning as a task of pairwise semantic similarity, aiming to identify whether a requirement should connect to a claim based on their textual embeddings. In contrast, this study focuses on global structural dependencies of a graph instance. We emphasise how argument structure arises from interactions within the assurance graph. This perspective allows for a deeper understanding of bias in reasoning arguments. The explainability analysis reveals that, although Graph Neural Networks (GNNs) achieve high accuracy, their internal explana-tions often lack reliability. Many models prioritise node features from language embeddings over the edge between nodes, indicat-ing reliance on semantic instead of structure when distinguishing between human and LLM-generated content. SAGE often focus heavily on node-level cues, which biases prove-nance detection. However, UniGraph maintain a balance between node and edge fidelity, sacrificing edge interpretability, thus creat-ing a trade-off between predictive accuracy and structural faithful-ness, effectively capturing both content and structure. These findings enhance previous studies on assurance case ex-plainability. Past study [ 17 ] concentrated on text perturbation and Evaluating Assurance Cases as Text-Attributed Graphs for Structure and Provenance Analysis EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom 
+
+gradient-based interpretations, which highlighted significant to-kens but failed to clarify reasoning alignment with true causal relations. Our graph evaluation analyses a fidelity-based evaluation for bias detection of assurance case structure. In summary, our findings show that while GNNs can detect struc-tural differences between human-authored and LLM-generated as-surance cases, existing explanation methods show reliance on node features. Addressing this gap is an important avenue for future research. 
+
+## 9 Threats to Validity 9.1 Construct Validity 
+
+Using link prediction and classification as proxies for argument quality may capture structural patterns without ensuring logical soundness. Additionally, the GNN might detect artefacts from the synthetic edge-generation prompt rather than intrinsic LLM reason-ing styles. Finally, our findings are currently tied to GPT-4o-specific structural signatures and the limited faithfulness of existing GNN explanation tools. 
+
+## 9.2 Internal Validity 
+
+The dataset used in this study, although carefully verified and cu-rated to ensure the reliability and validity of human-authored sam-ples, is relatively small. This limitation may affect the statistical power of our analyses and introduce potential biases that could impact the observed model performance. The restricted dataset size may also limit the ability of the models to generalise effec-tively across diverse assurance case structures. However, publicly available human-authored assurance cases are scarce in prac-tice in our setting, which reflects the situation whether in academia or industry due to data sensitivity .Our uncertainty analysis does not include variation over the LLM parameters. While this limits conclusions about full model variance, our evaluation reflects realistic deployment settings where LLM inference is performed via fixed APIs and variability from stochastic generation and prompt variation. 
+
+## 9.3 External Validity 
+
+The bias analysis conducted to differentiate between human-authored and LLM-generated assurance cases is limited to a one-way discrim-ination setup. While the graph classification models successfully distinguish between these patterns, the current framework does not yet involve an iterative improvement of the LLM itself. Con-sequently, while our study identifies structural biases, it does not directly evaluate how these insights might be used to enhance the generation process in real-time. Furthermore, our empirical evaluation of LLM-generated assur-ance cases is currently limited to outputs produced by GPT-4o. We selected GPT-4o as a representative state-of-the-art model to es-tablish the feasibility of our graph-based evaluation framework. Different LLMs (e.g., Claude, Gemini, or open-weight models) utilise different alignment training and generation heuristics. The specific topological biases (such as density or homophily) observed in our dataset may vary across models. Conducting a large-scale, mul-tiple LLMs empirical study to catalogue these variations falls outside the primary focus of this paper, as it would require extensive data generation and validation . To address these prac-tical constraints and mitigate the need for massive, multi-source training datasets, our framework leverages recent advancements in graph foundation models. Specifically UniGraph [ 14 ] and Graph-Prompt [ 22 ]. These models require substantially less training data, which allows us to establish a robust proof-of-concept for graph-based assurance evaluation without relying on large-scale data generation. These threats highlight areas where additional research and experimentation are needed to strengthen the generalisability and practical applicability of our evaluation framework and study. 
+
+## 10 Conclusion and Future Work 
+
+This study investigated how different modelling strategies perform across varying data provenance scenarios, focusing on the integra-tion of masked language model text encoders and graph neural net-works. Specifically, we explored five research questions. Our results show that graph neural networks can effectively learn reasoning and linkage patterns across two different types of assurance case structures. For RQ1, link prediction experiments demonstrated that GNNs perform well when trained on verified human-authored assurance cases (RQ1a). However, their performance declines in the LLMs-only data (RQ1b). It can transfer relational knowledge from the LLMs-generated data to real cases in a semi-supervised setting (RQ1c). This result highlights the structural and semantic gap between human and LLM reasoning. For RQ2a, graph classification analysis revealed that GNNs are capable of distinguishing human-authored from LLM-generated assurance cases by uncovering systematic structural biases. Finally, RQ2b showed that explanation fidelity remains limited, suggesting that current GNN explainers only partially capture the consistent reasoning paths of human vs LLMs assurance cases. Overall, these findings highlight the potential and challenges of graph-based rea-soning in assurance cases. Beyond the detection of structural biases, these findings estab-lish a foundation for transitioning from static evaluation toward the iterative refinement of LLM-generated assurance cases. Future work could explore integrating our graph classifier as a discrimina-tor within an iterative preference feedback loop or an adversarial training framework. 
+
+## Acknowledgments 
+
+This work has been funded by the European Commission under grant agreement No. 101120606, CERTIFAI. This work has also benefited from the Experimental Infrastructure for Exploration of Exascale Computing (eX3), which is financially supported by the Research Council of Norway under contract 270053. 
+
+## References         
+
+> [1] Adelard. 2024. Claims-Arguments-Evidence (CAE). https://www.adelard.com/ asce/cae. Accessed July 2025. [2] Chirag Agarwal, Owen Queen, Himabindu Lakkaraju, and Marinka Zitnik. 2023. Evaluating explainability for graph neural networks. Scientific Data 10, 1 (2023), 144. [3] Ankit Agrawal, Seyedehzahra Khoshmanesh, Michael Vierhauser, Mona Rahimi, Jane Cleland-Huang, and Robyn Lutz. 2019. Leveraging artifact trees to evolve and reuse safety cases. In Proceedings of the 41st International Conference on Software Engineering (Montreal, Quebec, Canada) (ICSE ’19) . IEEE Press, New York, NY, USA, 1222–1233. doi:10.1109/ICSE.2019.00124
+
+EASE 2026, 9–12 June, 2026, Glasgow, Scotland, United Kingdom Fariz Ikhwantri and Dusica Marijan 
+
+[4] Alexander Ahlbrecht, Jasper Sprockhoff, and Umut Durak. 2024. A system-theoretic assurance framework for safety-driven systems engineering: A System-Theoretic Assurance Framework... Softw. Syst. Model. 24, 1 (Sept. 2024), 253–270. doi:10.1007/s10270-024-01209-6 [5] Kenza Amara, Rex Ying, Zitao Zhang, Zhihao Han, Yinan Shan, Ulrik Bran-des, Sebastian Schemm, and Ce Zhang. 2024. GraphFramEx: Towards Sys-tematic Evaluation of Explainability Methods for Graph Neural Networks. arXiv:2206.09677 [cs.LG] https://arxiv.org/abs/2206.09677 [6] Ewen Denney, Ganesh Pai, and Ibrahim Habli. 2015. Dynamic safety cases for through-life safety assurance. In Proceedings of the 37th International Conference on Software Engineering - Volume 2 (Florence, Italy) (ICSE ’15) . IEEE Press, New York, NY, USA, 587–590. [7] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. In 
+
+Proceedings of the 2019 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long and Short Papers) , Jill Burstein, Christy Doran, and Thamar Solorio (Eds.). Association for Computational Linguistics, Minneapolis, Minnesota, 4171–4186. doi:10.18653/ v1/N19-1423 [8] Romina Etezadi, Sallam Abualhaija, Chetan Arora, and Lionel Briand. 2025. Classification or Prompting: A Case Study on Legal Requirements Traceabil-ity. arXiv:2502.04916 [cs.SE] https://arxiv.org/abs/2502.04916 [9] Matthias Fey, Jinu Sunil, Akihiro Nitta, Rishi Puri, Manan Shah, Blaž Stojanovič, Ramona Bendias, Alexandria Barghi, Vid Kocijan, Zecheng Zhang, et al . 2025. Pyg 2.0: Scalable learning on real world graphs, In Temporal Graph Learning Workshop @ KDD. arXiv e-prints , arXiv–2507. [10] Justin Gilmer, Samuel S. Schoenholz, Patrick F. Riley, Oriol Vinyals, and George E. Dahl. 2017. Neural message passing for Quantum chemistry. In Proceedings of the 34th International Conference on Machine Learning - Volume 70 (Sydney, NSW, Australia) (ICML’17) . JMLR.org, 1263–1272. [11] Aaron Grattafiori, Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Alex Vaughan, et al . 2024. The llama 3 herd of models. arXiv preprint arXiv:2407.21783 
+
+(2024). [12] Mallory S. Graydon and Sarah M. Lehman. 2025. Examining Proposed Uses of LLMs to Produce or Assess Assurance Arguments . Technical Memorandum (TM) 20250001849. Langley Research Center, NASA. https://ntrs.nasa.gov/api/ citations/20250001849/downloads/NASA-TM-20250001849.pdf Public release; work of the U.S. Government. [13] William L. Hamilton, Rex Ying, and Jure Leskovec. 2017. Inductive representation learning on large graphs. In Proceedings of the 31st International Conference on Neural Information Processing Systems (Long Beach, California, USA) (NIPS’17) .Curran Associates Inc., Red Hook, NY, USA, 1025–1035. [14] Yufei He, Yuan Sui, Xiaoxin He, and Bryan Hooi. 2025. UniGraph: Learning a Uni-fied Cross-Domain Foundation Model for Text-Attributed Graphs. In Proceedings of the 31st ACM SIGKDD Conference on Knowledge Discovery and Data Mining V.1 
+
+(Toronto ON, Canada) (KDD ’25) . Association for Computing Machinery, New York, NY, USA, 448–459. doi:10.1145/3690624.3709277 [15] Yuntong Hu, Zhihan Lei, Zheng Zhang, Bo Pan, Chen Ling, and Liang Zhao. 2025. GRAG: Graph Retrieval-Augmented Generation. In Findings of the Association for Computational Linguistics: NAACL 2025 , Luis Chiruzzo, Alan Ritter, and Lu Wang (Eds.). Association for Computational Linguistics, Albuquerque, New Mexico, 4145–4157. https://aclanthology.org/2025.findings-naacl.232/ [16] Aaron Hurst, Adam Lerer, Adam P Goucher, Adam Perelman, Aditya Ramesh, Aidan Clark, AJ Ostrow, Akila Welihinda, Alan Hayes, Alec Radford, et al . 2024. Gpt-4o system card. arXiv preprint arXiv:2410.21276 (2024). [17] Fariz Ikhwantri and Dusica Marijan. 2025. Explainable Compliance Detec-tion with Multi-Hop Natural Language Inference on Assurance Case Structure. arXiv:2506.08713 [cs.CL] [18] Bowen Jin, Gang Liu, Chi Han, Meng Jiang, Heng Ji, and Jiawei Han. 2024. Large Language Models on Graphs: A Comprehensive Survey. IEEE Transactions on Knowledge and Data Engineering 36, 12 (2024), 8622–8642. doi:10.1109/TKDE. 2024.3469578 [19] Tim Kelly and Rob Weaver. 2004. The goal structuring notation–a safety argument notation. In Proceedings of the dependable systems and networks 2004 workshop on assurance cases , Vol. 6. Citeseer Princeton, NJ. [20] Timothy Patrick Kelly et al . 1999. Arguing safety: a systematic approach to managing safety cases . Ph. D. Dissertation. University of York York, UK. [21] Thomas N. Kipf and Max Welling. 2017. Semi-Supervised Classification with Graph Convolutional Networks. In 5th International Conference on Learning Representations, ICLR 2017, Toulon, France, April 24-26, 2017, Conference Track Proceedings . OpenReview.net. https://openreview.net/forum?id=SJU4ayYgl [22] Zemin Liu, Xingtong Yu, Yuan Fang, and Xinming Zhang. 2023. GraphPrompt: Unifying Pre-Training and Downstream Tasks for Graph Neural Networks. In 
+
+Proceedings of the ACM Web Conference 2023 (Austin, TX, USA) (WWW ’23) .Association for Computing Machinery, New York, NY, USA, 417–428. doi:10. 1145/3543507.3583386 [23] Yihan Ma, Zhikun Zhang, Ning Yu, Xinlei He, Michael Backes, Yun Shen, and Yang Zhang. 2023. Generated graph detection. In International Conference on Machine Learning . PMLR, 23412–23428. [24] Mazen Mohamad, Jan-Philipp Steghöfer, and Riccardo Scandariato. 2021. Security assurance cases—state of the art of an emerging approach. Empirical software engineering 26, 4 (2021), 70. [25] Anitha Murugesan, Isaac Wong, Joaquín Arias, Robert Stroud, Srivatsan Varadara-jan, Elmer Salazar, Gopal Gupta, Robin Bloomfield, and John Rushby. 2024. Au-tomating semantic analysis of system assurance cases using goal-directed ASP. 
+
+Theory and Practice of Logic Programming 24, 4 (2024), 805–824. [26] Joakim Nivre. 2010. Dependency parsing. Language and Linguistics Compass 4, 3 (2010), 138–152. [27] Oluwafemi Odu, Alvine B. Belle, Song Wang, Segla Kpodjedo, Timothy C. Leth-bridge, and Hadi Hemmati. 2025. Automatic instantiation of assurance cases from patterns using large language models. Journal of Systems and Software 222 (2025), 112353. doi:10.1016/j.jss.2025.112353 [28] Ronald S. Ross, Mark Winstead, and Michael McEvilley. 2022. Engineering Trustworthy Secure Systems. doi:10.6028/NIST.SP.800-160v1r1 [29] John Rushby, Xidong Xu, Murali Rangarajan, and Thomas L Weaver. 2015. Un-derstanding and evaluating assurance cases . Technical Report. Langley Research Center, National Aeronautics and Space Administration. [30] Mithila Sivakumar, Alvine Boaye Belle, Jinjun Shan, and Kimya Khakzad Sha-handashti. 2023. GPT-4 and Safety Case Generation: An Exploratory Analysis. arXiv:2312.05696 [cs.SE] https://arxiv.org/abs/2312.05696 [31] Mithila Sivakumar, Alvine B Belle, Jinjun Shan, and Kimya Khakzad Shahandashti. 2024. Prompting GPT–4 to support automatic safety case generation. Expert Systems with Applications 255 (2024), 124653. [32] Petar Velickovic, Guillem Cucurull, Arantxa Casanova, Adriana Romero, Pietro Liò, and Yoshua Bengio. 2018. Graph Attention Networks. In 6th International Conference on Learning Representations, ICLR 2018, Vancouver, BC, Canada, April 30 - May 3, 2018, Conference Track Proceedings . OpenReview.net. https://openreview. net/forum?id=rJXMpikCZ [33] Xiang Wang, Xiangnan He, Yixin Cao, Meng Liu, and Tat-Seng Chua. 2019. KGAT: Knowledge Graph Attention Network for Recommendation. In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining (Anchorage, AK, USA) (KDD ’19) . Association for Computing Machinery, New York, NY, USA, 950–958. doi:10.1145/3292500.3330989 [34] Francis Rhys Ward and Ibrahim Habli. 2020. An assurance case pattern for the interpretability of machine learning in safety-critical systems. In International Conference on Computer Safety, Reliability, and Security . Springer, Springer, 395– 407. [35] Charles B. Weinstock, Howard F. Lipson, and John B. Goodenough. 2007. Arguing Security: Creating Security Assurance Cases . Technical Report. Software Engi-neering Institute, Carnegie Mellon University. https://www.sei.cmu.edu/library/ arguing-security-creating-security-assurance-cases/ Accessed: 2025-10-09. [36] Thomas Wolf, Lysandre Debut, Victor Sanh, Julien Chaumond, Clement Delangue, et al . 2020. Transformers: State-of-the-Art Natural Language Processing. In Pro-ceedings of the 2020 Conference on Empirical Methods in Natural Language Process-ing: System Demonstrations , Qun Liu and David Schlangen (Eds.). Association for Computational Linguistics, Online, 38–45. doi:10.18653/v1/2020.emnlp-demos.6 [37] Zonghan Wu, Shirui Pan, Fengwen Chen, Guodong Long, Chengqi Zhang, and Philip S Yu. 2020. A comprehensive survey on graph neural networks. IEEE transactions on neural networks and learning systems 32, 1 (2020), 4–24. [38] An Yang, Baosong Yang, Binyuan Hui, Bo Zheng, Bowen Yu, Chang Zhou, Cheng-peng Li, Chengyuan Li, Dayiheng Liu, et al . 2024. Qwen2 Technical Report. arXiv preprint arXiv:2407.10671 (2024). [39] Liang Yao, Chengsheng Mao, and Yuan Luo. 2019. Graph convolutional networks for text classification. In Proceedings of the Thirty-Third AAAI Conference on Arti-ficial Intelligence and Thirty-First Innovative Applications of Artificial Intelligence Conference and Ninth AAAI Symposium on Educational Advances in Artificial Intelligence (Honolulu, Hawaii, USA) (AAAI’19/IAAI’19/EAAI’19) . AAAI Press, Article 905, 8 pages. doi:10.1609/aaai.v33i01.33017370 [40] Rex Ying, Ruining He, Kaifeng Chen, Pong Eksombatchai, William L Hamilton, and Jure Leskovec. 2018. Graph convolutional neural networks for web-scale recommender systems. In Proceedings of the 24th ACM SIGKDD international conference on knowledge discovery & data mining . Association for Computing Machinery, New York, NY, USA, 974–983. [41] Zhitao Ying, Dylan Bourgeois, Jiaxuan You, Marinka Zitnik, and Jure Leskovec. 2019. Gnnexplainer: Generating explanations for graph neural networks. Ad-vances in neural information processing systems 32 (2019). [42] Marinka Zitnik, Monica Agrawal, and Jure Leskovec. 2018. Modeling polyphar-macy side effects with graph convolutional networks. Bioinformatics 34, 13 (06 2018), i457–i466. doi:10.1093/bioinformatics/bty294

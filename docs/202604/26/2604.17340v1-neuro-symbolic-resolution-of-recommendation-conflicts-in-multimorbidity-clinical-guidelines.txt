@@ -1,0 +1,381 @@
+Title: Neuro-Symbolic Resolution of Recommendation Conflicts in Multimorbidity Clinical Guidelines
+
+URL Source: https://arxiv.org/pdf/2604.17340v1
+
+Published Time: Tue, 21 Apr 2026 01:24:58 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Neuro-Symbolic Resolution of Recommendation Conflicts in Multimorbidity Clinical Guidelines 
+
+# Shiyao Xie 1,2 , Jian Du 1,2* 
+
+> 1
+
+Peking University, National Institute of Health Data Science Beijing, CN 
+
+> 2
+
+Peking University Health Science Center, Institute of Medical Technology Beijing, CN 
+
+Abstract 
+
+Clinical guidelines, typically developed by independent spe-cialty societies, inherently exhibit substantial fragmentation, redundancy, and logical contradiction. These inconsistencies, particularly when applied to patients with multimorbidity, not only cause cognitive dissonance for clinicians but also intro-duce catastrophic noise into AI systems, rendering the stan-dard Retrieval-Augmented Generation (RAG) system fragile and prone to hallucination. To address this fundamental relia-bility crisis, we introduce a Neuro-Symbolic framework that automates the detection of recommendation redundancies and conflicts. Our pipeline employs a multi-agent system to trans-late unstructured clinical natural language into rigorous sym-bolic logic language, which is then verified by a Satisfiability (SAT) solver. By formulating a hierarchical taxonomy of log-ical rule interactions, we identify a critical category termed Local Conflict—a decision conflict arising from the intersec-tion of comorbidities. Evaluating our system on a curated benchmark of 12 authoritative SGLT2 inhibitor guidelines, we reveal that 90.6% of conflicts are Local, a structural com-plexity that single-disease guidelines fail to address. While state-of-the-art LLMs fail in detecting these conflicts, our neuro-symbolic approach achieves an F1 score of 0.861. This work demonstrates that logical verification must precede re-trieval, establishing a new technical standard for automated knowledge coordination in medical AI. 
+
+Code and datasets are available at —https://github.com/Shiyaoa/GuidelineCoordination 
+
+# Introduction 
+
+Retrieval-Augmented Generation (RAG) has emerged as the prevailing paradigm to mitigate the intrinsic limitations of Large Language Models (LLMs), such as hallucinations and knowledge obsolescence (Vladika, Dhaini, and Matthes 2025; Wu et al. 2025), thereby enabling their widespread deployment in clinical decision-making (Liu, McCoy, and Wright 2025; Amugongo et al. 2025; Yang et al. 2025).By grounding model outputs in authoritative external sources like clinical guidelines, this approach aims to ensure safety and factual correctness (Zakka et al. 2024; Ong et al. 2024; Kresevic et al. 2024).However, the efficacy of this paradigm 
+
+> *
+
+*Corresponding author. Copyright © 2026, Association for the Advancement of Artificial Intelligence (www.aaai.org). All rights reserved. 
+
+is fundamentally limited by the logical integrity of the un-derlying knowledge base. In reality, contemporary guide-lines exhibit substantial redundancy, inconsistency, and con-flict across organizations, disease areas, and updates, partic-ularly for patients with multimorbidity (Blozik et al. 2013; Hoffmann, Jansen, and Glasziou 2018; Yaacoub et al. 2023; Tseng et al. 2025). When such conflicting documents are in-jected into the RAG context, even state-of-the-art LLMs can be misled, degrading performance and potentially amplify-ing clinical risk (Javadi et al. 2025). While some training-free (Jin et al. 2024) or training-based (Li et al. 2024) meth-ods attempt to mitigate noise, in the medical domain, con-flicts among guidelines are not merely noise, they are the cause of logical inconsistency in AI systems and potential clinical errors. Consequently, merely patching the retrieval component is insufficient; there is an urgent need for Knowl-edge Governance targeting the guidelines themselves. 
+
+Figure 1: Decision-making crisis caused by clinical guide-line conflicts. Illustrated using two guidelines published in 2023 on Empagliflozin use in patients with eGFR 30-45, demonstrating direct contradictions. Conflicts among clinical guidelines primarily stem from organizational fragmentation (Tseng et al. 2025), variances in evidence interpretation (Nagavci, G´ asp´ ar, and Lakatos 2025), and a lack of standardized terminology (Ghai et al. 2021). Specifically, these inconsistencies manifest as direct contradictions (Raber et al. 2019), temporal discrepancies, and most critically, multimorbidity conflicts arising from adverse interactions when single-disease guidelines are ap-plied to multi-disease patients (Dumbreck et al. 2015). Anal-
+
+> arXiv:2604.17340v1 [cs.CL] 19 Apr 2026
+
+ysis of primary cardiovascular disease prevention guidelines found that out of 124 recommendation clusters, only 44 clusters (35%) included consistent recommendations, and merely 4 clusters (3%) included highly consistent recom-mendations (Bredehorst et al. 2025). Such conflicts sig-nificantly increase polypharmacy risks, reduce patient ad-herence, and lead to medical resource wastage. Although the medical community has initiated harmonization efforts like Canada’s C-CHANGE (Jain et al. 2022), existing ap-proaches rely heavily on manual expert consensus. Given the exponential growth of medical literature, manual gov-ernance is no longer sustainable, creating an imperative for automated technical means to assist in this complex reason-ing task. From a computational perspective, guideline harmoniza-tion focuses on identifying and resolving redundancies and conflicts, which can be modeled as a Boolean Satisfia-bility (SAT) problem and solved using the Z3 theorem prover (de Moura and Bjørner 2008). To address the prob-abilistic nature of LLMs in rigorous logical reasoning, Neuro-Symbolic AI has emerged as a promising solution. By leveraging LLMs as semantic parsers alongside exter-nal logical solvers, this paradigm has achieved remarkable progress in mathematical proving and formal logic tasks (Pan et al. 2023). Despite this promise, neuro-symbolic methods have not yet been systematically explored for clin-ical guideline coordination. This is mainly due to two chal-lenges: first, the extreme complexity of clinical natural lan-guage—replete with nested conditional clauses and ambi-guity—makes high-fidelity Natural Language to Symbolic Language (NL2SL) translation difficult; second, the chal-lenge of accurately modeling complex logical exclusions, particularly those involving multimorbidity. To bridge these gaps, this paper presents an automated framework for clinical guideline conflict detection and har-monization. First, we designed a computable data model (schema) for clinical guidelines, formalizing unstructured recommendations into binary condition, action tuples. Sec-ond, drawing on Multi-Agent collaboration architectures, we developed a system to automate NL2SL translation and constructed a pipeline integrating a SAT solver to system-atically verify guideline consistency. Finally, based on this pipeline, we evaluated the logical reasoning robustness of state-of-the-art LLMs under realistic RAG noise conditions. The main contributions of this paper are: • We design a guideline-specific NL2SL schema that cap-tures the nested conditional structure and action seman-tics of clinical recommendations. • We develop an automated neuro-symbolic pipeline that combines multi-agent LLM parsing with SAT-based ver-ification to detect and categorize redundancies and con-flicts, including multimorbidity-specific local conflicts. • We construct and open-source the first deep logical rea-soning dataset dedicated to Guideline Harmonization, providing a new benchmark for knowledge governance methods for medical RAG systems. 
+
+# Related Work 
+
+Computable Clinical Guidelines 
+
+The transition from narrative guidelines to machine-executable formats has evolved from early rule-based sys-tems to modern interoperable standards. Early formalisms like Arden Syntax pioneered knowledge representation but lacked support for shared data models (Soares et al. 2021). Currently, Clinical Quality Language (CQL) serves as the standard for clinical decision support (CDS) and electronic clinical quality measures (eCQMs) (Odigie et al. 2019; McClure et al. 2020). As an HL7 standard, CQL dis-tinguishes itself through a data-model-agnostic architec-ture—compatible with FHIR, OMOP, and QDM—and a dual-representation system that offers both human-readable logic and a machine-executable Expression Logical Model (ELM) (Brandt et al. 2020). This formalization enables the precise definition of cohort criteria and care gaps, leading to its widespread adoption by CMS and HEDIS for national quality programs (Soares et al. 2021). However, despite CQL’s expressive power, translating complex clinical prose into valid CQL libraries remains a labor-intensive bottle-neck. It requires interdisciplinary experts to manually map ambiguous narrative exclusion criteria to strict logic and standardized terminologies (Sittig et al. 2023), highlighting the urgent need for automated, neuro-symbolic translation mechanisms. 
+
+Neuro-Symbolic Reasoning and Consistency Verification 
+
+Neuro-symbolic frameworks employ LLMs as semantic parsers to translate natural language into formal represen-tations such as First-Order Logic or ASP for verification by deterministic solvers. Systems such as Logic-LM (Pan et al. 2023) and LINC (Olausson et al. 2023) demonstrate that offloading inference to external theorem provers signifi-cantly boosts performance on logical benchmarks. Frame-works like NL2FOL (Lalwani et al. 2024) and LELMA (Mensfelt, Stathis, and Trencsenyi 2024) leverage SMT solvers to explicitly detect logical fallacies and validity er-rors in LLM outputs.Recent research has critically extended this paradigm to normative conflict detection in high-stakes domains. In the legal field, (Yadamsuren, Platt, and Diaz 2025) demonstrated that while pure LLMs struggle to iden-tify statutory inconsistencies in tax codes, anchoring for-malization in symbolic logic (Prolog) ensures determinis-tic detection. (Mantravadi et al. 2025) introduced LegalWiz, a multi-agent framework designed to stress-test legal RAG pipelines. Their work explicitly validates that unresolved contradictions in retrieved evidence lead to hallucinations, necessitating rigorous benchmarks with structured conflict types. While these legal frameworks offer valuable method-ological parallels, clinical guidelines present a distinct chal-lenge: unlike statutory contradictions, conflicts in multimor-bidity often manifest as Local Conflicts—subtle logical in-tersections of conditional exclusions rather than direct nega-tions—requiring the specialized hierarchical modeling and SAT-based verification proposed in this study. Methodology 
+
+Our methodology transforms unstructured clinical guide-lines into verifiable symbolic representations through a three-phase pipeline: Context Atomization, Neuro-Symbolic Formalization, and Logic-Based Verification. 
+
+Corpus Processing 
+
+Prior to formalization, a Recommendation Extractor func-tions as a pre-processor to stratify guideline content into four semantic categories: Risk Assessment , Pharmacolog-ical Intervention , Non-pharmacological Intervention , and 
+
+Other Opinions . We specifically isolate Pharmacological Interventions for downstream processing using rigid syn-tactic inclusion criteria. To be retained, a recommenda-tion must: (1) explicitly define both a target population 
+
+and a recommended action ; and (2) contain specific direc-tive verbs (e.g., recommend, consider) and deontic modals (e.g., should, may). Following this extraction, we employ Locality-Sensitive Hashing (LSH) to group these recom-mendations into semantic clusters based on textual affinity 
+
+Multi-Agent Formalization 
+
+Within each cluster, a chained multi-agent system trans-forms natural language into executable symbolic logic (Terms → Predicates → Rules). This process addresses the semantic gap through three specialized agents: 
+
+1. Entity Agent To ground ambiguous clinical text, this agent maps mentions to canonical codes in SNOMED CT, LOINC, and RxNorm via external retrieval tools. Crucially, this mapping adheres to HL7 FHIR standards, guaranteeing interoperability with real-world Hospital Information Sys-tems (HIS). 
+
+2. Predicate Agent A fundamental Semantic Gap exists be-tween static Ontological Entities (e.g., T2DM, insulin) and verifiable Logical Predicates (e.g., Has T2DM, On insulin). Direct mapping leads to semantic ambiguity and restricts numerical reasoning. This agent bridges the gap between static entities and verifiable logic using a computable map-ping F : E × O → P . It applies typed operators ( O) to entities ( E) to generate Atomic Predicates (P ) compiled as SMT constraints (see Table 4 in Appendix ): • Existential Logic : Oexist (E) → Pbool .• Arithmetic Logic : Oarith (E) → Plra .• Categorical Logic : Ocat (E) → Penum .
+
+3. Rule Agent The final agent interprets semantic intent to assemble atomic predicates into Compound Logical Struc-tures and maps directives to a standardized action vocabu-lary (Appendix ). This produces a set of formal rules ready for solver-based verification. 
+
+Rule Relationship Reasoning 
+
+To ensure the clinical safety and consistency of the gener-ated rules, we formulate the reasoning task as a Satisfiabil-ity (SAT) problem . By encoding the rules into the Z3 Solver (mathematical formulation detailed in Appendix ), we clas-sify rule interactions into a hierarchical taxonomy com-prising two coarse-grained categories and five fine-grained types: 
+
+Category 1: Redundancy This category identifies rules that provide identical advice for overlapping populations, enabling knowledge base deduplication. • Complete Redundancy : Occurs when logical conditions are strictly equivalent ( C1 ⇐⇒ C2) and actions are identical. • Contained Redundancy : Occurs when one rule’s condi-tion is strictly subsumed by another ( Cspecific ⊂ Cgeneral ), yet they dictate the same action. This implies that the spe-cific rule is logically redundant within the scope of the general rule. 
+
+Category 2: Conflict & Disagreement This category cap-tures logical incompatibilities where adherence to one rule violates another. • Intrinsic Conflict : The most direct inconsistency, where rules addressing the exact same population (C1 ⇐⇒ 
+
+C2) dictate opposing actions ( Recommend vs. Con-traindicate ). • Implication Conflict : Arises from a General vs. Spe-cific tension ( Cspecific ⊂ Cgeneral ), where a subgroup guideline contradicts the general recommendation. De-tecting this prevents the accidental application of broad guidelines to high-risk subgroups. • Local Conflict : The critical source of multimorbidity is-sues. It occurs when rule conditions merely intersect 
+
+(C1 ∩ C2̸ = ∅) rather than encompass one another. When a patient simultaneously satisfies the conditions of multi-ple such rules, these rules yield conflicting decision rec-ommendations. The conflict is local because it manifests exclusively in the patient subset suffering from both con-ditions simultaneously. 
+
+# Experiments 
+
+Our experimental evaluation is designed to address two piv-otal research questions: RQ1: How accurately can our Multi-Agent system translate ambiguous, unstructured clinical nat-ural language into the strict symbolic representations re-quired by the solver? RQ2: Is the proposed Neuro-Symbolic pipeline truly necessary? specifically, can standalone State-of-the-Art (SOTA) LLMs operating in a standard RAG setting achieve comparable reasoning performance without symbolic formalization? 
+
+Experimental Setup 
+
+Dataset Construction. We curated a benchmark corpus comprising 12 authoritative clinical guidelines related to SGLT2 inhibitor (SGLT2i) therapy, sourced from diverse specialty societies within the Chinese Medical Association. We selected this domain as a representative testbed because the independent development of these guidelines naturally engenders a full type of logical inconsistencies , ranging from simple redundancy to complex intrinsic and implica-tion conflicts. This heterogeneity provides a rigorous en-vironment to evaluate the system’s capability in logic for-malization and relationship detection. Comprehensive de-tails regarding the corpus composition are provided in Ap-pendix . Our pipeline utilizes DeepSeek-V3.1 (DeepSeek-(a) Multi-Agent Formalization 
+
+> (b) Rule Relationship Analysis
+
+Figure 2: The Neuro-Symbolic Pipeline for Clinical Guideline Formalization and Verification AI 2024) as the core semantic reasoning engine for all agentic tasks, while the Z3 SMT Solver serves as the sym-bolic verification backend. To answer RQ2, we benchmark our neuro-symbolic approach against top-tier proprietary and open-source LLMs: GPT-5 (OpenAI 2025), Gemini-2.5-Pro (Comanici et al. 2025), Qwen-MAX (Team 2025), and DeepSeek-V3.1 (standalone). We evaluate their ability to detect redundancy and conflict relationships under varying noise levels, simulating real-world retrieval scenarios. 
+
+Dataset Construction 
+
+Gold Standard Dataset To establish a rigorous bench-mark, we constructed a high-quality dataset derived from the pipeline’s output, subject to comprehensive human ver-ification. Clinical experts first reviewed the candidate rule pairs to correct any misclassifications in the extraction or relation phases. To ensure dataset balance, we retained all instances of rare, critical relationships while down-sampling common ones. Additionally, to evaluate the models’ capa-bility to discern non-relationships, we incorporated negative samples consisting of rule pairs explicitly verified to have no logical interaction. RAG Noise Dataset To evaluate model robustness under realistic retrieval setting, we constructed a Noisy Test Set using a Graph-Based Strategy. We first mod-eled the entire rule base as a relationship graph, where nodes represent rules and edges represent verified logical relations. Within this graph, we identified Isolated Rules—nodes with a degree of zero, indicating no known logical interaction with any other rule in the corpus. We then generated test samples by injecting k (k ∈ [1 , 8] ) of these isolated rules into each verified base pair, followed by random shuffling to eliminate positional bias. This methodology guarantees that the injected noise functions purely as distractors without al-tering the fundamental logical relationship of the target pair. 
+
+# Results 
+
+Evaluation of Formalization Accuracy 
+
+We first evaluated the foundational component of our pipeline—the NL-to-Symbolic translation—through rigor-ous manual audit. We posit that the validity of the down-stream logical verification hinges entirely on the semantic fidelity of the LLM agents’ formalization, as the Z3 solver’s output is formally correct relative to its input. An expert au-thor with dual expertise in clinical medicine and data sci-ence manually audited 565 Rule objects generated by the pipeline. A rule was deemed Correct only under a Strict Exact-Match criterion: the formalized Predicate IDs and ac-tion (Permission, Subject) must be semantically identical to Table 1: Statistics of the Logical Benchmark Dataset 
+
+Label Category #Pairs Ratio 
+
+Conflict 97 0.429 local conflict 20 0.088 implication conflict or disagreement 40 0.177 intrinsic conflict or disagreement 37 0.164 Redundancy 69 0.305 complete redundancy 15 0.066 contained redundancy 54 0.239 None 60 0.265 
+
+Total 226 1
+
+the original text provenance. Partial matches were classified as failures. The system achieved a Formalization Accuracy of 80.1%. While this demonstrates strong zero-shot reason-ing capabilities, 19.9% of cases required correction. A gran-ular breakdown of the 111 error cases reveals four primary failure modes: • Contextual Loss (56.7%, 63 cases): The most prevalent error involved missing implicit diagnostic context. For example, a recommendation extracted from a subsection titled Treatment for T2DM might fail to explicitly in-clude pred.has t2dm in its predicate list, rendering the rule overly broad. • Entity Grounding Failure (19.6%, 23 cases): This in-cludes hallucinations or misclassifications of drug enti-ties, such as confusing specific gliflozins or failing to map brand names to standard RxNorm terminologies. • Predicate Distortion (12.6%, 14 cases): Logical errors such as hallucinating non-existent conditions, omitting critical exclusions, or inverting numerical operators. • Action Alignment Error (8.1%, 9 cases): Discrepancies in the strength or direction of the recommendation, such as mapping should be considered to Recommend instead of Consider, or conflating Avoid with Contraindicate. 
+
+Consistency Analysis of SGLT2i-Usage Guidelines 
+
+Following the manual correction of formalization errors, we deployed the Z3 SMT solver on the curated dataset to map the global logical landscape of SGLT2 inhibitor guidelines. This analysis revealed a stark contrast between general con-sensus and specific conflict. The distribution of interaction types in Table 2 reveals that contradiction is rarely intrinsic, but frequently contex-tual. The overwhelming prevalence of Local Conflicts 2,442 pairs confirms that while guidelines are consistent for sin-gle diseases, they are structurally fragile for multimorbidity. The CKD vs. Hypotension example illustrates this perfectly: it is not a factual error, but a deadlock between competing clinical objectives long-term renal protection vs. immediate hemodynamic safety. This proves that RAG systems cannot simply retrieve documents; they require a Pathology Hierar-chy to adjudicate such trade-offs. The presence of 115 Implication Conflicts highlights the risk of semantic ambiguity, validating our need for a con-trolled action vocabulary. Conversely, true Intrinsic Con-flicts are rare (37 pairs), suggesting that direct disputes over evidence are the exception rather than the norm. 
+
+Baseline Comparison 
+
+To answer RQ2 (Comparative Necessity), we benchmarked our fully automated pipeline against three state-of-the-art LLMs (DeepSeek-v3.1, Gemini-2.5-Pro, and GPT-5) oper-ating in a standard RAG setting. It is important to note that the Ours metric reported here reflects the end-to-end perfor-mance of the automated agents without human correction. Despite the 20% extraction error rate above noted, our sym-bolic reasoning engine significantly outperforms pure neural baselines. The results reveal a fundamental dichotomy in LLM ca-pabilities: Baselines achieve moderate performance on Re-dundancy tasks (F1: 0.50–0.62). This is expected, as redun-dancy often manifests as semantic similarity, which matches the pre-training objective of embedding models. However, ours still leads (F1: 0.729) because the Z3 solver eliminates pseudo-redundancies where text is similar but logical con-ditions differ slightly. All baseline models failed catastroph-ically on Conflict detection, with Recall scores collapsing to 0.08–0.18. Even GPT-5 achieved an F1 of only 0.298. This indicates that LLMs struggle to distinguish topically related but contradictory information from topically related and consistent information. In contrast, our Neuro-Symbolic approach achieved an F1 of 0.861, demonstrating that map-ping text to Boolean logic is the only reliable path for con-flict detection. Figure 3 decomposes the F1-scores across the five fine-grained sub-types. Baselines perform worst on Local Con-flict and Implication Conflict. These categories require un-derstanding intersection and subset logic. Pure LLMs tend to classify these pairs as Related or Neutral because they lack the symbolic machinery to verify if the conditions overlap. Our method maintains a consistent hexagonal shape on the radar chart, indicating balanced performance across all log-ical types. The solver successfully bridges the gap, specifi-cally excelling in Complete Redundancy and Intrinsic Con-flict where logic is binary and absolute. Figure 4 illustrates the degradation of F1-scores as the number of noise rules increases from 0 to 8. All base-line models exhibit a sharp downward trend. As noise in-creases, the Signal-to-Noise Ratio in the context window drops, causing models to hallucinate relationships between unrelated rules or miss true conflicts due to attention dilu-tion. These results confirm that pure RAG is insufficient for Guideline Harmonization. While LLMs are adequate for se-mantic retrieval, the Logic-Based Governance provided by our Neuro-Symbolic pipeline is indispensable for ensuring the safety and consistency of medical AI systems. 
+
+# Conclusion 
+
+In summary, we highlighted a foundational yet often over-looked assumption in medical RAG: that clinical guide-lines are logically consistent ground truth. We introduced Table 2: Representative Examples and Prevalence of Logical Interactions in SGLT2i Usage Guidelines                                     
+
+> Relation Type Count Pairs Rule A Rule B Clinical explanations
+> Local Con-flict 2442 If T2DM +CKD (eGFR 30–45) →
+> Recommend SGLT2i. If Symptomatic Hypotension
+> →Contraindi-cate SGLT2i. A patient with both conditions faces a clash between organ protection and immediate hemodynamic safety. The system flags this intersection, prompting a clinical priority setting. Implication Conflict 115 If eGFR
+> <30 →Con-traindicate Metformin. If eGFR <45
+> →Avoid Met-formin. When a more specific condition triggers a stronger action than its broader, inclusive condition, creating contradictory guidance for the overlapping population. Intrinsic Conflict 37 If eGFR <15
+> or Dialysis
+> →Continue SGLT2i. If eGFR <15
+> or Dialysis →
+> Stop SGLT2i. Evidence Contradiction: Direct contradiction on the exact same population. Rare but critical, likely reflecting differences in guideline versions or evidence interpretation. Contained Redun-dancy 57 If T2DM +High CV Risk
+> →Prioritize SGLT2i. If T2DM +CKD (on ACEi/ARB) →
+> Combine with SGLT2i. Rule B is a subset of Rule A. The system validates that specific scenarios align with broader therapeutic principles. Complete Redun-dancy 16 If Severe Liver Impairment →
+> Avoid SGLT2i. If Severe Liver Impairment →
+> Avoid SGLT2i. Both rules enforce the exact same constraint. Identifying this allows for safe deduplication of the knowledge base.
+
+Table 3: Performance Comparison on Logical Relation De-tection 
+
+Relation Model Prec. Rec. F1 
+
+Redundancy DeepSeek-v3.1 0.515 0.768 0.616 Qwen-Max 0.526 0.594 0.558 Gemini-2.5-pro 0.543 0.638 0.587 GPT-5 0.507 0.493 0.5 
+
+Ours 0.689 0.775 0.729 
+
+Conflict DeepSeek-v3.1 0.727 0.082 0.148 Qwen-Max 0.75 0.093 0.165 Gemini-2.5-pro 0.5 0.144 0.224 GPT-5 0.75 0.186 0.298 
+
+Ours 0.826 0.898 0.861 
+
+a novel Neuro-Symbolic framework that synergizes the se-mantic flexibility of LLMs with the rigorous deducibility of SAT solvers to perform automated Knowledge Governance on clinical guidelines. Our contributions are threefold. First, our methodology successfully formalizes ambiguous natural language into verifiable symbolic logic, achieving an 80% accuracy in zero-shot translation. Second, our large-scale consistency analysis of SGLT2i usage guidelines uncovered a critical blind spot in modern medicine: 90.6% of conflicts are Local, arising solely from multimorbidity intersections. This finding empirically demonstrates that single-disease guidelines are structurally inadequate for multi-disease pa-tients, a complexity that standard vector-based retrieval can-
+
+Figure 3: Performance Comparison across Logical Sub-categories. not navigate. Third, our baseline comparisons reveal that even state-of-the-art LLMs suffer from a Reasoning Gap, failing catastrophically in conflict detection (Recall ¡ 18%) where our neuro-symbolic approach remains robust. We conclude that logical verification must become a prerequi-site for Medical RAG deployment. Merely retrieving infor-mation is insufficient; AI systems must possess the symbolic Figure 4: Impact of RAG Retrieval Noise on Reasoning Per-formance. machinery to adjudicate the conflicting constraints of real-world pathology. Future work will extend this framework from conflict detection to automated harmonization, explor-ing how solver-generated proofs can guide LLMs to rewrite inconsistent guidelines into coherent, patient-centered deci-sion pathways. 
+
+# References 
+
+Amugongo, L. M.; Mascheroni, P.; Brooks, S.; Doering, S.; and Seidel, J. 2025. Retrieval augmented generation for large language models in healthcare: A systematic review. 
+
+PLOS Digital Health , 4(6): e0000877. Blozik, E.; van den Bussche, H.; Gurtner, F.; Sch¨ afer, I.; and Scherer, M. 2013. Epidemiological strategies for adapting clinical practice guidelines to the needs of multimorbid pa-tients. BMC Health Services Research , 13: 352 – 352. Brandt, P. S.; Kiefer, R. C.; Pacheco, J. A.; Adekkanattu, P.; Sholle, E. T.; Ahmad, F. S.; Xu, J.; Xu, Z.; Ancker, J. S.; Wang, F.; Luo, Y.; Jiang, G.; Pathak, J.; and Ras-mussen, L. V. 2020. Toward cross-platform electronic health record-driven phenotyping using Clinical Quality Language. 
+
+Learning Health Systems , 4. Bredehorst, M.; Gonz´ alez-Gonz´ alez, A. I.; Sch¨ urmann, L.; Firmansyah, D.; Muth, C.; Haasenritter, J.; van der Wardt, V.; and Puzhko, S. 2025. Recommendations for the pri-mary prevention of atherosclerotic cardiovascular disease in primary care: a systematic guideline review. Frontiers in Medicine , 11. Comanici, G.; Bieber, E.; Schaekermann, M.; Pasupat, I.; Sachdeva, N.; Dhillon, I.; Blistein, M.; Ram, O.; Zhang, D.; Rosen, E.; et al. 2025. Gemini 2.5: Pushing the fron-tier with advanced reasoning, multimodality, long context, and next generation agentic capabilities. arXiv preprint arXiv:2507.06261 .de Moura, L. M.; and Bjørner, N. S. 2008. Z3: An Efficient SMT Solver. In International Conference on Tools and Al-gorithms for Construction and Analysis of Systems .DeepSeek-AI. 2024. DeepSeek-V3 Technical Report. arXiv:2412.19437. Dumbreck, S.; Flynn, A.; Nairn, M.; Wilson, M.; Treweek, S. P.; Mercer, S. W.; Alderson, P.; Thompson, A.; Payne, K.; and Guthrie, B. 2015. Drug-disease and drug-drug interac-tions: systematic examination of recommendations in 12 UK national clinical guidelines. The BMJ , 350. Ghai, V.; Subramanian, V.; Jan, H.; Loganathan, J.; and Doumouchtsis, S. K. 2021. Evaluation of clinical prac-tice guidelines (CPG) on the management of female chronic pelvic pain (CPP) using the AGREE II instrument. Interna-tional Urogynecology Journal , 32: 2899 – 2912. Hoffmann, T. C.; Jansen, J.; and Glasziou, P. P. 2018. The importance and challenges of shared decision making in older people with multimorbidity. PLoS Medicine , 15. Jain, R.; Stone, J. A.; Agarwal, G.; Andrade, J. G.; Bacon, S. L.; Bajaj, H. S.; Baker, B.; Cheng, G.; Dannenbaum, D.; Gelfer, M.; Habert, J.; Hickey, J.; Keshavjee, K.; Kitty, D.; Lindsay, P.; L’Abb´ e, M. R.; Lau, D. C. W.; Macle, L.; Mc-Donald, M.; Nerenberg, K. A.; Pearson, G. J.; Pham, T.-D. T.; Poppe, A. Y.; Rabi, D. M.; Sherifali, D.; Selby, P.; Smith, E. E.; Stern, S.; Thanassoulis, G.; Terenzi, K. A.; Tu, K.; Udell, J. A.; Virani, S. A.; Ward, R.; Warburton, D. E. R.; Wharton, S.; Zymantas, J.; Hua-Stewart, D.; Liu, P.; and Tobe, S. W. 2022. Canadian Cardiovascular Harmonized National Guideline Endeavour (C-CHANGE) guideline for the prevention and management of cardiovascular disease in primary care: 2022 update. CMAJ : Canadian Medical As-sociation Journal , 194: E1460 – E1480. Javadi, S.; Mirabi, S.; Gangar, M.; and Ofoghi, B. 2025. When Evidence Contradicts: Toward Safer Retrieval-Augmented Generation in Healthcare. arXiv preprint arXiv:2511.06668 .Jin, B.; Yoon, J.; Han, J.; and Arik, S. ¨O. 2024. Long-Context LLMs Meet RAG: Overcoming Challenges for Long Inputs in RAG. ArXiv , abs/2410.05983. Kresevic, S.; Giuffr` e, M.; Ajcevic, M.; Accardo, A.; Croc` e, L. S.; and Shung, D. L. 2024. Optimization of hepatologi-cal clinical guidelines interpretation by large language mod-els: a retrieval augmented generation-based framework. NPJ digital medicine , 7(1): 102. Lalwani, A.; Kim, T.; Chopra, L.; Hahn, C.; Jin, Z.; and Sachan, M. 2024. Autoformalizing Natural Language to First-Order Logic: A Case Study in Logical Fallacy Detec-tion. Li, X.; Mei, S.; Liu, Z.; Yan, Y.; Wang, S.; Yu, S.; Zeng, Z.; Chen, H.; Yu, G.; Liu, Z.; Sun, M.; and Xiong, C. 2024. RAG-DDR: Optimizing Retrieval-Augmented Generation Using Differentiable Data Rewards. ArXiv , abs/2410.13509. Liu, S.; McCoy, A. B.; and Wright, A. 2025. Improv-ing large language model applications in biomedicine with retrieval-augmented generation: a systematic review, meta-analysis, and clinical development guidelines. Journal of the American Medical Informatics Association , 32(4): 605–615. Mantravadi, A.; Dalmia, S.; Pospelova, O.; Mukherji, A.; Dave, N.; and Mittal, A. 2025. LegalWiz: A Multi-Agent Generation Framework for Contradiction Detection in Legal Documents. ArXiv , abs/2510.03418. McClure, R. C.; Macumber, C. L.; Skapik, J. L.; and Smith, A. M. 2020. Igniting Harmonized Digital Clinical Quality Measurement through Terminology, CQL, and FHIR. Ap-plied Clinical Informatics , 11: 23 – 33. Mensfelt, A.; Stathis, K.; and Trencsenyi, V. 2024. Towards Logically Sound Natural Language Reasoning with Logic-Enhanced Language Model Agents. Nagavci, B.; G´ asp´ ar, Z.; and Lakatos, B. 2025. Defining ex-pert opinion in clinical guidelines: insights from 98 scientific societies – a methodological study. BMC Medical Research Methodology , 25. Odigie, E.; Lacson, R. C.; Raja, A. S.; Osterbur, D.; Ip, I. K.; Schneider, L. I.; and Khorasani, R. 2019. Fast Healthcare Interoperability Resources, Clinical Quality Language, and Systematized Nomenclature of Medicine—Clinical Terms in Representing Clinical Evidence Logic Statements for the Use of Imaging Procedures: Descriptive Study. JMIR Medi-cal Informatics , 7. Olausson, T. X.; Gu, A.; Lipkin, B.; Zhang, C. E.; Solar-Lezama, A.; Tenenbaum, J.; and Levy, R. 2023. LINC: A Neurosymbolic Approach for Logical Reasoning by Com-bining Language Models with First-Order Logic Provers. In Conference on Empirical Methods in Natural Language Processing .Ong, C. S.; Obey, N. T.; Zheng, Y.; Cohan, A.; and Schnei-der, E. B. 2024. SurgeryLLM: a retrieval-augmented gener-ation large language model framework for surgical decision support and workflow enhancement. npj Digital Medicine ,7(1): 364. OpenAI. 2025. GPT-5 System Card. cdn.openai.com. Sys-tem card, accessed on 2025-12-06. Pan, L.; Albalak, A.; Wang, X.; and Wang, W. Y. 2023. Logic-LM: Empowering Large Language Models with Sym-bolic Solvers for Faithful Logical Reasoning. ArXiv ,abs/2305.12295. Raber, I.; McCarthy, C. P.; Vaduganathan, M.; Bhatt, D. L.; and McEvoy, J. W. 2019. The rise and fall of aspirin in the primary prevention of cardiovascular disease. The Lancet ,393: 2155–2167. Sittig, D. F.; Boxwala, A. A.; Wright, A.; Zott, C.; Desai, P. J.; Dhopeshwarkar, R. V.; Swiger, J.; Lomotan, E. A.; Dobes, A.; and Dullabh, P. 2023. A lifecycle framework illustrates eight stages necessary for realizing the benefits of patient-centered clinical decision support. Journal of the American Medical Informatics Association : JAMIA , 30: 1583 – 1589. Soares, A.; Jenders, R. A.; Harrison, R.; and Schilling, L. M. 2021. A Comparison of Arden Syntax and Clinical Qual-ity Language as Knowledge Representation Formalisms for Clinical Decision Support. Applied Clinical Informatics , 12: 495 – 506. Team, Q. 2025. Qwen3-Max: Just Scale it. Tseng, O. L.; Brar, S.; Dawes, M.; Ranchod, H.; Lacaille, D.; Su, V. C.; and Mitton, C. 2025. Are Canadian Clin-ical Practice Guidelines Accounting for Adults With Mul-tiple Chronic Diseases? A Systematic Review. Journal of Evaluation in Clinical Practice , 31(4): e70143. Vladika, J.; Dhaini, M.; and Matthes, F. 2025. Facts Fade Fast: Evaluating Memorization of Outdated Medical Knowl-edge in Large Language Models. In Findings of the Associ-ation for Computational Linguistics: EMNLP 2025 , 9161– 9174. Wu, W.; Xu, X.; Gao, C.; Diao, X.; Li, S.; Salas, L. A.; and Gui, J. 2025. Assessing and Mitigating Medical Knowl-edge Drift and Conflicts in Large Language Models. In Christodoulopoulos, C.; Chakraborty, T.; Rose, C.; and Peng, V., eds., Findings of the Association for Computa-tional Linguistics: EMNLP 2025 , 707–730. Suzhou, China: Association for Computational Linguistics. ISBN 979-8-89176-335-7. Yaacoub, S.; Chamseddine, F.; Jaber, F.; Blazic, I.; Frija, G.; and Akl, E. A. 2023. Exploring the concordance of recom-mendations across guidelines on chest imaging for the diag-nosis and management of COVID-19: A proposed method-ological approach based on a case study. PLoS One , 18(7): e0288359. Yadamsuren, B.; Platt, S. K.; and Diaz, M. 2025. LLM-Assisted Formalization Enables Deterministic Detection of Statutory Inconsistency in the Internal Revenue Code. Yang, R.; Wong, M. Y. H.; Li, H.; Li, X.; Zhu, W.; Liao, J.; Yu, K.; Liew, J. C. K.; Xuan, W.; Chen, Y.; et al. 2025. Retrieval-Augmented Generation in Medicine: A Scoping Review of Technical Implementations, Clinical Applications, and Ethical Considerations. arXiv preprint arXiv:2511.05901 .Zakka, C.; Shad, R.; Chaurasia, A.; Dalal, A. R.; Kim, J. L.; Moor, M.; Fong, R.; Phillips, C.; Alexander, K.; Ashley, E.; et al. 2024. Almanac—retrieval-augmented language mod-els for clinical medicine. Nejm ai , 1(2): AIoa2300068. 
+
+# SAT Modeling of Rule Relationships Using Z3-Solver 
+
+Problem Formulation 
+
+We model the problem of determining relationships between clinical rules as a Satisfiability (SAT) problem using the Z3 SMT solver. This approach provides a unified framework for reasoning about logical relationships between predicates, actions, and rules. 
+
+Notation and Preliminaries 
+
+Let R = {R1, R 2, . . . , R n} be a set of clinical rules, where each rule Ri is represented as: 
+
+Ri : Ci ⇒ Ai
+
+where: • Ci: a condition formula (Boolean combination of predi-cates over patient attributes) • Ai: an action constraint formula (permissions, con-traindications, dose restrictions, etc. on drugs/strategies) Let P = {P1, P 2, . . . , P m} be a set of predicates, where each predicate Pj has a formal definition ϕj over a set of variables V representing the attributes of the patient like measurements, conditions, procedures. Predicate Relation Modeling 
+
+Variable Encoding For each predicate Pi with formal def-inition ϕi, we create a Boolean variable pi in Z3: 
+
+pi = Z3Expr (ϕi)
+
+where Z3Expr (ϕi) converts the formal definition into a Z3 Boolean expression over variables in V.
+
+Predicate Relation Definitions via SAT Given two pred-icates P and Q with Z3 expressions p and q, we define their relationship using SAT queries: 
+
+Equivalence ( P ⇔ Q)
+
+Equiv (P, Q ) ⇔ SAT (p̸ = q) = UNSAT 
+
+Implication ( P ⇒ Q)
+
+Imply P →Q(P, Q ) ⇔ SAT (p ∧ ¬ q) = UNSAT 
+
+Reverse Implication ( Q ⇒ P )
+
+Imply Q→P (P, Q ) ⇔ SAT (q ∧ ¬ p) = UNSAT 
+
+Mutual Exclusion ( P ∧ Q is unsatisfiable) 
+
+Mutex (P, Q ) ⇔ SAT (p ∧ q) = UNSAT 
+
+Intersection (Satisfiable but neither implies the other) 
+
+Intersect (P, Q ) ⇔ SAT (p ∧ q) = SAT 
+
+∧ ¬ Imply P →Q(P, Q )
+
+∧ ¬ Imply Q→P (P, Q )
+
+Action Relation Modeling 
+
+Action Representation An action A is represented as: 
+
+A = {(s1, π 1), (s2, π 2), . . . , (sk, π k)}
+
+where: • si ∈ S : a subject (drug/strategy) identifier • πi ∈ Π: a permission type like allow ,
+
+contraindicate , reduce dose 
+
+Action Variable Encoding For each action A and each subject s ∈ S , we define Boolean variables: allow A(s) : subject s is allowed by action A (1) prohibit A(s) : subject s is prohibited by action A (2) Constraints: 
+
+∀s ∈ S : ¬(allow A(s) ∧ prohibit A(s)) 
+
+Action Relation Definitions via SAT Given two actions 
+
+A and B:
+
+Equivalence 
+
+Equiv (A, B ) ⇔ ∀ s ∈ S :
+
+allow A(s) = allow B (s)
+
+∧ prohibit A(s) = prohibit B (s)
+
+This is checked by comparing the sets of subjects and per-mission values directly (no SAT query needed). 
+
+Conflict 
+
+Conflict (A, B ) ⇔ ∃ s ∈ overlap (A, B ) : 
+
+allow A(s) ∧ prohibit B (s)
+
+∨ prohibit A(s) ∧ allow B (s)
+
+where overlap (A, B ) = {s : s ∈ subjects (A) ∩
+
+subjects (B)}.
+
+Disagreement 
+
+Disagree (A, B ) ⇔ ∃ s ∈ overlap (A, B ) : 
+
+permission A(s)̸ = permission B (s)
+
+∧ ¬ Conflict (A, B )
+
+This occurs when actions have overlapping subjects but dif-ferent permission within the same category. 
+
+Independent 
+
+Indep (A, B ) ⇔ overlap (A, B ) = ∅
+
+Rule Relation Modeling 
+
+Rule Pair Analysis For a pair of rules (Ra : Ca ⇒
+
+Aa, R b : Cb ⇒ Ab), we determine their relationship by combining predicate and action relations. 
+
+Rule Relation Classification via SAT Complete Redundancy 
+
+CompRed (Ra, R b) ⇔ Equiv (Ca, C b)
+
+∧ Equiv (Aa, A b)
+
+Contained Redundancy 
+
+ContRed (Ra, R b) ⇔ Imply P →Q(Ca, C b)
+
+∨ Imply Q→P (Ca, C b)
+
+∧ Equiv (Aa, A b)
+
+Intrinsic Conflict 
+
+IntrConf (Ra, R b) ⇔ Equiv (Ca, C b)
+
+∧ Conflict (Aa, A b)
+
+Intrinsic Disagreement 
+
+IntrDis (Ra, R b) ⇔ Equiv (Ca, C b)
+
+∧ Disagree (Aa, A b)
+
+Implication Conflict 
+
+ImpConf (Ra, R b) ⇔ Imply P →Q(Ca, C b)
+
+∨ Imply Q→P (Ca, C b)
+
+∧ Conflict (Aa, A b)
+
+∧ ¬ SpecPrior 
+
+Implication Disagreement 
+
+ImpDis (Ra, R b) ⇔ Imply P →Q(Ca, C b)
+
+∨ Imply Q→P (Ca, C b)
+
+∧ Disagree (Aa, A b)Local Conflict 
+
+LocalConf (Ra, R b) ⇔ Intersect (Ca, C b)
+
+∧ Conflict (Aa, A b)
+
+∧ ¬ SpecPrior 
+
+# Study Corpus 
+
+The Chinese SGLT2i Multidisciplinary Guideline Dataset 
+
+We curated a specialized corpus comprising 12 authorita-tive clinical guidelines published by major branches of the 
+
+Chinese Medical Association (CMA) and related profes-sional societies, specifically the Diabetes Society, Society of Cardiology, Society of Nephrology, and the Chinese Geri-atrics Society. The dataset focuses exclusively on Sodium-Glucose Cotransporter-2 inhibitors (SGLT2i) .
+
+Rationale for Corpus Selection: The SGLT2i Multimorbidity Nexus 
+
+We selected SGLT2i therapy as the primary testbed because it perfectly exemplifies the Organizational Fragmentation 
+
+and Multimorbidity Conflicts highlighted in our Introduc-tion. The independent development of guidelines by dis-tinct specialty societies creates a complex logical landscape that rigorously stress-tests our Neuro-Symbolic Verifica-tion Pipeline .While both Cardiology and Nephrology guidelines rec-ognize SGLT2i as a foundational therapy, they advocate for distinct drug combination paradigms based on their specialty focus. Cardiology Guidelines : Advocate for the Quadruple Therapy (SGLT2i + ARNI/ACEI + Beta-blocker + MRA) as the standard for Heart Failure. Nephrology Guidelines : Em-phasize the Three Pillars of cardiorenal protection (SGLT2i + RAASi + MRA). For a patient with simultaneous Heart Failure and CKD (Cardiorenal Syndrome), these guide-lines present non-identical actionable sets . The Nephrol-ogy does not explicitly mandate Beta-blockers, creating a discrepancy in the recommended set compared to the Cardi-ology. This tests the Rule Agent’s ability to parse Conjunc-tions and the SMT Solver’s capacity to detect Inconsistent Detail when merging guidelines for multimorbid patients. A primary source of inconsistency arises from how different specialties prioritize adverse risks. This creates contradictory stopping rules or monitoring logic, chal-lenging our system’s ability to handle complex exclu-sions. Endocrinology : Focuses heavily on Diabetic Ketoaci-dosis (DKA) . Guidelines typically mandate discontinuation upon ketosis detection. Cardiology : Prioritizes hemody-namic stability. The primary constraint for suspension is symptomatic hypotension , often tolerating metabolic fluc-tuations that might concern other specialists. Nephrology :Focuses on eGFR fluctuations and Hyperkalemia . Unlike simple binary triggers, renal guidelines contain complex conditional logic: an initial reversible dip in eGFR is ex-pected and does not warrant discontinuation, whereas hyper-kalemia requires managing the concomitant RAASi/MRA dosage rather than simply stopping SGLT2i. Detecting these nuanced constraints validates the Entity Agent’s ontology mapping and the Rule Agent’s synthesis of Compound Log-ical Structures .SGLT2i guidelines published at different times present conflicting constraints due to rapidly updating evidence, particularly regarding eGFR thresholds. Older guidelines often set conservative exclusion criteria as eGFR < 30 
+
+mL/min/1.73m 2, while newer consensus documents lower this threshold to 20 or 25 or remove it for specific indica-tions. This temporal discrepancy creates Implication Con-flicts. It serves as a critical benchmark for our Predicate Agent’s Arithmetic Operators (Oarith ), verifying whether the system can precisely model continuous numerical bound-aries to identify outdated advice. 
+
+# Predicate Operator 
+
+The Predicate Agent employs a set of typed operators to transform ontological entities into verifiable logical predi-cates. Table 4 provides a comprehensive reference of all sup-ported operators, their semantics, return types, Z3 mappings, and typical usage examples. 
+
+# Action Vocabulary 
+
+The Rule Agent maps clinical directives to a standardized action vocabulary with explicit partial ordering. This vo-cabulary enables precise conflict detection by establishing semantic relationships between different recommendation strengths. Table 5 provides a comprehensive reference of all supported action types, organized by category. Table 4: Predicate Operator 
+
+Operator Semantics Return Type Z3 Mapping Typical Example 
+
+HAS Disease diagnosis / existence Bool Bool HAS(cond.t2dm) 
+
+ON Medication status Bool Bool ON(med.insulin) 
+
+HISTORY Past history / historical events Bool Bool HISTORY(cond.stroke) 
+
+ASSESS Subjective assessment / clinical status Bool Bool ASSESS(Intolerance, med.statins) = True 
+
+RISK Risk rating String String RISK(cond.ascvd) = High 
+
+STAGE Staging / grading Int/String Int/String STAGE(cond.ckd) >= 3 or STAGE(cond.ckd) = B 
+
+VALUE Lab value / measurement Real Real VALUE(meas.egfr) < 45 
+
+DURATION Duration / length of time Real Real DURATION(med.insulin) >= 30 
+
+DELTA Change / delta Real Real DELTA(meas.creatinine) >= 50% 
+
+Table 5: Action Vocabulary 
+
+Action Type Semantics Category 
+
+Usage Control (with strength ordering) 
+
+ALLOW Allow use (optional alternative) Usage Control RECOMMEND Recommend use (preferred choice) Usage Control REQUIRE Require use (mandatory) Usage Control CONSIDER Consider use Usage Control CAUTION Use with caution (requires monitoring) Usage Control AVOID Avoid use (better alternatives exist) Usage Control CONTRAINDICATE Contraindicate (absolute prohibition) Usage Control 
+
+Continuation Control 
+
+CONTINUE Continue current use Continuation Control STOP Stop current use Continuation Control 
+
+Dose Adjustment 
+
+REDUCE DOSE Reduce dose Dose Adjustment INCREASE DOSE Increase dose Dose Adjustment START LOW DOSE Start with low dose Dose Adjustment MAX DOSE LIMIT Limit maximum dose Dose Adjustment TITRATE Titrate adjustment based on efficacy/tolerance Dose Adjustment
