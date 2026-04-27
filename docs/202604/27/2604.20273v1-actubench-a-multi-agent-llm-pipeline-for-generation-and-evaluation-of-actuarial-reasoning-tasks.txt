@@ -1,0 +1,471 @@
+Title: ActuBench: A Multi-Agent LLM Pipeline for Generation and Evaluation of Actuarial Reasoning Tasks
+
+URL Source: https://arxiv.org/pdf/2604.20273v1
+
+Published Time: Thu, 23 Apr 2026 00:35:31 GMT
+
+Number of Pages: 19
+
+Markdown Content:
+# ActuBench: A Multi-Agent LLM Pipeline for Generation and Evaluation of Actuarial Reasoning Tasks 
+
+Jan-Philipp Schmidt TH Köln, Institut für Versicherungswesen (ivwKöln) 
+
+jan-philipp.schmidt@th-koeln.de 
+
+April 23, 2026 
+
+Abstract 
+
+We present ActuBench, a multi-agent LLM pipeline for the automated generation and evaluation of advanced actuarial assessment items aligned with the International Actuarial Association (IAA) Education Syllabus. The pipeline separates four LLM roles by adapter: one agent drafts items, one constructs distractors, a third independently verifies both stages and drives bounded one-shot repair loops, and a cost-optimized auxiliary agent handles Wikipedia-note summarization and topic labelling. The items, per-model responses and complete leaderboard are published as a browsable web interface at https://actubench.de/en/ ,allowing readers and practitioners to inspect individual items without a repository checkout. We evaluate 50 language models from eight providers on two complementary benchmarks — 100 empirically hardest multiple-choice items and 100 open-ended items scored by an LLM judge — and report three headline findings. First, multi-agent verification is load-bearing: the independent verifier flags a majority of drafted items on first pass, most of which the one-shot repair loop resolves. Second, locally-hosted open-weights inference sits on the cost–performance Pareto front: a Gemma 4 model running on consumer hardware and a Cerebras-hosted 120B open-weights model dominate the near-zero-cost region, with the latter within one item of the top of the leaderboard. Third, MCQ and LLM-as-Judge rankings differ meaningfully: the MCQ scaffold inflates the performance ceiling, and Judge-mode evaluation is needed to discriminate at the frontier. 
+
+## 1 Introduction 
+
+Actuarial science is one of the most technically demanding professional domains: it requires precise mathematical reasoning under stated assumptions, deep familiarity with insurance and financial theory, sensitivity to regulatory frameworks, and the ability to trade off computation, approximation and model risk. Internationally, the body of knowledge expected of a qualified actuary is codified by the International Actuarial Association (IAA) Education Syllabus, 1 which covers life insurance, non-life insurance, pensions, health insurance, enterprise risk management, and actuarial data science through more than a hundred learning objectives. These objectives underwrite the qualification examinations of national actuarial bodies such as the Deutsche Aktuarvereinigung (DAV), the Society of Actuaries (SOA) and the Institute and Faculty of Actuaries (IfoA). Constructing advanced assessment material for this body of knowledge — whether multiple-choice items, computational problems, or open-ended reasoning tasks — is expensive. Skilled subject-matter experts must craft questions that are unambiguous, internally consistent, grounded in current knowledge, and calibrated for difficulty; the process is slow even for a single examination committee. Meanwhile, language models have made rapid progress on general and domain-specific reasoning benchmarks [11, 15, 16], raising the question of how capable the current frontier 
+
+> 1https://actuaries.org/app/uploads/2025/06/20250525_EducationSyllabus_Final.pdf
+
+1
+
+> arXiv:2604.20273v1 [cs.AI] 22 Apr 2026
+
+is on actuarial tasks specifically and what it would take to measure that capability reproducibly. Existing actuarial-LLM studies either survey use-cases without benchmarking [1], target a narrow quantitative subdomain [9], or benchmark Chinese-language insurance knowledge [26]; to our knowledge no English-language LLM benchmark aligned with the IAA Education Syllabus exists. We address this with ActuBench: a multi-agent LLM pipeline that generates IAA-aligned assessment items from learning objectives and Wikipedia-grounded notes, verifies them with an independent verifier agent, and evaluates language models on the resulting pool in two complementary modes. Our contributions are fivefold. 1. A multi-agent generation pipeline with an independent verifier. Four LLM roles are distinguished by adapter: Agent A drafts items, Agent B constructs distractors, Agent C independently verifies both, and a cost-optimized auxiliary agent handles Wikipedia-note summarization and topic-label assignment. Agent C never contributes generated content; it drives bounded repair loops triggered by its verdicts. This verifier-first role separation is the pipeline’s principal methodological differentiator (section 3.4). 2. A dual evaluation protocol: MCQ and LLM-as-Judge. We evaluate each model both in a classical four-option MCQ setting and in an open-ended setting where a judge LLM scores the evaluatee’s free-text response against the known correct answer. The two views produce meaningfully different rankings of the same models (section 5.3). 3. A live, web-accessible benchmark viewer at https://actubench.de/en/ . The 100 MCQ items, 100 Judge items, and every model response are browsable and searchable through a web UI, allowing readers and practitioners to inspect individual items and per-model answers without a GitHub checkout. 4. An empirical first evaluation of 50 language models. We evaluate 50 models spanning eight providers — Anthropic, Google, OpenAI, xAI, DeepSeek, Mistral, Cohere, and open-weights hosted endpoints including locally-run Gemma — on 100 empirically hardest MCQ items and 100 open-ended Judge items (section 4.3). 5. Evidence that locally-hosted open-weights inference is on the cost–performance Pareto front. A Cerebras-hosted open-weights 120B-parameter model reaches 97 % MCQ accuracy on the hardest items at near-zero cost; a Gemma 4 model running on a consumer GPU via Ollama reaches 85 % at zero marginal cost. At the paid end of the scale, per-answer frontier accuracy can be obtained at an order-of-magnitude lower cost than from the flagship reasoning-mode variants (section 5.1). The remainder of the paper is structured as follows. Section 2 reviews related work. Section 3 describes the generation pipeline. Section 4 specifies the two benchmark modes and the item-selection protocol. Section 5 reports empirical results along three axes: cost–performance, sector-level accuracy, and MCQ-vs-Judge divergence. Section 6 discusses reasoning-mode variants, Agent-C repair statistics, and implications for practical LLM use in actuarial settings. Section 7 and section 8 close. 
+
+## 2 Background and Related Work 
+
+ActuBench sits at the intersection of six research threads: automatic question generation, LLM benchmark design, LLM-as-judge evaluation, multi-agent LLM pipelines, benchmark contamination, and the still-thin literature on LLMs in actuarial science. 22.1 Automatic Question Generation 
+
+Automatic question generation (AQG) has been studied for over two decades. Early work on assessment-oriented AQG used syntactic transformations on parse trees combined with statistical ranking, exemplified by Heilman and Smith [10]’s seminal factual-QG system. Neural sequence-to-sequence models extended this line to learnt question generators, with Du, Shao, and Cardie [5] training a seq2seq model on sentence-question pairs from SQuAD (optionally conditioned on paragraph context). Kurdi et al. [14] provide the authoritative systematic review of AQG for educational purposes across rule-based, template, statistical and neural eras. With instruction-tuned LLMs, generating domain multiple-choice questions with correct answers, plausible distractors and rationales became feasible at scale; Elkins et al. [8] evaluated InstructGPT-generated educational questions in a teacher-expert study and found high relevance, grammaticality and answerability, with most items requiring only minor or no edits. That result sharpens the remaining quality-control question: not whether LLMs can draft plausible items, but whether automated verification can catch the residual factual and difficulty-calibration errors without teacher review. ActuBench’s Agent-A/Agent-B split with an independent Agent-C verifier is a direct answer to that question. 
+
+2.2 LLM Benchmarks 
+
+A broad family of LLM benchmarks covers general academic knowledge (MMLU [15]), math-ematical reasoning (MATH [11], DROP [7]), and cross-disciplinary graduate-level reasoning (HLE [16]). Domain-specific benchmarks include FinQA for numerical reasoning on financial documents [3] and various medical-licensing datasets. A recurring concern across this literature is that static benchmarks saturate quickly as models improve, motivating designs that retain only the items current models most frequently miss [16]; our empirically-hardest-100 construction (section 4.3) adopts this idea. 
+
+2.3 LLM-as-Judge Evaluation 
+
+The LLM-as-judge paradigm was popularized by Zheng et al. [25] (MT-Bench and Chatbot Arena), who demonstrated that capable LLMs, particularly GPT-4, can approximate human preference scoring on open-ended tasks at above 80 % agreement. Kim et al. [13] trained Prometheus, an open-source 13-billion-parameter fine-tuned evaluator LLM, to produce fine-grained rubric-grounded verdicts with reference answers. Critical follow-up work documented systematic biases: Wang et al. [21] show that LLM judges exhibit pronounced positional bias in the sense that simply reordering candidate responses in the prompt can flip the quality ranking. For domains where a ground-truth correct answer exists (as in actuarial exam items), the judge’s task is narrower than in preference-style evaluation: the judge must decide whether an extracted answer matches a known correct answer rather than rank competing responses. ActuBench’s judge prompt (section 4.2) enforces this framing explicitly. 
+
+2.4 Multi-Agent LLM Pipelines 
+
+Multi-agent LLM systems partition a task across roles with distinct prompts and, increasingly, distinct underlying models. Hong et al. [12] (MetaGPT) formalizes role specialization for software-engineering tasks; Wu et al. [22] (AutoGen) provides a domain-agnostic framework for multi-agent LLM conversation, with demonstrations across mathematics, retrieval-augmented generation, optimization, chess and coding. Chen et al. [2] demonstrate emergent collaboration in open-ended problem solving. Du et al. [6] introduce multi-agent debate as a mechanism to reduce hallucinations and improve factuality; the empirical pattern they report — agents that individually err but converge to correct answers under mutual critique — implicitly supports the more general verification-generation asymmetry we rely on in section 3.4. ActuBench 3applies the same role-specialization principle but restricts the scope to a single, closed content-generation task: one adapter drafts, another audits distractors, a third independently verifies. The restriction yields a well-scoped, bounded-cost pipeline in which each agent’s prompt is short and each verdict auditable — distinct from the open-ended negotiation of debate-style systems. 
+
+2.5 Benchmark Contamination 
+
+A fast-growing literature documents data contamination as a central threat to static LLM bench-marks: popular benchmark items often appear in pre-training corpora and model performance on them may not reflect genuine generalization [4, 19, 24, 27]. Our design addresses this in two ways: the pipeline can generate fresh items on demand from new learning objectives, and the item pool released at https://actubench.de/en/ is a curated subset rather than a static dump. 
+
+2.6 Actuarial AI 
+
+Actuarial AI has historically focused on classical machine learning on tabular and time-series data: Richman’s surveys [17, 18] and Wüthrich and Merz [23]’s textbook treat deep learning for mortality, reserving and non-life pricing, while Troxler and Schelldorfer [20] demonstrate transformer-based NLP for claims descriptions. LLM-specific studies have only recently ap-peared. Balona [1] is framed as a practitioner survey of LLM use-cases in insurance rather than an evaluation benchmark. Hao et al. [9] build quantitative QA pairs from reinsurance training materials and fine-tune Llama-2 variants; their scope is narrow and their item set non-public. The concurrent Chinese-language CUFEInse benchmark [26] evaluates eleven LLMs on 14,430 insurance-operations questions spanning theory, industry, safety, agents and logical rigor. CUFEInse and ActuBench are complementary rather than overlapping: CUFEInse targets insurance operations on Chinese-language industry content at large scale, while ActuBench targets IAA-syllabus-aligned actuarial reasoning on English-language content with a smaller but methodologically controlled item set and an independent-verifier generation pipeline. To our knowledge, ActuBench is the first English-language actuarial LLM benchmark aligned with the IAA Education Syllabus. 
+
+## 3 Generation Pipeline 
+
+3.1 Overview 
+
+ActuBench processes each assessment item through a linear sequence of stages, each of which persists its output to the database before the next stage begins. Figure 1 shows the full workflow. Four distinct LLM roles are distinguished, each bound to its own adapter and potentially its own underlying model: 
+
+• Agent A drafts content (keyword extraction, item draft, and — when required — item repair). Agent A is typically the strongest and most expensive adapter in the pipeline, and in the generation run used for this paper it was bound to a reasoning-mode model (claude-sonnet-4-6:thinking ). 
+
+• Agent B specializes in distractor design and distractor repair. Agent B does not need the deeper reasoning of Agent A — the task is more constrained and creative rather than multi-step — so in the generation run used here it was bound deliberately to a non-reasoning adapter ( claude-sonnet-4-6 ). 
+
+• Agent C is the independent verifier. It performs two dedicated verification stages (once on the item stem and correct answer, once on the four-option ensemble) and never contributes 4generated content. Agent C is bound to its own adapter, allowing a separate, potentially more critical model to be used for verification (here o3:reasoning ). 
+
+• The auxiliary agent handles all cost-sensitive ancillary work: summarizing Wikipedia extracts into structured notes, and later assigning topic labels over the actuarial sectors. This adapter is always a cheap, fast model (here gpt-5.4-mini ); the cost savings of keeping these two stages off the primary generator add up across hundreds of items. Generation proceeds top-to-bottom in Figure 1. A learning objective from the International Actuarial Association (IAA) Education Syllabus is turned into a Wikipedia search query by Agent A; relevant article excerpts are fetched through the MediaWiki API; the auxiliary agent summarizes them into bullet-point notes; Agent A uses the notes plus the learning objective to draft an item. Agent C then verifies the item and, on a failure verdict, Agent A produces a single-shot repair that is re-checked. Agent B then constructs three distractors; Agent C verifies those and, on failure, triggers a single-shot Agent B repair with its own re-check. Finally the auxiliary agent assigns topic labels to the finished item and the item enters the evaluation pool.                
+
+> IAA learning objective Keywords Wikipedia fetch Wiki notes Item draft
+> Verify item Repair Re-check
+> Distractors Verify distractors Repair
+> Topic labels Re-check Benchmark
+> ok
+> fail
+> ok
+> fail
+> ■Agent A (keywords, item draft, repair) ■Agent B (distractors, repair) ■Agent C (verification)
+> ■Auxiliary (wiki notes, topic labels) ■External API
+
+Figure 1: ActuBench generation pipeline. Four LLM roles plus an external Wikipedia API cooperate to produce one assessment item. Agent A drafts (blue); Agent B builds distractors (teal); Agent C verifies both independently (gold); a cost-optimized auxiliary handles note summarization and topic labelling (green). Solid arrows are the primary flow; dashed red-labeled arrows are repair branches taken only on verification failure. 
+
+3.2 Agent A 
+
+Agent A carries the two stages that benefit most from strong underlying reasoning: item drafting and repair. Each stage emits a structured JSON output that is parsed and cached. 
+
+Keyword extraction. Given an IAA learning objective (code, textual description, subject and topic), Agent A produces a small JSON object with primary search terms, synonyms and abbreviations, disambiguation exclusions, and between one and three candidate search strings. Requiring explicit disambiguation-guard terms (e.g., “exclude: option pricing in finance” when the objective is on actuarial option costs) sharpens downstream Wikipedia retrieval measurably. 
+
+Item drafting. From the learning-objective text, the sampled difficulty archetype, and the Wikipedia notes produced by the auxiliary agent, Agent A produces the question stem, the single correct answer, and a detailed rationale justifying why that answer is correct. The prompt enforces several hard constraints: English-language only, single best answer, no multiple defensible answers under reasonable interpretation, explicit statement of any assumption needed for uniqueness, and no reliance on parametric knowledge that cannot be traced to the Wikipedia notes. The correct answer occupies a fixed internal slot by construction; randomization into an MCQ-presentation order is done only at evaluation time. 5Repair. When Agent C returns a non-ok verdict on the item, Agent A is re-invoked with the item draft and Agent C’s failure report, and produces a revised item that attempts to resolve the flagged issue. This is a single-shot repair, not a negotiation: the revised item then goes through a re-check, and if that also fails the item is persisted with a failure flag but not discarded. 
+
+3.3 Agent B 
+
+Agent B specializes in distractor design. Given the question stem, the correct answer with its rationale, and the Wikipedia notes, Agent B produces three distractors. Each distractor is required to be incorrect given the same notes and assumption set that make A correct, individually plausible to a learner at the target difficulty, and distinguishable from the other distractors. Each distractor is accompanied by a short free-text rationale describing the specific misconception or computational slip it is meant to probe. This prompt design follows the distractor-as-misconception-probe tradition in educational assessment [10, 14], adapted to the LLM-generation setting. On Agent C’s failure verdict for the distractor ensemble, Agent B is re-invoked once with the failure report and produces a revised set, which is then re-checked. 
+
+3.4 Agent C — Independent Verification 
+
+Agent C is the principal methodological differentiator of ActuBench. It performs two verification stages — one on the item stem and correct answer, one on the full four-option ensemble — and returns an ok/fail verdict with a structured failure report. Unlike Agents A and B, Agent C never contributes generated content; it only consumes a completed draft. A separate LLM adapter is bound to Agent C so that a different model can be used for verification than for generation. This role and adapter separation was driven by two converging observations. First, there is evidence that LLMs can be more accurate at judging a candidate solution than at producing one: Zheng et al. [25] show that strong LLMs agree with human judges on open-ended tasks at above 80 %, and the convergence pattern documented in multi-agent debate [6] — where individually-erring agents converge to correct answers under mutual critique — is consistent with the same asymmetry. This is the same asymmetry exploited in retrieval-augmented generation, multi-agent debate, and outcome-supervised training: it is usually easier to recognize a flaw than to avoid one. For item construction, the implication is direct: having the 
+
+same agent both draft an item and declare it correct is prone to shared blind spots, while routing verification through a model that has not seen the draft-in-progress breaks this shared-failure mode. Empirically, Agent C flags more than three in five items Agent A produced in our run as requiring item-level repair (section 6.2), which is substantially higher than any self-verification rate we observed in preliminary experiments. Second, verification is a well-scoped task with structured output, for which smaller or more reasoning-oriented models often outperform larger general-purpose generators in our domain. Decoupling the verifier adapter from the generator lets us pair a strong generator with an efficient verifier, and lets us swap either component without restructuring the pipeline. The role separation is analogous to the generator–critic split in multi-agent coding frameworks [12, 22], specialized here to content verification on a single generation task rather than to open-ended problem solving. 
+
+Item verification. Given the learning objective, the difficulty archetype, the Wikipedia notes, the question stem, the correct answer, and the correct-answer rationale, Agent C returns a verdict ok ∈ { true, false } with a structured failure report on ok=false . The report enumerates: ambiguity (can another interpretation of the stem make another answer defensible?), factual error (does the correct answer conflict with the notes?), and underspecification (is a required assumption missing?). This report is both stored in the database and passed to Agent A’s repair stage as the prompt context. 6Distractor verification. Given all four options with their rationales, Agent C checks that the distractors are non-duplicative, individually plausible, individually incorrect under the item’s stated assumption set, and probe distinct misconceptions. On failure, the report identifies which distractor(s) are problematic and for what reason, and is consumed by Agent B’s repair stage to produce a revised set. 
+
+Repair loop structure. Each verification stage admits at most one repair iteration. The re-check that follows each repair is final: if it still fails, the item is persisted with the failure flag and continues to the topic-label stage. This bounded-retry design trades a modest yield loss (about 15 % of items in our run were still flagged after repair; see section 6.2) for a predictable upper bound on per-item cost. 
+
+3.5 Auxiliary Agent 
+
+The auxiliary agent handles two cost-sensitive ancillary stages: Wikipedia-note summarization (after the MediaWiki fetch) and topic-label classification (after the item is finalized). The auxiliary adapter is always bound to a cheap, fast model: the two stages are well-structured and do not benefit from frontier reasoning, and the savings compound over hundreds of generated items. Note summarization produces a fixed bullet-list schema grouping extract content into named facts with provenance; topic labelling assigns each item zero or more of six actuarial-sector labels (life, non-life, AFIR-ERM, ADS-AI, health, pension). The labels are not mutually exclusive — an item on longevity-linked non-life hybrid products may carry both Life and 
+
+Non-life — and feed the sector-level analysis in section 5.2. 
+
+## 4 Benchmark Methodology 
+
+We evaluate language models on the items produced by the pipeline of section 3 in two com-plementary modes. The two benchmarks operate on disjoint item sets drawn from the same generation pipeline: 100 items for the MCQ benchmark and 100 different items for the Judge benchmark, so that no model sees the same item in both evaluation modes. 
+
+4.1 MCQ Evaluation 
+
+In MCQ mode, the evaluated model is shown the question stem together with the four options A–D and is instructed to respond with a single letter. A deterministic per-run pseudo-random shuffle decides, for each item, which of the four options receives label A, B, C, or D at presentation time (the correct answer is stored internally in a fixed slot and never appears in the same letter position across runs). The shuffle map is persisted with every answer row for later analysis. The prompt is deliberately terse to minimize format-following confounds:      
+
+> System: You are taking a multiple-choice actuarial exam. Select the single best answer. Respond with ONLY the letter A, B, C, or D — no explanation, no punctuation.
+> User: Question: {stem} A) . . . B) . . . C) . . . D) . . .
+
+The response is parsed by extracting the first token in {A, B, C, D}; if no such token is present the answer is recorded as unparseable and counted as incorrect. Token counts and per-call cost are computed from the provider’s reported usage and the pricing table at call time. 
+
+4.2 Judge Evaluation 
+
+Judge mode removes the multiple-choice scaffold entirely. The evaluated model sees only the question stem and is asked to answer in free text, showing its reasoning and then stating its final answer: 7Evaluatee system: You are taking an actuarial exam. Answer the following question as accurately and concisely as possible. Show your reasoning briefly, then state your final answer clearly. 
+
+A second LLM — the judge — then assesses the free-text response against the known correct answer. The judge prompt returns a structured JSON verdict with four fields: the final answer extracted from the response, a short reasoning note, a yes/no correctness verdict, and a 0–100 confidence score (the evaluatee’s self-reported confidence where available, 100 otherwise). The judge’s instruction restricts its scope to comparing the extracted answer to the correct answer on 
+
+meaningful differences , accepting small numerical tolerances, and explicitly forbids re-solving the problem or arguing for an alternative answer. This design follows the LLM-as-judge paradigm established in [13, 25] while tightening it for a domain in which the correct answer is authoritative rather than preferential. The two benchmarks produce different views of the same competence. MCQ mode tests recognition-plus-elimination — a model that cannot derive the correct answer but can identify implausible options may still succeed. Judge mode tests derivation from scratch: the model must produce a correct answer without the four-option scaffold, and a capable judge then checks it. We report both and contrast them in section 5.3. 
+
+4.3 Item Selection for the Benchmarks 
+
+The generation pipeline produces items across five hard difficulty archetypes — quantitative calculation, assumption sensitivity, conceptual inversion, edge case / boundary and multi-step logic — sampled with a weight schedule that favors quantitative calculation. Pre-tests showed that items drawn from easier archetypes (terminology precision, consistency checks) are solved nearly uniformly by frontier models and therefore have little discriminative value; we therefore exclude those archetypes from the evaluation pool. Pre-tests further showed that the quantitative-calculation archetype is consistently the most discriminating among the five hard archetypes. For this study we construct two benchmarks of one hundred items each, disjoint by construc-tion. 
+
+MCQ benchmark (100 items). We first generated an internal pool of 200 items spanning the five hard archetypes. From that pool we retain the 100 items on which the collective accuracy 
+
+across the evaluated models was lowest — the empirically-hardest half. This empirically-hardest-N construction is a standard move in benchmark design [15, 16] because static frontier benchmarks saturate quickly under LLM progress: retaining only the items the community’s current models most frequently miss preserves discriminative power at the top. The resulting set contains 46 quantitative-calculation items, 17 conceptual-inversion items, 13 assumption-sensitivity items, 13 edge-case items and 11 multi-step-logic items. Cross-model mean accuracy on the retained items ranges from 7.8 % (hardest) to 94.1 % (easiest). 
+
+Judge benchmark (100 items). The Judge benchmark comprises 100 items drawn from a separate pool of approximately 400 items generated by the same pipeline. We restrict the Judge benchmark to the quantitative-calculation archetype because the pre-tests cited above identified it as the most discriminating archetype among the five hard categories, and because the open-ended format most directly rewards genuine derivation on computational tasks. The Judge items are disjoint from the MCQ items. 
+
+4.4 Model Selection 
+
+We evaluate 50 models spanning eight providers: Anthropic, Google, OpenAI, xAI, DeepSeek, Mistral, Cohere, and an open-weights family of hosted endpoints (Groq, Cerebras) plus a locally-hosted Ollama runtime. Where a provider exposes both a standard and a reasoning-mode variant of the same underlying model (e.g. claude-opus-4-6 vs. claude-opus-4-6:thinking ,8Provider Model $/1M in $/1M out Type anthropic claude-opus-4-6:thinking 5.000 25.000 thinking openai gpt-5-mini 0.125 1.000 dense openai o3:reasoning 2.000 8.000 thinking openai o4-mini:reasoning 1.100 4.400 thinking cerebras gpt-oss-120b — — open-source google gemini-3.1-pro-preview 2.000 12.000 dense google gemini-2.5-pro:thinking 1.250 10.000 thinking groq openai/gpt-oss-120b 0.150 0.600 open-source openai gpt-5 1.250 10.000 dense openai o3-mini:reasoning 1.100 4.400 thinking anthropic claude-sonnet-4-6:thinking 3.000 15.000 thinking groq openai/gpt-oss-20b 0.075 0.300 open-source openai gpt-5-nano 0.050 0.400 dense xai grok-3-mini:reasoning 0.300 0.500 thinking anthropic claude-sonnet-4-6 3.000 15.000 dense google gemini-2.5-pro 1.250 10.000 dense google gemma-4-31b-it 0.130 0.380 open-source xai grok-3-mini 0.300 0.500 dense anthropic claude-opus-4-20250514 15.000 75.000 dense cohere command-a-reasoning-08-2025 2.500 10.000 thinking google gemini-3-flash-preview 0.500 3.000 dense xai grok-4 3.000 15.000 dense anthropic claude-opus-4-6 5.000 25.000 dense ollama gemma4:latest 0.000 0.000 open-source anthropic claude-sonnet-4-20250514:thinking 3.000 15.000 thinking google gemma-4-26b-a4b-it 0.080 0.350 open-source anthropic claude-sonnet-4-20250514 3.000 15.000 dense google gemini-2.5-flash 0.150 0.600 dense google gemini-2.5-flash:thinking 0.150 0.600 thinking deepseek deepseek-reasoner:reasoning 0.280 0.420 thinking google gemini-3.1-flash-lite-preview 0.250 1.500 dense groq meta-llama/llama-4-scout-17b-16e-instruct 0.110 0.340 open-source openai gpt-5.4 2.500 15.000 dense openai gpt-5.2 1.750 14.000 dense anthropic claude-haiku-4-5-20251001 1.000 5.000 dense openai gpt-4.1 2.000 8.000 dense xai grok-3 3.000 15.000 dense cohere command-a-03-2025 2.500 10.000 dense deepseek deepseek-chat 0.280 0.420 dense groq llama-3.3-70b-versatile 0.590 0.790 open-source openai gpt-5.4-mini 0.750 4.500 dense mistral mistral-large-2512 0.500 1.500 dense mistral mistral-large-latest 0.500 1.500 dense openai gpt-4.1-mini 0.400 1.600 dense openai gpt-4.1-nano 0.100 0.400 dense mistral mistral-small-latest 0.150 0.600 open-source openai gpt-5.4-nano 0.200 1.250 dense groq qwen/qwen3-32b 0.290 0.590 open-source groq llama-3.1-8b-instant 0.050 0.080 open-source cerebras llama3.1-8b 0.100 0.100 open-source 
+
+Table 1: Evaluated models. Per-million-token prices (USD) are the provider’s published rates at the time the benchmark was run. Type: dense for standard decoder models, thinking for reasoning-mode variants, open-source for models whose weights are publicly released. Five additional models are excluded due to adapter errors (section C). 
+
+gemini-2.5-pro vs. gemini-2.5-pro:thinking ), we include both to support the paired com-parison in section 6.1. Five further models were benchmarked but are excluded from all main tables and figures because adapter-level errors caused every answer to be recorded as unparseable; they are listed in section C. Table 1 summarizes the included set. Anthropic Claude is among the evaluated models and is also the tool used to draft this manuscript (see Acknowledgments); we disclose this dual role rather than excluding Claude from the evaluation, because its relative position on the benchmark is of independent scientific interest. 
+
+4.5 Reproducibility 
+
+Two artefacts support replication. First, the 100 MCQ items and 100 Judge items used here, together with every benchmark answer (presented options, shuffle map, raw response, extracted answer, token counts, cost), are published as a browsable interface at https://actubench.de/ en/ . Readers can inspect any item and the responses each model gave to it without installing any software. Second, every number in this paper is derived from a single frozen snapshot of the generation database, so that re-running the reporting pipeline reproduces every plot and table deterministically. The generation and benchmark-runner code are available from the author on request. 95 Results 
+
+All numbers in this section come from the frozen data snapshot described in section 4.5 and the 50 included models of section 4.4. Throughout this section, “MCQ accuracy” refers to accuracy on the 100 MCQ items, and “Judge accuracy” to accuracy on the 100 Judge items. 
+
+5.1 Cost–Performance Landscape 
+
+Figure 2 shows each model as a numbered, provider-coloured point on a cost–accuracy plane. The horizontal axis is the total USD cost of running the full MCQ benchmark (log scale, spanning six orders of magnitude from near-zero for locally-hosted inference up to a few US dollars for the strongest reasoning-mode variants). The vertical axis is MCQ accuracy. Hollow markers are reasoning-mode variants; filled markers are standard models. Model names are listed in the legend under the figure to keep the plot area uncluttered; the Pareto relationship can be read off the scatter by eye. Three features of the landscape stand out. First, the accuracy ceiling is crowded : four models — claude-opus-4-6:thinking , gpt-5-mini , o3:reasoning and o4-mini:reasoning — reach the top MCQ accuracy of 98 % (98/100 items correct), yet their total-run costs span a full order of magnitude, from about nine US cents up to over $1.50 for the same accuracy. On hard but structurally closed multiple-choice items, per-answer frontier performance can be obtained much more cheaply from the right non-flagship model than from the flagship. Second, two models strictly dominate at the zero-cost end of the scale: a hosted open-weights 120B-parameter model from Cerebras at 97 % MCQ accuracy at an extremely low cost (effectively a fraction of a US cent for the full 100-item run), and a locally-hosted Gemma 4 model running on consumer hardware at 85 % accuracy and zero marginal cost. The Cerebras endpoint lies within one item of the top of the leaderboard; the Ollama case shows that a medium-sized open-weights model running on consumer hardware achieves accuracy within 13 percentage points of the best paid option. Third, the space between the Pareto-dominant points at the zero-cost end and the top-accuracy cluster is thin. A reader might be tempted to interpret this as reasoning-mode inference being wasteful, but that overstates the case: the MCQ task as posed (recognition plus elimination) is not the hardest test these models can be given, and the compression at the ceiling is partly an artefact of it. The Judge-mode results below (section 5.3) decompress the top of the scale. 
+
+5.2 Accuracy by Actuarial Sector 
+
+Each item in the MCQ benchmark is tagged by the auxiliary agent (section 3.5) with zero or more actuarial-sector labels: life, non-life, AFIR-ERM (actuarial approach for financial risks and enterprise risk management), ADS-AI (actuarial data science and AI), health, and pension. Labels are not mutually exclusive. Table 2 reports the mean accuracy per sector, pooled over all 50 included models. At the top of the ranking the sector-level accuracies are near-uniform: the five strongest models score within a couple of items of 100 % on every sector. Differentiation appears in the full distribution over all 50 models. Mean accuracy is highest on ADS-AI and lowest on non-life; the most statistically robust figure is AFIR-ERM, which carries the largest item count inside the benchmark and is the best estimate of how frontier and near-frontier LLMs handle advanced enterprise-risk and capital-management content. The uneven sector counts per MCQ benchmark are a direct artefact of the sampling over IAA learning objectives; a future study that rebalances the sample could sharpen the smaller-sample estimates. 10 10 −2 10 −1 10 0
+
+Total benchmark-run cost (USD, log scale) 
+
+40 
+
+50 
+
+60 
+
+70 
+
+80 
+
+90 
+
+100 
+
+> Accuracy (%)
+
+12 34
+
+6
+
+78 910 11 12 13 
+
+14 15 16 
+
+17 18 19 20 
+
+21 
+
+22 23 25 26 27 
+
+28 
+
+29 
+
+30 
+
+31 32 33 
+
+34 
+
+35 36 
+
+37 
+
+38 
+
+39 
+
+40 41 
+
+42 43 44 
+
+45 
+
+46 
+
+47 48 
+
+49 
+
+50 
+
+Anthropic 
+
+OpenAI 
+
+Open / Cerebras / Groq 
+
+Google 
+
+xAI 
+
+Cohere 
+
+DeepSeek 
+
+Mistral 
+
+# Provider Model # Provider Model 1 ◦ Anth claude-opus-4-6:thinking 8 • Open openai/gpt-oss-120b 
+
+11 ◦ Anth claude-sonnet-4-6:thinking 12 • Open openai/gpt-oss-20b 
+
+15 • Anth claude-sonnet-4-6 24 • Open gemma4:latest 
+
+19 • Anth claude-opus-4-20250514 32 • Open meta-llama/llama-4-scout-17b-16e-instruct 
+
+23 • Anth claude-opus-4-6 40 • Open llama-3.3-70b-versatile 
+
+25 ◦ Anth claude-sonnet-4-20250514:thinking 48 • Open qwen/qwen3-32b 
+
+27 • Anth claude-sonnet-4-20250514 49 • Open llama-3.1-8b-instant 
+
+35 • Anth claude-haiku-4-5-20251001 50 • Open llama3.1-8b 
+
+20 ◦ Cohere command-a-reasoning-08-2025 2 • OAI gpt-5-mini 
+
+38 • Cohere command-a-03-2025 3 ◦ OAI o3:reasoning 
+
+30 ◦ DSeek deepseek-reasoner:reasoning 4 ◦ OAI o4-mini:reasoning 
+
+39 • DSeek deepseek-chat 9 • OAI gpt-5 
+
+6 • Goog gemini-3.1-pro-preview 10 ◦ OAI o3-mini:reasoning 
+
+7 ◦ Goog gemini-2.5-pro:thinking 13 • OAI gpt-5-nano 
+
+16 • Goog gemini-2.5-pro 33 • OAI gpt-5.4 
+
+17 • Goog gemma-4-31b-it 34 • OAI gpt-5.2 
+
+21 • Goog gemini-3-flash-preview 36 • OAI gpt-4.1 
+
+26 • Goog gemma-4-26b-a4b-it 41 • OAI gpt-5.4-mini 
+
+28 • Goog gemini-2.5-flash 44 • OAI gpt-4.1-mini 
+
+29 ◦ Goog gemini-2.5-flash:thinking 45 • OAI gpt-4.1-nano 
+
+31 • Goog gemini-3.1-flash-lite-preview 47 • OAI gpt-5.4-nano 
+
+42 • Mistr mistral-large-2512 14 ◦ xAI grok-3-mini:reasoning 
+
+43 • Mistr mistral-large-latest 18 • xAI grok-3-mini 
+
+46 • Mistr mistral-small-latest 22 • xAI grok-4 
+
+5 • Open gpt-oss-120b 37 • xAI grok-3 
+
+Figure 2: Cost–performance landscape on the MCQ benchmark. Each point is one evaluated model, coloured by provider; filled markers are standard models, hollow markers are reasoning-mode variants. Numbered points are identified in the legend above. 11 Sector #Items Mean accuracy ADS-AI 23 0.870 Health 2 0.790 Life 24 0.777 Pension 5 0.756 AFIR-ERM 41 0.748 Non-life 12 0.733 Table 2: Mean accuracy per actuarial sector on the MCQ benchmark, pooled over the 50 included models. Item counts per sector are uneven because each item may carry multiple labels and because the IAA syllabus is itself unevenly weighted across sectors. Small-sample sectors (health, pension) should be read with a correspondingly wider confidence band. 
+
+5.3 MCQ vs. Judge Divergence 
+
+To contrast the two evaluation modes we plot each model’s MCQ accuracy (on the 100-item MCQ benchmark) against its Judge accuracy (on the 100-item Judge benchmark) in fig. 3. The two item sets are disjoint by construction but both come from the same generation pipeline, with the Judge pool restricted to the most discriminating difficulty archetype (section 4.3).        
+
+> 0.0 0.2 0.4 0.6 0.8 1.0
+> MCQ accuracy
+> 0.0
+> 0.2
+> 0.4
+> 0.6
+> 0.8
+> 1.0
+> Judge accuracy
+> MCQ vs. Judge ( ρ=0.68, τ=0.50, N=39)
+> y = x
+
+Figure 3: Per-model accuracy on the 100-item MCQ benchmark (x-axis) versus the 100-item Judge benchmark (y-axis). The dotted line is y = x; points below the diagonal are models that lose accuracy when the four-option scaffold is removed. Spearman ρ and Kendall τ over the 
+
+N = 39 commonly evaluated models are reported in the figure title. 12 The picture is more nuanced than an informal “Judge is harder” hypothesis would suggest. At the top of the MCQ ranking the two benchmarks diverge sharply: the best MCQ score is 98 %, the best Judge score 87 %, and several frontier models lose on the order of 10–15 pp when the four-option scaffold is removed. For lower-tier models the sign of the gap frequently reverses: a number of smaller or cheaper models gain 10–20 pp on Judge relative to their MCQ score. When a model cannot reliably solve the underlying computation, MCQ-style elimination exposes that more cleanly than the Judge’s looser numerical-tolerance matching does, so the Judge can end up being the more forgiving instrument at the low end of the scale. The finding restated: the MCQ scaffold inflates the performance ceiling. At the top of the benchmark, where every strong model is near 100 % on MCQ, Judge mode produces a more spread-out ranking with a ceiling closer to 87 %; at the bottom of the benchmark, the judge’s tolerant matching can be more forgiving than MCQ’s one-letter-only scoring. The rank correlations reported in fig. 3 reflect exactly this: moderate agreement, not identity, between the two benchmarks’ orderings. Practically, this means MCQ-only actuarial benchmarks should not be read as a ranking of genuine reasoning capacity on open-ended problems. Judge-mode evaluation is a sharper instrument near the frontier and a differently-shaped instrument further down; both views are needed. 
+
+## 6 Discussion 
+
+6.1 Reasoning-Mode vs. Standard Variants 
+
+Six provider/model pairs in our evaluation expose both a standard decoder variant and an explicit reasoning-mode (“thinking”) variant built on the same base model. Figure 4 shows the paired comparison on the MCQ benchmark. The aggregate picture is modest: across the six pairs, the mean accuracy gain from enabling the reasoning mode is about three and a half percentage points, at an average inference-cost multiple around two and a half. The distribution is skewed: one pair — claude-opus-4-6 versus claude-opus-4-6:thinking — moves from 85 % to 98 % accuracy (+13 pp) at roughly 4.7 × the cost; most other pairs move by one to four percentage points. One pair shows a slight regression ( gemini-2.5-flash:thinking scores 2 pp below its non-thinking sibling on this set). Two implications follow. First, reasoning mode is not free performance: on a well-constructed hard-MCQ benchmark it delivers a few percentage points of accuracy per factor of two-to-three in cost, with high variance across model families. Second, the cost-aware reader of section 5.1 should not equate “reasoning mode” with “Pareto-dominant”; the two Pareto-dominant models at the zero-cost end of the scale in our study are both standard open-weights models ( gpt-oss-120b 
+
+on Cerebras and Gemma 4 via Ollama). Where reasoning mode does dominate is at the frontier ceiling: five of the top six scores on the MCQ benchmark come from reasoning-mode variants. 
+
+6.2 Agent-C Repair Statistics 
+
+Of the items Agent C reviewed during generation of the MCQ benchmark pool, roughly three in five were flagged on first pass at the item level (item stem + correct answer) and just under half were flagged at the distractor-ensemble level. These rates are substantially higher than any self-verification rate we observed when the same adapter that drafted an item also verified it in preliminary experiments — consistent with the literature on the verification-generation asymmetry [6, 25]. An in-distribution generator is a poor auditor of its own output. Repair is largely effective. Of the items flagged at the item level, roughly three-quarters pass the re-check after a single-shot Agent A repair and proceed normally; the remainder — around one in six items overall — are persisted with a failure flag. The distractor-level loop behaves comparably: most flagged distractor sets are repaired on a single Agent B pass, a minority persist the failure flag. In aggregate, a pipeline that discarded repair failures rather than marking and 13 0.84 0.86 0.88 0.90 0.92 0.94 0.96 0.98 1.00 
+
+Accuracy 
+
+> google/gemini-2.5-flash
+> anthropic/claude-sonnet-4-20250514
+> anthropic/claude-opus-4-6
+> xai/grok-3-mini
+> google/gemini-2.5-pro
+> anthropic/claude-sonnet-4-6
+> non-thinking
+> thinking
+
+Figure 4: Accuracy of six reasoning-mode (red) variants against their standard-decoder siblings (grey), on the MCQ benchmark. The dumbbell is ordered by non-thinking accuracy. The x-axis is zoomed to the region where the paired variants actually sit. Differences are typically small (one to four percentage points); the Anthropic Opus pair is the outlier at +13 pp. keeping them would lose a non-trivial fraction of its output. The design decision to keep-and-flag rather than discard was made for dataset completeness and is re-visitable for studies that require perfectly verified subsets only. 
+
+6.3 Implications for Practical Actuarial LLM Use 
+
+Three practical conclusions follow from our results. For multiple-choice or structured decision support , a small or mid-tier general-purpose model (for example gpt-5-mini at roughly ten US cents per hundred answers, or a hosted open-weights endpoint at near-zero cost) delivers accuracy within two percentage points of the flagship reasoning variants on the hardest actuarial items we could construct. The extra money spent on the most expensive reasoning-mode models buys little additional accuracy on this task format. For open-ended reasoning and derivation , the picture reverses: the MCQ ranking compresses models at the top, while Judge-mode scoring reveals a roughly 15 pp gap between the strongest frontier reasoning models (about 85 % Judge accuracy) and merely strong non-reasoning models (about 70 %). When the task actually requires deriving an answer rather than selecting one, reasoning-mode or frontier-generation models are cost-justified. For local deployment , the observation that Gemma 4 running via Ollama on a single consumer GPU reaches 85 % accuracy on the MCQ benchmark is material. A team that prefers — for data-governance, cost-control or latency reasons — to run inference locally is not paying a large accuracy penalty on structured actuarial knowledge; on open-ended reasoning the penalty is larger, and a hybrid architecture (local for MCQ-style classification, hosted frontier for derivation) is likely the right trade-off. 
+
+## 7 Limitations and Future Work 
+
+Five limitations of the present study deserve explicit note. 
+
+Statistical power. Each of our two benchmarks contains 100 items. A 5-point accuracy difference between two models at 90 % mean accuracy has a Wilson 95 % confidence interval of roughly ±6 pp, which means small rank differences in the middle of our tables are not statistically 14 decisive. The MCQ-benchmark design choice of empirically-hardest-100 trades sample size for discriminative power at the ceiling; a larger study that re-ran the pipeline to produce, say, 400 items per benchmark would tighten the mid-table estimates at proportionately higher evaluation cost. 
+
+Factual grounding via Wikipedia. The generation pipeline (section 3.2) uses Wikipedia as its sole factual anchor. This is a deliberate choice: Wikipedia is reproducibly fetchable, well-understood as a distribution, and its extracts can be versioned. But it under-covers two important regions of the IAA syllabus: non-English regulatory specifics (Solvency II technical standards, national actuarial standards of practice) and highly specialized practice literature (professional-body notes, consulting-firm methodology papers). Items that would require those sources either degrade to Wikipedia-adjacent paraphrase or are not generated at all. 
+
+Language. The current generation pipeline and both benchmarks are English-only; Wikipedia is accessed on the English edition. A German-language ActuBench would need a German note-summarization adapter and would produce a different distribution of items on the same syllabus. We consider this the most concrete near-term extension, given that the DAV examination ecosystem the work motivates is itself German-language. 
+
+Judge-model bias. The LLM-as-judge design imports known judge-side biases: position, verbosity, and stylistic preferences of the judge model can influence verdicts independently of correctness [21]. For closed-ended actuarial items with ground-truth answers the exposure is smaller than for preference-style evaluation, but it is not zero. A robustness check that varies the judge model and reports inter-judge agreement would strengthen the Judge-mode claims of section 5.3; we regard this as the most important methodological follow-up. 
+
+Contamination risk. Although our pipeline can generate fresh items on demand and the item subset we release is curated, the generation pipeline itself is LLM-driven and its prompts and Wikipedia sources are public. Any generated item released publicly risks eventual inclusion in future pre-training corpora. The live-website release model of section 4.5 slows but does not prevent this. A long-running ActuBench evaluation would rotate its public subset periodically. 
+
+## 8 Conclusion 
+
+We have presented ActuBench, a multi-agent LLM pipeline for the automated generation and evaluation of advanced actuarial assessment items. The pipeline’s principal methodological move is an independent verifier agent : separate adapters draft, construct distractors, and verify; each verdict is structured and auditable; one-shot repair loops make a substantial fraction of flagged items usable without human intervention. The verifier catches first-pass problems in a majority of drafted items at the stem level and in close to half at the distractor level, most of which are subsequently repaired by the one-shot loop. We evaluated fifty language models spanning eight providers on two complementary bench-marks — 100 empirically hardest multiple-choice items and 100 open-ended items scored by an LLM judge. Three findings are our headline empirical contribution. At the top of the MCQ benchmark, four models share the ceiling at 98 % accuracy while their inference costs span an order of magnitude: flagship accuracy on closed-form items is cheaper than it looks. A hosted open-weights 120B model and a locally-run Gemma 4 hold two Pareto-dominant positions at near-zero marginal cost. And MCQ-mode and Judge-mode do not rank models identically: removing the four-option scaffold shifts the benchmark’s ceiling downward by about 10–15 pp and reveals cleaner differentiation among the strongest reasoning-mode models. The items and per-model responses are browsable at https://actubench.de/en/ ; the pipeline code is available from the author on request. We hope the combination of independent verification on the generation side, a ground-truth LLM-as-judge mode on the evaluation side, and a curated public item subset makes ActuBench useful as both a practical evaluation tool for the actuarial community and an empirical reference for the broader LLM-benchmark literature. 15 References 
+
+[1] Caesar Balona. “ActuaryGPT: Applications of Large Language Models to Insurance and Actuarial Work”. British Actuarial Journal 2024. SSRN 4543652, first posted 17 Aug 2023. 
+
+url : https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4543652 .[2] Weize Chen et al. “AgentVerse: Facilitating Multi-Agent Collaboration and Exploring Emergent Behaviors” 2023. arXiv: 2308.10848 . url : https://arxiv.org/abs/2308. 10848 .[3] Zhiyu Chen et al. “FinQA: A Dataset of Numerical Reasoning over Financial Data” 2021. arXiv: 2109.00122 . url : https://arxiv.org/abs/2109.00122 .[4] Chunyuan Deng et al. “Investigating Data Contamination in Modern Benchmarks for Large Language Models” 2023. arXiv: 2311.09783 . url : https://arxiv.org/abs/2311.09783 .[5] Xinya Du, Junru Shao, and Claire Cardie. “Learning to Ask: Neural Question Generation for Reading Comprehension” 2017. arXiv: 1705.00106 . url : https://arxiv.org/abs/ 1705.00106 .[6] Yilun Du et al. “Improving Factuality and Reasoning in Language Models through Multia-gent Debate” 2023. arXiv: 2305.14325 . url : https://arxiv.org/abs/2305.14325 .[7] Dheeru Dua et al. “DROP: A Reading Comprehension Benchmark Requiring Discrete Reasoning Over Paragraphs” 2019. arXiv: 1903.00161 . url : https://arxiv.org/abs/ 1903.00161 .[8] Sabina Elkins et al. “How Useful are Educational Questions Generated by Large Language Models?” 2023. arXiv: 2304.06638 . url : https://arxiv.org/abs/2304.06638 .[9] Yilin Hao et al. “Utilizing Large Language Models (LLMs) for Quantitative Reasoning-Intensive Tasks within the (Re)Insurance Sector”. Annals of Actuarial Science 2025. doi :
+
+10.1017/S1748499525100079 . url : https://doi.org/10.1017/S1748499525100079 .[10] Michael Heilman and Noah A. Smith. “Good Question! Statistical Ranking for Question Generation”. Human Language Technologies: The 2010 Annual Conference of the North American Chapter of the Association for Computational Linguistics (NAACL-HLT) . Asso-ciation for Computational Linguistics, 2010, pp. 609–617. url : https://aclanthology. org/N10-1086/ .[11] Dan Hendrycks et al. “Measuring Mathematical Problem Solving With the MATH Dataset” 2021. arXiv: 2103.03874 . url : https://arxiv.org/abs/2103.03874 .[12] Sirui Hong et al. “MetaGPT: Meta Programming for a Multi-Agent Collaborative Frame-work” 2023. arXiv: 2308.00352 . url : https://arxiv.org/abs/2308.00352 .[13] Seungone Kim et al. “Prometheus: Inducing Fine-grained Evaluation Capability in Lan-guage Models” 2023. arXiv: 2310.08491 . url : https://arxiv.org/abs/2310.08491 .[14] Ghader Kurdi et al. “A Systematic Review of Automatic Question Generation for Educa-tional Purposes”. International Journal of Artificial Intelligence in Education 30.1 2020, pp. 121–204. doi : 10.1007/s40593-019-00186-y . url : https://doi.org/10.1007/ s40593-019-00186-y .[15] Humza Naveed et al. “A Comprehensive Overview of Large Language Models” 2024. arXiv: 
+
+2307.06435 . url : https://arxiv.org/abs/2307.06435 .[16] Long Phan, Alice Gatti, Ziwen Han, et al. “Humanity’s Last Exam” 2025. arXiv: 2501. 14249 . url : https://arxiv.org/abs/2501.14249 .[17] Ronald Richman. “AI in Actuarial Science”. SSRN Electronic Journal 2018. doi : 10. 2139/ssrn.3218082 . url : https://papers.ssrn.com/sol3/papers.cfm?abstract_ id=3218082 .16 [18] Ronald Richman. “An AI Vision for the Actuarial Profession”. Casualty Actuarial Society E-Forum (Summer 2024) 2024. SSRN 4758296, prize-winning essay. url : https://papers. ssrn.com/sol3/papers.cfm?abstract_id=4758296 .[19] Oscar Sainz et al. “NLP Evaluation in Trouble: On the Need to Measure LLM Data Contamination for Each Benchmark” 2023. arXiv: 2310.18018 . url : https://arxiv. org/abs/2310.18018 .[20] Andreas Troxler and Jürg Schelldorfer. “Actuarial Applications of Natural Language Processing Using Transformers: Case Studies for Using Text Features in an Actuarial Context” 2022. arXiv: 2206.02014 . url : https://arxiv.org/abs/2206.02014 .[21] Peiyi Wang et al. “Large Language Models are not Fair Evaluators” 2023. arXiv: 2305. 17926 . url : https://arxiv.org/abs/2305.17926 .[22] Qingyun Wu et al. “AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation Framework” 2023. arXiv: 2308.08155 . url : https://arxiv.org/abs/2308. 08155 .[23] Mario V. Wüthrich and Michael Merz. Statistical Foundations of Actuarial Learning and its Applications . 1st ed. Springer Actuarial. Springer Cham, 2023. doi : 10.1007/978-3-031-12409-9 . url : https://link.springer.com/book/10.1007/978-3-031-12409-9 .[24] Cheng Xu et al. “Benchmark Data Contamination of Large Language Models: A Survey” 2024. arXiv: 2406.04244 . url : https://arxiv.org/abs/2406.04244 .[25] Lianmin Zheng et al. “Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena” 2023. arXiv: 2306.05685 . url : https://arxiv.org/abs/2306.05685 .[26] Hua Zhou et al. “Design, Results and Industry Implications of the World’s First Insurance Large Language Model Evaluation Benchmark (CUFEInse)” 2025. arXiv: 2511.07794 .
+
+url : https://arxiv.org/abs/2511.07794 .[27] Kun Zhou et al. “Don’t Make Your LLM an Evaluation Benchmark Cheater” 2023. arXiv: 
+
+2311.01964 . url : https://arxiv.org/abs/2311.01964 .
+
+## A Key Prompts 
+
+This appendix reproduces the core prompts used by Agents A, B and C, and by the auxiliary agent. All prompts request JSON-only output; validation and caching are handled by the pipeline. For space, we quote the prompt instructions in condensed form; the full templates, including structured output schemas, are available from the author on request. 
+
+Agent A — item drafting. Given the IAA learning objective, the sampled difficulty archetype, and the Wikipedia notes assembled by the auxiliary agent, Agent A is instructed to produce the question stem, the correct answer, and its rationale. Hard constraints: English only; a single best answer under all reasonable interpretations; explicit statement of any assumption needed for uniqueness; no reliance on parametric knowledge that cannot be traced back to the notes. The difficulty archetype is passed as a short natural-language description (e.g., “Quantitative calculation: multi-step computations where each sub-step admits a characteristic error”) so the model calibrates style and depth accordingly. 
+
+Agent B — distractor construction. Agent B is shown the stem, the correct answer with its rationale, and the Wikipedia notes. It is asked for three distractors, each with a short free-text rationale stating the specific misconception or computational slip the distractor is meant to probe, and each satisfying individual plausibility, collective distinctness, and individual incorrectness under the stem’s stated assumptions. 
+
+Agent C — item verification. Agent C receives the learning objective, the Wikipedia notes, the stem, the correct answer, and the rationale, but not the identity of Agent A or 17 the drafting prompt. It returns a structured verdict {ok: bool, issues: [{type: factual_-error | ambiguity | underspecification | difficulty_misalignment, description: str}]}. On ok=false, Agent A’s repair stage is re-invoked with the full issue report. 
+
+Agent C — distractor verification. Agent C receives all four options with their rationales. It returns the same verdict schema, with issue types specialized to distractor design: duplicate_-with_A, duplicate_with_other, not_plausible, inadvertently_correct. 
+
+Auxiliary agent — Wikipedia notes. Given a Wikipedia extract, the auxiliary agent produces a fixed bullet-list schema grouping the content into named facts and their provenance. The same adapter is re-used for topic-label assignment at the end of the pipeline. 
+
+Judge-mode prompts. The evaluatee sees a minimal system prompt (“You are taking an actuarial exam. Answer as accurately and concisely as possible. Show your reasoning briefly, then state your final answer clearly.”) and the bare stem. The judge sees the original question, the evaluatee’s free-text response, and the known correct answer, and returns a JSON verdict comprising the extracted final answer, a short reasoning note, a yes/no correctness decision, and a 0–100 confidence score. 
+
+## B Example Items 
+
+Two example items from the MCQ benchmark are shown below. Option A is always the correct answer in the stored item; at evaluation time the four options are shuffled per run and the shuffle map is persisted (section 4.1). 
+
+Example 1 — Quantitative Calculation 
+
+Learning objective 4.2.2: Apply techniques for creating new distributions: multiplication by a constant, raising to a power. 
+
+Stem. A random variable X follows a log-normal distribution with parameters μ = 1 .2 and 
+
+σ2 = 0 .09 , meaning ln (X) ∼ Normal (μ, σ 2). Define a new random variable Y = 4 X2. Given 
+
+ln(4) ≈ 1.386 , what are the parameters (μY , σ 2 
+
+> Y
+
+) of the log-normal distribution of Y ?
+
+• A (correct): μY = 3 .786 , σ 2 
+
+> Y
+
+= 0 .36 .
+
+• B: μY = 2 .4, σ 2 
+
+> Y
+
+= 0 .36 .
+
+• C: μY = 3 .786 , σ 2 
+
+> Y
+
+= 0 .18 .
+
+• D: μY = 5 .172 , σ 2 
+
+> Y
+
+= 0 .36 .
+
+Rationale. Since ln (X) ∼ Normal (1 .2, 0.09) , we have ln (Y ) = ln (4)+2 ln (X) ∼ Normal ( ln (4)+ 2 · 1.2, 4 · 0.09) = Normal (3 .786 , 0.36) . Distractors B and D test incorrect handling of the additive constant; C tests incorrect variance scaling (multiplying σ2 by 2 rather than by 4). 
+
+Example 2 — Conceptual Inversion 
+
+Learning objective 2.1.5: Apply the term structure of interest rates to modelling cash flows. 
+
+Stem. An analyst values a single, certain cash flow using standard present-value discounting with the appropriate spot rate from the government yield curve (no embedded options, no credit adjustments). She finds that the present value of a $50,000 payment due in 18 months is $50,750. What condition must exist in the current interest-rate environment for this result to be internally consistent with standard discounting theory? 
+
+• A (correct): The 18-month spot rate must be negative. 
+
+• B: The 18-month spot rate must be positive, because a positive rate naturally produces a slight premium over the face amount. 
+
+• C: The yield curve must be inverted, meaning long-term spot rates are lower than short-term spot rates. 18 • D: The 18-month implied forward rate must be negative, but the 18-month spot rate may remain positive. 
+
+Rationale. Under standard discounting, PV = FV /(1+ r)t. Here PV > FV , so (1+ r)1.5 < 1,which requires r < 0. Distractor B inverts the direction of the PV-FV relationship; C confuses the shape of the curve with the sign of the level; D confuses forward and spot rates. 
+
+## C Excluded Models 
+
+Five models were run in the benchmark but are excluded from all main tables and figures because adapter-level errors caused every answer to be recorded as unparseable (zero accuracy on all items of the MCQ pool): 
+
+• anthropic/claude-opus-4-20250514:thinking 
+
+• groq/qwen/qwq-32b:reasoning 
+
+• groq/deepseek-r1-distill-llama-70b:reasoning 
+
+• mistral/magistral-medium-2509:reasoning 
+
+• mistral/ministral-3-8b-2512 
+
+In all five cases the zero accuracy reflects the adapter’s inability to retrieve a parseable letter from the response (thinking-mode outputs exceeding the token budget, or unexpected response envelopes). These are adapter-implementation issues, not capability measurements; a future pipeline update should either fix the adapters or skip the affected models cleanly. 
+
+## Acknowledgments — LLM-assistance disclosure 
+
+The manuscript was drafted with the assistance of Anthropic Claude (Opus 4.7, 1M-context). All research design, empirical interpretations and final text decisions are the responsibility of the author. Claude is additionally one of the evaluated models in this study (section 4.4); we disclose this dual role rather than excluding Claude from the evaluation, because its relative position on the benchmark is of independent scientific interest. 19
