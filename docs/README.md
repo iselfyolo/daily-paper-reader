@@ -6,79 +6,80 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-27
-- 运行时间：2026-04-27 20:32:57 UTC
+- 最新运行日期：2026-04-28
+- 运行时间：2026-04-28 20:54:17 UTC
 - 运行状态：成功
 - 本次总论文数：19
 - 精读区：7
 - 速读区：12
 
 ### 今日简报（AI）
-今日精选19篇前沿成果，深度攻克法律AI精准化与多领域智能体演进难题。
-法律领域表现亮眼，RoLegalGEC与ReLeVAnT通过词汇向量与纠错数据集大幅提升了专业文本处理精度。
-建议重点关注垂直行业AI的精细化落地，特别是法律科技与开放世界工具调用的结合。
-- 详情：[/202604/27/README](/202604/27/README)
+- 今日共生成 19 篇推荐（精读 7 篇，速读 12 篇）
+- 精读：《ComplianceNLP: Knowledge-Graph-Augmented RAG for Multi-Framework Regulatory Gap Detection》（10.0/10）, 《Expert Evaluation of LLM's Open-Ended Legal Reasoning on the Japanese Bar Exam Writing Task》（10.0/10）
+- 速读：《PolicyBank: Evolving Policy Understanding for LLM Agents》（8.0/10）, 《Efficient Video Diffusion Models: Advancements and Challenges》（8.0/10）, 《Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval》（8.0/10）
+- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
+- 详情：[/202604/28/README](/202604/28/README)
 
 ### 精读区论文标签
-1. [RoLegalGEC: Legal Domain Grammatical Error Detection and Correction Dataset for Romanian](/202604/27/2604.19593v2-rolegalgec-legal-domain-grammatical-error-detection-and-correction-dataset-for-romanian)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：法律领域的并行数据合成生成
-2. [ReLeVAnT: Relevance Lexical Vectors for Accurate Legal Text Classification](/202604/27/2604.22292v1-relevant-relevance-lexical-vectors-for-accurate-legal-text-classification)  
-   标签：评分：9.0/10、query:q8
-   evidence：用于法院备案和检索的法律文件分类
-3. [Granularity-Aware Transfer for Tree Instance Segmentation in Synthetic and Real Forests](/202604/27/2604.13722v1-granularity-aware-transfer-for-tree-instance-segmentation-in-synthetic-and-real-forests)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：包含合成图像的混合粒度数据集
-4. [PeerPrism: Peer Evaluation Expertise vs Review-writing AI](/202604/27/2604.14513v1-peerprism-peer-evaluation-expertise-vs-review-writing-ai)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：构建涵盖全人工和全合成评论的受控生成方案
-5. [Dual-View Training for Instruction-Following Information Retrieval](/202604/27/2604.18845v1-dual-view-training-for-instruction-following-information-retrieval)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：用于训练检索器的双视图数据合成策略
-6. [ActuBench: A Multi-Agent LLM Pipeline for Generation and Evaluation of Actuarial Reasoning Tasks](/202604/27/2604.20273v1-actubench-a-multi-agent-llm-pipeline-for-generation-and-evaluation-of-actuarial-reasoning-tasks)  
-   标签：评分：8.0/10、query:edu-llm
-   evidence：自动生成教育评估题目
-7. [Semantic Recall for Vector Search](/202604/27/2604.20417v1-semantic-recall-for-vector-search)  
-   标签：评分：8.0/10、query:kgee
-   evidence：向量搜索与检索的语义召回率
+1. [ComplianceNLP: Knowledge-Graph-Augmented RAG for Multi-Framework Regulatory Gap Detection](/202604/28/2604.23585v1-compliancenlp-knowledge-graph-augmented-rag-for-multi-framework-regulatory-gap-detection)  
+   标签：评分：10.0/10、query:profile-3
+   evidence：自动监管差距检测与义务逻辑分类
+2. [Expert Evaluation of LLM's Open-Ended Legal Reasoning on the Japanese Bar Exam Writing Task](/202604/28/2604.23730v1-expert-evaluation-of-llms-open-ended-legal-reasoning-on-the-japanese-bar-exam-writing-task)  
+   标签：评分：10.0/10、query:profile-3
+   evidence：大模型在司法考试任务中的开放式法律推理
+3. [GLIER: Generative Legal Inference and Evidence Ranking for Legal Case Retrieval](/202604/28/2604.23779v1-glier-generative-legal-inference-and-evidence-ranking-for-legal-case-retrieval)  
+   标签：评分：10.0/10、query:kgee
+   evidence：用于法律案例检索的生成式法律推理
+4. [LegalDrill: Diagnosis-Driven Synthesis for Legal Reasoning in Small Language Models](/202604/28/2604.23809v1-legaldrill-diagnosis-driven-synthesis-for-legal-reasoning-in-small-language-models)  
+   标签：评分：10.0/10、query:profile-3
+   evidence：小语言模型中的法律推理与法规解释合成
+5. [On the Existence of an Inverse Solution for Preference-Based Reductions in Argumentation](/202604/28/2604.22958v1-on-the-existence-of-an-inverse-solution-for-preference-based-reductions-in-argumentation)  
+   标签：评分：9.0/10、query:q1
+   evidence：基于偏好的论证框架形式化模型
+6. [Reducing Detail Hallucinations in Long-Context Regulatory Understanding via Targeted Preference Optimization](/202604/28/2604.23113v1-reducing-detail-hallucinations-in-long-context-regulatory-understanding-via-targeted-preference-optimization)  
+   标签：评分：9.0/10、query:profile-3
+   evidence：理解长篇监管文件和义务级别
+7. [Towards Lawful Autonomous Driving: Deriving Scenario-Aware Driving Requirements from Traffic Laws and Regulations](/202604/28/2604.24562v1-towards-lawful-autonomous-driving-deriving-scenario-aware-driving-requirements-from-traffic-laws-and-regulations)  
+   标签：评分：9.0/10、query:profile-3
+   evidence：利用大模型和形式逻辑从交通法中推导法律要求
 
 ### 速读区论文标签
-1. [ToolOmni: Enabling Open-World Tool Use via Agentic learning with Proactive Retrieval and Grounded Execution](/202604/27/2604.13787v1-toolomni-enabling-open-world-tool-use-via-agentic-learning-with-proactive-retrieval-and-grounded-execution)  
+1. [PolicyBank: Evolving Policy Understanding for LLM Agents](/202604/28/2604.15505v1-policybank-evolving-policy-understanding-for-llm-agents)  
+   标签：评分：8.0/10、query:profile-3
+   evidence：遵守授权约束和逻辑策略理解
+2. [Efficient Video Diffusion Models: Advancements and Challenges](/202604/28/2604.15911v1-efficient-video-diffusion-models-advancements-and-challenges)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：构建冷启动多轮交互数据集以注入智能体能力
-2. [MUSE: Multi-Domain Chinese User Simulation via Self-Evolving Profiles and Rubric-Guided Alignment](/202604/27/2604.13828v1-muse-multi-domain-chinese-user-simulation-via-self-evolving-profiles-and-rubric-guided-alignment)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：旨在生成类人、可控用户模拟响应的框架
-3. [Generative Modeling of Complex-Valued Brain MRI Data](/202604/27/2604.14800v1-generative-modeling-of-complex-valued-brain-mri-data)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：用于合成脑部MRI样本质量的生成式框架
-4. [STEP-Parts: Geometric Partitioning of Boundary Representations for Large-Scale CAD Processing](/202604/27/2604.14927v1-step-parts-geometric-partitioning-of-boundary-representations-for-large-scale-cad-processing)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：为学习生成实例标签和元数据的工具链
-5. [STRIDE: Strategic Iterative Decision-Making for Retrieval-Augmented Multi-Hop Question Answering](/202604/27/2604.17405v1-stride-strategic-iterative-decision-making-for-retrieval-augmented-multi-hop-question-answering)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：多跳问答中推理步骤间的战略规划和逻辑依赖
-6. [DuConTE: Dual-Granularity Text Encoder with Topology-Constrained Attention for Text-attributed Graphs](/202604/27/2604.17411v1-duconte-dual-granularity-text-encoder-with-topology-constrained-attention-for-text-attributed-graphs)  
-   标签：评分：7.0/10、query:kgee
-   evidence：文本属性图信息抽取的拓扑约束注意力机制
-7. [EHRAG: Bridging Semantic Gaps in Lightweight GraphRAG via Hybrid Hypergraph Construction and Retrieval](/202604/27/2604.17458v2-ehrag-bridging-semantic-gaps-in-lightweight-graphrag-via-hybrid-hypergraph-construction-and-retrieval)  
-   标签：评分：7.0/10、query:kgee
-   evidence：轻量级实体抽取与语义检索
-8. [CoAct: Co-Active LLM Preference Learning with Human-AI Synergy](/202604/27/2604.17501v1-coact-co-active-llm-preference-learning-with-human-ai-synergy)  
+   evidence：用于生成式合成的高效视频扩散模型综述
+3. [Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval](/202604/28/2604.15951v1-integrating-graphs-large-language-models-and-agents-reasoning-and-retrieval)  
+   标签：评分：8.0/10、query:kgee
+   evidence：知识图谱与大模型集成的综述
+4. [Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval](/202604/28/2604.15951v2-integrating-graphs-large-language-models-and-agents-reasoning-and-retrieval)  
+   标签：评分：8.0/10、query:kgee
+   evidence：知识图谱与大模型集成的推理与检索综述
+5. [SPENCE: A Syntactic Probe for Detecting Contamination in NL2SQL Benchmarks](/202604/28/2604.17771v1-spence-a-syntactic-probe-for-detecting-contamination-in-nl2sql-benchmarks)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：通过自我奖励和主动学习生成高质量训练数据
-9. [A Multi-Agent Approach for Claim Verification from Tabular Data Documents](/202604/27/2604.17225v1-a-multi-agent-approach-for-claim-verification-from-tabular-data-documents)  
-   标签：评分：6.0/10、query:q2
-   evidence：用于主张验证和推理验证的多智能体框架
-10. [HeadRank: Decoding-Free Passage Reranking via Preference-Aligned Attention Heads](/202604/27/2604.17237v1-headrank-decoding-free-passage-reranking-via-preference-aligned-attention-heads)  
+   evidence：系统地为数据集生成测试查询的句法变体
+6. [Decisive: Guiding User Decisions with Optimal Preference Elicitation from Unstructured Documents](/202604/28/2604.18122v1-decisive-guiding-user-decisions-with-optimal-preference-elicitation-from-unstructured-documents)  
+   标签：评分：7.0/10、query:q8
+   evidence：基于文档的决策支持系统
+7. [FregeLogic at SemEval 2026 Task 11: A Hybrid Neuro-Symbolic Architecture for Content-Robust Syllogistic Validity Prediction](/202604/28/2604.18328v1-fregelogic-at-semeval-2026-task-11-a-hybrid-neuro-symbolic-architecture-for-content-robust-syllogistic-validity-prediction)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：用于三段论有效性预测的形式逻辑仲裁
+8. [ArbGraph: Conflict-Aware Evidence Arbitration for Reliable Long-Form Retrieval-Augmented Generation](/202604/28/2604.18362v1-arbgraph-conflict-aware-evidence-arbitration-for-reliable-long-form-retrieval-augmented-generation)  
+   标签：评分：7.0/10、query:q1
+   evidence：具有支持和矛盾关系的冲突感知证据图，可用于论证分析
+9. [ThreadSumm: Summarization of Nested Discourse Threads Using Tree of Thoughts](/202604/28/2604.17648v1-threadsumm-summarization-of-nested-discourse-threads-using-tree-of-thoughts)  
    标签：评分：6.0/10、query:kgee
-   evidence：通过注意力机制进行段落重排序
-11. [Align Documents to Questions: Question-Oriented Document Rewriting for Retrieval-Augmented Generation](/202604/27/2604.17325v1-align-documents-to-questions-question-oriented-document-rewriting-for-retrieval-augmented-generation)  
-   标签：评分：6.0/10、query:kgee
-   evidence：面向问题的检索增强生成文档重写
-12. [Logical Computational Linguistics](/202604/27/2604.17346v1-logical-computational-linguistics)  
-   标签：评分：6.0/10、query:q6
-   evidence：NLP中用于语义处理的形式逻辑
+   evidence：显式内容单元上的分层推理和树搜索
+10. [ReCoQA: A Benchmark for Tool-Augmented and Multi-Step Reasoning in Real Estate Question and Answering](/202604/28/2604.17944v1-recoqa-a-benchmark-for-tool-augmented-and-multi-step-reasoning-in-real-estate-question-and-answering)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：具有机器可验证监督的大规模基准数据集
+11. [Architecture Matters More Than Scale: A Comparative Study of Retrieval and Memory Augmentation for Financial QA Under SME Compute Constraints](/202604/28/2604.17979v1-architecture-matters-more-than-scale-a-comparative-study-of-retrieval-and-memory-augmentation-for-financial-qa-under-sme-compute-constraints)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：用于金融决策支持的自动推理
+12. [The Topological Dual of a Dataset: A Logic-to-Topology Encoding for AlphaGeometry-Style Data](/202604/28/2604.18050v1-the-topological-dual-of-a-dataset-a-logic-to-topology-encoding-for-alphageometry-style-data)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：符号演绎引擎中用于结构化理解的逻辑到拓扑编码
 
 
 <div class="dpr-home-promo-card">
