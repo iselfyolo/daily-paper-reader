@@ -6,80 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-04-28
-- 运行时间：2026-04-28 20:54:17 UTC
+- 最新运行日期：2026-04-29
+- 运行时间：2026-04-29 21:02:25 UTC
 - 运行状态：成功
 - 本次总论文数：19
 - 精读区：7
 - 速读区：12
 
 ### 今日简报（AI）
-- 今日共生成 19 篇推荐（精读 7 篇，速读 12 篇）
-- 精读：《ComplianceNLP: Knowledge-Graph-Augmented RAG for Multi-Framework Regulatory Gap Detection》（10.0/10）, 《Expert Evaluation of LLM's Open-Ended Legal Reasoning on the Japanese Bar Exam Writing Task》（10.0/10）
-- 速读：《PolicyBank: Evolving Policy Understanding for LLM Agents》（8.0/10）, 《Efficient Video Diffusion Models: Advancements and Challenges》（8.0/10）, 《Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval》（8.0/10）
-- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
-- 详情：[/202604/28/README](/202604/28/README)
+今日精选 19 篇前沿论文，重点聚焦法律大模型垂直适配与 NL2SQL 交互歧义处理。
+满分论文 LegalMidm 实现了韩语法律领域的深度定制，CLARITY 框架则为解决 NL2SQL 中的对话不确定性提供了新基准。
+建议关注大模型在特定行业（如法律、软件工程）的落地实践，以及如何通过交互式框架提升复杂任务的准确性。
+- 详情：[/202604/29/README](/202604/29/README)
 
 ### 精读区论文标签
-1. [ComplianceNLP: Knowledge-Graph-Augmented RAG for Multi-Framework Regulatory Gap Detection](/202604/28/2604.23585v1-compliancenlp-knowledge-graph-augmented-rag-for-multi-framework-regulatory-gap-detection)  
+1. [LegalMidm: Use-Case-Driven Legal Domain Specialization for Korean Large Language Model](/202604/29/2604.25297v1-legalmidm-use-case-driven-legal-domain-specialization-for-korean-large-language-model)  
    标签：评分：10.0/10、query:profile-3
-   evidence：自动监管差距检测与义务逻辑分类
-2. [Expert Evaluation of LLM's Open-Ended Legal Reasoning on the Japanese Bar Exam Writing Task](/202604/28/2604.23730v1-expert-evaluation-of-llms-open-ended-legal-reasoning-on-the-japanese-bar-exam-writing-task)  
-   标签：评分：10.0/10、query:profile-3
-   evidence：大模型在司法考试任务中的开放式法律推理
-3. [GLIER: Generative Legal Inference and Evidence Ranking for Legal Case Retrieval](/202604/28/2604.23779v1-glier-generative-legal-inference-and-evidence-ranking-for-legal-case-retrieval)  
-   标签：评分：10.0/10、query:kgee
-   evidence：用于法律案例检索的生成式法律推理
-4. [LegalDrill: Diagnosis-Driven Synthesis for Legal Reasoning in Small Language Models](/202604/28/2604.23809v1-legaldrill-diagnosis-driven-synthesis-for-legal-reasoning-in-small-language-models)  
-   标签：评分：10.0/10、query:profile-3
-   evidence：小语言模型中的法律推理与法规解释合成
-5. [On the Existence of an Inverse Solution for Preference-Based Reductions in Argumentation](/202604/28/2604.22958v1-on-the-existence-of-an-inverse-solution-for-preference-based-reductions-in-argumentation)  
+   evidence：法律领域大语言模型及法律数据集构建方法
+2. [CLARITY: A Framework and Benchmark for Conversational Language Ambiguity and Unanswerability in Interactive NL2SQL Systems](/202604/29/2604.22313v1-clarity-a-framework-and-benchmark-for-conversational-language-ambiguity-and-unanswerability-in-interactive-nl2sql-systems)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：自动生成NL2SQL基准测试集的框架
+3. [ArgRE: Formal Argumentation for Conflict Resolution in Multi-Agent Requirements Negotiation](/202604/29/2604.23124v1-argre-formal-argumentation-for-conflict-resolution-in-multi-agent-requirements-negotiation)  
    标签：评分：9.0/10、query:q1
-   evidence：基于偏好的论证框架形式化模型
-6. [Reducing Detail Hallucinations in Long-Context Regulatory Understanding via Targeted Preference Optimization](/202604/28/2604.23113v1-reducing-detail-hallucinations-in-long-context-regulatory-understanding-via-targeted-preference-optimization)  
+   evidence：将Dung式抽象论证嵌入谈判阶段
+4. [Faithful Autoformalization via Roundtrip Verification and Repair](/202604/29/2604.25031v1-faithful-autoformalization-via-roundtrip-verification-and-repair)  
+   标签：评分：9.0/10、query:q9
+   evidence：交通规则的自动形式化与逻辑等价性检查
+5. [Faithfulness-QA: A Counterfactual Entity Substitution Dataset for Training Context-Faithful RAG Models](/202604/29/2604.25313v1-faithfulness-qa-a-counterfactual-entity-substitution-dataset-for-training-context-faithful-rag-models)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：通过反事实替换构建新研究数据集的方法论
+6. [Navigating Global AI Regulation: A Multi-Jurisdictional Retrieval-Augmented Generation System](/202604/29/2604.25448v1-navigating-global-ai-regulation-a-multi-jurisdictional-retrieval-augmented-generation-system)  
    标签：评分：9.0/10、query:profile-3
-   evidence：理解长篇监管文件和义务级别
-7. [Towards Lawful Autonomous Driving: Deriving Scenario-Aware Driving Requirements from Traffic Laws and Regulations](/202604/28/2604.24562v1-towards-lawful-autonomous-driving-deriving-scenario-aware-driving-requirements-from-traffic-laws-and-regulations)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：利用大模型和形式逻辑从交通法中推导法律要求
+   evidence：全球AI监管和法律引用的RAG系统
+7. [Navigating Large-Scale Document Collections: MuDABench for Multi-Document Analytical QA](/202604/29/2604.22239v1-navigating-large-scale-document-collections-mudabench-for-multi-document-analytical-qa)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：通过利用文档级元数据的远程监督构建数据集
 
 ### 速读区论文标签
-1. [PolicyBank: Evolving Policy Understanding for LLM Agents](/202604/28/2604.15505v1-policybank-evolving-policy-understanding-for-llm-agents)  
-   标签：评分：8.0/10、query:profile-3
-   evidence：遵守授权约束和逻辑策略理解
-2. [Efficient Video Diffusion Models: Advancements and Challenges](/202604/28/2604.15911v1-efficient-video-diffusion-models-advancements-and-challenges)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：用于生成式合成的高效视频扩散模型综述
-3. [Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval](/202604/28/2604.15951v1-integrating-graphs-large-language-models-and-agents-reasoning-and-retrieval)  
+1. [SCHK-HTC: Sibling Contrastive Learning with Hierarchical Knowledge-Aware Prompt Tuning for Hierarchical Text Classification](/202604/29/2604.15998v1-schk-htc-sibling-contrastive-learning-with-hierarchical-knowledge-aware-prompt-tuning-for-hierarchical-text-classification)  
    标签：评分：8.0/10、query:kgee
-   evidence：知识图谱与大模型集成的综述
-4. [Integrating Graphs, Large Language Models, and Agents: Reasoning and Retrieval](/202604/28/2604.15951v2-integrating-graphs-large-language-models-and-agents-reasoning-and-retrieval)  
-   标签：评分：8.0/10、query:kgee
-   evidence：知识图谱与大模型集成的推理与检索综述
-5. [SPENCE: A Syntactic Probe for Detecting Contamination in NL2SQL Benchmarks](/202604/28/2604.17771v1-spence-a-syntactic-probe-for-detecting-contamination-in-nl2sql-benchmarks)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：系统地为数据集生成测试查询的句法变体
-6. [Decisive: Guiding User Decisions with Optimal Preference Elicitation from Unstructured Documents](/202604/28/2604.18122v1-decisive-guiding-user-decisions-with-optimal-preference-elicitation-from-unstructured-documents)  
-   标签：评分：7.0/10、query:q8
-   evidence：基于文档的决策支持系统
-7. [FregeLogic at SemEval 2026 Task 11: A Hybrid Neuro-Symbolic Architecture for Content-Robust Syllogistic Validity Prediction](/202604/28/2604.18328v1-fregelogic-at-semeval-2026-task-11-a-hybrid-neuro-symbolic-architecture-for-content-robust-syllogistic-validity-prediction)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：用于三段论有效性预测的形式逻辑仲裁
-8. [ArbGraph: Conflict-Aware Evidence Arbitration for Reliable Long-Form Retrieval-Augmented Generation](/202604/28/2604.18362v1-arbgraph-conflict-aware-evidence-arbitration-for-reliable-long-form-retrieval-augmented-generation)  
+   evidence：树状结构标签层级与层级知识感知提示微调
+2. [A Community-Based Approach for Stance Distribution and Argument Organization](/202604/29/2604.16852v1-a-community-based-approach-for-stance-distribution-and-argument-organization)  
+   标签：评分：8.0/10、query:q1
+   evidence：基于图的无监督论证组织方法
+3. [Towards an Agentic LLM-based Approach to Requirement Formalization from Unstructured Specifications](/202604/29/2604.18228v1-towards-an-agentic-llm-based-approach-to-requirement-formalization-from-unstructured-specifications)  
+   标签：评分：8.0/10、query:q9
+   evidence：使用大模型代理将非结构化规范形式化为可验证属性
+4. [Positive, Negative, and Reliable Information in a First-Order Logic of Evidence and Truth](/202604/29/2604.18526v1-positive-negative-and-reliable-information-in-a-first-order-logic-of-evidence-and-truth)  
+   标签：评分：8.0/10、query:q6
+   evidence：用于知识表示的证据与真理一阶逻辑
+5. [From Natural Language to Executable Narsese: A Neuro-Symbolic Benchmark and Pipeline for Reasoning with NARS](/202604/29/2604.18873v1-from-natural-language-to-executable-narsese-a-neuro-symbolic-benchmark-and-pipeline-for-reasoning-with-nars)  
+   标签：评分：7.0/10、query:q6
+   evidence：将自然语言转换为形式逻辑表示
+6. [Debating the Unspoken: Role-Anchored Multi-Agent Reasoning for Half-Truth Detection](/202604/29/2604.19005v1-debating-the-unspoken-role-anchored-multi-agent-reasoning-for-half-truth-detection)  
    标签：评分：7.0/10、query:q1
-   evidence：具有支持和矛盾关系的冲突感知证据图，可用于论证分析
-9. [ThreadSumm: Summarization of Nested Discourse Threads Using Tree of Thoughts](/202604/28/2604.17648v1-threadsumm-summarization-of-nested-discourse-threads-using-tree-of-thoughts)  
-   标签：评分：6.0/10、query:kgee
-   evidence：显式内容单元上的分层推理和树搜索
-10. [ReCoQA: A Benchmark for Tool-Augmented and Multi-Step Reasoning in Real Estate Question and Answering](/202604/28/2604.17944v1-recoqa-a-benchmark-for-tool-augmented-and-multi-step-reasoning-in-real-estate-question-and-answering)  
+   evidence：用于推理和验证的多智能体辩论框架
+7. [Governed Auditable Decisioning Under Uncertainty: Synthesis and Agentic Extension](/202604/29/2604.19112v2-governed-auditable-decisioning-under-uncertainty-synthesis-and-agentic-extension)  
+   标签：评分：7.0/10、query:q8
+   evidence：自动化决策系统的治理证据框架
+8. [A Sequent Calculus for General Inductive Definitions](/202604/29/2604.19382v1-a-sequent-calculus-for-general-inductive-definitions)  
+   标签：评分：7.0/10、query:q6
+   evidence：使用相继式演算和归纳定义的知识表示形式逻辑
+9. [DW-Bench: Benchmarking LLMs on Data Warehouse Graph Topology Reasoning](/202604/29/2604.18964v1-dw-bench-benchmarking-llms-on-data-warehouse-graph-topology-reasoning)  
    标签：评分：6.0/10、query:ds-gen
-   evidence：具有机器可验证监督的大规模基准数据集
-11. [Architecture Matters More Than Scale: A Comparative Study of Retrieval and Memory Augmentation for Financial QA Under SME Compute Constraints](/202604/28/2604.17979v1-architecture-matters-more-than-scale-a-comparative-study-of-retrieval-and-memory-augmentation-for-financial-qa-under-sme-compute-constraints)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：用于金融决策支持的自动推理
-12. [The Topological Dual of a Dataset: A Logic-to-Topology Encoding for AlphaGeometry-Style Data](/202604/28/2604.18050v1-the-topological-dual-of-a-dataset-a-logic-to-topology-encoding-for-alphageometry-style-data)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：符号演绎引擎中用于结构化理解的逻辑到拓扑编码
+   evidence：自动生成的图推理基准测试问题
+10. [A Sequent Calculus for General Inductive Definitions](/202604/29/2604.19382v2-a-sequent-calculus-for-general-inductive-definitions)  
+   标签：评分：6.0/10、query:q6
+   evidence：用于知识表示的形式逻辑和相继式演算
+11. [Statistics, Not Scale: Modular Medical Dialogue with Bayesian Belief Engine](/202604/29/2604.20022v1-statistics-not-scale-modular-medical-dialogue-with-bayesian-belief-engine)  
+   标签：评分：6.0/10、query:q2
+   evidence：诊断代理中语言与推理的分离
+12. [To Know is to Construct: Schema-Constrained Generation for Agent Memory](/202604/29/2604.20117v1-to-know-is-to-construct-schema-constrained-generation-for-agent-memory)  
+   标签：评分：6.0/10、query:kgee
+   evidence：用于结构化信息提取和记忆的模式约束生成
 
 
 <div class="dpr-home-promo-card">
