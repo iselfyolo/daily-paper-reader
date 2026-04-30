@@ -1,0 +1,527 @@
+Title: When Active Learning Falls Short: An Empirical Study on Chemical Reaction Extraction
+
+URL Source: https://arxiv.org/pdf/2604.19335v1
+
+Published Time: Wed, 22 Apr 2026 00:57:35 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# When Active Learning Falls Short: An Empirical Study on Chemical Reaction Extraction 
+
+1st Simin Yu 
+
+Data and Knowledge Engineering Otto-von-Guericke University 
+
+Magdeburg, Germany simin.yu@st.ovgu.de 
+
+2nd Sufia Fathima 
+
+Data and Knowledge Engineering Otto-von-Guericke University 
+
+Magdeburg, Germany sufia@ovgu.de 
+
+Abstract —The rapid growth of chemical literature has gener-ated vast amounts of unstructured data, where reaction infor-mation is particularly valuable for applications such as reaction predictions and drug design. However, the prohibitive cost of expert annotation has led to a scarcity of training data, severely hindering the performance of automatic reaction extraction. In this work, we conduct a systematic study of active learning for chemical reaction extraction. We integrate six uncertainty-and diversity-based strategies with pretrained transformer-CRF architectures, and evaluate them on product extraction and role labeling task. While several methods approach full-data perfor-mance with fewer labeled instances, learning curves are often non-monotonic and task-dependent. Our analysis shows that strong pretraining, structured CRF decoding, and label sparsity limit the stability of conventional active learning strategies. These findings provide practical insights for the effective use of active learning in chemical information extraction. 
+
+Index Terms —Active learning, Chemical reaction extraction, Domain-specific LLM 
+
+I. I NTRODUCTION 
+
+With the exponential growth of chemical literature, it has become increasingly difficult for researchers to manually ex-tract useful information from past publications. Knowledge of existing chemical reactions serves as a crucial foundation for chemists in conducting benchmark experiments, reaction predictions [1], and computer-aided drug design [2]. Despite the abundance of chemical reactions documented in journal articles, it remains challenging to convert them into structured formats. The difficulty arises because reaction extraction in-volves extracting both chemical entities and the relationships between them, which are reflected not necessarily in the same sentence or even the same paragraph [3]. Existing large-scale databases, such as Reaxys [4] and Scifinder [5], heavily depend on manual extraction by human experts, which entails prohibitive costs, restrictive access and delayed updates [6]. As a result, attention has shifted toward developing effective automated methods for reaction extraction. Early approaches relied on manually designed rules and regular expressions to identify reaction components and their roles, leading to tools such as ChemicalTagger [7] and OPSIN [8]. These rule-based systems were initially designed for patent data, which typically follows standardized formats and structured templates. OPSIN, partially built upon ChemicalTagger, assigned four roles to chemical entities, including product, reactant, solvent and cat-alyst. Nevertheless, these systems fail for multi-step reactions [8] and scale poorly to scientific articles, due to the complexity and variations in language use [3]. These limitations have motivated a shift from rule-based to data-driven approaches that directly learn from examples rather than depending on exhaustive rule design. Subsequent studies adopt traditional machine learning meth-ods such as Conditional Random Fields(CRF) for chemical named entity recognition(NER), resulting in systems like ChemSpot [9] and tmChem [10]. Mallory et al. [11] applied a weakly supervised learning framework, Snorkel [12], to per-form reaction extraction from biomedical literature abstracts. However, these approaches still fall short of producing fully structured reaction data, which includes chemical entities and their respective roles in the reactions. Recent advances in Large Language Models (LLMs) have substantially improved performance on chemical Natural Lan-guage Processing(NLP) tasks, including NER [13] and relation extraction [14]. Among these tasks, reaction extraction remains under-explored, despite its greater potential to generate in-formative and actionable data [3]. BERT-based models [15] are typically pretrained on vast amounts of unlabeled corpora and subsequently fine-tuned for specific tasks. Following this paradigm, Guo et al. [3] first proposed to decompose reaction extraction problem into a cascade of product extraction and re-action role labeling, corresponding to named entity recognition and conditioned relation extraction tasks in NLP, respectively. Their approach leverages ChemBERT, a transformer encoder pretrained on extensive chemical journal articles followed by a CRF decoder, and ChemRxnBERT, a variant further pretrained on reaction-relevant data. Their model achieved F1 scores of 76.2% for product extraction and 78.7% for role labeling, using only a few hundred annotated reactions. Despite these encouraging results, annotation of chem-ical reaction data remains time-consuming and expertise-demanding. While pretrained transformers reduce data require-ments compared to earlier approaches, it is still an open challenge to further improve annotation efficiency. Active Learning(AL) offers a new perspective, by selecting informa-tive or representative samples from large unlabeled corpora [16] rather than randomly sampling, potentially improving the 1
+
+> arXiv:2604.19335v1 [cs.LG] 21 Apr 2026
+
+performance-to-annotation ratio. However, it remains unclear whether active learning can be effective when applied to pretrained transformer-CRF architectures in chemical reaction extraction. As pointed out by Guo et al. [3], structured extrac-tion of reaction data involves sequence tagging, severe class imbalance, and structured decoding constraints, all of which may affect acquisition strategies that are originally mainly designed for classical classification settings. In this work, we systematically investigate the behavior of uncertainty-based and diversity-based active learning strate-gies when integrated with ChemBERT and ChemRxnBERT. Our experiments demonstrate that active label acquisition and iterative fine-tuning with warm start can produce near-baseline results with reduced annotated data. However, none of the active learning strategy consistently outperform passive learning, and learning curves exhibit non-monotonic behavior. Our analysis reveals that heavily pretrained models, structured prediction with CRF decoding and tasks with extreme label sparsity may be incompatible with classic active learning strategies, providing insights into how active learning should be utilized in chemical reaction extraction. II. R ELATED WORK 
+
+Large publicly available datasets such as CoNLL-2003 [17] and OntoNotes [18] have played a crucial role in general-domain NER. However, due to annotation being expensive and requiring domain knowledge, specialized fields such as chem-istry lack comparable resources [19]. This section reviews prior work addressing data scarcity through active learning, as well as research on chemical information extraction. 
+
+A. Active Learning for Deep Learning 
+
+Active learning(AL) is a machine learning approach in which models actively choose the most informative samples for labeling rather than learning from randomly chosen data. Motivated by high annotation costs and limited labeled data [20], AL has increasingly been integrated with deep learning, resulting in what is often referred to as Deep Active Learning (DeepAL) [21]. This integration leverages the strengths of both, as deep learning effectively extracts features from high-dimensional inputs, while active learning reduces labeling requirements [21]. Many DeepAL methods are based on uncertainty sampling, where models query samples for which predictions are least confident [22]. Cost-Effective Active Learning, developed by Wang et al. [23], combines Convolutional Neural Network (CNN) with uncertainty-based active acquisition. It includes least-confidence and margin sampling, and additionally used pseudo-labeling of high-confidence predictions based on en-tropy thresholds to expand the training set. Their approach reduced annotation needs by 36%. Gal et al. [24] extended this idea through Deep Bayesian Active Learning, which employs Monte Carlo dropout to obtain more reliable uncertainty estimates for sample selection. Similarly, Shelmanov et al. [25] introduced a transformer-based active learning framework using Maximum Normalized Log-Probability, Variation Ra-tio, and Bayesian Active Learning by Disagreement(BALD). Their experiments demonstrate that high performance can be achieved for low-resource NLP tasks using only 16–20% of labeled data. Diversity-based methods provide an alternative to uncer-tainty sampling, addressing its tendency to select redundant or highly similar queries [21]. The Core-set approach proposed by Sener and Savarese [26] formulates active learning as choosing a representative subset that best cover the feature space distribution. A more recent study by Liu et al. [27] pro-posed CLUSTER, a diversity-based method for clinical NER that groups semantically similar sentences using sentence-BERT embeddings in combination with K-means clustering. Their framework also incorporates dynamic strategies, such as cluster least confidence and cluster N-best sequence entropy, that enabled a transition from diversity-based to uncertainty-based selection as learning progresses. Hybrid strategies attempt to strike a balance between un-certainty and diversity, ensuring that selected samples are simultaneously informative and representative of the data distribution [21]. Li et al. [28] proposed such an approach within a BERT-BiLSTM-CRF architecture for named entity recognition. This hybrid strategy calculates uncertainty scores with least confidence and diversity scores with POS-tagged context similarity, thereby minimizing redundant annotations. Likewise, Liu et al. [29] combined normalized least-confidence sampling with self learning based on maximum confidence for cybersecurity NER under restricted labeled data. The approach achieved 97.5% of full-data performance using only 30% of labeled samples, resulting in an F1-score of 94.04%. Although active learning has shown success in low-resource NLP sce-narios, the use of AL strategies in domain-specific pretrained transformer-CRF architectures with high label imbalance has not yet been explored. 
+
+B. Chemical Information Extraction 
+
+Chemical information extraction involves automatically identifying structured information about chemical entities, reactions, and their properties from unstructured scientific text, which enables applications such as drug discovery and reac-tion database construction [8], [30]. This task is particularly challenging due to the complexity of chemical nomenclature, which includes systematic IUPAC names, chemical formulas, trivial names, and trade names that often appear interchange-ably within documents [31]. Early systems such as OSCAR4 [32] and ChemSpot [9] relied on dictionary matching and rule-based approaches along with CRF to identify various chemical terms [33], [34]. Although these approaches achieved moderate success, they depended heavily on manual feature engineering, which per-formed less effectively on journal articles compared to patents due to the varied writing style and less formulaic language [35]. ChemicalTagger [7], a rule- and grammar-based parser, went beyond entity extraction by recognizing action phrases and relationships, but its reliance on handcrafted rules re-2stricted scalability. The BiLSTM-CRF architecture [36]which established a strong foundation for sequence tagging tasks, was later adopted for chemical NER. ChemDataExtractor [30] first introduced hybrid NLP pipelines combining rule-based and statistical components. With the emergence of transformer architectures, domain-specific pretrained models such as MatSciBERT [37] and ChemBERTa [38] demonstrated improved contextual under-standing of scientific and chemical text. Building on these advances, Guo et al. [3] proposed a two-stage framework for reaction extraction from journal literature. In their approach, product extraction is formulated as a standard sequence la-beling task using a transformer encoder followed by a CRF decoder under the BIO tagging scheme. For role labeling, reaction role entities are identified by inserting special markers around product spans to inform the encoder about the target product. For a given product, their model is able to detect eight associated reaction roles that are informative for de-scribing chemical reactions. Recent work has explored data augmentation techniques to alleviate annotation scarcity in chemical reaction extraction. For example, Zhang et al. [39] and Dao et al. [40] employed synthetic sentence generation and LLM-based text augmentation. In contrast, our study examines whether active sample selection alone can improve annotation efficiency without introducing artificial data. III. M ETHODS 
+
+A. Model Architecture 
+
+A typical active learning system iteratively improves a model by selecting informative unlabeled instances for anno-tation by an oracle and incorporating the newly labeled data into training [16].To fairly assess the effectiveness of applying active learning strategies to ChemBERT and ChemRxnBERT [3] models, we simulate pool-based active learning on the original annotated datasets 1 with identical data splits for both product extraction and role assignment. In both tasks, the data are organized as sentence-level blocks, where each block corresponds to a sentence extracted from a scientific article. Each sentence consists of a sequence of tokens annotated using the conventional BIO-tagging scheme. For product extraction, each token is assigned a single label indicating whether it belongs to a product entity(B-product or I-product) or not(O). For role labeling, each sentence may contain multiple label columns, each corresponding to the roles associated with a specific product mentioned in that sentence, resulting in 17 possible token labels(eight roles with B/I tags and O for not-a-role). Active learning is therefore performed at the sentence level. At the beginning of the process, all sentences from the training set are treated as unlabeled and form an unlabeled pool. In each round, a subset of sentences is selected according to an active learning strategy and sent for annotation. Once a sentence is picked, all of its token-level labels are revealed and added to the labeled training set. At every round, the labeled 
+
+> 1https://github.com/jiangfeng1124/ChemRxnExtractor/tree/main/tests/data
+
+training set is reconstructed from the accumulated annotated sentence blocks, while the validation and test sets remain fixed throughout the entire process. Model training follows a warm-start strategy, with the first round initialized from the pretrained ChemBERT or ChemRxnBERT checkpoint, and subsequent rounds initialized from the checkpoint obtained in the previous round. We consider two classes of active learning strategies, which differ in their required inputs and querying mechanisms. Diversity-based methods rely on the properties of the in-put representations to select a diverse subset of unlabeled instances. Adapting to the ChemBERT and ChemRxnBert models, at each round, all unlabeled sentences are forwarded through the encoder of the current model, and token represen-tations from the penultimate hidden layer are then aggregated into sentence embeddings by mean pooling. The resulting embeddings are used by diversity-based selection strategies to choose a batch of sentences for annotation. In contrast, uncertainty-based methods operate on the prediction outputs of the model. The current model is applied in inference mode to the unlabeled pool to obtain token-level probability distri-butions, which are aggregated into sentence-level uncertainty scores based on the definition of uncertainty in each strategy. The scores are used to rank and select candidate sentences. In both cases, the selected sentences are fully annotated and added to the labeled training set, and the model is retrained before proceeding to the next round. The overall framework is illustrated in Figure 1. A key challenge in applying active learning to both tasks is the several label imbalance, with the majority of tokens assigned the O label. In product extraction, only a small fraction of sentences contain any product-related tokens, while in role assignment, most tokens are not associated with any role. In this scenario, simply applying active learning strategies can result in early rounds dominated by sentences containing exclusively O-labeled tokens, leading to degenerate models that only predict the majority class. To mitigate this issue, we incorporate stratified sampling into the selection process. For product extraction, unlabeled sentences are partitioned de-pending on whether they contain any product tokens, whereas for role assignment, sentences are grouped according to the number of distinct role types they contain. Active learning strategies are applied independently within each group, with selection quotas proportional to group sizes. This design preserves label distribution across rounds and ensures that informative non-O labels are not absent in the early stages of active learning, because of the preference of certain strategies. 
+
+B. Active Learning Strategies 
+
+Seven active learning strategies are considered in this study, including two diversity-based approaches, four uncertainty-based techniques and random sampling as a baseline. Diversity based methods aim to select representative and diverse samples that can cover the unlabeled pool effectively. Rather than relying on model outputs, these methods operate on learned embeddings. 3Original dataset for product extraction or role alignment     
+
+> Unlabeled pool
+> Encoder forward pass of
+> current model
+> Get token representations from penultimate layer
+> Sentence embeddings from
+> mean pooling
+> Select sentences with
+> diversity-based strategies
+> and stratified sampling
+> All token labels revealed and moved from unlabeled pool to labeled training set
+> Diversity-based Active Learning
+> Unlabeled pool
+> Full model forward pass
+> (inference mode)
+> Token-level probability distributions
+> Select sentences with
+> uncertainty-based strategies
+> and stratified sampling
+> Uncertainty-based Active Learning
+> Train set Dev set Test set
+> Initial
+> unlabeled pool
+> Model training using labeled training set
+> Testing with test set and report measures
+> Aggregate to sentence-level uncertainty
+> Pretrained ChemBERT or ChemRxnBERT
+> initialize
+> with pretrained model
+> initialize
+> with pretrained model
+> initialize from previous round checkpoint
+> initialize from previous round checkpoint
+> Token-level annotations
+> Token-level annotations:
+> - Product extraction (BIO)
+> - Role labeling (multi-role BIO)
+> Dev set
+> Test set
+> a) Data Preparation b) Active Learning Framework for ChemBERT and ChemRxnBERT
+
+Fig. 1: Pool-based active learning framework applied to product extraction based on ChemBERT and role labeling based on ChemRxnBERT. Although both tasks follow the same active learning procedure, they are trained and evaluated on different datasets.  
+
+> •
+
+The Core-set method [26] is a classical diversity-driven approach in deep active learning, originally proposed for CNN. The core idea is to select a subset of unlabeled instances that best represent the overall data distribution by minimizing the distance between labeled and unla-beled samples. In contrast to the original implementation using the Euclidean distance, we compute cosine distance between embeddings of all samples, which is often more suitable for high-dimensional embeddings (in our case 768 dimension) and better captures semantic similarity. At each iteration, the unlabeled instance that maximizes the minimum cosine distance to the current labeled set is selected and added to the pool. The greedy selection continues until the desired number of samples is reached.  
+
+> •
+
+CLUSTER+ is adapted from CLUSTER [27] with two modifications. First, the number of clusters is dynami-cally determined according to the size of the remaining unlabeled pool at each round, instead of using a fixed k in the original design. Let U denote the number of unlabeled instances and n the acquisition budget. We set the number of clusters to k = pU/ 2, constrained between 5 and n.The adaptive design prevents over-fragmentation when the pool becomes small. Second, we employ k-means++ [41] instead of standard k-means to obtain more robust cluster initialization. The method first groups the sentence embeddings of the unlabeled pool with k-means++, then randomly draw approximately n/k samples from each cluster. Uncertainty based techniques [16] query instances for which the model is most uncertain about its predictions. Unlike diversity-driven approaches, they operate directly on the model’s predictive distributions. As previous studies have shown, the effectiveness of different uncertainty methods de-pends on the specific application, and there is no universally 4optimal strategy [23], [42]. We therefore include the following approaches based on different uncertainty criteria.  
+
+> •
+
+Least-confidence sampling [16] selects instance whose most probable label is least confident. While it works well in fields like image classification [23], standard least-confidence sampling has been shown to prefer longer sen-tences in sequence labeling tasks [43], [44]. To mitigate this bias, we adopt a modified formulation inspired by [44], that takes into account the sentence lengths. The modified formulation is primarily beneficial in settings with larger label spaces. For product extraction, which involves only three BIO tags, we use the standard least-confidence definition. In role labeling task, for a sentence s, the uncertainty is 
+
+sM LC =
+
+PNi=1 1 − Pθ ( ˆ y1|xi)
+
+N , (1) where ˆy1 refers to the most probable label of the i-th least confident token xi. Instead of using several fixed N in the original experiments [44], we set N = pL/ 2,where L denotes the sentence lengths. The sentences with the highest scores are selected.  
+
+> •
+
+Margin sampling [45] measures the ambiguity between the two most likely labels. The margin for a token x is defined as 
+
+xM = Pθ ( ˆ y1|x) − Pθ ( ˆ y2|x), (2) where ˆy1 and ˆy2 denote the first and second most probable labels. A smaller difference indicates higher uncertainty. After aggregation, sentences with the smallest margins are selected.  
+
+> •
+
+Entropy sampling [16] quantifies uncertainty by consid-ering the full predictive distribution. For token x, entropy is computed as 
+
+xH = − X
+
+> i
+
+Pθ (yi|x)logP θ (yi|x), (3) where yi represents all possible labels. Higher entropy indicates greater uncertainty in labels. In practice, tiny probabilities are removed to avoid numerical instability. Sentence-level scores are derived by aggregating token-level entropy.  
+
+> •
+
+BALD-based batch selection employs Bayesian active learning by disagreements(BALD) [46] to estimate uncer-tainty independently for each sentence, and perform batch construction externally via stratified selection. BALD se-lects instances for which the model parameters under the posterior disagree the most about the outcome. Following previous works [24], [47], we approximate Bayesian inference using Monte Carlo (MC) dropout, performing multiple stochastic forward passes with dropout enabled. The uncertainty of a token is quantified as the mutual information between predictions and model parameters, more specifically, as the difference between the entropy of the mean prediction and the expected entropy across MC samples. For product extraction, token-level scores are aggregated to the sentence level. For role extrac-tion, uncertainty is computed over emission probabilities conditioned on given product spans and aggregated at the sequence level. Although BatchBALD [48] extends BALD to joint batch acquisition by maximizing mutual information over subsets of instances, it is not applicable in our setting, due to the stratified sampling constraints to preserve label distributions. Finally, random selection serves as a baseline, simulating passive learning by selecting instances uniformly at random. For fair comparison, stratified sampling is applied in the same manner as for the other strategies to maintain consistent label distributions across rounds. IV. R ESULTS 
+
+A. Implementation and evaluation 
+
+Following the original training setup, we use ChemBERT for product extraction with batch size 16, maximum input sequence length 256 and CRF learning rate 5e-3, trained for 2 epochs per active learning round. For role labeling, we employ ChemRxnBERT with batch size 6 and maximum sequence length 512, while keeping the same epoch times and learning rate. The product extraction dataset contains 6163/698/723 sentences for training/validation/testing, while role labeling dataset has 387/57/67 sentence blocks. Considering the size of training set, we simulate pool-based active learning over 10 rounds with a fixed acquisition budget of 10% of the original training pool per round (rounded to at least one sentence). For uncertainty-based methods, token-level predictive distributions are computed in inference mode and converted to probabilities, including exponentiating log-normalized emissions for product extraction and applying softmax to logits for role labeling. Token uncertainties are aggregated into sentence-level scores by averaging over valid decoding positions, excluding padding and special tokens. Accuracy, precision and F1 score are selected as they are dominantly used for evaluating the performance of active learning strategies [49]. Using budget as the stopping criterion, we compare the performance metrics with the random baseline and the reported passive learning results [3] for each round. 
+
+B. Results discussion 
+
+As shown in Figure 2, the learning curves illustrate active learning performance across metric against the fraction of labeled training data. For product extraction, performance varies considerably across strategies, particularly in the early rounds. The Core-set method achieves the highest F1 score among all strategies when using 70% of the annotated data, while the best performance of CLUSTER+ is reached at round 6. In contrast, uncertainty-based methods display more fluctu-ating trajectories, lacking consistency across rounds. Despite incorporating stratified sampling to preserve positive instances across rounds, performance remains unstable and shows a pronounced precision–recall trade-off. Strategies often attain high precision at the expense of low recall, implying that later acquisitions may lead the model to make increasingly 5TABLE I: Test F1 (%) across rounds for product extraction. The best value in each strategy is in bold. The passive learning baseline is 76.24. MLC stands for modified least confidence sampling. BALD-batch represents BALD-based batch selection. The representations remain in the following graphs and tables.                                                                                   
+
+> Strategy \Round 12345678910 Core-set 0.00 6.84 58.24 64.21 67.63 72.36 75.44 71.03 70.09 65.98 CLUSTER+ 38.67 70.59 73.91 72.65 69.83 74.65 73.78 71.49 69.65 69.35 BALD-batch 67.31 56.98 61.71 56.32 60.57 64.48 63.33 60.11 73.27 73.58
+> MLC 60.51 57.92 55.43 55.68 64.52 63.33 63.39 73.02 74.75 68.90 Margin 58.17 58.06 62.65 63.64 62.43 70.21 69.43 68.02 72.12 70.53 Entropy 63.96 54.65 50.60 49.37 62.89 67.01 60.00 66.67 69.61 68.84 Random 67.00 68.90 72.10 66.97 68.81 70.09 68.60 71.50 67.35 68.00
+
+TABLE II: Test F1 (%) across rounds for role labeling. The best value in each strategy is in bold. The passive learning baseline is 78.66.                                                                                   
+
+> Strategy \Round 12345678910 Core-set 0.00 54.44 66.67 70.91 73.44 76.15 78.60 76.10 76.38 76.83 CLUSTER+ 4.08 57.19 65.77 67.44 74.66 76.83 76.18 76.71 76.22 78.54
+> BALD-batch 32.82 59.58 67.45 71.62 71.18 74.26 74.74 74.48 76.02 75.11 MLC 0.00 51.44 63.95 71.43 73.65 75.34 77.16 77.41 77.89 76.58 Margin 2.90 52.68 64.16 67.85 74.10 74.81 75.57 74.81 76.90 76.15 Entropy 0.00 44.24 60.00 69.16 75.56 77.18 75.72 75.95 77.09 76.69 Random 0.00 30.00 54.63 65.68 69.33 68.99 73.09 73.58 75.81 74.12
+
+conservative predictions with the risk of missing valid product entities. The unstable performance is likely related to the sparsity of product mentions. Even with stratified sampling at the sentence level, token-level label imbalance persists and changes in the structure of labeled pool could be influential. This may also explain why random sampling performs com-petitively with other active acquisition until the final rounds. In role labeling, the learning curves are smoother and more tightly clustered across strategies, with most methods experi-encing relatively steady improvement throughout training. The Core-set method reaches near-baseline performance using only 70% of the full labeled dataset, followed by entropy sampling showing a performance difference of less than 1.5% from the baseline as early as round 6. While greater differences appear in the first half of the active learning process, the gaps between active learning strategies narrow as additional labeled data are acquired. It suggests that for this task model performance benefits more from the simple accumulation of supervision, than from the specific selection strategy. Nevertheless, all active learning selection outperform random sampling consis-tently. Precision and recall tend to increase simultaneously and stabilize in later rounds, in contrast to the marked tradeoff observed in product extraction. Such behavior aligns with the nature of role labeling task, where a larger tag set and sequence constraints promote gradual improvement and reduce sensitivity to the exact composition of the accumulated labeled pool. The F1 values across rounds for both tasks are presented in Table I and Table II. The corresponding precision and recall results are provided in the Appendix (Tables III, IV, V and VI) due to space limit. Overall, although none of the active learning strategies consistently surpass full-data passive training, they are able to approach comparable performance using fewer labeled instances. The non-monotonic learning curves observed in both tasks can be partly attributed to distribution shift intro-duced during iterative acquisition and warm-start training. In addition, severe token-level class imbalance may amplify sam-pling bias across rounds, particularly for product extraction. While early rounds tend to capture either representative or uncertain samples, later-round query may increasingly contain ambiguous or noisy sentences that contribute limited bene-fit and even lead to poorer generalization. Moreover, when strong contextual representations are already learned during pretraining of the encoders, selecting informative instances may not necessarily produce performance gains. Meanwhile, the CRF layer performs decoding with transition constraints, but uncertainty computed at sentence level may not fully capture the enforced token-level constraints. 
+
+C. Selection preference 
+
+The two selected diversity-driven strategies reach higher peak performance than uncertainty-based methods in both tasks. However, especially for product extraction, their perfor-mance declines significantly in later rounds. To understand this and further analyze the behavior of diversity-based methods, we visualize their selection patterns in embedding space. As described earlier, sentence embeddings are extracted from the encoder at each round as the input for active selection, which are 768-dimensional vectors. We project them into two dimensions using t-Distributed Stochastic Neighbor Em-bedding (t-SNE) [50]. Selected samples are highlighted to illustrate how each strategy explores the feature space, and for CLUSTER+, detected clusters are also shown. The larger size of the product extraction dataset enables clearer display of the pattern compared with the role labeling task. 620 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+> F1
+
+76.24 
+
+Product Extraction - Test results (F1) 
+
+coreset: 75.44 
+
+mlc: 74.75 
+
+cluster: 74.65 
+
+baldbatch: 73.58 
+
+margin: 72.12 
+
+random: 72.10 
+
+entropy: 69.61 
+
+baseline (a) Product extraction F1 20 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+80 
+
+> F1
+
+78.66 
+
+Role Labeling - Test results (F1) 
+
+coreset: 78.60 
+
+cluster: 78.54 
+
+mlc: 77.89 
+
+entropy: 77.18 
+
+margin: 76.90 
+
+baldbatch: 76.02 
+
+random: 75.81 
+
+baseline (b) Role labeling F1 20 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+20 
+
+40 
+
+60 
+
+80 
+
+> Precision
+
+84.62 
+
+Product Extraction - Test results (Precision) 
+
+margin: 94.55 
+
+mlc: 88.46 
+
+baldbatch: 84.38 
+
+entropy: 82.98 
+
+coreset: 81.82 
+
+cluster: 78.41 
+
+random: 77.65 
+
+baseline 
+
+(c) Product extraction precision 20 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+80 
+
+> Precision
+
+80.12 
+
+Role Labeling - Test results (Precision) 
+
+cluster: 79.88 
+
+coreset: 79.69 
+
+entropy: 78.62 
+
+mlc: 78.25 
+
+margin: 77.81 
+
+baldbatch: 76.60 
+
+random: 74.71 
+
+baseline (d) Role labeling precision 20 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+80 
+
+> Recall
+
+69.37 
+
+Product Extraction - Test results (Recall) 
+
+coreset: 77.48 
+
+cluster: 76.58 
+
+random: 75.68 
+
+baldbatch: 70.27 
+
+margin: 67.57 
+
+mlc: 66.67 
+
+entropy: 66.67 
+
+baseline 
+
+(e) Product extraction recall 20 40 60 80 100 
+
+Percentage of labeled samples used 
+
+0
+
+10 
+
+20 
+
+30 
+
+40 
+
+50 
+
+60 
+
+70 
+
+80 
+
+> Recall
+
+77.25 
+
+Role Labeling - Test results (Recall) 
+
+coreset: 77.54 
+
+mlc: 77.54 
+
+cluster: 77.25 
+
+margin: 77.25 
+
+entropy: 76.95 
+
+random: 76.95 
+
+baldbatch: 75.45 
+
+baseline (f) Role labeling recall 
+
+Fig. 2: The learning curves of each active learning strategy. The dash line refers to the reported passive learning results [3]. The legend is sorted by the peak value of each strategy. 775 50 25 0 25 50 75 100  
+
+> 80
+> 60
+> 40
+> 20
+> 0
+> 20
+> 40
+> 60
+> 80
+> Coreset Selection for Product Extraction Round 1
+
+(a) Core-set round 1 75 50 25 0 25 50 75 100   
+
+> 100
+> 75
+> 50
+> 25
+> 0
+> 25
+> 50
+> 75
+> 100
+> Coreset Selection for Product Extraction Round 4
+
+(b) Core-set round 4 75 50 25 0 25 50 75 100   
+
+> 100
+> 50
+> 0
+> 50
+> 100
+> Coreset Selection for Product Extraction Round 7
+
+(c) Core-set round 7 75 50 25 0 25 50 75 100 
+
+> 80
+> 60
+> 40
+> 20
+> 0
+> 20
+> 40
+> 60
+> 80
+> t-SNE Cluster Scatter (Round 1)
+> Selected
+
+(d) CLUSTER+ round 1 80 60 40 20 0 20 40 60 80  
+
+> 60
+> 40
+> 20
+> 0
+> 20
+> 40
+> 60
+> t-SNE Cluster Scatter (Round 4)
+> Selected
+
+(e) CLUSTER+ round 4 60 40 20 0 20 40 60  
+
+> 40
+> 20
+> 0
+> 20
+> 40
+> t-SNE Cluster Scatter (Round 7)
+> Selected
+
+(f) CLUSTER+ round 7 
+
+Fig. 3: Visualization of sample selection process of Core-set and CLUSTER+ strategies for product extraction across rounds. Figure 3 presents the selection process of Core-set and CLUSTER+ at round 1, 4 and 7. Samples selected by Core-set appear relatively concentrated within specific regions of the embedding space. This suggests that Core-set may prioritize refining already sampled areas rather than broadly exploring the space. In contrast, CLUSTER+ selects instances from multiple regions, including smaller and less populated clusters, which are largely overlooked by Core-set. These differences become more pronounced as active learning progresses. By round 7, the remaining unlabeled pool exhibits great difference in spatial distribution depending on the strategy applied. Core-set tends to leave peripheral and sparse regions under-explored, while CLUSTER+ maintains a more balanced coverage of the feature space. The observation indicates that diversity-driven active learning strategies affect not only the order of selecting samples, but also the structure of the remaining unlabeled pool, which in turn may influence the performance of the model across rounds. Once early rounds shape the labeled pool toward certain regions of the embedding space, subsequent warm-start training can amplify these biases, possibly leading to mid-round peaks followed by performance decline. V. C ONCLUSION AND FUTURE WORK 
+
+In this study, we investigate the integration of uncertainty-based and diversity-based active learning strategies with ChemBERT and ChemRxnBERT for product extraction and reaction role labeling. While none of the active learning strategies consistently surpass passive learning on the full dataset, certain strategies such as Core-set achieve competitive performance with reduced labeled data. However, the learning curves are often non-monotonic, typically reaching their peak performance in the middle rounds and declining thereafter. Our analysis suggests that the influence of active learning is closely tied to model architecture and task characteristics. For pretrained transformer encoders coupled with CRF de-coders, strong contextual representations and structured decod-ing constraints may reduce the effectiveness of uncertainty-based active acquisition. Additionally, persistent token-level imbalance and warm-start training can amplify sampling bias across rounds. For diversity-based strategies, this means that the structure of the remaining unlabeled pool may be severely affected and become biased. These factors limit the stability and consistency of active learning gains. Future work may explore active learning strategies tailored to the model architecture and task features. Strategies explic-itly accounting for distribution shifts across rounds may also be promising. To mitigate over-representation of noisy data in later rounds, acquisition could be made more balanced from the beginning, such as combining multiple criteria during one round of selection, and selecting the most uncertain samples within clusters. Furthermore, the unlabeled pool could be progressively filtered by taking noise into account, rejecting samples that are likely noisy or uninformative in later rounds. 8REFERENCES [1] C. W. Coley, W. Jin, L. Rogers, T. F. Jamison, T. S. Jaakkola, W. H. Green, R. Barzilay, and K. F. Jensen, “A graph-convolutional neural network model for the prediction of chemical reactivity,” Chemical science , vol. 10, no. 2, pp. 370–377, 2019. [2] A. V. Sadybekov and V. Katritch, “Computational approaches stream-lining drug discovery,” Nature , vol. 616, no. 7958, pp. 673–685, 2023. [3] J. Guo, A. S. Ibanez-Lopez, H. Gao, V. Quach, C. W. Coley, K. F. Jensen, and R. Barzilay, “Automated chemical reaction extraction from scientific literature,” Journal of chemical information and modeling , vol. 62, no. 9, pp. 2035–2045, 2021. [4] Reaxys – An expert-curated chemistry database. https://www.elsevier. com/products/reaxys. [5] CAS SciFinder - Chemical Compound Database. https://www.cas.org/ solutions/cas-scifinder-discovery-platform. [6] A. J. Lawson, J. Swienty-Busch, T. G´ eoui, and D. Evans, “The making of reaxys—towards unobstructed access to relevant chemistry information,” in The Future of the History of Chemical Information , pp. 127–148, ACS Publications, 2014. [7] L. Hawizy, D. M. Jessop, N. Adams, and P. Murray-Rust, “Chemi-caltagger: A tool for semantic text-mining in chemistry,” Journal of cheminformatics , vol. 3, no. 1, p. 17, 2011. [8] D. M. Lowe, Extraction of chemical structures and reactions from the literature . PhD thesis, 2012. [9] T. Rockt¨ aschel, M. Weidlich, and U. Leser, “Chemspot: a hybrid system for chemical named entity recognition,” Bioinformatics , vol. 28, no. 12, pp. 1633–1640, 2012. [10] R. Leaman, C.-H. Wei, and Z. Lu, “tmchem: a high performance approach for chemical named entity recognition and normalization,” 
+
+Journal of cheminformatics , vol. 7, no. Suppl 1, p. S3, 2015. [11] E. K. Mallory, M. de Rochemonteix, A. Ratner, A. Acharya, C. Re, R. A. Bright, and R. B. Altman, “Extracting chemical reactions from text using snorkel,” BMC bioinformatics , vol. 21, no. 1, p. 217, 2020. [12] A. Ratner, S. H. Bach, H. Ehrenberg, J. Fries, S. Wu, and C. R´ e, “Snorkel: Rapid training data creation with weak supervision,” in 
+
+Proceedings of the VLDB endowment. International conference on very large data bases , vol. 11, p. 269, 2017. [13] Y. Gu, R. Tinn, H. Cheng, M. Lucas, N. Usuyama, X. Liu, T. Naumann, J. Gao, and H. Poon, “Domain-specific language model pretraining for biomedical natural language processing,” ACM Transactions on Computing for Healthcare (HEALTH) , vol. 3, no. 1, pp. 1–23, 2021. [14] W. Zhang, Q. Wang, X. Kong, J. Xiong, S. Ni, D. Cao, B. Niu, M. Chen, Y. Li, R. Zhang, et al. , “Fine-tuning large language models for chemical text mining,” Chemical science , vol. 15, no. 27, pp. 10600–10611, 2024. [15] J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, “Bert: Pre-training of deep bidirectional transformers for language understanding,” in Pro-ceedings of the 2019 conference of the North American chapter of the association for computational linguistics: human language technologies, volume 1 (long and short papers) , pp. 4171–4186, 2019. [16] B. Settles, “Active learning literature survey,” 2009. [17] E. F. Sang and F. De Meulder, “Introduction to the conll-2003 shared task: Language-independent named entity recognition,” arXiv preprint cs/0306050 , 2003. [18] R. Weischedel, S. Pradhan, L. Ramshaw, M. Palmer, N. Xue, M. Marcus, A. Taylor, C. Greenberg, E. Hovy, R. Belvin, et al. , “Ontonotes release 4.0,” LDC2011T03, Philadelphia, Penn.: Linguistic Data Consortium ,vol. 17, 2011. [19] B. Jehangir, S. Radhakrishnan, and R. Agarwal, “A survey on named en-tity recognition—datasets, tools, and methodologies,” Natural Language Processing Journal , vol. 3, p. 100017, 2023. [20] Y. Shen, H. Yun, Z. C. Lipton, Y. Kronrod, and A. Anandkumar, “Deep active learning for named entity recognition,” arXiv preprint arXiv:1707.05928 , 2017. [21] P. Ren, Y. Xiao, X. Chang, P.-Y. Huang, Z. Li, B. B. Gupta, X. Chen, and X. Wang, “A survey of deep active learning,” ACM computing surveys (CSUR) , vol. 54, no. 9, pp. 1–40, 2021. [22] Y. Yang and M. Loog, “Active learning using uncertainty information,” in 2016 23rd International Conference on Pattern Recognition (ICPR) ,pp. 2646–2651, IEEE, 2016. [23] K. Wang, D. Zhang, Y. Li, R. Zhang, and L. Lin, “Cost-effective active learning for deep image classification,” IEEE Transactions on Circuits and Systems for Video Technology , vol. 27, no. 12, pp. 2591–2600, 2016. [24] Y. Gal, R. Islam, and Z. Ghahramani, “Deep bayesian active learning with image data,” in International conference on machine learning ,pp. 1183–1192, PMLR, 2017. [25] A. Shelmanov, D. Puzyrev, L. Kupriyanova, D. Belyakov, D. Larionov, N. Khromov, O. Kozlova, E. Artemova, D. V. Dylov, and A. Panchenko, “Active learning for sequence tagging with deep pre-trained models and bayesian uncertainty estimates,” arXiv preprint arXiv:2101.08133 , 2021. [26] O. Sener and S. Savarese, “Active learning for convolutional neural networks: A core-set approach,” arXiv preprint arXiv:1708.00489 , 2017. [27] J. Liu and Z. S. Wong, “Utilizing active learning strategies in machine-assisted annotation for clinical named entity recognition: a compre-hensive analysis considering annotation costs and target effectiveness,” 
+
+Journal of the American Medical Informatics Association , vol. 31, no. 11, pp. 2632–2640, 2024. [28] W. Li, Y. Du, X. Li, X. Chen, C. Xie, H. Li, and X. Li, “Ud bbc: Named entity recognition in social network combined bert-bilstm-crf with active learning,” Engineering Applications of Artificial Intelligence , vol. 116, p. 105460, 2022. [29] Z. Liu, K. Jiang, Z. Liu, and T. Qin, “A cybersecurity named entity recognition model based on active learning and self-learning,” in 2024 36th Chinese Control and Decision Conference (CCDC) , pp. 4505–4510, IEEE, 2024. [30] M. C. Swain and J. M. Cole, “Chemdataextractor: a toolkit for automated extraction of chemical information from the scientific literature,” Journal of chemical information and modeling , vol. 56, no. 10, pp. 1894–1904, 2016. [31] M. Krallinger, O. Rabal, F. Leitner, M. Vazquez, D. Salgado, Z. Lu, R. Leaman, Y. Lu, D. Ji, D. M. Lowe, et al. , “The chemdner corpus of chemicals and drugs and its annotation principles,” Journal of cheminformatics , vol. 7, no. Suppl 1, p. S2, 2015. [32] D. M. Jessop, S. E. Adams, E. L. Willighagen, L. Hawizy, and P. Murray-Rust, “Oscar4: a flexible architecture for chemical text-mining,” Journal of cheminformatics , vol. 3, no. 1, p. 41, 2011. [33] M. Khabsa, Towards better accessibility of scholarly data . The Penn-sylvania State University, 2015. [34] S. Eltyeb and N. Salim, “Chemical named entities recognition: a review on approaches and applications,” Journal of cheminformatics , vol. 6, no. 1, p. 17, 2014. [35] M. Krallinger, O. Rabal, A. Lourenco, J. Oyarzabal, and A. Valencia, “Information retrieval and text mining technologies for chemistry,” 
+
+Chemical reviews , vol. 117, no. 12, pp. 7673–7761, 2017. [36] G. Lample, M. Ballesteros, S. Subramanian, K. Kawakami, and C. Dyer, “Neural architectures for named entity recognition,” arXiv preprint arXiv:1603.01360 , 2016. [37] T. Gupta, M. Zaki, N. A. Krishnan, and Mausam, “Matscibert: A materials domain language model for text mining and information extraction,” npj Computational Materials , vol. 8, no. 1, p. 102, 2022. [38] S. Chithrananda, G. Grand, and B. Ramsundar, “Chemberta: large-scale self-supervised pretraining for molecular property prediction,” arXiv preprint arXiv:2010.09885 , 2020. [39] X. Zhang, Y. Li, C. Li, J. Zhu, Z. Gan, L. Wang, X. Sun, and H. You, “A chemical reaction entity recognition method based on a natural language data augmentation strategy,” Chemical Communications , vol. 60, no. 71, pp. 9610–9613, 2024. [40] T. A. Dao, H. Teranishi, Y. Matsumoto, and A. Aizawa, “Entity-based synthetic data generation for named entity recognition in low-resource domains,” in JSAI International Symposium on Artificial Intelligence ,pp. 210–225, Springer, 2025. [41] D. Arthur and S. Vassilvitskii, “k-means++: The advantages of careful seeding,” tech. rep., Stanford, 2006. [42] C. Nachtegael, J. De Stefani, and T. Lenaerts, “A study of deep active learning methods to reduce labelling efforts in biomedical relation extraction,” PloS one , vol. 18, no. 12, p. e0292356, 2023. [43] M. Liu, Z. Tu, Z. Wang, and X. Xu, “Ltp: a new active learning strategy for bert-crf based named entity recognition,” arXiv preprint arXiv:2001.02524 , 2020. [44] A. Agrawal, S. Tripathi, and M. Vardhan, “Active learning approach using a modified least confidence sampling strategy for named entity recognition,” Progress in Artificial Intelligence , vol. 10, no. 2, pp. 113– 128, 2021. [45] T. Scheffer, C. Decomain, and S. Wrobel, “Active hidden markov models for information extraction,” in International symposium on intelligent data analysis , pp. 309–318, Springer, 2001. 
+
+9[46] N. Houlsby, F. Husz´ ar, Z. Ghahramani, and M. Lengyel, “Bayesian active learning for classification and preference learning,” arXiv preprint arXiv:1112.5745 , 2011. [47] Y. Gal and Z. Ghahramani, “Dropout as a bayesian approximation: Representing model uncertainty in deep learning,” in international conference on machine learning , pp. 1050–1059, PMLR, 2016. [48] A. Kirsch, J. Van Amersfoort, and Y. Gal, “Batchbald: Efficient and diverse batch acquisition for deep bayesian active learning,” Advances in neural information processing systems , vol. 32, 2019. [49] H. Kath, T. S. Gouvˆ ea, and D. Sonntag, “The speed-up factor: A quanti-tative multi-iteration active learning performance metric,” Transactions on Machine Learning Research , 2026. [50] L. Van der Maaten and G. Hinton, “Visualizing data using t-sne.,” 
+
+Journal of machine learning research , vol. 9, no. 11, 2008. 
+
+10 APPENDIX 
+
+TABLE III: Test precision (%) across rounds for product extraction. The best value in each strategy is in bold. The passive learning baseline is 84.62. 
+
+Strategy \ Round 1 2 3 4 5 6 7 8 9 10 Core-set 0.00 66.67 74.65 77.22 72.92 81.82 73.50 73.79 72.82 77.11 CLUSTER+ 74.36 77.42 71.43 69.11 66.94 76.42 72.81 71.82 77.78 78.41 
+
+BALD-batch 72.16 80.33 84.38 77.78 82.81 81.94 82.61 76.39 81.32 77.23 MLC 70.24 73.61 69.86 75.38 80.00 82.61 80.56 88.46 85.06 73.47 Margin 52.14 72.00 94.55 86.15 87.10 85.71 81.71 77.91 77.32 76.04 Entropy 63.96 77.05 76.36 82.98 73.49 78.31 72.15 79.01 76.34 71.15 Random 73.91 73.47 68.85 67.27 70.09 72.82 73.96 77.08 77.65 76.40 
+
+TABLE IV: Test recall (%) across rounds for product extraction. The best value in each strategy is in bold. The passive learning baseline is 69.37. 
+
+Strategy \ Round 1 2 3 4 5 6 7 8 9 10 Core-set 0.00 3.60 47.75 54.95 63.06 64.86 77.48 68.47 67.57 57.66 CLUSTER+ 26.13 64.86 76.58 76.58 72.97 72.97 74.77 71.17 63.06 62.16 BALD-batch 63.06 44.14 48.65 44.14 47.75 53.15 51.35 49.55 66.67 70.27 
+
+MLC 53.15 47.75 45.95 44.14 54.05 51.35 52.25 62.16 66.67 64.86 Margin 65.77 48.65 46.85 50.45 48.65 59.46 60.36 60.36 67.57 65.77 Entropy 63.96 42.34 37.84 35.14 54.95 58.56 51.35 57.66 63.96 66.67 
+
+Random 61.26 64.86 75.68 66.67 67.57 67.57 63.96 66.67 59.46 61.26 
+
+TABLE V: Test precision (%) across rounds for role labeling. The best value in each strategy is in bold. The passive learning baseline is 80.12. 
+
+Strategy \ Round 1 2 3 4 5 6 7 8 9 10 Core-set 0.00 52.97 64.35 68.63 71.27 77.81 79.69 77.40 78.30 78.26 CLUSTER+ 77.78 62.95 65.67 65.54 74.77 76.72 77.23 78.02 77.64 79.88 
+
+BALD-batch 63.25 59.58 66.38 69.69 68.61 73.39 74.63 73.82 76.60 75.68 MLC 0.00 64.41 67.11 71.01 73.65 75.22 77.98 77.88 78.25 76.81 Margin 45.45 59.92 64.55 66.86 74.55 75.38 76.62 75.38 76.56 77.81 
+
+Entropy 0.00 56.81 61.71 69.16 75.68 77.41 76.29 76.76 78.15 78.62 
+
+Random 0.00 73.26 59.79 64.64 68.62 66.85 70.36 71.79 74.71 72.83 
+
+TABLE VI: Test recall (%) across rounds for role labeling. The best value in each strategy is in bold. The passive learning baseline is 77.25. 
+
+Strategy \ Round 1 2 3 4 5 6 7 8 9 10 Core-set 0.00 55.99 69.16 73.35 75.75 74.55 77.54 74.85 74.55 75.45 CLUSTER+ 2.10 52.40 65.87 69.46 74.55 76.95 75.15 75.45 74.85 77.25 
+
+BALD-batch 22.16 59.58 68.56 73.65 73.95 75.15 74.85 75.15 75.45 74.55 MLC 0.00 42.81 61.08 71.86 73.65 75.45 76.35 76.95 77.54 76.35 Margin 1.50 47.01 63.77 68.86 73.65 74.25 74.55 74.25 77.25 74.55 Entropy 0.00 36.23 58.38 69.16 75.45 76.95 75.15 75.15 76.05 74.85 Random 0.00 18.86 50.30 66.77 70.06 71.26 76.05 75.45 76.95 75.45 
+
+11
