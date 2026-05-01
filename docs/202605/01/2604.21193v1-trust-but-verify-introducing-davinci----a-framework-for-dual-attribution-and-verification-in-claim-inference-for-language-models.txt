@@ -1,0 +1,630 @@
+Title: Trust but Verify: Introducing DAVinCI -- A Framework for Dual Attribution and Verification in Claim Inference for Language Models
+
+URL Source: https://arxiv.org/pdf/2604.21193v1
+
+Published Time: Fri, 24 Apr 2026 00:20:52 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Trust but Verify: Introducing DAVinCI - A Framework for Dual Attribution and Verification in Claim Inference for Language Models 
+
+Vipula Rawte 1, Ryan Rossi 2, Franck Dernoncourt 2, Nedim Lipka 2
+
+> 1
+
+Adobe, 2Adobe Research vrawte@adobe.com 
+
+Abstract 
+
+Large Language Models (LLMs) have demonstrated remarkable fluency and versatility across a wide range of NLP tasks, yet they remain prone to factual inaccuracies and hallucinations. This limitation poses significant risks in high-stakes domains such as healthcare, law, and scientific communication, where trust and verifiability are paramount. In this paper, we introduce DAVinCI - a Dual Attribution and Verification framework designed to enhance the factual reliability and interpretability of LLM outputs. DAVinCI operates in two stages: (i) it attributes generated claims to internal model components and external sources; (ii) it verifies each claim using entailment-based reasoning and confidence calibration. We evaluate DAVinCI across multiple datasets, including FEVER and CLIMATE-FEVER, and compare its performance against standard verification-only baselines. Our results show that DAVinCI significantly improves classification accuracy, attribution precision, recall, and F1-score by 5-20% . Through an extensive ablation study, we isolate the contributions of evidence span selection, recalibration thresholds, and retrieval quality. We also release a modular DAVinCI implementation that can be integrated into existing LLM pipelines. By bridging attribution and verification, DAVinCI offers a scalable path to auditable, trustworthy AI systems. This work contributes to the growing effort to make LLMs not only powerful but also accountable. Our code is available at 
+
+https://github.com/vr25/davinci .
+
+Keywords: attribution, verification, dual framework 
+
+1. Introduction 
+
+The rapid proliferation of large language models (LLMs) has revolutionized natural language gen-eration, enabling systems to produce fluent and contextually rich text across diverse domains. How-ever, this fluency often masks a critical vulnerability: the tendency of LLMs to generate factually incor-rect or hallucinated content (Rawte et al., 2023a,b; Liu et al., 2024). As LLMs become increasingly embedded in high-stakes applications - such as sci-entific writing, journalism, and legal analysis - the need for robust factuality verification has become paramount (Thorne and Vlachos, 2018; Jaradat et al., 2018; Augenstein et al., 2019; Elsayed et al., 2019; Dmonte et al., 2025). Recent studies have highlighted the limitations of LLMs in maintaining factual consistency, especially when responding to open-ended prompts or synthe-sizing information from multiple sources (Rahman et al., 2025). To address this, researchers have explored various verification pipelines, including retrieval-augmented generation (RAG) (Lewis et al., 2021), entailment-based classifiers, and attribution-aware filtering. Yet, most existing systems treat attribution and verification as isolated components, failing to capture the nuanced interplay between evidence selection and entailment reasoning. To address these limitations, we propose 
+
+DAVinCI - a Dual Attribution and Verification frame-work for trustworthy LLMs. DAVinCI operates in two stages: (i) it attributes claims to internal model components and external sources; (ii) it verifies each claim using entailment-based reasoning and confidence calibration. This dual approach enables LLMs to not only generate claims but also justify and validate them in a transparent and auditable manner. This approach builds on insights from re-cent benchmarks such as FactBench (Bayat et al., 2025), which categorize hallucination-prone prompts and evaluate factuality across difficulty tiers. It also aligns with broader efforts to character-ize and correct factual errors in LLM outputs. More-over, DAVinCI’s modular design allows researchers to isolate and evaluate the impact of attribution quality, verification robustness, and calibration sen-sitivity - three pillars increasingly recognized as essential for trustworthy AI systems. In this paper, we present a comprehensive evalu-ation of DAVinCI across multiple entailment models and attribution configurations. We demonstrate that full-passage evidence consistently improves veri-fication accuracy and F1-score, while confidence recalibration enables flexible trade-offs between precision and recall. Our main contributions are as follows: 
+
+• DAVinCI, a modular framework that integrates attribution and verification into LLM inference. 
+
+• We conduct an ablation study to isolate the im-pact of evidence span selection, recalibration 
+
+> arXiv:2604.21193v1 [cs.AI] 23 Apr 2026
+
+thresholds, and retrieval quality. 
+
+• We release a reproducible implementation of DAVinCI to support future research in trustwor-thy NLP. 
+
+2. Related Work 
+
+The challenge of ensuring factual correctness in natural language generation has led to a grow-ing body of research in claim verification, retrieval-augmented generation, and model attribution. Early work in automated fact-checking focused on datasets such as FEVER (Thorne et al., 2018), which introduced the task of verifying claims against evidence retrieved from Wikipedia. Subsequent efforts like CLIMATE-FEVER (Diggelmann et al., 2020) extended this paradigm to other domains, emphasizing the need for domain-specific reason-ing and evidence selection. Retrieval-Augmented Generation (RAG) frame-works (Lewis et al., 2021) have emerged as a pop-ular solution for grounding LLM outputs in external sources. These models combine dense retriev-ers with generative architectures to produce fluent, evidence-aware responses. However, most RAG systems treat retrieval and generation as loosely coupled stages, without explicit verification of fac-tual consistency. Recent work has attempted to address this gap through hybrid models that incor-porate entailment classifiers or post-hoc verification modules (Shuster et al., 2022). Attribution in LLMs remains an underexplored area. While Attributable QA (Liu et al., 2023) have begun to formalize attribution as a structured task, but these approaches are often limited to specific domains or require extensive supervision. Confidence calibration has also gained traction as a means of improving trust in model predictions. Techniques such as temperature scaling (Guo et al., 2017) and trust-aware scoring (Jiang et al., 2021) aim to align model confidence with prediction re-liability. In the context of claim verification, cali-brated confidence can help distinguish between supported, refuted, and uncertain claims - a capa-bility that is central to our DAVinCI framework. Our work builds on these foundations by inte-grating attribution and verification into a unified pipeline. Unlike prior approaches that treat these components independently, DAVinCI leverages at-tribution to inform verification, and uses calibrated confidence to produce interpretable and trustworthy outputs. To our knowledge, this is the first frame-work to combine internal and external attribution with entailment-based verification in a modular and scalable way. 
+
+3. Proposed Method 
+
+The DAVinCI framework is designed to enhance the factual reliability of LLM outputs by integrating two complementary stages: Attribution and Verification. This section details the architecture, components, and workflow of DAVinCI, along with the rationale behind key design choices. DAVinCI operates in a two-stage pipeline: 1. Attribution: Given a claim, the framework identifies relevant evidence from internal or external sources that could plausibly support or refute the claim. 2. Verification: The attributed evidence is then passed to an entailment-based verifier that clas-sifies the claim as Supported, Refuted, or Not Enough Information (NEI), optionally applying con-fidence recalibration. This dual structure allows DAVinCI to not only assess the truthfulness of a claim but also provide interpretable justifications grounded in evidence. Here is an example from the FEVER dataset show-ing a claim, the evidence behind it, and its label.                               
+
+> CLAIM: Caroline Kennedy is American.
+> EVIDENCE: Caroline Bouvier Kennedy (born Novem-ber 27, 1957) is an American author, attorney, and diplomat who served as the United States Ambassador to Japan from 2013 to 2017.
+> LABEL: ENTAILMENT
+
+Let c be a claim generated by a language model, and let E = {e1, e 2, . . . , e n} be a set of retrieved evidence passages. 
+
+3.1. Attribution Module 
+
+The attribution module is responsible for identifying the most relevant evidence for a given claim. We explore two strategies: 
+
+Full Evidence Attribution: In datasets like FEVER and CLIMATE-FEVER, gold-standard ev-idence is available. We use the full evidence text directly without modification. 
+
+Span-Based Attribution: We simulate a re-trieval scenario by using a question-answering (QA) model ( deepset/roberta-base-squad2-distilled 1) to extract the most relevant span from the evidence given the claim as a question. This mimics real-world settings where only partial evidence may be accessible. This module can be extended to incorporate dense retrievers (e.g., DPR, E5) or hybrid retrieval systems in future work. 
+
+> 1https://huggingface.co/deepset/ roberta-base-squad2-distilled
+
+Figure 1: Claim Input: The process begins with a textual claim, typically generated by a language model or extracted from a corpus. This claim serves as the input to the attribution module. Attribution Module: 
+
+This module identifies relevant evidence passages that support or refute the claim. It operates in two modes: (a) Full-Evidence Attribution retrieves entire passages based on semantic similarity to the claim. (b) Span-Based Attribution extracts specific answer spans using a question-answering model, offering fine-grained attribution. These two strategies provide complementary views of evidence relevance. 
+
+Evidence Output: The selected evidence is passed downstream for verification. This intermediate output may include gold-standard evidence (from annotated datasets) or retrieved evidence (from a corpus). 
+
+Verification Module: This component uses a transformer-based entailment classifier to assess the relationship between the claim and its attributed evidence. It outputs a label from the set Supported, Refuted, Not Enough Info along with a confidence score s ∈[0,1]. Confidence Recalibration: To mitigate overconfident misclassifications, the confidence score is passed through a thresholding mechanism. If the score s falls below a predefined threshold τ , the output label is downgraded to Not Enough Info#, regardless of the original prediction. This ensures conservative decision-making in ambiguous cases. 
+
+Final Output: The system produces a calibrated label - Supported#, Refuted#, or Not Enough Info# -which reflects both the entailment judgment and the confidence adjustment. These outputs can be used for downstream tasks such as fact-checking, claim filtering, or human-in-the-loop review. 
+
+3.1.1. Attribution Scoring 
+
+Given a claim c and a set of evidence passages 
+
+{e1, e 2, . . . , e n}, we compute attribution scores us-ing either full-evidence or span-based retrieval: Score attr (c, e i) = sim (c, e i)
+
+where sim (·) is a similarity function such as cosine similarity or dense retriever score. 
+
+3.2. Verification Module 
+
+The verification module takes the claim and at-tributed evidence as input and outputs a label from Supported, Refuted, Not Enough Information. We use a transformer-based entailment classifier model trained on multiple NLI datasets.    
+
+> Input Format
+> [Claim] [SEP] [Attributed Evidence]
+
+The model outputs a label and a confidence score. This score is used in downstream calibra-tion. Each claim-evidence pair (c, e i) is passed to an entailment classifier fver that outputs a label 
+
+y ∈ { Supported , Refuted , Not Enough Info } and a confidence score s ∈ [0 , 1] :
+
+(y, s ) = fver (c, e i)
+
+3.3. Confidence Recalibration 
+
+To mitigate overconfidence and improve trustwor-thiness, we apply a simple threshold-based recali-bration. If the model’s confidence score is below a threshold τ (default: 0.6), the prediction is overrid-den to NEI. This reflects epistemic uncertainty and aligns with human fact-checking behavior. To reduce overconfident misclassifications, we apply a threshold τ to the confidence score s. The final output label y# is defined as: 
+
+y# =
+
+(
+
+y if s ≥ τ
+
+Not Enough Info # otherwise 
+
+Final Decision For multiple evidence passages, we aggregate verification scores and labels using majority voting or weighted averaging: 
+
+yfinal = Aggregate ({y#1 , y #2 , . . . , y # 
+
+> n
+
+})
+
+4. Experiments 
+
+4.1. Dataset 
+
+We assess DAVinCI using two prominent datasets for claim verification: FEVER 2 and CLIMATE-FEVER 3. Both datasets offer annotated claims, sup-porting evidence, and ground-truth labels, making them well-suited for evaluating attribution and veri-fication workflows. 
+
+FEVER: A curated subset of the original FEVER dataset, featuring claims categorized as contradic-tion, entailment, or neutral, accompanied by veri-fied evidence sentences sourced from Wikipedia. 
+
+CLIMATE-FEVER: A domain-specific fact-checking dataset focused on climate change. It includes claims extracted from scientific literature, paired with abstracts and rationale spans. Labels are assigned as Supported, Refuted, or Not Enough Information (NEI). The accompany-ing table outlines dataset statistics and class distribution. Both datasets provide gold-standard evidence, enabling the evaluation of both full-evidence and span-level attribution techniques. Table 1 shows the datatset distribution.           
+
+> 2https://huggingface.co/datasets/ tommasobonomo/sem_augmented_fever_nli
+> 3https://huggingface.co/datasets/ rexarski/climate_fever_fixed
+> Class label FEVER CLIMATE-FEVER ENTAILMENT / SUPPORTS 792 375
+> CONTRADICTION / REFUTES 812 164
+> NEUTRAL / NOT_ENOUGH_INFO 683 996
+> Total 2287 1535
+
+Table 1: Class label distribution in the FEVER and CLIMATE-FEVER datasets 
+
+4.2. Baselines 
+
+To assess the effectiveness of our proposed ap-proach, we conducted a comprehensive evaluation against several state-of-the-art Natural Language Inference (NLI) models. Specifically, we bench-marked our method against the following models which are widely recognized for their strong perfor-mance in language understanding tasks. 1. microsoft/deberta-large-mnli 4
+
+2. FacebookAI/roberta-large-mnli 5
+
+3. facebook/bart-large-mnli 6
+
+4. ynie/roberta-large-snli_mnli_fever_anli_R1_R2_R3-nli 7
+
+The comparison was carried out on the verifica-tion entailment task, allowing us to measure how well each model identifies and validates factual re-lationships within textual data. We compare DAVinCI against a standard verification-only baseline: 
+
+• Baseline: Verifier-only using full evidence. 
+
+• DAVinCI-Recalibrated: QA span + verifica-tion + recalibration (with τ =0.6). This setup allows us to isolate the impact of attri-bution quality and confidence calibration. 
+
+4.3. Implementation Details 
+
+All experiments were performed on an Apple Mac-Book equipped with the M4 chip, 32GB of RAM, and a 10-core CPU - offering a robust and energy-efficient setup optimized for high-performance com-puting. We used the Hugging Face Transformers library 8 for all models. We deliberately selected 
+
+> 4https://huggingface.co/microsoft/ deberta-large-mnli
+> 5https://huggingface.co/FacebookAI/ roberta-large-mnli
+> 6https://huggingface.co/facebook/ bart-large-mnli
+> 7https://huggingface.co/ynie/ roberta-large-snli_mnli_fever_anli_R1_ R2_R3-nli
+> 8https://huggingface.co
+
+models and datasets under the MIT license to ensure safer and more straightforward reproducibil-ity. 
+
+4.4. Main results 
+
+Tables 2 and 3 show the main results for perfor-mance of DAVinCI on both FEVER and CLIMATE-FEVER datasets. The performance comparison between baseline and Davinci-enhanced models reveals consistent improvements across all metrics. For the deberta-large-mnli model , Davinci boosts accuracy from 0.42 to 0.48, with macro F1-score rising from 0.36 to 0.41. Similarly, the 
+
+roberta-large-mnli model sees its accuracy increase from 0.36 to 0.44, and macro F1-score from 0.30 to 0.38. The bart-large-mnli model also benefits, with accuracy improving from 0.42 to 0.43 and macro F1-score from 0.36 to 0.37. Lastly, the roberta-large-snli model shows gains in accuracy (0.38 to 0.42) and macro F1-score (0.34 to 0.40). Across all models, Davinci integration leads to higher precision, recall, and F1-scores in both macro and weighted averages. The deberta-large-mnli model under Davinci achieves the highest macro precision (0.61) and weighted pre-cision (0.62), indicating strong overall classifica-tion performance. Even models with lower base-line scores, like roberta-large-mnli , show no-table improvements under Davinci, suggesting that the enhancement consistently elevates model ro-bustness and reliability. These results underscore Davinci’s effectiveness in refining natural language inference tasks across diverse transformer archi-tectures. 
+
+5. Ablation Study 
+
+We conduct an ablation study to evaluate the im-pact of individual components by comparing full evidence Tables 4 and 5, span-based evidence, and varying threshold settings (0.7, 0.8, 0.9) Ta-bles 6 and 7, enabling us to measure how each design choice influences performance and trust-worthiness. 
+
+5.1. DAVinCI with full evidence 
+
+The full-evidence variant consistently outperforms the span-based counterpart across all metrics. Among four entailment models, roberta-large-snli leads with 0.48 accuracy, macro F1, and weighted F1, showing balanced class performance. 
+
+deberta-large-mnli excels in macro precision (0.57) and weighted precision (0.58), indicating con-fident predictions. All full-evidence models main-tain macro and weighted F1-scores above 0.37, with recall between 0.44 and 0.49, highlighting improved class balance and semantic grounding. For CLIMATE-FEVER, full-evidence models again perform best. roberta-large-snli achieves 0.65 accuracy and 0.57 weighted F1. deberta-large-mnli and roberta-large-mnli follow with 0.61 accuracy and weighted F1 above 0.54. Macro precision ranges from 0.49 to 0.59, recall from 0.40 to 0.47, and weighted F1 consistently exceeds 0.54, confirming reliable and balanced predictions. 
+
+5.2. DAVinCI with span evidence 
+
+Span-evidence models show weaker performance across the board. bart-large-mnli leads with 0.39 accuracy, macro F1 of 0.33, and weighted F1 of 0.32, but still trails full-evidence by 10 points. deberta-large-mnli and roberta-large-snli perform worst, with 0.36 and 0.30 accuracy, respectively. Lower macro precision and recall suggest that span-based attribution yields incomplete evidence and reduced verifica-tion quality. In CLIMATE-FEVER, span-based mod-els also underperform. roberta-large-snli 
+
+retains 0.64 accuracy, but its macro F1 drops to 0.32. deberta-large-mnli scores 0.58 accu-racy and 0.51 weighted F1, yet its macro recall falls to 0.36. Overall, macro F1 ranges from 0.32 to 0.35, and weighted F1 stays around 0.50-0.54, confirming that span-based attribution sacrifices semantic depth for interpretability. 
+
+5.3. Impact of threshold tuning on DAVinCI with full evidence 
+
+At a 0.7 threshold, DAVinCI achieves the highest overall accuracy. deberta-large-mnli leads with 0.47 accuracy and 0.60 macro precision. 
+
+roberta-large-mnli (0.43) and bart-large-mnli (0.42) follow, while roberta-large-snli 
+
+trails at 0.38 but retains strong precision (0.58). Raising the threshold to 0.8 slightly lowers accuracy (e.g., deberta-large-mnli to 0.46, roberta-large-snli to 0.34) and F1-scores, as more claims are filtered as ”Not Enough Info.” Preci-sion remains stable (0.58–0.60), but recall drops. At 0.9, DAVinCI becomes more conservative: accuracy dips (e.g., deberta-large-mnli to 0.45, roberta-large-snli to 0.31), and macro F1 declines (e.g., roberta-large-snli to 0.19 ). Precision stays high, but recall suffers, high-lighting the trade-off between caution and cover-age. Threshold 0.7 offers the best balance; 0.9 minimizes false positives. DAVinCI’s recalibration module enables flexible tuning for different risk pro-files. For CLIMATE-FEVER, DAVinCI performs strongly at 0.7. roberta-large-snli leads with 0.66 accuracy and 0.63 precision, though Model Precision ↑ Recall ↑ F1-Score ↑ Accuracy ↑
+
+> Baseline
+
+deberta-large-mnli 
+
+0.42 
+
+macro avg 0.52 0.44 0.36 
+
+weighted avg 0.53 0.42 0.36 
+
+roberta-large-mnli 
+
+0.36 
+
+macro avg 0.43 0.38 0.3 
+
+weighted avg 0.43 0.36 0.29 
+
+bart-large-mnli 
+
+0.42 
+
+macro avg 0.46 0.43 0.36 
+
+weighted avg 0.46 0.42 0.36 
+
+roberta-large-snli 
+
+0.38 
+
+macro avg 0.46 0.4 0.34 
+
+weighted avg 0.46 0.38 0.34 
+
+> DAVinCI-Recalibrated
+
+deberta-large-mnli 0.48 macro avg 0.61 0.49 0.41 weighted avg 0.62 0.48 0.41 roberta-large-mnli 0.44 macro avg 0.51 0.45 0.38 weighted avg 0.52 0.44 0.38 bart-large-mnli 0.43 macro avg 0.51 0.44 0.37 weighted avg 0.52 0.43 0.37 roberta-large-snli 0.42 macro avg 0.57 0.44 0.4 weighted avg 0.59 0.42 0.4 
+
+Table 2: FEVER dataset: Evaluation of DAVinCI’s performance compared to baseline verification, including macro and weighted averages for F1 score, precision, and recall across three classes: entailment, contradiction, and neutral. The best-performing results are highlighted in bold. 
+
+Model Precision ↑ Recall ↑ F1-Score ↑ Accuracy ↑
+
+> Baseline
+
+deberta-large-mnli 
+
+0.6 
+
+macro avg 0.41 0.38 0.34 
+
+weighted avg 0.53 0.6 0.51 
+
+roberta-large-mnli 
+
+0.6 
+
+macro avg 0.48 0.41 0.38 
+
+weighted avg 0.58 0.6 0.54 
+
+bart-large-mnli 
+
+0.58 
+
+macro avg 0.52 0.43 0.38 
+
+weighted avg 0.61 0.58 0.52 
+
+roberta-large-snli 
+
+0.65 
+
+macro avg 0.54 0.35 0.31 
+
+weighted avg 0.62 0.65 0.54 
+
+> DAVinCI-Recalibrated
+
+deberta-large-mnli 0.63 macro avg 0.55 0.44 0.4 weighted avg 0.62 0.63 0.55 roberta-large-mnli 0.63 macro avg 0.56 0.46 0.44 weighted avg 0.63 0.63 0.57 bart-large-mnli 0.6 macro avg 0.52 0.43 0.39 weighted avg 0.61 0.6 0.54 roberta-large-snli 0.66 macro avg 0.61 0.39 0.38 weighted avg 0.65 0.66 0.56 
+
+Table 3: CLIMATE-FEVER dataset: Comparison of DAVinCI’s performance with baseline verification, reporting macro and weighted averages for F1 score, precision, and recall across the three classification categories: entailment, contradiction, and neutral. Accuracy is also provided for all four language models. Top-performing results are indicated in bold. recall is lower (0.39). deberta-large-mnli 
+
+and roberta-large-mnli reach 0.64 accu-racy, with macro F1-scores of 0.40 and 0.43. 
+
+bart-large-mnli follows at 0.62 accuracy and 0.40 F1. At 0.8, accuracy remains stable or improves (e.g., roberta-large-mnli to 0.65, 
+
+bart-large-mnli to 0.63), and precision rises (e.g., deberta-large-mnli from 0.58 → 0.61). Recall dips slightly. At 0.9, accuracy holds or im-proves (e.g., deberta-large-mnli to 0.65 ), precision peaks (e.g., roberta-large-snli 
+
+at 0.69), but F1-scores decline due to reduced recall. Accuracy trade-offs are minimal ( ≤1.6%), confirming DAVinCI’s ability to reduce false positives while maintaining strong performance. 
+
+Model P ↑ R ↑ F1 ↑ A ↑
+
+> DAVinCI-full-evidence
+
+deberta-large-mnli 0.48 macro avg 0.57 0.49 0.41 
+
+weighted avg 0.58 0.48 0.41 
+
+roberta-large-mnli 
+
+0.45 
+
+macro avg 0.48 0.46 0.39 
+
+weighted avg 0.49 0.45 0.39 
+
+bart-large-mnli 
+
+0.43 
+
+macro avg 0.49 0.44 0.37 
+
+weighted avg 0.49 0.43 0.37 
+
+roberta-large-snli 
+
+0.48 
+
+macro avg 0.54 0.48 0.48 weighted avg 0.56 0.48 0.48 DAVinCI-span-evidence  deberta-large-mnli 
+
+0.36 
+
+macro avg 0.28 0.38 0.3 
+
+weighted avg 0.28 0.36 0.29 
+
+roberta-large-mnli 
+
+0.33 
+
+macro avg 0.35 0.35 0.3 
+
+weighted avg 0.35 0.33 0.3 
+
+bart-large-mnli 
+
+0.39 
+
+macro avg 0.5 0.4 0.33 
+
+weighted avg 0.51 0.39 0.32 
+
+roberta-large-snli 
+
+0.3 
+
+macro avg 0.31 0.33 0.19 
+
+weighted avg 0.31 0.3 0.18 
+
+Table 4: Analysis of DAVinCI’s results for full vs. span evidence in FEVER dataset . Numbers in bold show the best performance. ( P: Precision, R: 
+
+Recall, F1: F1-score, A: Accuracy) 
+
+Model P ↑ R ↑ F1 ↑ A ↑
+
+> DAVinCI-full-evidence
+
+deberta-large-mnli 
+
+0.61 
+
+macro avg 0.51 0.43 0.39 
+
+weighted avg 0.6 0.61 0.54 
+
+roberta-large-mnli 
+
+0.61 
+
+macro avg 0.49 0.47 0.44 
+
+weighted avg 0.58 0.61 0.56 
+
+bart-large-mnli 
+
+0.58 
+
+macro avg 0.49 0.44 0.4 
+
+weighted avg 0.58 0.58 0.54 
+
+roberta-large-snli 0.65 macro avg 0.59 0.4 0.39 
+
+weighted avg 0.64 0.65 0.57 
+
+> DAVinCI-span-evidence
+
+deberta-large-mnli 
+
+0.58 
+
+macro avg 0.51 0.36 0.32 
+
+weighted avg 0.61 0.58 0.51 
+
+roberta-large-mnli 
+
+0.51 
+
+macro avg 0.43 0.36 0.35 
+
+weighted avg 0.56 0.51 0.5 
+
+bart-large-mnli 
+
+0.54 
+
+macro avg 0.48 0.37 0.33 
+
+weighted avg 0.59 0.54 0.5 
+
+roberta-large-snli 
+
+0.64 
+
+macro avg 0.45 0.35 0.32 
+
+weighted avg 0.57 0.64 0.54 
+
+Table 5: DAVinCI’s performance comparison using full versus span evidence on the CLIMATE-FEVER dataset . Best results are highlighted in bold. ( P: 
+
+Precision, R: Recall, F1: F1-score, A: Accuracy) 
+
+Model P ↑ R ↑ F1 ↑ A ↑
+
+> DAVinCI-Recalibrated (threshold = 0.7)
+
+deberta-large-mnli 0.47 macro avg 0.6 0.48 0.4 weighted avg 0.61 0.47 0.4 roberta-large-mnli 
+
+0.43 
+
+macro avg 0.52 0.45 0.37 
+
+weighted avg 0.53 0.43 0.37 
+
+bart-large-mnli 
+
+0.42 
+
+macro avg 0.51 0.43 0.36 
+
+weighted avg 0.52 0.42 0.36 
+
+roberta-large-snli 
+
+0.38 
+
+macro avg 0.58 0.4 0.33 
+
+weighted avg 0.59 0.38 0.32 
+
+> DAVinCI-Recalibrated (threshold = 0.8)
+
+deberta-large-mnli 
+
+0.46 
+
+macro avg 0.58 0.48 0.39 
+
+weighted avg 0.6 0.46 0.39 
+
+roberta-large-mnli 
+
+0.43 
+
+macro avg 0.53 0.44 0.36 
+
+weighted avg 0.54 0.43 0.36 
+
+bart-large-mnli 
+
+0.42 
+
+macro avg 0.52 0.43 0.36 
+
+weighted avg 0.54 0.42 0.36 
+
+roberta-large-snli 
+
+0.34 
+
+macro avg 0.58 0.37 0.25 
+
+weighted avg 0.6 0.34 0.24 
+
+> DAVinCI-Recalibrated (threshold = 0.9)
+
+deberta-large-mnli 
+
+0.45 
+
+macro avg 0.58 0.47 0.38 
+
+weighted avg 0.59 0.45 0.38 
+
+roberta-large-mnli 
+
+0.41 
+
+macro avg 0.51 0.44 0.35 
+
+weighted avg 0.52 0.41 0.34 
+
+bart-large-mnli 
+
+0.4 
+
+macro avg 0.55 0.42 0.34 
+
+weighted avg 0.56 0.4 0.34 
+
+roberta-large-snli 
+
+0.31 
+
+macro avg 0.56 0.35 0.19 
+
+weighted avg 0.57 0.31 0.17 
+
+Table 6: DAVinCI’s performance on the FEVER dataset across three thresholds (0.7, 0.8, 0.9). Bolded values indicate the highest performance achieved. Threshold of 0.7 delivers the best results overall. ( P: Precision, R: Recall, F1: F1-score, A: 
+
+Accuracy) 
+
+Model P ↑ R ↑ F1 ↑ A ↑
+
+> DAVinCI-Recalibrated (threshold = 0.7)
+
+deberta-large-mnli 
+
+0.64 
+
+macro avg 0.58 0.43 0.4 
+
+weighted avg 0.64 0.64 0.56 
+
+roberta-large-mnli 
+
+0.64 
+
+macro avg 0.57 0.46 0.43 weighted avg 0.63 0.64 0.57 bart-large-mnli 
+
+0.62 
+
+macro avg 0.54 0.43 0.4 
+
+weighted avg 0.62 0.62 0.55 
+
+roberta-large-snli 0.66 macro avg 0.63 0.39 0.37 
+
+weighted avg 0.66 0.66 0.56 
+
+> DAVinCI-Recalibrated (threshold = 0.8)
+
+deberta-large-mnli 
+
+0.64 
+
+macro avg 0.61 0.41 0.39 
+
+weighted avg 0.66 0.64 0.55 
+
+roberta-large-mnli 
+
+0.65 
+
+macro avg 0.58 0.44 0.42 
+
+weighted avg 0.64 0.65 0.57 bart-large-mnli 
+
+0.63 
+
+macro avg 0.57 0.43 0.4 
+
+weighted avg 0.64 0.63 0.55 
+
+roberta-large-snli 0.66 macro avg 0.64 0.38 0.36 
+
+weighted avg 0.67 0.66 0.55 
+
+> DAVinCI-Recalibrated (threshold = 0.9)
+
+deberta-large-mnli 
+
+0.65 
+
+macro avg 0.63 0.39 0.37 
+
+weighted avg 0.67 0.65 0.55 
+
+roberta-large-mnli 
+
+0.65 
+
+macro avg 0.62 0.41 0.39 
+
+weighted avg 0.66 0.65 0.56 
+
+bart-large-mnli 
+
+0.63 
+
+macro avg 0.59 0.41 0.38 
+
+weighted avg 0.65 0.63 0.55 
+
+roberta-large-snli 0.66 macro avg 0.69 0.38 0.35 
+
+weighted avg 0.7 0.66 0.55 
+
+Table 7: Evaluation of DAVinCI on the CLIMATE-FEVER dataset at thresholds 0.7, 0.8, and 0.9. The highest-performing results are highlighted in bold. Overall, threshold=0.7 performs the best. ( P: 
+
+Precision, R: Recall, F1: F1-score, A: Accuracy) 5.4. Ablation Insights 
+
+For the FEVER dataset, full-evidence models out-perform span-based ones by 9-18% , highlighting their superior performance. These models also de-liver more stable macro and weighted F1-scores, reflecting improved class balance. All models ben-efit from richer context, with roberta-large-snli showing the largest F1 gain - from 0.19 to 0.48 - when switching to full evidence. For the CLIMATE-FEVER dataset, across all models, DAVinCI with full-evidence consistently surpasses span-based versions, with accuracy improvements ranging from +1.6% to +19.6% . roberta-large-mnli sees the most significant jump ( 20%) , while 
+
+deberta-large-mnli and bart-large-mnli 
+
+improve by 5–7% . Even high-performing models like roberta-large-snli show further gains. These findings underscore the importance of com-prehensive context in claim verification and demon-strate DAVinCI’s strength in leveraging full evidence for factual inference. Optimal Thresholding: Athreshold of 0.7 offers the best trade-off between precision and recall across datasets. Together, these results affirm DAVinCI’s integrated approach to attribution and verification, showcasing its effec-tiveness in supporting reliable factual assessments. 
+
+6. Conclusion and Future Work 
+
+In this work, we introduced DAVinCI - a Dual Attri-bution and Verification framework designed to en-hance the factual reliability of large language model outputs. By integrating evidence attribution and entailment-based verification into a unified pipeline, DAVinCI enables LLMs to not only generate claims but also justify and validate them in a transparent and auditable manner. Our experiments on FEVER and CLIMATE-FEVER demonstrate that DAVinCI consistently outperforms standard verification-only baselines. Through an ablation study, we show that both evidence quality and confidence calibration play critical roles in improving model reliability. DAVinCI represents a step toward more trustwor-thy AI systems, especially in domains where factual correctness is essential. Future work will explore extensions to open-domain retrieval, multi-hop rea-soning, and internal attribution tracing. We also envision applying DAVinCI to generative tasks, en-abling LLMs to produce outputs that are not only fluent but also verifiable and source-aware. We also plan to expand its application to low-resource and multilingual environments. By bridging the gap between generation, attribution, and verification, DAVinCI contributes to the broader effort to make language models accountable. 
+
+7. Ethics Statement 
+
+This work does not involve the collection of new hu-man data or personally identifiable information. All experiments were conducted using publicly avail-able datasets (FEVER and CLIMATE-FEVER) that are widely used in the NLP community for factuality and claim verification research. We ensured that our framework, DAVinCI, operates transparently by attributing claims to evidence and calibrating confi-dence to reduce overconfident misclassifications. We release our code and evaluation scripts to pro-mote reproducibility and responsible use. Our goal is to advance trustworthy NLP systems that support human oversight, not replace it. 
+
+8. Discussion and Limitations 
+
+Our experiments demonstrate that integrating at-tribution and verification into a unified pipeline sig-nificantly improves the factual reliability and inter-pretability of LLM outputs. DAVinCI consistently outperforms the baseline across multiple metrics. One of the key insights from our ablation study is the importance of evidence quality. Full evidence attribution yields more accurate and faithful veri-fication than span-based extraction, which often loses critical context. This suggests that retrieval systems for LLMs should prioritize completeness and relevance over brevity. Additionally, our results show that confidence thresholds can be tuned to balance precision and recall, offering a simple yet effective mechanism for trust calibration. Despite these strengths, DAVinCI has limitations. (i) It assumes access to high-quality evidence, which may not be available in open-domain set-tings. (ii) The verification module relies on static entailment models that may struggle with nuanced or multi-hop reasoning. (iii) Our current implemen-tation does not model internal attribution (e.g., trac-ing claims to training data or prompts), which could further enhance interpretability. (iv) DAVinCI is eval-uated only on English-language datasets (FEVER and CLIMATE-FEVER), which limits its applicability to multilingual or low-resource contexts. (v) Our confidence calibration relies on manually tuned thresholds that may not generalize across domains or tasks. Future work could address these limitations by integrating dense retrievers, multi-hop reasoning modules, and internal attribution techniques such as prompt tracing or activation clustering. We also envision extending DAVinCI to generative tasks, en-abling LLMs to produce not only fluent text but also verifiable and source-aware outputs. Extending the framework to handle diverse linguistic struc-tures and evidence formats remains an open chal-lenge. Adaptive or learned calibration strategies could improve robustness and reduce the need for task-specific tuning. Human-in-the-loop evaluation could help assess the interpretability and trustwor-thiness of DAVinCI in real-world applications. 
+
+9. Bibliographical References 
+
+Isabelle Augenstein, Christina Lioma, Dongsheng Wang, Lucas Chaves Lima, Casper Hansen, Christian Hansen, and Jakob Grue Simonsen. 2019. MultiFC: A real-world multi-domain dataset for evidence-based fact checking of claims. In 
+
+Proceedings of the 2019 Conference on Empiri-cal Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , pages 4685–4697, Hong Kong, China. Association for Computational Linguistics. Farima Fatahi Bayat, Lechen Zhang, Sheza Mu-nir, and Lu Wang. 2025. Factbench: A dynamic benchmark for in-the-wild language model factu-ality evaluation. Thomas Diggelmann, Jordan Lee Boyd-Graber, Jannis Bulian, Massimiliano Ciaramita, and Markus Leippold. 2020. Climate-fever: A dataset for verification of real-world climate claims. ArXiv ,abs/2012.00614. Alphaeus Dmonte, Roland Oruche, Marcos Zampieri, Prasad Calyam, and Isabelle Augen-stein. 2025. Claim verification in the age of large language models: A survey. Tamer Elsayed, Preslav Nakov, Alberto Barrón-Cedeño, Maram Hasanain, Reem Suwaileh, Gio-vanni Da San Martino, and Pepa Atanasova. 2019. Checkthat! at clef 2019: Automatic identi-fication and verification of claims. In Advances in Information Retrieval: 41st European Con-ference on IR Research, ECIR 2019, Cologne, Germany, April 14–18, 2019, Proceedings, Part II , page 309–315, Berlin, Heidelberg. Springer-Verlag. Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q. Weinberger. 2017. On calibration of modern neu-ral networks. ArXiv , abs/1706.04599. Israa Jaradat, Pepa Gencheva, Alberto Barrón-Cedeño, Lluís Màrquez, and Preslav Nakov. 2018. ClaimRank: Detecting check-worthy claims in Arabic and English. In Proceedings of the 2018 Conference of the North American Chapter of the Association for Computational Lin-guistics: Demonstrations , pages 26–30, New Or-leans, Louisiana. Association for Computational Linguistics. Yuning Jiang, Manfred Jeusfeld, and Jianguo Ding. 2021. Evaluating the data inconsistency of open-source vulnerability repositories. In Proceedings of the 16th International Conference on Availabil-ity, Reliability and Security , ARES ’21, New York, NY, USA. Association for Computing Machinery. Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Küttler, Mike Lewis, Wen tau Yih, Tim Rocktäschel, Sebastian Riedel, and Douwe Kiela. 2021. Retrieval-augmented generation for knowledge-intensive nlp tasks. Hanchao Liu, Wenyuan Xue, Yifei Chen, Dapeng Chen, Xiutian Zhao, Ke Wang, Liping Hou, Rongjun Li, and Wei Peng. 2024. A survey on hallucination in large vision-language models. Nelson Liu, Tianyi Zhang, and Percy Liang. 2023. Evaluating verifiability in generative search en-gines. In Findings of the Association for Compu-tational Linguistics: EMNLP 2023 , pages 7001– 7025, Singapore. Association for Computational Linguistics. Subhey Sadi Rahman, Md. Adnanul Islam, Md. Mahbub Alam, Musarrat Zeba, Md. Abdur Rahman, Sadia Sultana Chowa, Mohaimenul Azam Khan Raiaan, and Sami Azam. 2025. Hal-lucination to truth: A review of fact-checking and factuality evaluation in large language models. Vipula Rawte, Swagata Chakraborty, Agnibh Pathak, Anubhav Sarkar, S.M Towhidul Islam Tonmoy, Aman Chadha, Amit Sheth, and Ami-tava Das. 2023a. The troubling emergence of hallucination in large language models - an ex-tensive definition, quantification, and prescriptive remediations. In Proceedings of the 2023 Confer-ence on Empirical Methods in Natural Language Processing , pages 2541–2573, Singapore. As-sociation for Computational Linguistics. Vipula Rawte, Amit Sheth, and Amitava Das. 2023b. A survey of hallucination in large foundation mod-els. arXiv preprint arXiv:2309.05922 .Kurt Shuster, Mojtaba Komeili, Leonard Adolphs, Stephen Roller, Arthur Szlam, and Jason Weston. 2022. Language models that seek for knowledge: Modular search & generation for dialogue and prompt completion. In Findings of the Associa-tion for Computational Linguistics: EMNLP 2022 ,pages 373–393, Abu Dhabi, United Arab Emi-rates. Association for Computational Linguistics. James Thorne and Andreas Vlachos. 2018. Auto-mated fact checking: Task formulations, meth-ods and future directions. In Proceedings of the 27th International Conference on Computational Linguistics , pages 3346–3359, Santa Fe, New Mexico, USA. Association for Computational Lin-guistics. James Thorne, Andreas Vlachos, Christos Christodoulopoulos, and Arpit Mittal. 2018. Fever: a large-scale dataset for fact extraction and verification. arXiv preprint arXiv:1803.05355 .
