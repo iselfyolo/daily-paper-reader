@@ -6,79 +6,82 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-01
-- 运行时间：2026-05-01 20:45:47 UTC
+- 最新运行日期：2026-05-02
+- 运行时间：2026-05-02 20:03:48 UTC
 - 运行状态：成功
-- 本次总论文数：19
-- 精读区：7
+- 本次总论文数：20
+- 精读区：8
 - 速读区：12
 
 ### 今日简报（AI）
-今日深度研读 19 篇前沿文献，核心突破聚焦于论辩框架（AF）的模块化拆解与逻辑优化。
-满分论文揭示了 ABA 框架及复杂集体攻击支持系统的拆解新机制，为处理大规模逻辑推理提供了理论巅峰。
-建议普通读者关注医疗决策支持与专利嵌入技术的跨界应用，探索高可信 AI 在专业领域的落地路径。
-- 详情：[/202605/01/README](/202605/01/README)
+今日深度研读 20 篇前沿论文，重点聚焦高质量表格数据生成与多智能体驱动的教育游戏自动化构建。
+核心推荐关注 TabSCM 框架在现实数据模拟上的突破，以及 GamED.AI 如何利用层级化架构实现教育游戏的智能产出。
+建议开发者尝试将这些自动化框架应用于数据增强或个性化教学场景，以显著提升研发与内容生产效率。
+- 详情：[/202605/02/README](/202605/02/README)
 
 ### 精读区论文标签
-1. [Splitting Assumption-Based Argumentation Frameworks](/202605/01/2604.27964v1-splitting-assumption-based-argumentation-frameworks)  
-   标签：评分：10.0/10、query:q1
-   evidence：使用基于假设的论证对辩论进行建模和推理的形式化方法
-2. [Splitting Argumentation Frameworks with Collective Attacks and Supports](/202605/01/2604.28112v1-splitting-argumentation-frameworks-with-collective-attacks-and-supports)  
-   标签：评分：10.0/10、query:q1
-   evidence：具有集体攻击和支持的论证框架形式化模型
-3. [BARRED: Synthetic Training of Custom Policy Guardrails via Asymmetric Debate](/202605/01/2604.25203v1-barred-synthetic-training-of-custom-policy-guardrails-via-asymmetric-debate)  
+1. [TabSCM: A practical Framework for Generating Realistic Tabular Data](/202605/02/2604.22337v1-tabscm-a-practical-framework-for-generating-realistic-tabular-data)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：通过辩论生成合成训练数据
-4. [Defeasible Conditional Obligation in a Two-tiered Preference-based Semantics (Extended Version)](/202605/01/2604.26977v1-defeasible-conditional-obligation-in-a-two-tiered-preference-based-semantics-extended-version)  
-   标签：评分：9.0/10、query:q5
-   evidence：使用二元道义逻辑和非单调推理对可撤销的条件义务进行建模
-5. [SynSQL: Synthesizing Relational Databases for Robust Evaluation of Text-to-SQL Systems](/202605/01/2604.27261v1-synsql-synthesizing-relational-databases-for-robust-evaluation-of-text-to-sql-systems)  
+   evidence：利用扩散模型和因果结构生成真实的表格数据
+2. [GamED.AI: A Hierarchical Multi-Agent Framework for Automated Educational Game Generation](/202605/02/2604.23947v2-gamedai-a-hierarchical-multi-agent-framework-for-automated-educational-game-generation)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：使用多智能体框架自动生成教育游戏
+3. [SAGE: Sparse Adaptive Guidance for Dependency-Aware Tabular Data Generation](/202605/02/2604.24368v1-sage-sparse-adaptive-guidance-for-dependency-aware-tabular-data-generation)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：合成关系数据库用于评估
-6. [The TEA Nets framework combines AI and cognitive network science to model targets, events and actors in text](/202605/01/2604.27673v1-the-tea-nets-framework-combines-ai-and-cognitive-network-science-to-model-targets-events-and-actors-in-text)  
-   标签：评分：9.0/10、query:kgee
-   evidence：从文本中提取主体（代理）、动词（事件）和客体（目标）
-7. [Towards Neuro-symbolic Causal Rule Synthesis, Verification, and Evaluation Grounded in Legal and Safety Principles](/202605/01/2604.28087v1-towards-neuro-symbolic-causal-rule-synthesis-verification-and-evaluation-grounded-in-legal-and-safety-principles)  
+   evidence：基于LLM的新型合成表格数据生成框架
+4. [Naamah: A Large Scale Synthetic Sanskrit NER Corpus via DBpedia Seeding and LLM Generation](/202605/02/2604.26456v1-naamah-a-large-scale-synthetic-sanskrit-ner-corpus-via-dbpedia-seeding-and-llm-generation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：利用大语言模型生成合成训练数据
+5. [AgentSim: A Platform for Verifiable Agent-Trace Simulation](/202605/02/2604.26653v1-agentsim-a-platform-for-verifiable-agent-trace-simulation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：模拟和生成可验证智能体推理轨迹的平台
+6. [APPSI-139: A Parallel Corpus of English Application Privacy Policy Summarization and Interpretation](/202605/02/2604.27550v1-appsi-139-a-parallel-corpus-of-english-application-privacy-policy-summarization-and-interpretation)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：由领域专家精心标注的高质量英文隐私政策语料库
+7. [SecGoal: A Benchmark for Security Goal Extraction and Formalization from Protocol Documents](/202605/02/2604.27601v1-secgoal-a-benchmark-for-security-goal-extraction-and-formalization-from-protocol-documents)  
+   标签：评分：9.0/10、query:q9
+   evidence：协议文档安全目标的形式化
+8. [Knowledge Graph Representations for LLM-Based Policy Compliance Reasoning](/202605/02/2604.27713v1-knowledge-graph-representations-for-llm-based-policy-compliance-reasoning)  
    标签：评分：9.0/10、query:profile-3
-   evidence：基于法律原则的神经符号因果规则合成
+   evidence：用于政策合规推理和类法律文档的知识图谱
 
 ### 速读区论文标签
-1. [Trustworthy Clinical Decision Support Using Meta-Predicates and Domain-Specific Languages](/202605/01/2604.21263v1-trustworthy-clinical-decision-support-using-meta-predicates-and-domain-specific-languages)  
+1. [Reasoning About Probabilities, Actions, and Knowledge in Fuzzy Modal Logic](/202605/02/2604.22459v1-reasoning-about-probabilities-actions-and-knowledge-in-fuzzy-modal-logic)  
+   标签：评分：8.0/10、query:q5
+   evidence：用于行动和知识概率推理的模糊模态逻辑
+2. [Aggregate vs. Personalized Judges in Business Idea Evaluation: Evidence from Expert Disagreement](/202605/02/2604.22517v1-aggregate-vs-personalized-judges-in-business-idea-evaluation-evidence-from-expert-disagreement)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：引入PBIG-DATA，一个包含3000个评分的数据集
+3. [When Corrective Hints Hurt: Prompt Design in Reasoner-Guided Repair of LLM Overcaution on Entailed Negations under OWL~2~DL](/202605/02/2604.23398v1-when-corrective-hints-hurt-prompt-design-in-reasoner-guided-repair-of-llm-overcaution-on-entailed-negations-under-owl2dl)  
    标签：评分：8.0/10、query:profile-3
-   evidence：临床支持中监管合规的形式语言与元谓词
-2. [Inferring High-Level Events from Timestamped Data: Complexity and Medical Applications](/202605/01/2604.21793v1-inferring-high-level-events-from-timestamped-data-complexity-and-medical-applications)  
-   标签：评分：8.0/10、query:kgee
-   evidence：基于逻辑的高层事件检测方法
-3. [Citation-Driven Multi-View Training for Patent Embeddings: QaECTER and Sophia-Bench](/202605/01/2604.22897v1-citation-driven-multi-view-training-for-patent-embeddings-qaecter-and-sophia-bench)  
-   标签：评分：8.0/10、query:kgee
-   evidence：大规模专利检索基准和领域相关性指标
-4. [Towards Automated Ontology Generation from Unstructured Text: A Multi-Agent LLM Approach](/202605/01/2604.23090v1-towards-automated-ontology-generation-from-unstructured-text-a-multi-agent-llm-approach)  
+   evidence：OWL 2 DL下推理器引导的LLM逻辑错误修复
+4. [Grammar-Constrained Refinement of Safety Operational Rules Using Language in the Loop: What Could Go Wrong](/202605/02/2604.23523v1-grammar-constrained-refinement-of-safety-operational-rules-using-language-in-the-loop-what-could-go-wrong)  
    标签：评分：8.0/10、query:q9
-   evidence：利用多智能体大模型从特定领域的保险合同中自动生成本体
-5. [Structural Quality Gaps in Practitioner AI Governance Prompts: An Empirical Study Using a Five-Principle Evaluation Framework](/202605/01/2604.21090v1-structural-quality-gaps-in-practitioner-ai-governance-prompts-an-empirical-study-using-a-five-principle-evaluation-framework)  
+   evidence：使用语法约束逻辑改进安全操作规则
+5. [Test Design and Review Argumentation in AI-Assisted Test Generation](/202605/02/2604.22473v1-test-design-and-review-argumentation-in-ai-assisted-test-generation)  
+   标签：评分：7.0/10、query:q1
+   evidence：AI辅助生成中的结构化论证模板
+6. [All Eyes on the Workflow: Automated and Efficient Event Discovery from Video Streams](/202605/02/2604.22476v1-all-eyes-on-the-workflow-automated-and-efficient-event-discovery-from-video-streams)  
+   标签：评分：7.0/10、query:kgee
+   evidence：从视频流中提取事件数据
+7. [The Chase in Lean -- Crafting a Formal Library for Existential Rule Research](/202605/02/2604.22531v1-the-chase-in-lean----crafting-a-formal-library-for-existential-rule-research)  
+   标签：评分：7.0/10、query:q6
+   evidence：用于存在规则推理的形式化库
+8. [Evaluating Temporal Consistency in Multi-Turn Language Models](/202605/02/2604.23051v1-evaluating-temporal-consistency-in-multi-turn-language-models)  
    标签：评分：7.0/10、query:profile-3
-   evidence：使用证明理论将AI治理提示作为可执行规范
-6. [Trust but Verify: Introducing DAVinCI -- A Framework for Dual Attribution and Verification in Claim Inference for Language Models](/202605/01/2604.21193v1-trust-but-verify-introducing-davinci----a-framework-for-dual-attribution-and-verification-in-claim-inference-for-language-models)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：增强法律等高风险领域的法律推理事实可靠性
-7. [Using ASP(Q) to Handle Inconsistent Prioritized Data](/202605/01/2604.21603v1-using-aspq-to-handle-inconsistent-prioritized-data)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：用于优先级数据不一致容错查询的 ASP
-8. [Probabilistic Abduction in a Fuzzy Logic Framework](/202605/01/2604.22064v1-probabilistic-abduction-in-a-fuzzy-logic-framework)  
-   标签：评分：7.0/10、query:profile-3
-   evidence：模糊逻辑框架下的概率溯因推理
-9. [GRISP: Guided Recurrent IRI Selection over SPARQL Skeletons](/202605/01/2604.21133v1-grisp-guided-recurrent-iri-selection-over-sparql-skeletons)  
+   evidence：在多轮交互中对随时间变化的事实进行推理
+9. [An End-to-End Ukrainian RAG for Local Deployment. Optimized Hybrid Search and Lightweight Generation](/202605/02/2604.22095v1-an-end-to-end-ukrainian-rag-for-local-deployment-optimized-hybrid-search-and-lightweight-generation)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：在合成数据上进行微调以生成内容
+10. [Knowledge-driven Augmentation and Retrieval for Integrative Temporal Adaptation](/202605/02/2604.22098v1-knowledge-driven-augmentation-and-retrieval-for-integrative-temporal-adaptation)  
    标签：评分：6.0/10、query:kgee
-   evidence：用于问答的知识图谱约束和语义占位符
-10. [Job Skill Extraction via LLM-Centric Multi-Module Framework](/202605/01/2604.21525v1-job-skill-extraction-via-llm-centric-multi-module-framework)  
+   evidence：知识驱动的检索与医学本体集成
+11. [Bridging the Long-Tail Gap: Robust Retrieval-Augmented Relation Completion via Multi-Stage Paraphrase Infusion](/202605/02/2604.22261v1-bridging-the-long-tail-gap-robust-retrieval-augmented-relation-completion-via-multi-stage-paraphrase-infusion)  
    标签：评分：6.0/10、query:kgee
-   evidence：从招聘广告中进行跨度级技能抽取
-11. [GS-Quant: Granular Semantic and Generative Structural Quantization for Knowledge Graph Completion](/202605/01/2604.21649v1-gs-quant-granular-semantic-and-generative-structural-quantization-for-knowledge-graph-completion)  
+   evidence：检索增强的关系补全与信息抽取
+12. [STEM: Structure-Tracing Evidence Mining for Knowledge Graphs-Driven Retrieval-Augmented Generation](/202605/02/2604.22282v1-stem-structure-tracing-evidence-mining-for-knowledge-graphs-driven-retrieval-augmented-generation)  
    标签：评分：6.0/10、query:kgee
-   evidence：用于知识表示和推理的语义树结构
-12. [StructMem: Structured Memory for Long-Horizon Behavior in LLMs](/202605/01/2604.21748v1-structmem-structured-memory-for-long-horizon-behavior-in-llms)  
-   标签：评分：6.0/10、query:kgee
-   evidence：用于事件级绑定和语义整合的分层记忆框架
+   evidence：用于检索的模式引导图搜索和语义到结构投影
 
 
 <div class="dpr-home-promo-card">
