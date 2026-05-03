@@ -1,0 +1,758 @@
+Title: Looking for the Bottleneck in Fine-grained Temporal Relation Classification
+
+URL Source: https://arxiv.org/pdf/2604.24620v1
+
+Published Time: Tue, 28 Apr 2026 02:22:02 GMT
+
+Number of Pages: 11
+
+Markdown Content:
+# Looking for the Bottleneck in Fine-grained Temporal Relation Classification 
+
+## Hugo Sousa ∗
+
+University of Porto INESC TEC Porto, Portugal hugo.o.sousa@inesctec.pt 
+
+## Ricardo Campos 
+
+University of Beira Interior INESC TEC Porto, Portugal ricardo.campos@inesctec.pt 
+
+## Alípio Jorge 
+
+University of Porto INESC TEC Porto, Portugal alipio.jorge@inesctec.pt 
+
+## Abstract 
+
+Temporal relation classification is the task of determining the tem-poral relation between pairs of temporal entities in a text. Despite recent advancements in natural language processing, temporal rela-tion classification remains a considerable challenge. Early attempts framed this task using a comprehensive set of temporal relations between events and temporal expressions. However, due to the task complexity, datasets have been progressively simplified, leading recent approaches to focus on the relations between event pairs and to use only a subset of relations. In this work, we revisit the broader goal of classifying interval relations between temporal en-tities by considering the full set of relations that can hold between two time intervals. The proposed approach, Interval from Point, involves first classifying the point relations between the endpoints of the temporal entities and then decoding these point relations into an interval relation. Evaluation on the TempEval-3 dataset shows that this approach can yield effective results, achieving a temporal awareness score of 70 .1 percent, a new state-of-the-art on this benchmark. 
+
+## CCS Concepts 
+
+• Computing methodologies → Natural language process-ing ; Neural networks ; • Information systems → Information extraction .
+
+## Keywords 
+
+temporal relation classification; natural language processing; tem-poral reasoning; Allen’s interval algebra 
+
+ACM Reference Format: 
+
+Hugo Sousa, Ricardo Campos, and Alípio Jorge. 2026. Looking for the Bot-tleneck in Fine-grained Temporal Relation Classification. In Proceedings of the 49th International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR ’26), July 20–24, 2026, Melbourne, VIC, Australia. 
+
+ACM, New York, NY, USA, 11 pages. https://doi.org/10.1145/3805712.3809581 
+
+## 1 Introduction 
+
+Understanding temporal information in text is essential for compre-hending its underlying narrative [ 18 ]. Many real-world applications,  
+
+> ∗Work done before joining Amazon.
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> SIGIR ’26, Melbourne, VIC, Australia
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2599-9/2026/07 https://doi.org/10.1145/3805712.3809581
+
+such as summarization [ 49 ], question answering [ 7], and timeline generation [ 4], rely on the ability to determine when events occur and how they relate in time. Consequently, extracting and structur-ing temporal information is an important task in natural language processing. A common approach to structuring temporal information is by encoding the relative temporal positioning of temporal entities – entities that can be anchored in time – occurring in the text. This approach has been extensively studied, particularly within the framework of the TimeML annotation scheme [ 36 ] and the TempEval shared tasks [ 42 , 43 , 45 ]. In this framework, temporal information is structured as triples of the form (source entity, rela-tion, target entity), where the relation belongs to a set of 14 labels inspired by the 13 interval relations defined by Allen [3] . For in-stance, in the sentence “John arrived in Boston after 10 p.m. ”, the temporal entities “arrived” and “10 p.m.” are linked by the after 
+
+relation, forming the triplet ( “arrived” , after , “10 p.m.” ). While temporal relations are intuitive for humans, they are of-ten conveyed implicitly, relying on reasoning and commonsense knowledge [ 11 , 52 ] to be inferred – abilities that computational models still struggle to replicate [ 12 ]. A key obstacle for further de-velopment of effective temporal relation classification systems lies in the complexity of creating datasets annotated with the full set of temporal relations. The process is not only labor-intensive but also hindered by low inter-annotator agreement and data sparsity. As a result, existing datasets remain limited, typically containing only a few thousand annotated relations [ 34 , 38 , 42 ]. Moreover, these annotations end up being highly skewed toward the most frequent relations, leaving the others significantly underrepresented. To address these challenges, prior research has sought to simplify the task in various ways, including reducing the number of relation types [ 6], focusing exclusively on relations between events [ 28 ], restricting annotations to specific event subsets [ 4 ], or consider-ing only relations between event start points [ 33 ]. While these approaches have advanced our understanding of temporal struc-tures, systems trained on such datasets do not generalize beyond the specific relations and event types encountered during training. This limitation restricts their applicability in real-world applica-tions. For instance, models that do not classify relations between events and temporal expressions cannot effectively anchor events in time. Furthermore, since the introduction of these benchmarks, most research efforts have been dedicated to producing systems for them [ 21 , 23 , 47 , 54 ], leaving the classification of the full set of interval relations largely unexplored.  
+
+> arXiv:2604.24620v1 [cs.CL] 27 Apr 2026 SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia Hugo Sousa, Ricardo Campos, and Alípio Jorge
+
+In this work, we revisit the challenge of classifying fine-grained temporal relations at the interval level, using both events and tem-poral expressions as entities. The proposed system, Interval from Point (IfP), decomposes the problem by first classifying the point-wise relations between the endpoints of temporal entities and then decoding these point relations into an interval relation. The main motivation behind this strategy is that at the point-level, classifica-tion involves only three labels – before, after, and equals – which simplifies the learning task. Furthermore, since each relation in the interval relation dataset can be translated to four point rela-tions, this approach significantly increases the number of training examples. This enables us to fine-tune a language model for point relation classification, yielding effective results at this level. The predicted point relations are then aggregated to infer the corre-sponding interval relation through a decoding strategy. Evaluation on the TempEval-3 dataset shows that this approach can yield ef-fective results and a clear path for future research. In summary, the contributions of this research are the following: 
+
+(i) We propose a new method for temporal relation classification, IfP, which breaks down the task of interval relation classification into classifying point relations between the endpoints of temporal entities. 
+
+(ii) We systematically evaluate the impact of data augmentation and model size on the effectiveness of point relation classification model. 
+
+(iii) Our experiments demonstrate that fine-tuning a pre-trained language model on an augmented interval dataset can surpass the effectiveness of the best baseline systems from previous studies. 
+
+(iv) Finally, our experimental setup allows us to identify the current limitations of the proposed system and provide a clear path for future research. 
+
+## 2 Temporal Relation Classification 
+
+The goal of the temporal relation classification task is to find a system 𝑆 that, given a document 𝑑 and a pair of temporal entities 𝑥 
+
+and 𝑦 within it, determines their temporal relation 𝑟 :
+
+𝑆 (𝑑, 𝑥, 𝑦 ) → 𝑟 (1) Regarding the temporal entities 𝑥 and 𝑦 , these are pre-annotated in the text and can be thought of as any entity that can be anchored in time. In TimeML framework [ 36 ], the most established annota-tion scheme, temporal entities are defined as being composed of events and temporal expressions. Events describe situations that occur, unfold, or persist over time, including actions (“announced”), states (“remained closed”), and conditions (“ongoing”). They can ap-pear as verbs, nominalizations, adjectives, or prepositional phrases. Temporal expressions, on the other hand, denote points or inter-vals in time and provide explicit temporal anchors within a text. These can be dates (“January 1”), times (“midnight”), durations (“two years”), or sets (“every Thursday”). A temporal expression of particular importance is the document creation time. Although it is not explicitly mentioned in the text, this temporal expression holds the time and date when the document was created and serves as a reference point for determining whether an entity occurs in the past, present, or future. 
+
+Figure 1: Allen’s relations between two time intervals along with the point relations that define them. 𝑥 and 𝑦 are the entities, and the subscripts 𝑠 and 𝑒 stand for their start and end, respectively. 
+
+Regarding the temporal relation 𝑟 , this is an element of the set of 13 temporal relations 𝑅 that describe how the entities are positioned in time with respect to one another. This set of temporal relations was first discussed in Allen’s seminal work [ 3], where the focus was on finding an exhaustive and mutually exclusive set of temporal relations that can hold between two time intervals. The set of relations are illustrated in Figure 1 and are composed of six fundamental relations, their inverses, and the symmetric equals 
+
+relation. It is worth noting that TimeML’s set of relations does not exactly match Allen’s interval relations. Specifically, the guidelines do not include labels corresponding to overlaps and overlapped-by re-lations. We further discuss this in Section 4.1 when we describe the TempEval-3 dataset, which was annotated according to the TimeML guidelines. 
+
+## 3 Interval from Point System 
+
+One particular aspect of Allen’s relations is that they can be de-scribed by the point relations between the start and end of the enti-ties involved (see Figure 1). Given a temporal entity 𝑥 , we define 𝑥 𝑠 
+
+and 𝑥 𝑒 as its start and end points, respectively. The temporal rela-tion between the entities 𝑥 and 𝑦 can then be decomposed into four point relations between the endpoint pairs (𝑥 𝑠 , 𝑦 𝑠 ), (𝑥 𝑠 , 𝑦 𝑒 ), (𝑥 𝑒 , 𝑦 𝑠 ),and (𝑥 𝑒 , 𝑦 𝑒 ). For instance, the interval relation starts translates into: (𝑥 𝑠 , =, 𝑦 𝑠 ), (𝑥 𝑠 , <, 𝑦 𝑒 ), (𝑥 𝑒 , >, 𝑦 𝑠 ), and (𝑥 𝑒 , <, 𝑦 𝑒 ). Note that at the point level only three relations are possible – before ( <), equals ( =), and after ( >) – which we collectively denote as 𝑅 𝑝 = {<, =, >}.The Interval from Point (IfP) system we propose leverages this decomposition to model interval relations by predicting the point relations between the endpoints of the entities. To achieve this, we train a point relation classification model 𝑃 that, when given Looking for the Bottleneck in Fine-grained Temporal Relation Classification SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia 
+
+a document 𝑑 and a pair of entity endpoints 𝑥 𝑖 ∈ { 𝑥 𝑠 , 𝑥 𝑒 } and 
+
+𝑦 𝑗 ∈ { 𝑦 𝑠 , 𝑦 𝑒 }, predicts the probability distribution over the three possible point relations: 
+
+𝑃 (𝑑, 𝑥 𝑖 , 𝑦 𝑗 ) =
+
+
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,<
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,=
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,>
+
+
+
+(2) where ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,𝑟 𝑝 is the estimated probability for the point relation 
+
+𝑟 𝑝 ∈ 𝑅 𝑝 between 𝑥 𝑖 and 𝑦 𝑗 .Since each point relation has an inverse, the estimated probability for 𝑟 𝑝 should be the same as for the inverse relation 𝑟 −1 
+
+> 𝑝
+
+when the source and target are swapped. For example, going back to the “John arrived in Boston after 10 p.m. ” example, ˆ𝑝 𝑥 𝑠 ,𝑦 𝑒 ,< when 
+
+𝑥 = “arrived” and 𝑦 = “10 p.m.” should be approximately the same as ˆ𝑝 𝑦 𝑠 ,𝑥 𝑒 ,> when 𝑥 = “10 p.m.” and 𝑦 = “arrived” .At inference time, our system takes advantage of this property to estimate the probability distribution for the point relations between 
+
+𝑥 𝑖 and 𝑦 𝑗 , ˆpij :
+
+ˆpij = 𝑃 (𝑑, 𝑥 𝑖 , 𝑦 𝑗 ) ⊙ 𝐽 · 𝑃 (𝑑, 𝑦 𝑖 , 𝑥 𝑗 )
+
+=
+
+
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,< · ˆ𝑝 𝑦 𝑖 ,𝑥 𝑗 ,>
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,= · ˆ𝑝 𝑦 𝑖 ,𝑥 𝑗 ,=
+
+ˆ𝑝 𝑥 𝑖 ,𝑦 𝑗 ,> · ˆ𝑝 𝑦 𝑖 ,𝑥 𝑗 ,<
+
+
+
+=
+
+
+
+ˆ𝑝 𝑖 𝑗, <
+
+ˆ𝑝 𝑖 𝑗, =
+
+ˆ𝑝 𝑖 𝑗, >
+
+
+
+(3) where 𝐽 ∈ R3×3 is the anti-identity matrix (i.e., 1s on the anti-diagonal, 0s elsewhere) and ⊙ denotes the Hadamard product. The probability distributions of the four endpoint pairs – ˆpss , ˆpse , ˆpes ,and ˆpee – are then passed to the decoding strategy 𝐷 to determine the most likely interval relation ˆ𝑟 ∈ 𝑅 , which we use as the predicted relation between 𝑥 and 𝑦 :
+
+IfP (𝑑, 𝑥, 𝑦 ) = ˆ𝑟 = 𝐷 ( ˆpss , ˆpse , ˆpes , ˆpee ) (4) The next sections detail the point classification model and de-coding strategy. 
+
+## 3.1 Point Relation Classification 
+
+For the point relation classification we fine-tune a pre-trained lan-guage model 𝐿𝑀 on a point relation dataset. Before fine-tuning, we add eight tokens to its vocabulary and embedding table: <xs> ,
+
+</xs> , <xe> , </xe> , <ys> , </ys> , <ye> , and </ye> . These tokens are used as XML tags to mark the entities in the document and indicate the endpoint pair being classified. Figure 2 illustrates how the text “John arrived in Boston after 10 p.m. ” would be tagged to classify the point relations between the start of “arrived” and the end of “10 p.m.” . Since some relations involve the document creation time as one of the entities, we prepend each document with the sentence: “Document creation time: <dct> ”. This allows us to treat the document creation time as any other entity. The encoded document (with the XML tags and the document cre-ation time) is processed by 𝐿𝑀 to generate token embeddings 𝑒 𝑛 ∈
+
+R𝑚 for 𝑛 ∈ { 1, . . . , 𝑁 }, where 𝑚 is the embedding dimension and 𝑁 
+
+the number of tokens. Each encoded document contains four special tokens, marking entity boundaries at positions 𝑠𝑡 𝑘 for 𝑘 ∈ { 1, 2, 3, 4}.We concatenate their embeddings, 𝑒 𝑠𝑡 = (𝑒 𝑠𝑡 1 , 𝑒 𝑠𝑡 2 , 𝑒 𝑠𝑡 3 , 𝑒 𝑠𝑡 4 ), with the average token embedding, 𝑒 𝑎𝑣𝑔 = Í𝑁 𝑛 =1 𝑒 𝑛 /𝑁 , to form the vector 
+
+𝑒 = (𝑒 𝑠𝑡 , 𝑒 𝑎𝑣𝑔 ) ∈ R5𝑚 to be used by the classification head 𝐻 which 
+
+Figure 2: Point relation classification model classifying the relation between the start of arrived and the end of 10 p.m. .The 𝑡 and 𝑒 in the diagram stand for tokens and embeddings, respectively. 
+
+outputs the probability distribution over the three point relations 
+
+𝑃 (𝑑, 𝑥 𝑖 , 𝑦 𝑗 ):
+
+𝐻 (𝑒 ) = 𝜎 (𝑊 2ReLU (𝑊 1 (𝑒 ) + 𝑏 1) + 𝑏 2)
+
+= 𝑃 (𝑑, 𝑥 𝑖 , 𝑦 𝑗 ) (5) where 𝑊 1 ∈ R5𝑚 ×5𝑚 , 𝑏 1 ∈ R5𝑚 , 𝑊 2 ∈ R5𝑚 ×3, 𝑏 2 ∈ R3, and 𝜎 is the softmax function. 
+
+## 3.2 Decoding Strategy 
+
+For the decoding strategy we use the estimated probability distri-butions ˆpij of the point relations to estimate the probabilities of the interval relations. For each interval relation 𝑟 ∈ 𝑅 , we compute the probability 𝑝 𝑟 as the product of the probabilities of the point relations that describe 𝑟 :
+
+ˆ𝑝 𝑟 =
+
+Ö  
+
+> 𝑖 ∈ { 𝑠,𝑒 }
+
+Ö  
+
+> 𝑗 ∈ { 𝑠,𝑒 }
+
+ˆ𝑝 𝑖 𝑗,𝑟 𝑖 𝑗 (6) where ˆ𝑝 𝑖 𝑗,𝑟 𝑖 𝑗 is the estimated probability in Equation (3) and 𝑟 𝑖 𝑗 
+
+is the point relation for the endpoint pair (𝑥 𝑖 , 𝑦 𝑗 ) in 𝑟 . For instance, the predicted probability for the interval relation starts would be ˆ𝑝 𝑠𝑡𝑎𝑟𝑡𝑠 = ˆ𝑝 𝑠𝑠, = × ˆ𝑝 𝑠𝑒, < × ˆ𝑝 𝑒𝑠, > × ˆ𝑝 𝑒𝑒, <. The predicted interval SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia Hugo Sousa, Ricardo Campos, and Alípio Jorge 
+
+relation by the decoding strategy is then the one with the highest probability: 
+
+ˆ𝑟 = arg max   
+
+> 𝑟 ∈𝑅
+
+ˆ𝑝 𝑟 (7) This is then used as the predicted interval relation by the IfP system. 
+
+## 4 Experimental Setup 
+
+In this section, we describe the training and evaluation process for the point and interval relation classification systems. To ensure reproducibility and encourage further research, we release the code for the experiments and the models that resulted from it under a permissive license 1.
+
+## 4.1 Datasets 
+
+Since no dataset has been manually annotated with the four end-point relations required to train the point relation model, we rely on existing interval-based datasets and convert their annotations into point relations. However, this conversion imposes certain con-straints. In particular, we are restricted to datasets that provide fine-grained interval annotations to avoid introducing mislabeled point relations. For instance, if the true relation between 𝑥 and 𝑦 is meet ,but the dataset only provides a coarse label such as before , the con-version may incorrectly result in the point-level relation (𝑥 𝑒 , <, 𝑦 𝑠 )
+
+instead of the correct (𝑥 𝑒 , =, 𝑦 𝑠 ). As a consequence, widely used datasets such as TimeBank-Dense and TDDiscourse, which fea-ture coarse-grained annotations, are unsuitable for evaluating our approach. To the best of our knowledge, the only open dataset that sat-isfies the required annotation granularity is the TempEval-3 [ 42 ]dataset 2. Released as part of the SemEval-13 campaign, it contains 275 news articles annotated according to the TimeML 1.2.1 guide-lines [ 36 ], which define 14 distinct temporal relation labels, namely: 
+
+BEFORE , AFTER , INCLUDES , IS_INCLUDED , DURING , DURING_INV , SI-MULTANEOUS , IAFTER , IBEFORE , IDENTITY , BEGINS , ENDS , BEGUN_-BY , and ENDED_BY . However, there is some confusion in the liter-ature regarding these relations, as they conceptually overlap. In particular, some inconsistencies exist regarding the interpretation of DURING and DURING_INV . The SemEval-13 competition paper does not mention DURING_INV , and the dataset contains only a single occurrence of this label, suggesting a potential annotation anomaly. Additionally, while UzZaman and Allen [41] maps DUR-ING to IS_INCLUDED , the official evaluation script [ 40 ] instead maps it to SIMULTANEOUS , aligning with its description in the TimeML 1.2.1 annotation guidelines. Furthermore, the TempEval-3 paper lists IDENTITY as a label; however, the evaluation script maps it to SIMULTANEOUS . To ensure comparability with the SemEval-13 results, we adopt the mapping used in their evaluation script which transforms the DURING , DURING_INV , and IDENTITY relations to 
+
+SIMULTANEOUS , as shown in Table 1.  
+
+> 1https://github.com/hmosousa/temporal_classifier
+> 2The MAVEN-ERE dataset [ 48 ] was also considered during our development. However, it was excluded because the test set labels are not publicly available, which limits comprehensive analysis of the results.
+
+4.1.1 Data Augmentation. Following Mirza and Tonelli [25] , we augment the training set with two strategies: 
+
+• Inverse relations : Since each temporal relation has an in-verse, we can augment the dataset by adding the inverse relations. For example, ( 𝑥 𝑠 , <, 𝑦 𝑠 ) implies that ( 𝑦 𝑠 , >, 𝑥 𝑠 ). This doubles the dataset and may enhance generalization. 
+
+• Temporal closure : Using the transitivity property of tempo-ral relations, we can infer additional relations from existing ones. For instance, if a document includes ( 𝑥 𝑠 , <, 𝑦 𝑠 ) and (𝑦 𝑠 , <, 𝑧 𝑠 ), we can infer that ( 𝑥 𝑠 , <, 𝑧 𝑠 ). This process, known as temporal closure [ 3], is particularly advantageous at the point level, where more relations can be inferred than at the interval level. For example, if a document has the anno-tation 𝑥 starts 𝑦 and 𝑥 starts 𝑧 , no interval relation can be inferred. However, at the point level, we can infer that 
+
+(𝑦 𝑠 , =, 𝑧 𝑠 ), (𝑦 𝑠 , <, 𝑧 𝑒 ), and (𝑦 𝑒 , >, 𝑧 𝑠 ).These augmentation strategies are used to generate the Inverse, Closure, and Inverse & Closure training sets at the interval and point levels. Figure 3 shows the label distribution across these training sets, as well as for the training set without augmentation (Raw) and the validation and test sets. The test set is the same as in the SemEval-13 competition, and the validation set consists of 20% of the training documents. It is important to note that the balance between < and > resulting from the closure transformation is artificial. The point closure method in tieval [ 37 ], the Python library we used to infer point relations, outputs all relations as either < or =. To address this constraint, we randomly replace half of the < relations with > relations. 
+
+Table 1: The mapping of the TimeML relations to the Allen relations.                
+
+> TimeML Allen
+> BEFORE before AFTER after IBEFORE meet IAFTER meet by BEGINS start BEGUN_BY started by ENDS finish ENDED_BY finished by INCLUDES contains IS_INCLUDED during DURING simultaneous DURING_INV simultaneous SIMULTANEOUS simultaneous IDENTITY simultaneous
+
+Looking for the Bottleneck in Fine-grained Temporal Relation Classification SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia IAFTER 
+
+> IBEFORE
+> BEGUN_BY
+> ENDS
+> BEGINS
+> ENDED_BY
+> AFTER
+> INCLUDES
+> SIMULTANEOUS
+> IS_INCLUDED
+> BEFORE
+> 9
+> 11
+> 38
+> 89
+> 110
+> 249
+> 8
+> 14
+> 51
+> 89
+> 139
+> 249
+> 3
+> 8
+> 62
+> 157
+> 121
+> 208
+> 3
+> 14
+> 63
+> 165
+> 121
+> 240
+> 2
+> 15
+> 95
+> 157
+> 87
+> 208
+> 2
+> 34
+> 102
+> 165
+> 119
+> 240
+> 198
+> 194
+> 1 144
+> 4 272
+> 24 048
+> 51 115
+> 88
+> 219
+> 1 286
+> 3 177
+> 4 469
+> 13 053
+> 110
+> 342
+> 1 357
+> 2 714
+> 2 132
+> 4 264
+> 176
+> 372
+> 1 891
+> 3 177
+> 8 584
+> 13 053
+> 330
+> 511
+> 3 128
+> 4 272
+> 27 067
+> 51 115
+
+Interval Relations 
+
+> Count (log scale)
+> =
+> >
+> <
+> 247
+> 780
+> 3 125
+> 6 250
+> 5 449
+> 10 898
+> 1 473
+> 2 426
+> 12 848
+> 33 743
+> 167 100
+> 334 501
+> 1 996
+> 3 730
+> 20 895
+> 33 743
+> 167 401
+> 334 501
+
+Point Relations 
+
+> Test
+> Valid
+> Raw
+> Inverse
+> Closure
+> Inverse & Closure
+
+Figure 3: Interval and point datasets label distribution. 
+
+## 4.2 Evaluation Metrics 
+
+We evaluate both point and interval predictions using accuracy and the macro-average 𝐹 1 score over the label set. For interval evalu-ation, we additionally report temporal awareness metric 𝐹 𝑎 [41 ], which is an 𝐹 1 score that takes into account the temporal closure of annotated and predicted relations. While this metric was tailored to assess the effectiveness of temporal extraction systems – i.e., systems that identify and classify temporal relations – prior work on temporal relation classification has also adopted them. For a fair comparison temporal awareness is computed using the TempEval-3 evaluation script [ 40 ]. All results presented are for a single run of the model. 
+
+## 4.3 Training Details 
+
+For the 𝐿𝑀 we experimented with the SmolLM2-135M and SmolLM2-360M [ 2 ]. Using these models allows us to evaluate the impact of (approximately) doubling the number of parameters on effective-ness. Each model is fine-tuned in the four training sets presented in Section 4.1 to assess the benefits of the augmentation strategies. Furthermore, given their small size, we can perform hyperparame-ter optimization to mitigate the risk of conclusions being influenced by specific configurations. The training is done by minimizing the cross-entropy loss and the search optimizes for macro-average 𝐹 1
+
+score on the validation set, evaluating the model every 2,000 steps. Training incorporates early stopping with a patience of 10 evalua-tion steps. We use AdamW as the optimizer with a cosine learning rate schedule, with 2% of the training steps being used for learning rate warm up. The training runs were conducted on a machine with four NVIDIA L40S GPUs, each with 45GB of VRAM, and an AMD EPYC Milan processor with 28 cores and 220GB of RAM. The hyperparameter search explores the following ranges: learn-ing rate log-uniformly sampled between 1𝑒 − 5 and 1𝑒 − 3, number of training epochs uniformly sampled between 1 and 10 , maximum gradient normalization uniformly sampled between 0.3 and 1.0,batch size from {4, 8, 16 , 32 }, and label smoothing uniformly sam-pled between 0.01 and 0.1. Each (model, training set) undergoes 30 trials, with up to four trials running in parallel, each on one NVIDIA L40S GPU. The search is conducted using Optuna [ 1 ] with asynchronous successive halving [ 19 ]. Since our decoding strat-egy infers interval relations based on model-predicted confidence, proper calibration – ensuring predicted probabilities align with actual accuracy – is crucial. Following Müller et al . [27] , which have shown that label smoothing improves calibration, we apply label smoothing as a tunable hyperparameter. Each hyperparameter search took on average 24 hours to complete which results in an estimate of 800 GPU hours to complete all training runs. The best hyperparameters for each model are shown in Appendix A. 
+
+## 4.4 Baseline Systems 
+
+To ground our evaluation in easily replicable baselines, we report results for the Random system, which randomly samples a label at inference time, and the Majority system, which always predicts the most frequent label from the training set. For the interval evaluation, we also compare our results with the most effective systems from previous studies. Specifically, we include UTTime [ 15 ], the most effective system in the SemEval-13 relation classification task, along with more recent models that achieved superior results: Graph Stacking [14 ], TRelPro [25 ], and 
+
+CATENA [ 26 ]. Additionally, we report results from SP+ILP [29 ], which, unlike standard classification systems, incorporates a mech-anism to ensure document-level timeline consistency. To the best of SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia Hugo Sousa, Ricardo Campos, and Alípio Jorge 
+
+our knowledge, SP+ILP was the last work to publish classification results on TempEval-3. To assess the baseline effectiveness of the 𝐿𝑀 s used on temporal relation classification, we also fine-tune them directly on the four interval training sets. The architecture and text processing is the same as the one described in Section 3.1 but only four new tokens are added to the vocabulary: <x> , </x> , <y> , and </y> . We refer to these models as Interval-135M and Interval-360M .
+
+## 5 Results & Discussion 5.1 Point Results 
+
+Figure 4 shows the accuracy and macro 𝐹 1 score of the point relation models trained on the four training sets: Raw (R), Inverse (I), Closure (C), and Closure & Inverse (IC). All models achieve an accuracy above 77% and an 𝐹 1 score above 65% , significantly outperforming the Random and Majority baselines, which achieve 33 .9% and 53 .7% 
+
+accuracy and 29 .8% and 23 .3% 𝐹 1 score, respectively. The results reveal that for the 135M model, increasing the dataset size leads to a more accurate model. However, the same trend is not observed for the 360M model, where expanding the training data from the C to the IC dataset yields the same accuracy. However, when looking at the 𝐹 1 score, we see that the 360M model trained on the IC dataset achieves the highest 𝐹 1 score of all the models ( 72 .9% ), indicating that it better balances effectiveness across all labels. When comparing models trained on the C dataset with the mod-els trained on the I dataset, we can observe that the former achieve higher accuracy but a lower macro 𝐹 1 score. This occurs because the C dataset is more imbalanced, leading to lower effectiveness on the = label. This can be confirmed by looking at the last row of heatmaps in Figure 5, where it shows that the 360M model trained on the I dataset achieves an 𝐹 1 score of 52 .0% on the (𝑥 𝑠 , 𝑦 𝑠 ) end-point pair but only 45 .8% when trained on the C dataset. The same effect can be observed in the (𝑥 𝑒 , 𝑦 𝑒 ) endpoint pair and the 135M model. On the other hand, the 𝐹 1 on the < and > relations increases when the model is trained on C rather than I. Figure 5 also highlights that the models struggle the most with the = relation, as its effectiveness on this label is lower than on < and 
+
+>. However, it is important to note that this relation is underrepre-sented in the test set, particularly for the (𝑥 𝑠 , 𝑦 𝑒 ) and (𝑥 𝑒 , 𝑦 𝑠 ), with only 9 and 8 instances labeled for these pairs, respectively. There-fore, future work should focus on improving the model’s ability to learn the = relation but also on developing a benchmark where this relation is more represented. Also in Figure 5, one can see that the models are highly effective at classifying (𝑥 𝑠 , 𝑦 𝑒 ) as < and (𝑥 𝑒 , 𝑦 𝑠 ) as >. The effectiveness of this may be partially justified by the fact that these are the most repre-sented relations in the training set, as shown in Table 2. However, further research is needed to determine whether this is solely due to dataset imbalance or if these relations are inherently easier to learn for these endpoint pairs. 
+
+## 5.2 Interval Results 
+
+Figure 6 shows the 𝐹 𝑎 score of the baselines, Interval models, and IfP systems. Looking at the results of the Interval models, one can see that fine-tuning the 360M model on I yields the highest 𝐹 𝑎 
+
+score, surpassing the best baseline system, SP+ILP. However, the 135M 360M     
+
+> 72
+> 74
+> 76
+> 78
+> 80
+> 82
+> Accuracy (%)
+> 77.2
+> 80.7
+> 78.4
+> 81.3
+> 79.5
+> 82.1
+> 80.2
+> 82.1
+> 135M 360M
+> 60
+> 62
+> 64
+> 66
+> 68
+> 70
+> 72
+> 74
+> Macro  F1 (%)
+> 67.2
+> 70.9
+> 69.8
+> 72.1
+> 69.8
+> 70.7
+> 66.1
+> 72.9
+> Raw Inverse Closure Inverse & Closure
+
+Figure 4: Accuracy and macro 𝐹 1 score of the point relation model that result from the different training sets. Error bars show the 95% confidence interval, estimated using bootstrap with 1 000 samples. 
+
+other Interval-360M models fail to achieve this level of effectiveness. During training, we observed that all 360M models memorized the training data (i.e., achieved a training 𝐹 𝑎 score of 1), while the 135M Interval models only memorized the R and I datasets. This suggests that training the 360M model effectively requires either more data or regularization techniques to enhance generalization. For IfP, the model trained with 360M parameters achieved the highest 𝐹 𝑎 score of 70 .1% . Interestingly, the point model underlying this model is neither the most accurate nor the most effective based on pointwise evaluation. Comparing the results of Interval-360M and IfP-360M trained on I, we found that the improvement in effec-tiveness results from a higher 𝐹 1 score on the SIMULTANEOUS and 
+
+INCLUDES relations, as shown in Figure 7. The figure also shows that the IfP systems end up only classifying the temporal relations as 
+
+BEFORE , AFTER , SIMULTANEOUS , INCLUDES , and IS_INCLUDED . This is a consequence of the low confidence that the model produces for the = relation, which can be observed in Figure 8. The low probabil-ity makes any interval relation that has = in the point relations that describe it less likely by default. Referring to Figure 5, we observe that the point model underlying IfP-360M trained on I has a high 𝐹 1
+
+score on the = relation, which contributes to its high effectiveness on the SIMULTANEOUS relation. Looking for the Bottleneck in Fine-grained Temporal Relation Classification SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia <    
+
+> 80.0 80.7
+> 77.0 83.2
+> 81.4 81.7
+> 81.3 82.3
+> n=428
+
+xs-ys    
+
+> 90.4 92.4
+> 91.3 92.0
+> 91.6 92.4
+> 91.3 92.1
+> n=722
+
+xs-ye    
+
+> 69.9 76.3
+> 72.9 79.1
+> 76.1 81.0
+> 78.4 79.2
+> n=330
+
+xe-ys    
+
+> RICIC
+> 80.8 83.3
+> 80.8 83.1
+> 82.2 84.5
+> 83.2 83.7
+> n=516
+
+xe-ye
+
+>                 
+
+> 73.5 76.7
+> 75.6 78.8
+> 74.6 80.0
+> 77.9 80.8
+> n=386
+> 46.5 65.2
+> 64.1 64.6
+> 68.3 72.4
+> 65.7 69.7
+> n=198
+> 85.1 88.4
+> 86.6 89.0
+> 88.0 89.0
+> 87.6 89.4
+> n=591
+> RICIC
+> 63.2 72.5
+> 67.5 69.9
+> 69.7 74.7
+> 71.8 75.0
+> n=298
+> 135M 360M
+
+=                   
+
+> 45.4 51.8
+> 50.6 52.0
+> 49.4 45.8
+> 35.3 54.3
+> n=115
+> 135M 360M
+> 0.0 0.0
+> 0.0 0.0
+> 0.0 0.0
+> 0.0 0.0
+> n=9
+> 135M 360M
+> 0.0 0.0
+> 0.0 0.0
+> 0.0 0.0
+> 0.0 0.0
+> n=8
+> 135M 360M
+> RICIC
+> 47.6 46.3
+> 52.0 53.2
+> 46.4 46.8
+> 37.4 51.9
+> n=115
+
+Figure 5: 𝐹 1 score of the point relation model for each (label, endpoint pair). 𝑛 is the support. 
+
+For the INCLUDES relation, the point model achieves the highest effectiveness on the (𝑥 𝑠 , <, 𝑦 𝑠 ) while having a good effectiveness on 
+
+(𝑥 𝑠 , <, 𝑦 𝑒 ) and (𝑥 𝑒 , >, 𝑦 𝑠 ) – three of the point relations that define 
+
+INCLUDES . This explains the model’s high effectiveness on this relation. Interestingly, training on I consistently improved the effective-ness over training on R, except in the case of the IfP-135M model. Upon investigation, we found that the underlying point model of IfP-135M has an expected calibration error of 14 .3% , whereas the IfP-360M model’s point model has a significantly lower error of 
+
+8.38% . While the reason for the weaker calibration of the IfP-135M point model is unclear, this finding suggests that further research on point model calibration could enhance the overall effectiveness of the IfP system. Since our decoding strategy uses the confidence of point relation predictions as a proxy for their probability, checking how well the model confidence aligns with the percentage of errors is critical. Figure 8 presents the calibration curve per label, computed on a one-vs-rest basis using 20 bins over the quantile of the predicted 
+
+Table 2: Distribution of point relations by endpoint pair in the training sets. R, I, C, and IC refer to the Raw, Inverse, Closure, and Inverse & Closure datasets, respectively. 
+
+𝑥 𝑠 − 𝑦 𝑠 𝑥 𝑠 − 𝑦 𝑒 𝑥 𝑒 − 𝑦 𝑠 𝑥 𝑒 − 𝑦 𝑒 
+
+R
+
+< 4 567 8 035 3 128 5 165 
+
+> 3 136 1 144 6 038 2 530 
+
+= 1 514 38 51 1 522 
+
+I
+
+< 7 703 14 073 4 272 7 695 
+
+> 7 703 4 272 14 073 7 695 
+
+= 3 028 89 89 3 044 
+
+C
+
+< 15 406 28 146 8 544 15 390 
+
+> 15 406 8 544 28 146 15 390 
+
+= 6 056 178 178 6 088 
+
+IC 
+
+< 30 812 56 292 17 088 30 780 
+
+> 30 812 17 088 56 292 30 780 
+
+= 12 112 356 356 12 176 
+
+confidence. From this figure, we can see that for the < and > labels the model is overconfident in its predictions when the confidence is below 0.5 and underconfident when the confidence is above 0.5.For =, the model is underconfident for the whole range and has a tendency to predict lower confidence scores, since the average of the last quantile of the predicted confidence is around 0.7. This is a consequence of the few examples of the = label in the train and test sets. In summary, our experiments show that fine-tuning a language model for temporal relation classification yields high effectiveness. Additionally, using point representations as an intermediate step for predicting interval relations proves to be a successful strategy. To further enhance the IfP system’s effectiveness, future work should focus on three key areas: improving the representation of the =
+
+relation in the training set, ensuring a more balanced distribution of (source, target) pairs in the training set, and refining the calibration of the point model. 
+
+## 6 Related Work 
+
+Many approaches to temporal relation classification have been explored since the introduction of TimeBank [ 34 ]. Initially, the approaches compiled a feature set based on various types of se-mantic and linguistic features, which were then passed to either a rule-based system [ 10 ], a machine learning model [ 22 ], or a hybrid system [ 9 , 15 , 25 ] to classify the temporal relations. However, given that classifying relations independently can lead to temporally inco-herent timelines at the document level, researchers have explored strategies to enforce temporal coherence at inference [ 24 , 44 ] and learning time [16, 29]. With the advent of dense vector representation of text the field moved away from feature engineering, allowing neural models to learn representations directly from data. Early neural approaches leveraged LSTM- and CNN-based architectures [ 8, 17 , 39 ], while more recent work has built on pre-trained language models [ 21 ,SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia Hugo Sousa, Ricardo Campos, and Alípio Jorge Baselines 
+
+> 52.5
+> 55.0
+> 57.5
+> 60.0
+> 62.5
+> 65.0
+> 67.5
+> 70.0
+> Fa (%)
+
+56.5 
+
+57.8 58.5 
+
+61.9 
+
+67.2 
+
+> Interval 135M
+
+62.9 
+
+62.1 61.9 
+
+64.2 
+
+> Interval 360M
+
+65.6 
+
+63.6 
+
+65.2 
+
+67.4 
+
+> IfP-135M
+
+64.8 
+
+63.9 64.0 64.0 
+
+> IfP-360M
+
+66.2 
+
+70.1 
+
+67.9 
+
+69.3 
+
+> Random (11.6 %)
+> Majority (35.7 %)
+> UTTime
+> Graph Staking
+> TRelPro
+> CATENA
+> SP+ILP
+> Raw
+> Inverse
+> Closure
+> Inverse & Closure
+
+Figure 6: The temporal awareness of the baselines, the Interval models, and the IfP system on the TempEval-3 test set. R I C IC                                  
+
+> BEFORE
+> AFTER
+> SIMULTANEOUS
+> INCLUDES
+> IS_INCLUDED
+> IBEFORE
+> IAFTER
+> ENDS
+> ENDED_BY
+> BEGINS
+> BEGUN_BY
+> 76.0 74.0 77.3 75.5
+> 66.7 66.8 67.0 65.7
+> 40.0 50.2 44.9 33.8
+> 49.1 47.5 39.2 42.3
+> 67.1 65.3 68.6 68.2
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 66.7 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+
+IfP-135M                                     
+
+> RICIC
+> 74.7 76.9 74.3 73.7
+> 64.7 69.6 62.0 60.3
+> 41.7 45.1 43.8 40.9
+> 50.9 51.7 39.4 43.8
+> 65.8 67.2 65.5 67.2
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 15.4 0.0 0.0 0.0
+> 66.7 0.0 40.0 40.0
+> 40.0 28.6 40.0 40.0
+> 0.0 33.3 40.0 40.0
+
+Interval 135M                                     
+
+> RICIC
+> 79.3 81.7 78.1 79.1
+> 69.6 69.8 70.4 67.5
+> 44.7 55.0 46.9 48.6
+> 50.4 55.2 48.1 50.3
+> 66.5 70.8 70.3 70.7
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+
+IfP-360M                                     
+
+> RICIC
+> 79.9 76.8 78.0 79.8
+> 64.6 63.3 66.2 70.6
+> 46.1 50.0 48.1 44.4
+> 42.3 43.0 43.9 45.6
+> 66.1 66.3 67.9 69.6
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 0.0 0.0 0.0 0.0
+> 50.0 0.0 28.6 80.0
+> 28.6 50.0 40.0 33.3
+> 50.0 40.0 0.0 57.1
+> n=330
+> n=198
+> n=110
+> n=88
+> n=176
+> n=8
+> n=9
+> n=3
+> n=2
+> n=2
+> n=3
+
+Interval 360M 
+
+Figure 7: 𝐹 1 score of the Interval models and IfP systems for each label. 
+
+31 , 35 , 47 ]. Various strategies have been explored to improve rep-resentation learning for temporal relation classification, including distant supervision [ 32 , 51 , 53 ], auxiliary training tasks [ 5, 30 , 46 ], and graph neural networks [20, 23, 50, 54]. The work most closely related to ours is that of Huang et al .[13] , which also explores the use of point relations to infer in-terval relations. However, their method focuses on event-event relation extraction (which also includes the vague label), relies on binary classification with logical mapping, and is evaluated only on TimeBank-Dense [ 6] and MATRES [ 33 ] – limiting the analysis to a partial set of interval relations. In contrast, we model point rela-tion probabilities to infer the most likely interval relation, evaluate on the full set of interval relations, and include both events and temporal expressions as entities. Furthermore, to the best of our knowledge, we are the first to explore the use of temporal closure at the point level. 
+
+## 7 Conclusion & Future Work 
+
+In this work, we propose a novel approach for temporal relation classification that predicts endpoint relations using a pointwise model and then decodes them into interval relations. Our empirical evaluation on the TempEval-3 dataset shows the effectiveness of this method. Despite these improvements, our analysis highlights the classification of the equal relation as a major bottleneck in the pointwise model. One of the major limitations of this work is that the only suitable dataset to evaluate the system is the TempEval-3 dataset. Future work should focus on creating a point-level dataset so that more extensive research can be conducted. Furthermore, Looking for the Bottleneck in Fine-grained Temporal Relation Classification SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia 
+
+(a) SmolLM2-135M trained on Inverse dataset calibration curve. (b) SmolLM2-360M trained on Inverse dataset calibration curve. 
+
+Figure 8: Calibration curves of the model. The x-axis shows the mean predicted confidence, and the y-axis shows the percentage of positives. The curves are computed on a one-vs-rest basis using 20 bins over the quantile of the predicted confidence. 
+
+future work should also explore extending the system to document-level inference. 
+
+## Acknowledgments 
+
+This work is funded by national funds through FCT - Fundação para a Ciência e a Tecnologia, I.P., under the support UID/50014/2025 
+
+(https://doi.org/10.54499/UID/50014/2025). 
+
+## A Hyperparameters 
+
+Table 3 shows the best hyperparameters for each model. 
+
+Table 3: The combination of hyperparameters that yielded the highest validation macro 𝐹 1 score for each model. Data Learning Rate Max Grad Norm # Epochs Label Smoothing Batch Size I CInterval-135M 0.0002 0.55 15 0.02 8                                                                            
+
+> ✓0.0003 0.60 25 0.03 4
+> ✓0.0002 0.40 12 0.02 16
+> ✓✓0.0003 0.45 80.02 16 Interval-360M 0.0001 0.70 10 0.02 4
+> ✓0.0002 0.90 80.02 4
+> ✓0.0002 0.75 60.05 8
+> ✓✓0.0003 0.45 50.02 8Point-135M 0.0002 0.51 17 0.02 8
+> ✓0.0003 0.61 29 0.03 4
+> ✓0.0002 0.36 10 0.02 16
+> ✓✓0.0003 0.50 50.02 16 Point-360M 0.00009 0.67 12 0.02 4
+> ✓0.0002 0.93 90.02 4
+> ✓0.0002 0.77 50.06 8
+> ✓✓0.0003 0.41 50.02 8
+
+## References 
+
+[1] Takuya Akiba, Shotaro Sano, Toshihiko Yanase, Takeru Ohta, and Masanori Koyama. 2019. Optuna: A Next-generation Hyperparameter Optimization Frame-work. In Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining (New York, NY, USA). ACM, 2623–2631. doi:10.1145/3292500.3330701 [2] Loubna Ben Allal, Anton Lozhkov, Elie Bakouch, Gabriel Martín Blázquez, Guil-herme Penedo, Lewis Tunstall, Andrés Marafioti, Hynek Kydlíček, Agustín Pi-queres Lajarín, Vaibhav Srivastav, Joshua Lochner, Caleb Fahlgren, Xuan-Son Nguyen, Clémentine Fourrier, Ben Burtenshaw, Hugo Larcher, Haojun Zhao, Cyril Zakka, Mathieu Morlon, Colin Raffel, Leandro von Werra, and Thomas Wolf. 2025. SmolLM2: When Smol Goes Big – Data-Centric Training of a Small Language Model. arXiv preprint (2 2025). [3] James F. Allen. 1983. Maintaining knowledge about temporal intervals. Commun. ACM 26, 11 (Nov. 1983), 832–843. doi:10.1145/182.358434 [4] Sarah Alsayyahi and Riza Batista-Navarro. 2023. TIMELINE: Exhaustive An-notation of Temporal Relations Supporting the Automatic Ordering of Events in News Articles. In Proceedings of the 2023 Conference on Empirical Meth-ods in Natural Language Processing , Houda Bouamor, Juan Pino, and Kalika Bali (Eds.). Association for Computational Linguistics, Singapore, 16336–16348. doi:10.18653/v1/2023.emnlp-main.1016 [5] Miguel Ballesteros, Rishita Anubhai, Shuai Wang, Nima Pourdamghani, Yogarshi Vyas, Jie Ma, Parminder Bhatia, Kathleen McKeown, and Yaser Al-Onaizan. 2020. Severing the Edge Between Before and After: Neural Architectures for Temporal Ordering of Events. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP) (Online). Association for Computational Linguistics, 5412–5417. doi:10.18653/v1/2020.emnlp-main.436 [6] Taylor Cassidy, Bill McDowell, Nathanael Chambers, and Steven Bethard. 2014. An Annotation Framework for Dense Event Ordering. In Proceedings of the 52nd Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers) (Stroudsburg, PA, USA). Association for Computational Linguistics, 501– 506. doi:10.3115/v1/P14-2082 [7] Ziyang Chen, Jinzhi Liao, and Xiang Zhao. 2023. Multi-granularity Temporal Question Answering over Knowledge Graphs. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,Anna Rogers, Jordan Boyd-Graber, and Naoaki Okazaki (Eds.). Association for Computational Linguistics, Toronto, Canada, 11378–11392. doi:10.18653/v1/2023. acl-long.637 [8] Dmitriy Dligach, Timothy Miller, Chen Lin, Steven Bethard, and Guergana Savova. 2017. Neural Temporal Relation Extraction. In Proceedings of the 15th Conference of the European Chapter of the Association for Computational Linguistics: Volume 2, Short Papers . 746–751. [9] Jennifer D’Souza and Vincent Ng. 2013. Classifying Temporal Relations with Rich Linguistic Knowledge. In Proceedings of the 2013 Conference of the North SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia Hugo Sousa, Ricardo Campos, and Alípio Jorge 
+
+American Chapter of the Association for Computational Linguistics: Human Lan-guage Technologies (Atlanta, Georgia), Lucy Vanderwende, Hal Daumé III, and Katrin Kirchhoff (Eds.). Association for Computational Linguistics, 918–927. https://aclanthology.org/N13-1112/ [10] Caroline Hagège and Xavier Tannier. 2007. XRCE-T: XIP Temporal Module for TempEval campaign. In Proceedings of the Fourth International Workshop on Semantic Evaluations (SemEval-2007) (Prague, Czech Republic), Eneko Agirre, Lluís Màrquez, and Richard Wicentowski (Eds.). Association for Computational Linguistics, 492–495. https://aclanthology.org/S07-1110/ [11] Rujun Han, Xiang Ren, and Nanyun Peng. 2021. ECONET: Effective Continual Pretraining of Language Models for Event Temporal Reasoning. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing .5367–5380. [12] Kimihiro Hasegawa, Nikhil Kandukuri, Susan Holm, Yukari Yamakawa, and Teruko Mitamura. 2024. Formulation Comparison for Timeline Construction using LLMs. arXiv preprint (3 2024). [13] Quzhe Huang, Yutong Hu, Shengqi Zhu, Yansong Feng, Chang Liu, and Dongyan Zhao. 2023. More than Classification: A Unified Framework for Event Temporal Relation Extraction. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) (Stroudsburg, PA, USA). Association for Computational Linguistics, 9631–9646. doi:10.18653/v1/2023.acl-long.536 [14] Natsuda Laokulrat, Makoto Miwa, and Yoshimasa Tsuruoka. 2015. Stacking approach to temporal relation classification with temporal inference. Information and Media Technologies 11 (9 2015), 53–78. [15] Natsuda Laokulrat, Makoto Miwa, Yoshimasa Tsuruoka, and Takashi Chikayama. 2013. UTTime: Temporal Relation Classification using Deep Syntactic Features. In 
+
+Second Joint Conference on Lexical and Computational Semantics (*SEM), Volume 2: Proceedings of the Seventh International Workshop on Semantic Evaluation (SemEval 2013) (Atlanta, Georgia, USA), Suresh Manandhar and Deniz Yuret (Eds.). Association for Computational Linguistics, 88–92. https://aclanthology.org/S13-2015/ [16] Artuur Leeuwenberg and Marie Francine Moens. 2017. Structured Learning for Temporal Relation Extraction from Clinical Records. In Proceedings of the 15th Conference of the European Chapter of the Association for Computational Linguistics: Volume 1, Long Papers . 1150–1158. [17] Artuur Leeuwenberg and Marie-Francine Moens. 2018. Temporal Information Extraction by Predicting Relative Time-lines. In Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing (Stroudsburg, PA, USA). Association for Computational Linguistics, 1237–1246. doi:10.18653/v1/D18-1155 [18] Artuur Leeuwenberg and Marie-Francine Moens. 2019. A Survey on Temporal Reasoning for Temporal Information Extraction from Text. Journal of Artificial Intelligence Research 66 (2019), 341–380. [19] Liam Li, Kevin Jamieson, Afshin Rostamizadeh, Ekaterina Gonina, Jonathan Ben-tzur, Moritz Hardt, Benjamin Recht, and Ameet Talwalkar. 2020. A Sys-tem for Massively Parallel Hyperparameter Tuning. In Proceedings of Ma-chine Learning and Systems , I Dhillon, D Papailiopoulos, and V Sze (Eds.), Vol. 2. 230–246. https://proceedings.mlsys.org/paper_files/paper/2020/file/ a06f20b349c6cf09a6b171c71b88bbfc-Paper.pdf [20] Jian Liu, Jinan Xu, Yufeng Chen, and Yujie Zhang. 2021. Discourse-Level Event Temporal Ordering with Uncertainty-Guided Graph Completion. In Proceedings of the Thirtieth International Joint Conference on Artificial Intelligence, IJCAI-21 ,Zhi-Hua Zhou (Ed.). International Joint Conferences on Artificial Intelligence Organization, 3871–3877. doi:10.24963/ijcai.2021/533 Main Track. [21] Hieu Man, Nghia Trung Ngo, Linh Ngo Van, and Thien Huu Nguyen. 2022. Select-ing Optimal Context Sentences for Event-Event Relation Extraction. Proceedings of the AAAI Conference on Artificial Intelligence 36 (6 2022), 11058–11066. Issue 10. doi:10.1609/aaai.v36i10.21354 [22] Inderjeet Mani, Marc Verhagen, Ben Wellner, Chungmin Lee, and James Puste-jovsky. 2006. Machine Learning of Temporal Relations. In Proceedings of the 21st International Conference on Computational Linguistics and 44th Annual Meeting of the Association for Computational Linguistics . 753–760. [23] Puneet Mathur, Rajiv Jain, Franck Dernoncourt, Vlad Morariu, Quan Hung Tran, and Dinesh Manocha. 2021. TIMERS: Document-level Temporal Relation Extrac-tion. In Proceedings of the 59th Annual Meeting of the Association for Computa-tional Linguistics and the 11th International Joint Conference on Natural Language Processing (Volume 2: Short Papers) (Stroudsburg, PA, USA). Association for Com-putational Linguistics, 524–533. doi:10.18653/v1/2021.acl-short.67 [24] Yuanliang Meng, Anna Rumshisky, and Alexey Romanov. 2017. Temporal In-formation Extraction for Question Answering Using Syntactic Dependencies in an LSTM-based Architecture. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing (Copenhagen, Denmark). Association for Computational Linguistics, 887–896. doi:10.18653/v1/D17-1092 [25] Paramita Mirza and Sara Tonelli. 2014. Classifying Temporal Relations with Simple Features. In Proceedings of the 14th Conference of the European Chapter of the Association for Computational Linguistics (Stroudsburg, PA, USA). Association for Computational Linguistics, 308–317. doi:10.3115/v1/E14-1033 [26] Paramita Mirza and Sara Tonelli. 2016. Catena: Causal and Temporal Relation Extraction from Natural Language Texts. In Proceedings of COLING 2016, the 26th International Conference on Computational Linguistics: Technical Papers . 64–75. [27] Rafael Müller, Simon Kornblith, and Geoffrey Hinton. 2019. When does label smoothing help? Curran Associates Inc., Red Hook, NY, USA. [28] Aakanksha Naik, Luke Breitfeller, and Carolyn Rose. 2019. TDDiscourse: A Dataset for Discourse-Level Temporal Ordering of Events. In Proceedings of the 20th Annual SIGdial Meeting on Discourse and Dialogue (Stroudsburg, PA, USA). Association for Computational Linguistics, 239–249. doi:10.18653/v1/W19-5929 [29] Qiang Ning, Zhili Feng, and Dan Roth. 2017. A Structured Learning Approach to Temporal Relation Extraction. In Proceedings of the 2017 Conference on Empirical Methods in Natural Language Processing (Stroudsburg, PA, USA). Association for Computational Linguistics, 1027–1037. doi:10.18653/v1/D17-1108 [30] Qiang Ning, Zhili Feng, Hao Wu, and Dan Roth. 2018. Joint Reasoning for Temporal and Causal Relations. In Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) (Stroudsburg, PA, USA). Association for Computational Linguistics, 2278–2288. doi:10.18653/ v1/P18-1212 [31] Qiang Ning, Sanjay Subramanian, and Dan Roth. 2019. An Improved Neural Baseline for Temporal Relation Extraction. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) (Stroudsburg, PA, USA). Association for Computational Linguistics, 6202–6208. doi:10.18653/ v1/D19-1642 [32] Qiang Ning, Hao Wu, Haoruo Peng, and Dan Roth. 2018. Improving Temporal Relation Extraction with a Globally Acquired Statistical Resource. In Proceed-ings of the 2018 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1 (Long Papers) 
+
+(Stroudsburg, PA, USA). Association for Computational Linguistics, 841–851. doi:10.18653/v1/N18-1077 [33] Qiang Ning, Hao Wu, and Dan Roth. 2018. A Multi-Axis Annotation Scheme for Event Temporal Relations. In Proceedings of the 56th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) (Stroudsburg, PA, USA). Association for Computational Linguistics, 1318–1328. doi:10.18653/ v1/P18-1122 [34] James Pustejovsky, Patrick Hanks, Roser Sauri, Andrew See, Robert Gaizauskas, Andrea Setzer, Dragomir Radev, Beth Sundheim, David Day, Lisa Ferro, et al .2003. The Timebank Corpus. In Corpus Linguistics , Vol. 2003. 40. [35] Hayley Ross, Jonathon Cai, and Bonan Min. 2020. Exploring Contextualized Neural Language Models for Temporal Dependency Parsing. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP) 
+
+(Stroudsburg, PA, USA). Association for Computational Linguistics, 8548–8553. doi:10.18653/v1/2020.emnlp-main.689 [36] Roser Saur, Jessica Littman, Bob Knippen, Robert Gaizauskas, Andrea Setzer, and James Pustejovsky. 2006. TimeML Annotation Guidelines Version 1.2.1. [37] Hugo Sousa, Ricardo Campos, and Alípio Mário Jorge. 2023. tieval: An Evalua-tion Framework for Temporal Information Extraction Systems. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval (New York, NY, USA). ACM, 2871–2879. doi:10.1145/ 3539618.3591892 [38] William F. Styler, Steven Bethard, Sean Finan, Martha Palmer, Sameer Pradhan, Piet C de Groen, Brad Erickson, Timothy Miller, Chen Lin, Guergana Savova, and James Pustejovsky. 2014. Temporal Annotation in the Clinical Domain. 
+
+Transactions of the Association for Computational Linguistics 2 (12 2014), 143–154. doi:10.1162/tacl_a_00172 [39] Julien Tourille, Olivier Ferret, Aurelie Neveol, and Xavier Tannier. 2017. Neural Architecture for Temporal Relation Extraction: A Bi-lstm Approach for Detecting Narrative Containers. In Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics (Volume 2: Short Papers) . 224–230. [40] Naushad UzZaman. 2013. TempEval-3 Evaluation Toolkit GitHub Repository. https://github.com/naushadzaman/tempeval3_toolkit. Accessed: 2026-04-27. [41] Naushad UzZaman and James Allen. 2011. Temporal Evaluation. In Proceedings of the 49th Annual Meeting of the Association for Computational Linguistics: Human Language Technologies . 351–356. [42] Naushad UzZaman, Hector Llorens, Leon Derczynski, James Allen, Marc Verha-gen, and James Pustejovsky. 2013. Semeval-2013 Task 1: Tempeval-3: Evaluating Time Expressions, Events, and Temporal Relations. In Second Joint Conference on Lexical and Computational Semantics (* SEM), Volume 2: Proceedings of the Seventh International Workshop on Semantic Evaluation (SemEval 2013) . 1–9. [43] Marc Verhagen, Robert Gaizauskas, Frank Schilder, Mark Hepple, Graham Katz, and James Pustejovsky. 2007. Semeval-2007 Task 15: Tempeval Temporal Relation Identification. In Proceedings of the Fourth International Workshop on Semantic Evaluations (SemEval-2007) . 75–80. [44] Marc Verhagen and James Pustejovsky. 2008. Temporal Processing with the TARSQI Toolkit. In COLING 2008: Companion Volume: Demonstrations . 189–192. [45] Marc Verhagen, Roser Sauri, Tommaso Caselli, and James Pustejovsky. 2010. SemEval-2010 Task 13: TempEval-2. In Proceedings of the 5th international work-shop on semantic evaluation (Uppsala, Sweden). Association for Computational Looking for the Bottleneck in Fine-grained Temporal Relation Classification SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia 
+
+Linguistics, 57–62. [46] Haoyu Wang, Muhao Chen, Hongming Zhang, and Dan Roth. 2020. Joint Con-strained Learning for Event-Event Relation Extraction. In Proceedings of the 2020 Conference on Empirical Methods in Natural Language Processing (EMNLP) 
+
+(Stroudsburg, PA, USA). Association for Computational Linguistics, 696–706. doi:10.18653/v1/2020.emnlp-main.51 [47] Haoyu Wang, Hongming Zhang, Yuqian Deng, Jacob Gardner, Dan Roth, and Muhao Chen. 2023. Extracting or Guessing? Improving Faithfulness of Event Temporal Relation Extraction. In Proceedings of the 17th Conference of the European Chapter of the Association for Computational Linguistics (Stroudsburg, PA, USA). Association for Computational Linguistics, 541–553. doi:10.18653/v1/2023.eacl-main.39 [48] Xiaozhi Wang, Yulin Chen, Ning Ding, Hao Peng, Zimu Wang, Yankai Lin, Xu Han, Lei Hou, Juanzi Li, Zhiyuan Liu, Peng Li, and Jie Zhou. 2022. MAVEN-ERE: A Unified Large-scale Dataset for Event Coreference, Temporal, Causal, and Subevent Relation Extraction. In Proceedings of the 2022 Conference on Empirical Methods in Natural Language Processing (Stroudsburg, PA, USA). Association for Computational Linguistics, 926–941. doi:10.18653/v1/2022.emnlp-main.60 [49] Ran Zhang, Jihed Ouni, and Steffen Eger. 2024. Cross-lingual Cross-temporal Summarization: Dataset, Models, Evaluation. Computational Linguistics 50, 3 (Sept. 2024), 1001–1047. doi:10.1162/coli_a_00519 [50] Shuaicheng Zhang, Qiang Ning, and Lifu Huang. 2022. Extracting Temporal Event Relation with Syntax-guided Graph Transformer. In Findings of the Association for Computational Linguistics: NAACL 2022 (Stroudsburg, PA, USA). Association for Computational Linguistics, 379–390. doi:10.18653/v1/2022.findings-naacl.29 [51] Xinyu Zhao, Shih-Ting Lin, and Greg Durrett. 2021. Effective Distant Supervision for Temporal Relation Extraction. In Proceedings of the Second Workshop on Domain Adaptation for NLP (Kyiv, Ukraine), Eyal Ben-David, Shay Cohen, Ryan McDonald, Barbara Plank, Roi Reichart, Guy Rotman, and Yftah Ziser (Eds.). Association for Computational Linguistics, 195–203. https://aclanthology.org/ 2021.adaptnlp-1.20/ [52] Ben Zhou, Daniel Khashabi, Qiang Ning, and Dan Roth. 2019. “Going on a vaca-tion” takes longer than “Going for a walk”: A Study of Temporal Commonsense Understanding. In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) (Stroudsburg, PA, USA). Association for Computational Linguistics, 3361–3367. doi:10.18653/v1/D19-1332 [53] Ben Zhou, Kyle Richardson, Qiang Ning, Tushar Khot, Ashish Sabharwal, and Dan Roth. 2021. Temporal Reasoning on Implicit Events from Distant Supervision. In 
+
+Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Stroudsburg, PA, USA). Association for Computational Linguistics, 1361–1371. doi:10.18653/v1/ 2021.naacl-main.107 [54] Jie Zhou, Shenpo Dong, Hongkui Tu, Xiaodong Wang, and Yong Dou. 2022. RSGT: Relational Structure Guided Temporal Relation Extraction. In Proceedings of the 29th International Conference on Computational Linguistics (Gyeongju, Republic of Korea), Nicoletta Calzolari, Chu-Ren Huang, Hansaem Kim, James Pustejovsky, Leo Wanner, Key-Sun Choi, Pum-Mo Ryu, Hsin-Hsi Chen, Lucia Donatelli, Heng Ji, Sadao Kurohashi, Patrizia Paggio, Nianwen Xue, Seokhwan Kim, Younggyun Hahm, Zhong He, Tony Kyungil Lee, Enrico Santus, Francis Bond, and Seung-Hoon Na (Eds.). International Committee on Computational Linguistics, 2001–2010. https://aclanthology.org/2022.coling-1.174/

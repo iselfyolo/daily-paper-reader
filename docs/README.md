@@ -6,82 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-02
-- 运行时间：2026-05-02 20:03:48 UTC
+- 最新运行日期：2026-05-03
+- 运行时间：2026-05-03 20:22:13 UTC
 - 运行状态：成功
-- 本次总论文数：20
-- 精读区：8
+- 本次总论文数：17
+- 精读区：5
 - 速读区：12
 
 ### 今日简报（AI）
-今日深度研读 20 篇前沿论文，重点聚焦高质量表格数据生成与多智能体驱动的教育游戏自动化构建。
-核心推荐关注 TabSCM 框架在现实数据模拟上的突破，以及 GamED.AI 如何利用层级化架构实现教育游戏的智能产出。
-建议开发者尝试将这些自动化框架应用于数据增强或个性化教学场景，以显著提升研发与内容生产效率。
-- 详情：[/202605/02/README](/202605/02/README)
+今日精选 17 篇前沿成果，深度聚焦机器人 VLA 模型综述与多模态大模型的文档语义重建能力。
+重点关注机器人视觉-语言-动作（VLA）的数据引擎构建，以及通过 ShredBench 评估多模态模型在复杂文档还原中的逻辑推理极限。
+建议开发者优先研读 VLA 综述以掌握具身智能
+- 详情：[/202605/03/README](/202605/03/README)
 
 ### 精读区论文标签
-1. [TabSCM: A practical Framework for Generating Realistic Tabular Data](/202605/02/2604.22337v1-tabscm-a-practical-framework-for-generating-realistic-tabular-data)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：利用扩散模型和因果结构生成真实的表格数据
-2. [GamED.AI: A Hierarchical Multi-Agent Framework for Automated Educational Game Generation](/202605/02/2604.23947v2-gamedai-a-hierarchical-multi-agent-framework-for-automated-educational-game-generation)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：使用多智能体框架自动生成教育游戏
-3. [SAGE: Sparse Adaptive Guidance for Dependency-Aware Tabular Data Generation](/202605/02/2604.24368v1-sage-sparse-adaptive-guidance-for-dependency-aware-tabular-data-generation)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：基于LLM的新型合成表格数据生成框架
-4. [Naamah: A Large Scale Synthetic Sanskrit NER Corpus via DBpedia Seeding and LLM Generation](/202605/02/2604.26456v1-naamah-a-large-scale-synthetic-sanskrit-ner-corpus-via-dbpedia-seeding-and-llm-generation)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：利用大语言模型生成合成训练数据
-5. [AgentSim: A Platform for Verifiable Agent-Trace Simulation](/202605/02/2604.26653v1-agentsim-a-platform-for-verifiable-agent-trace-simulation)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：模拟和生成可验证智能体推理轨迹的平台
-6. [APPSI-139: A Parallel Corpus of English Application Privacy Policy Summarization and Interpretation](/202605/02/2604.27550v1-appsi-139-a-parallel-corpus-of-english-application-privacy-policy-summarization-and-interpretation)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：由领域专家精心标注的高质量英文隐私政策语料库
-7. [SecGoal: A Benchmark for Security Goal Extraction and Formalization from Protocol Documents](/202605/02/2604.27601v1-secgoal-a-benchmark-for-security-goal-extraction-and-formalization-from-protocol-documents)  
-   标签：评分：9.0/10、query:q9
-   evidence：协议文档安全目标的形式化
-8. [Knowledge Graph Representations for LLM-Based Policy Compliance Reasoning](/202605/02/2604.27713v1-knowledge-graph-representations-for-llm-based-policy-compliance-reasoning)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：用于政策合规推理和类法律文档的知识图谱
+1. [Vision-Language-Action in Robotics: A Survey of Datasets, Benchmarks, and Data Engines](/202605/03/2604.23001v1-vision-language-action-in-robotics-a-survey-of-datasets-benchmarks-and-data-engines)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：合成语料库与数据引擎综述
+2. [ShredBench: Evaluating the Semantic Reasoning Capabilities of Multimodal LLMs in Document Reconstruction](/202605/03/2604.23813v1-shredbench-evaluating-the-semantic-reasoning-capabilities-of-multimodal-llms-in-document-reconstruction)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：从Markdown渲染碎片化文档的自动生成流水线
+3. [Looking for the Bottleneck in Fine-grained Temporal Relation Classification](/202605/03/2604.24620v1-looking-for-the-bottleneck-in-fine-grained-temporal-relation-classification)  
+   标签：评分：8.0/10、query:kgee
+   evidence：事件与时间表达式之间的时间关系分类
+4. [DenseStep2M: A Scalable, Training-Free Pipeline for Dense Instructional Video Annotation](/202605/03/2604.26565v1-densestep2m-a-scalable-training-free-pipeline-for-dense-instructional-video-annotation)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：自动提取高质量程序性标注的流水线
+5. [LLMs as ASP Programmers: Self-Correction Enables Task-Agnostic Nonmonotonic Reasoning](/202605/03/2604.27960v1-llms-as-asp-programmers-self-correction-enables-task-agnostic-nonmonotonic-reasoning)  
+   标签：评分：8.0/10、query:profile-3
+   evidence：非单调推理与形式逻辑转换
 
 ### 速读区论文标签
-1. [Reasoning About Probabilities, Actions, and Knowledge in Fuzzy Modal Logic](/202605/02/2604.22459v1-reasoning-about-probabilities-actions-and-knowledge-in-fuzzy-modal-logic)  
-   标签：评分：8.0/10、query:q5
-   evidence：用于行动和知识概率推理的模糊模态逻辑
-2. [Aggregate vs. Personalized Judges in Business Idea Evaluation: Evidence from Expert Disagreement](/202605/02/2604.22517v1-aggregate-vs-personalized-judges-in-business-idea-evaluation-evidence-from-expert-disagreement)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：引入PBIG-DATA，一个包含3000个评分的数据集
-3. [When Corrective Hints Hurt: Prompt Design in Reasoner-Guided Repair of LLM Overcaution on Entailed Negations under OWL~2~DL](/202605/02/2604.23398v1-when-corrective-hints-hurt-prompt-design-in-reasoner-guided-repair-of-llm-overcaution-on-entailed-negations-under-owl2dl)  
-   标签：评分：8.0/10、query:profile-3
-   evidence：OWL 2 DL下推理器引导的LLM逻辑错误修复
-4. [Grammar-Constrained Refinement of Safety Operational Rules Using Language in the Loop: What Could Go Wrong](/202605/02/2604.23523v1-grammar-constrained-refinement-of-safety-operational-rules-using-language-in-the-loop-what-could-go-wrong)  
-   标签：评分：8.0/10、query:q9
-   evidence：使用语法约束逻辑改进安全操作规则
-5. [Test Design and Review Argumentation in AI-Assisted Test Generation](/202605/02/2604.22473v1-test-design-and-review-argumentation-in-ai-assisted-test-generation)  
-   标签：评分：7.0/10、query:q1
-   evidence：AI辅助生成中的结构化论证模板
-6. [All Eyes on the Workflow: Automated and Efficient Event Discovery from Video Streams](/202605/02/2604.22476v1-all-eyes-on-the-workflow-automated-and-efficient-event-discovery-from-video-streams)  
-   标签：评分：7.0/10、query:kgee
-   evidence：从视频流中提取事件数据
-7. [The Chase in Lean -- Crafting a Formal Library for Existential Rule Research](/202605/02/2604.22531v1-the-chase-in-lean----crafting-a-formal-library-for-existential-rule-research)  
+1. [From Language to Logic: Bridging LLMs & Formal Representations for RTL Assertion Generation](/202605/03/2604.23100v1-from-language-to-logic-bridging-llms--formal-representations-for-rtl-assertion-generation)  
    标签：评分：7.0/10、query:q6
-   evidence：用于存在规则推理的形式化库
-8. [Evaluating Temporal Consistency in Multi-Turn Language Models](/202605/02/2604.23051v1-evaluating-temporal-consistency-in-multi-turn-language-models)  
+   evidence：将自然语言桥接到用于验证的形式逻辑表示
+2. [One Identity, Many Roles: Multimodal Entity Coreference for Enhanced Video Situation Recognition](/202605/03/2604.23173v1-one-identity-many-roles-multimodal-entity-coreference-for-enhanced-video-situation-recognition)  
+   标签：评分：7.0/10、query:kgee
+   evidence：视频理解中的事件角色识别与实体共指
+3. [Constraint-Based Analysis of Reasoning Shortcuts in Neurosymbolic Learning](/202605/03/2604.23377v1-constraint-based-analysis-of-reasoning-shortcuts-in-neurosymbolic-learning)  
    标签：评分：7.0/10、query:profile-3
-   evidence：在多轮交互中对随时间变化的事实进行推理
-9. [An End-to-End Ukrainian RAG for Local Deployment. Optimized Hybrid Search and Lightweight Generation](/202605/02/2604.22095v1-an-end-to-end-ukrainian-rag-for-local-deployment-optimized-hybrid-search-and-lightweight-generation)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：在合成数据上进行微调以生成内容
-10. [Knowledge-driven Augmentation and Retrieval for Integrative Temporal Adaptation](/202605/02/2604.22098v1-knowledge-driven-augmentation-and-retrieval-for-integrative-temporal-adaptation)  
+   evidence：利用逻辑约束分析神经符号学习中的推理捷径
+4. [CyberCane: Neuro-Symbolic RAG for Privacy-Preserving Phishing Detection with Formal Ontology Reasoning](/202605/03/2604.23563v1-cybercane-neuro-symbolic-rag-for-privacy-preserving-phishing-detection-with-formal-ontology-reasoning)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：结合形式本体推理和合规性的神经符号框架
+5. [Thinking Like a Clinician: A Cognitive AI Agent for Clinical Diagnosis via Panoramic Profiling and Adversarial Debate](/202605/03/2604.23605v1-thinking-like-a-clinician-a-cognitive-ai-agent-for-clinical-diagnosis-via-panoramic-profiling-and-adversarial-debate)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：对抗性辩论和临床推理框架
+6. [Adaptive ToR: Complexity-Aware Tree-Based Retrieval for Pareto-Optimal Multi-Intent NLU](/202605/03/2604.24219v1-adaptive-tor-complexity-aware-tree-based-retrieval-for-pareto-optimal-multi-intent-nlu)  
+   标签：评分：7.0/10、query:kgee
+   evidence：针对多意图自然语言理解的自适应树状检索
+7. [ContextWeaver: Selective and Dependency-Structured Memory Construction for LLM Agents](/202605/03/2604.23069v1-contextweaver-selective-and-dependency-structured-memory-construction-for-llm-agents)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：用于LLM智能体多步推理的依赖结构化记忆
+8. [UpstreamQA: A Modular Framework for Explicit Reasoning on Video Question Answering Tasks](/202605/03/2604.23145v1-upstreamqa-a-modular-framework-for-explicit-reasoning-on-video-question-answering-tasks)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：显式推理和中间逻辑步骤
+9. [From Similarity to Structure: Training-free LLM Context Compression with Hybrid Graph Priors](/202605/03/2604.23277v1-from-similarity-to-structure-training-free-llm-context-compression-with-hybrid-graph-priors)  
    标签：评分：6.0/10、query:kgee
-   evidence：知识驱动的检索与医学本体集成
-11. [Bridging the Long-Tail Gap: Robust Retrieval-Augmented Relation Completion via Multi-Stage Paraphrase Infusion](/202605/02/2604.22261v1-bridging-the-long-tail-gap-robust-retrieval-augmented-relation-completion-via-multi-stage-paraphrase-infusion)  
+   evidence：构建稀疏混合句子图用于自然语言理解
+10. [Efficient Rationale-based Retrieval: On-policy Distillation from Generative Rerankers based on JEPA](/202605/03/2604.23336v1-efficient-rationale-based-retrieval-on-policy-distillation-from-generative-rerankers-based-on-jepa)  
    标签：评分：6.0/10、query:kgee
-   evidence：检索增强的关系补全与信息抽取
-12. [STEM: Structure-Tracing Evidence Mining for Knowledge Graphs-Driven Retrieval-Augmented Generation](/202605/02/2604.22282v1-stem-structure-tracing-evidence-mining-for-knowledge-graphs-driven-retrieval-augmented-generation)  
+   evidence：基于理由的检索与上下文感知查询嵌入
+11. [Tandem: Riding Together with Large and Small Language Models for Efficient Reasoning](/202605/03/2604.23623v1-tandem-riding-together-with-large-and-small-language-models-for-efficient-reasoning)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：显式逐步推理范式
+12. [RaV-IDP: A Reconstruction-as-Validation Framework for Faithful Intelligent Document Processing](/202605/03/2604.23644v1-rav-idp-a-reconstruction-as-validation-framework-for-faithful-intelligent-document-processing)  
    标签：评分：6.0/10、query:kgee
-   evidence：用于检索的模式引导图搜索和语义到结构投影
+   evidence：从文档中提取结构化实体
 
 
 <div class="dpr-home-promo-card">
