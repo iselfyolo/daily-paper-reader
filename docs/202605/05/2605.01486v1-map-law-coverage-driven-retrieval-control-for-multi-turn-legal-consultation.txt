@@ -1,0 +1,429 @@
+Title: MAP-Law: Coverage-Driven Retrieval Control for Multi-Turn Legal Consultation
+
+URL Source: https://arxiv.org/pdf/2605.01486v1
+
+Published Time: Tue, 05 May 2026 00:42:47 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# MAP-Law: Coverage-Driven Retrieval Control for Multi-Turn Legal Consultation 
+
+## Qinchuan Cheng 1, Ruixuan Xie 2, Jiaqi Liu 3, Xiaoya Yuan 4, and Yuxin Liu 21Xi’an Jiaotong University 
+
+> 2
+
+## Southwestern University of Finance and Economics 
+
+> 3
+
+## Sichuan University 
+
+> 4
+
+## Northeastern University 
+
+Abstract 
+
+Legal consultation is a high-stakes, knowledge-intensive task in which an intelligent agent must do more than produce a fluent answer: it must identify legally relevant issues, retrieve authoritative support, and decide when the evidentiary basis is sufficient to justify a recommendation. Recent retrieval-augmented generation (RAG) systems have improved grounding in legal question answering, yet most multi-turn legal agents still rely on fixed retrieval depth or coarse heuristic control. As a result, they struggle to balance evidentiary sufficiency against retrieval cost: shallow retrieval leaves key legal elements unsupported, whereas excessive retrieval introduces redundant materials, increases context burden, and weakens answer focus. We propose MAP-Law (Mindmap-Augmented Planning for Legal Consultation Agents), a coverage-driven framework for retrieval control in multi-turn legal consultation. MAP-Law models consultation as a controlled retrieval process over a joint structured state comprising issue nodes, legal element nodes, and evidence nodes. After each round, the agent explicitly computes Element Coverage (EC), Evidence Coverage (EVC), and Marginal Gain (MG), and uses these signals to decide whether to continue retrieving, redirect the search, or generate a final response. Unlike approaches that treat retrieval depth as a fixed hyperparameter, MAP-Law recasts stopping as an interpretable and auditable decision aligned with legal argumentative structure. Experiments on a self-constructed legal consultation dataset covering 50 cases and eight labor-law scenarios show that the full MAP-Law system, using DeepSeek as the action selector, achieves an EC of 0.860 with only 2.9 retrieval rounds and 5.8 pieces of evidence on average. Compared with a fixed seven-round baseline, MAP-Law reduces evidence volume by more than 80% and retrieval rounds by 58%. Ablation studies show that the coverage-driven stopping rule, the joint graph representation, and LLM-based action selection each make independent contributions. The main contribution of this work is therefore not another legal RAG pipeline, but a retrieval-control paradigm centered on evidentiary sufficiency over legal elements, with implications for building more efficient, interpretable, and practically grounded legal agents. 
+
+Keywords: legal AI; retrieval-augmented generation; legal consultation; adaptive stopping; structured planning 1
+
+> arXiv:2605.01486v1 [cs.AI] 2 May 2026
+
+# 1 Introduction 
+
+Research at the intersection of artificial intelligence and law has long been shaped by a central tension: computational systems must remain operationally useful while also respecting the normative, evidentiary, and interpretive demands of legal reasoning [ 1– 3]. From rule-based systems and case-based reasoning to modern pretrained language models, the underlying technologies have changed substantially, but the core constraint has not: legal outputs must be traceable, challengeable, revisable, and robust enough to withstand scrutiny in high-stakes settings [4, 6]. Legal consultation is a particularly revealing testbed for this tension. On the one hand, it has clear social value. Consultation is often the first point of contact between the public and the legal system, and scalable legal AI may help mitigate the structural imbalance between growing demand for legal services and limited expert capacity. On the other hand, legal consultation is not a simple question-answering task. Users typically provide incomplete, unstructured, and sometimes legally mistaken descriptions of their problems. A useful system must progressively identify the dispute focus, extract legally relevant elements, elicit missing facts, retrieve authoritative materials, and synthesize an answer that is both responsive and supportable. Large language models make this task appear more tractable, but they also expose sharper reliability concerns. Prior work has shown that legal language models may generate plausible but materially incorrect outputs, including fabricated statutes, erroneous case citations, failures to respect legal hierarchy, and insufficient correction of users’ mistaken premises [ 4 , 7 ]. For this reason, the dominant direction in legal generation is not to let models answer from parametric memory alone, but to anchor generation in externally retrievable legal materials through retrieval-augmented generation (RAG) [9, 11]. However, the central challenge in legal RAG is not only whether the system can retrieve relevant materials, but also when it should stop retrieving . In legal consultation, retrieval depth is not monotonically beneficial. Legal materials are structurally interdependent: the significance of a statutory provision often depends on neighboring clauses, exceptions, procedural conditions, interpretive notes, or supporting case law [ 12 ]. If the system stops too early, crucial legal elements remain unsupported. If it continues mechanically for too long, it accumulates peripheral evidence, inflates context cost, and dilutes the materials that actually matter for the final answer [9, 11]. This tension becomes especially salient in multi-turn consultation. LexRAG shows that even strong legal RAG systems struggle to jointly maintain retrieval efficiency and answer quality across sustained legal interaction [ 9]. Multi-agent systems such as ChatLaw and LawLuo improve workflow organization and role specialization, but their retrieval control is still largely governed by fixed procedures or outer heuristics rather than an explicit account of evidentiary sufficiency [ 8 , 10 ]. The current bottleneck is therefore not merely insufficient generation power, but the absence of a stopping mechanism aligned with legal argumentative structure. This paper addresses that problem directly. Our core claim is that, in legal consultation, stopping retrieval should not be treated as a simple engineering hyperparameter. Instead, it should be modeled as a reasoning decision grounded in the support status of legal elements. A system should terminate retrieval only when enough legally relevant elements are sufficiently supported and the marginal value of additional retrieval has meaningfully declined. To operationalize this idea, we propose MAP-Law, which explicitly represents the relationships among issues, legal elements, and evidence through a joint graph structure and uses coverage metrics to drive retrieval continuation, redirection, and stopping. Despite rapid progress in legal RAG, legal LLMs, and language agents, three gaps remain. 2First, legal consultation research has moved from single-turn QA to multi-turn, process-oriented, and role-based interaction, but control policies remain coarse. Existing work has focused on benchmark construction, role collaboration, and knowledge enhancement [ 8 –10 ], while paying comparatively little attention to modeling retrieval sufficiency itself. Second, legal retrieval research has already established the importance of structure. Graph-enhanced statutory retrieval [ 12 ] and fine-grained retrieval benchmarks such as LegalBench-RAG [ 11 ] show that effective legal retrieval depends not only on semantic similarity, but also on textual organization, hierarchical relations, and citation granularity. Yet these efforts mostly optimize single-step retrieval quality rather than stopping decisions in multi-turn consultation. Third, general language-agent research has demonstrated the value of reasoning-action interleaving, explicit search, and structured memory [ 19 , 20 ]. But these methods are largely task-general; they do not treat support over legal elements as the key control variable. For legal consultation, stronger general reasoning is not sufficient. What is needed is a control mechanism that decomposes legal problems into elements, maps evidence to those elements, and anchors stopping decisions in evidentiary sufficiency. Against this background, MAP-Law frames retrieval control as a planning problem aligned with legal argumentative structure rather than a fixed-depth search procedure. The contributions of this paper are fourfold. 
+
+Contribution 1: A coverage-driven stopping paradigm for legal consultation. We formalize stopping as a coverage judgment through Element Coverage (EC), Evidence Coverage (EVC), and Marginal Gain (MG), and design an interpretable multi-condition stopping rule that dynamically adapts retrieval depth to case complexity and current evidentiary status. 
+
+Contribution 2: A joint plan-evidence graph representation. We use a plan graph to encode issue–element dependencies and an evidence graph to encode evidence–element support relations. Cross-graph links explicitly align legal questions, pending elements, and retrieved legal authorities, supporting both control and auditability. 
+
+Contribution 3: LLM action selection over structured legal state. Instead of allowing the language model to act directly on raw dialogue, we constrain action selection to a structured state summary. Experiments show that this combination of structured state and LLM policy substantially improves element coverage over a rule-based baseline. 
+
+Contribution 4: Empirical evidence that better control matters. Through main experiments and ablation studies on 50 legal consultation cases, we show that MAP-Law improves coverage while reducing both retrieval rounds and evidence volume. The results suggest that, for legal consultation agents, controlling retrieval better may be more important than simply 
+
+retrieving more .More generally, we argue that legal-agent research should place greater emphasis on process control, evidentiary sufficiency, and structured interpretability, rather than focusing solely on end-generation capability. MAP-Law is one concrete step in that direction. 32 Related Work and Positioning 
+
+## 2.1 Legal AI, Retrieval, and Grounded Consultation 
+
+Legal AI has evolved from retrieval, classification, and prediction tasks toward interactive systems intended to support real legal workflows [ 1, 2, 4 , 5 ]. Within this trajectory, RAG has emerged as a natural design pattern: it combines the semantic organization capacity of large language models with explicit grounding in external legal materials, thereby mitigating some of the reliability problems associated with purely parametric generation [7, 11]. Several studies show that legal RAG differs in important ways from open-domain RAG. First, legal texts are highly structured, and the meaning of one provision often depends on its position within a broader codified hierarchy and its relation to other provisions. Louis et al. [ 12 ] argue that statutory article retrieval is not a simple ad hoc retrieval problem for precisely this reason. Second, successful legal RAG depends not only on recall, but also on the precision and legal usability of the retrieved material. LegalBench-RAG emphasizes minimal sufficient legal snippets rather than coarse retrieval of long undifferentiated passages [ 11 ]. More generally, predictive legal NLP and legal judgment modeling have repeatedly shown that apparently strong end-task performance can be misleading when systems are evaluated without adequate attention to legal information structure and justificatory evidence [17]. Within legal consultation specifically, LexRAG places RAG evaluation into a multi-turn consultation setting and reveals a key difficulty: as dialogue continues, systems find it harder to maintain both retrieval specificity and answer consistency [ 9]. More broadly, benchmark development in legal NLP, including LexGLUE and LEXTREME, has shown that legal language understanding must be evaluated across heterogeneous tasks, jurisdictions, and legal subdomains rather than via isolated task success alone [ 14 , 15 ]. The value of LexRAG lies not only in benchmark construction, but in shifting the research question from “Can the system answer this question?” to “Can the system continue to retrieve and answer well across an evolving legal interaction?” In parallel, application-oriented systems have become increasingly sophisticated. ChatLaw combines knowledge-graph-enhanced legal modeling with multi-agent collaboration to improve reliability and specialization in legal-service scenarios [ 8]. LawLuo further simulates law-firm style workflows through role decomposition among receptionist, lawyer, secretary, and manager agents [ 10 ]. These systems show that legal consultation is naturally processual. Yet from the perspective of retrieval control, they still devote more attention to workflow organization and answer quality than to the question of when retrieval should continue or stop, and on what evidentiary basis. Taken together, existing work suggests two conclusions. Legal consultation requires grounding because unsupported pure generation is too brittle in law; but grounding alone is not sufficient, because a substantial part of the bottleneck lies in controlling retrieval across turns rather than in single-step retrieval performance. 
+
+## 2.2 Planning, Memory, and Control in Language Agents 
+
+A central theme in recent language-agent research is how to make models not only answer, but also plan. ReAct interleaves reasoning traces with external actions and demonstrates that language models can operate within a reasoning-action loop [ 19 ]. Tree of Thoughts further shows that explicitly branching over intermediate states and evaluating them can improve performance 4on difficult tasks [ 20 ]. These works suggest that language models are often most effective when embedded in a stateful, feedback-rich, interruptible control process rather than used as one-shot generators. This insight is especially relevant for tasks that require cross-turn consistency. In such settings, the system must maintain some representation of the current world state or belief state; otherwise, early information cannot be reliably used in later actions. For legal consultation, the evolving state includes at least the user problem, the identified legal elements, the retrieved evidence, and the support relationships between evidence and elements. This is not naturally represented as a single static prompt. Related work on paragraph-level rationale extraction in legal texts further underscores that explanation in law often requires structured, segment-level support rather than diffuse model-level confidence [18]. Nevertheless, the general agent literature offers methodological inspiration rather than legal-task-specific solutions. In legal consultation, a useful state representation must remain faithful to the objects of legal reasoning. Concretely, the system should be able to answer at least three questions: Which legal elements are implicated by the case? Which of those elements are already sufficiently supported? What exactly did newly retrieved evidence improve? If these questions are not explicitly represented, retrieval control collapses into opaque heuristics. MAP-Law differs from general agent methods precisely at this point. We do not treat legal consultation as abstract task planning. Instead, planning is grounded in the support status of legal elements and their evidence links. We do not simply induce longer chains of thought; we ask the LLM to make constrained decisions over a structured legal state. And we do not pursue planning as an end in itself, but as a means to address the practical control problem of whether more retrieval is actually warranted. 
+
+## 2.3 Adaptive Stopping and Evidentiary Sufficiency 
+
+Stopping is a classical issue in sequential decision systems, but in legal consultation it has a more specific meaning than in ordinary dialogue systems or open-domain agents. In generic QA, stopping often means the model can now produce a coherent response. In legal consultation, stopping means the system believes the available evidence is sufficient to support a normative conclusion. The latter is a stronger condition because it concerns not only linguistic completion, but argumentative adequacy. Existing stopping methods can be grouped into three broad families. The first consists of rule-based policies such as round limits, confidence thresholds, or heuristic triggers. These methods are easy to implement, but they implicitly treat cases as if they had similar complexity. The second family includes learned stopping policies, often using reinforcement learning or policy learning [ 21 ]. While attractive in general information-access settings, this direction faces two problems in law: useful supervision is hard to define because the decision to continue retrieval itself can require legal judgment, and learned policies are often difficult to justify in high-risk deployments. The third family includes explicit task-completion criteria, where the system stops once some interpretable measure indicates that the current state is sufficiently good. MAP-Law belongs to the third family, but with a legal-specific interpretation of task comple-tion. We argue that completion in legal consultation should not be assessed through fluency, raw retrieval similarity, or global model confidence alone. Rather, it should be assessed through the support status of legally relevant elements. This perspective is consistent with the longstanding AI & Law emphasis on evidence and explanation [ 6 ]: a stopping decision should be recoverable from an explicit evidentiary state rather than hidden inside latent model activations. 5Figure 1: Positioning of MAP-Law in prior research. Existing studies on legal RAG and grounded consultation improve retrieval quality and workflow organization, while planning-oriented language-agent methods provide reasoning-action loops, structured memory, and tool-use mechanisms. However, these lines of work rarely model when retrieval should stop in multi-turn legal consultation and whether the stopping decision is justified by evidentiary sufficiency over legal elements. MAP-Law fills this gap by formulating retrieval stopping as an interpretable control problem based on a joint plan-evidence graph, coverage metrics, and LLM-based action selection. 
+
+To the best of our knowledge, existing LLM-based legal consultation systems have not made coverage-driven stopping a central design principle. MAP-Law is motivated by this gap. By grounding continuation and termination decisions in element coverage, evidence use, and marginal gain, it aims to make stopping simultaneously adaptive, interpretable, and legally defensible. 
+
+# 3 Methodology 
+
+## 3.1 Problem Formulation 
+
+We first formalize legal consultation as a structured decision problem. 
+
+Definition 1 (Legal consultation task). Given a user query q expressed in natural language, the goal of legal consultation is to produce a legal recommendation y such that: (1) y is supported by sufficient evidence; and (2) y addresses the major legal elements implicated by q.Let E = {e1, e 2, . . . , e m} denote the set of legal elements extracted from q, where each 
+
+ei corresponds to a legal fact or issue that must be established, evaluated, or analyzed. Let 
+
+V = {v1, v 2, . . . , v n} denote the set of retrieved evidence items, where each evidence item vj may support one or more elements. 
+
+Definition 2 (State space). The MAP-Law agent state is a seven-tuple 
+
+S = ( I, E, G, V, q, r, t ),
+
+where I is the set of issue nodes extracted from the user query, E is the set of legal element nodes, G is the set of current retrieval targets, V is the set of evidence nodes, q is the original 6query, r is the current retrieval round with r ∈ N+, and t stores tracking information such as retrieval history and marginal gain sequences. 
+
+Definition 3 (Element status). For each element e ∈ E, its status is defined as 
+
+status( e) ∈ { UNSUPPORTED , PARTIALLY SUPPORTED , FULLY SUPPORTED }.
+
+If there exists at least one evidence item v ∈ V such that sim (content (v), e ) ≥ θrel , then e is marked as at least partially supported. If at least κ evidence items satisfy the same condition, then e is marked as fully supported. Here θrel is a relevance threshold and κ is the minimum number of supporting items required for full support. 
+
+Definition 4 (Evidence node). Each evidence item v ∈ V contains the following attributes: 
+
+• content (v): the textual content of the evidence, such as a statutory provision or case summary; 
+
+• rel (v) ∈ [0 , 1] : the semantic relevance score of the evidence with respect to currently unresolved elements; 
+
+• cited( v) ∈ { True , False }: whether the evidence is cited in the final response; 
+
+• source( v): the source of the evidence, such as statute name or case identifier. 
+
+## 3.2 Coverage Metrics 
+
+Coverage is the core organizing principle of MAP-Law. We define two complementary coverage metrics at the element level and evidence level, together with a marginal-gain metric for stopping. 
+
+Definition 5 (Element Coverage). Element Coverage is the proportion of elements that are fully supported in state S:
+
+EC (S) = |{ e ∈ E : status( e) = FULLY SUPPORTED }| |E| .
+
+This metric reflects the central legal-consultation objective: whether sufficient evidence has been accumulated to support the relevant legal elements. An EC of 1.0 means all elements are fully supported; an EC of 0.0 means none are supported. 
+
+Definition 6 (Evidence Coverage). Evidence Coverage is the proportion of retrieved evidence that is actually used in the final response: 
+
+EV C (S) = |{ v ∈ V : cited( v) = True }| |V | .
+
+This metric captures retrieval efficiency rather than substantive completeness. Higher EVC indicates that retrieved materials are more useful and less redundant. 7Definition 7 (Marginal Gain). The marginal gain at retrieval round k is defined as the average contribution of newly retrieved evidence to unresolved elements: 
+
+M G k = 1
+
+|Vnew |
+
+> ∑
+> v∈Vnew
+
+max 
+
+> e∈Euns
+
+sim(content( v), label( e)) .
+
+Here Vnew is the set of new evidence items at round k, Euns is the set of currently unresolved elements, and sim (·, ·) is a semantic similarity function. Marginal gain measures the incremental value of continuing retrieval. Persistently low M G k suggests diminishing returns. Together, EC, EVC, and MG define the coverage state of the consultation. EC indicates whether the system is sufficiently complete at the level of legal elements, EVC indicates whether retrieval remains efficient, and MG indicates whether further retrieval is still worthwhile. 
+
+## 3.3 Coverage-Driven Stopping Rule 
+
+Based on the above metrics, MAP-Law uses a multi-condition stopping rule to determine whether retrieval should continue. 
+
+Definition 8 (Stopping condition). The stopping rule is defined as 
+
+STOP ⇐⇒ 
+
+> 
+
+EC ≥ θE ∧ EV C ≥ θEV , or 
+
+M G k < δ ∧ M G k−1 < δ, or 
+
+r ≥ rmax .
+
+Here θE , θEV , δ, and rmax are preset thresholds. In our experiments: 
+
+• θE = 0 .60 is the element-coverage threshold; 
+
+• θEV = 0 .80 is the evidence-coverage threshold; 
+
+• δ = 0 .03 is the marginal-gain threshold; 
+
+• rmax = 7 is the hard upper bound on retrieval rounds. The rule combines three complementary views of stopping. The first condition captures sufficiency: stop once enough legal elements are supported and retrieved evidence is being used efficiently. The second captures diminishing returns: stop when recent retrieval contributes little additional support. The third prevents pathological non-termination. This formulation has three practical advantages. First, it is flexible because different conditions capture different failure modes of continued retrieval. Second, it is interpretable because each stop decision can be traced to explicit state variables. Third, it is adaptable because threshold settings may later be made case-sensitive. 
+
+## 3.4 Joint Graph Representation 
+
+MAP-Law maintains two coordinated graphs: a plan graph that represents legal issues and their dependent elements, and an evidence graph that represents retrieved authorities and their support relations. 8Figure 2: Overall framework of MAP-Law. Starting from the user’s legal query and conversational context, the system performs issue parsing, element extraction, plan-graph initialization, joint graph memory maintenance, coverage evaluation, LLM-based action planning, targeted retrieval, evidence linking, and final answer generation. 
+
+Plan graph. The plan graph is a directed acyclic graph containing issue nodes and element nodes. Issue nodes correspond to legal questions extracted from the user query; element nodes correspond to the constituent legal requirements implicated by those issues. Edges represent dependency relations among issues and elements. Formally, the plan graph is 
+
+GP = ( I ∪ E, E dep ),
+
+where Edep ⊆ (I × E) ∪ (E × E) denotes issue–element and element–element dependencies. 
+
+Evidence graph. The evidence graph contains evidence nodes and support links. Evidence nodes correspond to retrieved statutes, cases, or other legal authorities. Links connect evidence nodes to the elements they support. Formally, the evidence graph is 
+
+GE = ( V, E link ),
+
+where Elink ⊆ V × E denotes evidence–element support relations. 
+
+Cross-graph coordination. Once an evidence item is retrieved, the system computes its semantic similarity to candidate elements and links it to the most relevant unresolved element(s). This mechanism produces explicit traceability between legal elements and retrieved authorities, which in turn enables coverage computation and auditability. The joint graph design yields three benefits. It improves interpretability because one can inspect which evidence supports which elements. It improves retrieval focus because the plan graph highlights unresolved or high-priority targets. And it improves controllability because support status is no longer inferred implicitly from free-form text. 93.5 LLM-Based Action Selection 
+
+Action selection is the control core of MAP-Law. We use a large language model (DeepSeek in the full system) as a constrained action selector over the structured state. 
+
+Action space. MAP-Law includes the following action types: 
+
+• Retrieve : issue a legal retrieval query over the corpus; 
+
+• Supplement : generate a supplementary retrieval direction when current evidence is insuffi-cient; 
+
+• Evaluate : assess whether stopping criteria are satisfied; 
+
+• Generate : produce the final legal recommendation. 
+
+Structured decision context. Given the current state S, the LLM action selector decides the next action using: 
+
+• current Element Coverage and Evidence Coverage; 
+
+• the support status of individual legal elements; 
+
+• the content and sources of retrieved evidence; 
+
+• the current retrieval round r;
+
+• historical retrieval behavior and marginal-gain traces. The prompt used for action selection contains five components: role specification, task description, structured state summary, decision guidance, and a constrained output schema (JSON) for downstream parsing. The empirical motivation for this design is straightforward. The LLM is not asked to act as an unconstrained end-to-end legal consultant; instead, it acts as a policy component over an already structured legal state. This reduces action ambiguity while allowing the model to exploit its semantic and legal-context reasoning capacity. In our experiments, the DeepSeek-based version reaches an EC of 0.860, compared with 0.520 for the rule-based action selector. 
+
+## 3.6 End-to-End Algorithm 
+
+Algorithm 1 summarizes the MAP-Law loop. 10 Algorithm 1 MAP-Law Agent Loop 
+
+Require: User query q
+
+Ensure: Legal recommendation y 
+
+> 1:
+
+GP ← InitializePlanGraph( q) 
+
+> 2:
+
+GE ← ∅ 
+
+> 3:
+
+r ← 0 
+
+> 4:
+
+M G hist ← [ ]  
+
+> 5:
+
+Vall ← ∅ 
+
+> 6:
+
+while r < r max do  
+
+> 7:
+
+r ← r + 1  
+
+> 8:
+
+EC ← ComputeElementCoverage( GP , G E ) 
+
+> 9:
+
+EV C ← ComputeEvidenceCoverage( GE ) 
+
+> 10:
+
+shouldStop ← CheckStopping( EC, EV C, M G hist , r, θ E , θ EV , δ, r max ) 
+
+> 11:
+
+if shouldStop then  
+
+> 12:
+
+break  
+
+> 13:
+
+end if  
+
+> 14:
+
+action ← SelectAction( S, EC, EV C ) 
+
+> 15:
+
+if action .type = RETRIEVE then  
+
+> 16:
+
+Vnew ← ExecuteRetrieve(action .query , C ) 
+
+> 17:
+
+Vall ← Vall ∪ Vnew  
+
+> 18:
+
+GE ← UpdateEvidenceGraph( GE , V new , G P ) 
+
+> 19:
+
+else if action .type = GENERATE then  
+
+> 20:
+
+break  
+
+> 21:
+
+end if  
+
+> 22:
+
+M G ← ComputeMarginalGain( Vnew , G P ) 
+
+> 23:
+
+M G hist .append( M G ) 
+
+> 24:
+
+end while  
+
+> 25:
+
+y ← GenerateConclusion( GP , G E ) 
+
+> 26:
+
+return y
+
+The key idea is iterative state refinement. In each round, the system evaluates whether the current evidence sufficiently supports the relevant legal elements. If not, the LLM action selector chooses the next control action. Retrieved evidence is linked into the graph state, after which marginal gain is updated. The process continues until a stopping condition is triggered or the hard round limit is reached. 
+
+# 4 Evaluation 
+
+## 4.1 Research Questions 
+
+Our evaluation is organized around three research questions. 
+
+RQ1: Does coverage-driven retrieval control improve the efficiency-completeness balance in multi-turn legal consultation? This question compares the full MAP-Law system against fixed-round baselines and a no-stopping variant. 11 Figure 3: Flowchart view of the MAP-Law control loop. The loop alternates between state initialization, coverage computation, stopping evaluation, LLM action selection, retrieval execution, evidence linking, graph update, and marginal-gain tracking. 
+
+RQ2: What are the respective contributions of structured state representation and LLM-based action selection? This question is addressed through graph-removal and rule-based action-selection ablations. 
+
+RQ3: What kinds of retrieval-control failures remain even under structured coverage guidance? This question is addressed through case-based qualitative analysis and failure analysis. 
+
+## 4.2 Experimental Design 
+
+4.2.1 Dataset 
+
+We evaluate MAP-Law on a self-constructed legal consultation dataset inspired by the design principles of LexRAG [ 9 ]. The dataset contains 50 consultation cases spanning eight representative labor-law scenarios: 1. labor-relationship determination; 2. labor-contract validity; 3. wage-payment disputes; 4. work-injury recognition and compensation; 5. termination of labor contracts; 6. annual leave and rest rights; 7. social-insurance obligations; 12 8. non-compete and confidentiality disputes. Each case includes four fields: a user query, a gold set of legal elements annotated from the query, a gold set of supporting statutes and cases, and a reference answer grounded in those materials. To construct the dataset, we involved three annotators with legal training to identify legal elements and select supporting evidence. Inter-annotator agreement measured by Fleiss’ κ
+
+reached 0.82, suggesting a relatively high degree of annotation consistency. We use this dataset as a controlled testbed for evaluating retrieval control rather than as a claim of broad domain coverage. This design choice follows a common pattern in legal NLP, where carefully constructed benchmark datasets are used to isolate specific legal-processing phenomena before large-scale deployment claims are made [14, 16]. 
+
+4.2.2 Systems Compared 
+
+We compare MAP-Law against six variants and baselines: 1. MAP-full (DeepSeek) : the full system with LLM-based action selection; 2. MAP-full (Rule) : the same framework with a rule-based action selector; 3. MAP-no-stopping : the same framework without coverage-driven stopping, forced to execute all rmax rounds; 4. MAP-no-graph : a variant without the plan graph, using a flat element list; 5. Fixed-3 : a naive RAG baseline with exactly three retrieval rounds; 6. Fixed-5 : a naive RAG baseline with exactly five retrieval rounds; 7. Fixed-7 : a naive RAG baseline with exactly seven retrieval rounds. These comparisons isolate three questions: whether LLM-based action selection helps over heuristics; whether adaptive stopping helps over fixed continuation; and whether the graph representation contributes beyond a flat control state. 
+
+4.2.3 Implementation Details Retriever. We use a dense-retrieval setup with the pretrained Chinese BERT encoder hfl/chinese-bert-wwm-
+
+Legal texts and queries are encoded into 768-dimensional vectors, and top-5 candidates are returned by cosine similarity. 
+
+LLM interface. The full system calls DeepSeek as the action selector through an API. The action prompt includes the structured state summary described above. The temperature is set to 0.7 and top-p to 0.9.
+
+Thresholds. Unless otherwise stated, we use θE = 0 .60 , θEV = 0 .80 , δ = 0 .03 , and rmax = 7 .These values were tuned on a held-out validation set of 10 cases. 13 Figure 4: Primary experimental results: (a) Element Coverage by system; (b) average retrieval rounds by system. The dashed line marks the stopping threshold θE = 0 .60 .
+
+Evaluation metrics. We report four metrics: 
+
+• Element Coverage (EC) : proportion of fully supported legal elements; 
+
+• Evidence Coverage (EVC) : proportion of retrieved evidence ultimately cited; 
+
+• Rounds : average number of retrieval rounds executed; 
+
+• Evidence : average number of retrieved evidence items. All reported values are averaged over the 50 test cases. Because our emphasis is retrieval control, we focus on interpretable process metrics rather than end-task answer style metrics alone. 
+
+## 4.3 Results 
+
+4.3.1 Main Results 
+
+Table 1 reports the primary results. Figures 4 and 5 provide visual summaries.  
+
+> Table 1: Main results of MAP-Law on the legal consultation test set.
+
+System EC EVC Rounds Evidence MAP-full (DeepSeek) 0.860 1.000 2.9 5.8 MAP-full (Rule) 0.520 1.000 3.0 6.0 MAP-no-stopping 0.780 1.000 4.7 11.6 Fixed-3 0.000 1.000 3.0 8.0 Fixed-5 0.000 1.000 5.0 13.0 Fixed-7 0.000 1.000 7.0 18.0 The main pattern is clear. MAP-full (DeepSeek) achieves the best balance between substantive completeness and retrieval efficiency. It reaches the highest element coverage (0.860) while using fewer rounds and fewer evidence items than the fixed baselines and the no-stopping variant. This directly answers RQ1 in the affirmative: in legal consultation, stronger performance can arise from improved retrieval control rather than deeper fixed retrieval. The comparison between MAP-full (DeepSeek) and MAP-full (Rule) isolates the value of LLM-based action selection. The DeepSeek version improves EC from 0.520 to 0.860, a relative 14 Figure 5: Extended experimental results: (c) evidence count; (d) efficiency trade-off; (e) ablation study; (f) radar summary; (g) EC progression across rounds; (h) token efficiency. 
+
+increase of approximately 65%, while keeping rounds and evidence nearly unchanged. This answers part of RQ2: the LLM contributes not merely by generating more retrieval activity, but by prioritizing more useful retrieval directions under the same control structure. The comparison between MAP-full (DeepSeek) and MAP-no-stopping isolates the value of adaptive stopping. Removing the stopping rule increases the average number of rounds from 2.9 to 4.7 and doubles the evidence count from 5.8 to 11.6, yet does not improve EC. In fact, EC declines from 0.860 to 0.780. This result is important because it shows that additional retrieval is not automatically beneficial; beyond a certain point, continued retrieval may primarily add noise rather than support. The fixed baselines provide a stronger cautionary lesson. Fixed-3, Fixed-5, and Fixed-7 all fail to achieve meaningful element coverage, despite retrieving a nontrivial amount of evidence. This indicates that the problem is not only one of evidence quantity. Without explicit tracking of what legal elements remain unsupported, retrieval can easily become detached from the actual argumentative requirements of the case. Figures 4(a) and 4(b), together with Figure 5(c), show that MAP-full (DeepSeek) dominates across the most relevant process metrics. Figure 5(d) further places the systems in an efficiency-completeness trade-off space, where the full MAP-Law system occupies the most favorable region. Figure 5(g) shows the progression of EC over retrieval rounds: the DeepSeek version rises from 
+
+0.45 to 0.72 to 0.86 , whereas the rule-based version rises more slowly from 0.25 to 0.42 to 0.52 .This again suggests that structured LLM control is particularly useful in early rounds, where strategic prioritization matters most. Finally, Figure 5(h) indicates that the reduction in retrieval rounds also improves token efficiency, despite the cost of LLM-based action selection itself. A derived observation is that MAP-full (DeepSeek) achieves its best coverage with only 32.2% of the evidence volume used by Fixed-7 ( 5.8/18 .0), reinforcing that legal consultation quality depends on selective support rather than indiscriminate accumulation. 15 4.3.2 Ablation Analysis 
+
+Table 2 reports the ablation results, which isolate the contributions of coverage-driven stopping, graph structure, and LLM-based action selection.  
+
+> Table 2: Ablation results.
+
+System Stopping Plan Graph EC Rounds MAP-full (DeepSeek) ✓ ✓ 0.860 2.9 MAP-full (Rule) ✓ ✓ 0.520 3.0 MAP-no-stopping × ✓ 0.780 4.7 MAP-no-graph ✓ × 0.000 3.0 The first ablation concerns stopping. Comparing MAP-full (DeepSeek) with MAP-no-stopping shows that coverage-driven stopping reduces rounds by 38% (from 4.7 to 2.9) while also increasing EC from 0.780 to 0.860. This suggests that the stopping rule does not merely save cost; it also helps prevent performance degradation caused by over-retrieval. The second ablation concerns structure. Comparing MAP-full (Rule) with MAP-no-graph shows that removing the plan graph collapses EC from 0.520 to 0.000. This is a strong result. It implies that, even before one asks whether the action selector is sophisticated, the system must first maintain a state representation that distinguishes among unresolved legal elements. The third ablation concerns action selection. Comparing MAP-full (DeepSeek) with MAP-full (Rule) shows that replacing heuristic control with LLM-based control raises EC by 65%. Importantly, this improvement occurs within the same stopping and graph framework. The result therefore supports a modular interpretation of MAP-Law: structured state representation and coverage-based stopping provide the scaffold, while the LLM provides stronger strategic control over that scaffold. Figure 5(e) visualizes the ablation comparison, and Figure 5(f) gives a compact radar-style summary. Together, they reinforce the broader argument of this paper: legal consultation agents benefit most when structure, control, and semantic reasoning are combined rather than optimized in isolation. 
+
+4.3.3 Case Study 
+
+To illustrate how MAP-Law behaves in practice, we examine a labor dispute concerning overtime compensation. 
+
+Case. The user asks: “I have worked at a technology company for two years. I recently found that the company did not pay overtime compensation. My contract states a monthly salary of RMB 20,000, but in practice overtime pay was folded into fixed wages. Can I require the company to pay overtime compensation?” This case involves at least four legal elements: (1) whether an employment relationship exists; (2) whether overtime work can be established; (3) whether the wage arrangement lawfully included overtime compensation; and (4) whether the employer’s conduct is unlawful. In Round 1, MAP-Law identifies the four elements and initializes the plan graph. The action selector prioritizes evidence concerning the establishment of overtime facts. After retrieving 16 Article 44 of the Labor Contract Law and relevant judicial interpretations, the system links the evidence to the corresponding element and raises EC from 0.00 to 0.25. In Round 2, the agent shifts focus to wage arrangement and overtime compensation calculation. Retrieved legal materials and local guiding cases support two additional elements, increasing EC from 0.25 to 0.75. In Round 3, the system identifies unlawfulness as the remaining unresolved issue, retrieves supporting case materials, and raises EC from 0.75 to 1.00. At that point, the stopping condition is satisfied and the system generates the final answer. In this example, the full analysis is completed in three rounds with four cited legal authorities. The case study highlights the intended behavior of MAP-Law: retrieval is not repeated me-chanically until a fixed round limit is reached. Instead, each round serves a distinct argumentative function tied to unresolved legal elements. 
+
+4.3.4 Failure Analysis 
+
+We also examine representative failure modes to clarify the limits of the current framework. 
+
+Failure mode 1: element dependency under high complexity. In a complex non-compete dispute, the system reaches the maximum round limit ( 7 rounds) while still failing to exceed the target coverage threshold. The case involves seven legal elements with dependency relations, meaning that later issues cannot be resolved without first establishing earlier ones. This suggests that future versions of MAP-Law should model element dependency more explicitly during target prioritization. 
+
+Failure mode 2: semantically diffuse evidence. In another case, the retrieved materials are topically relevant but semantically too abstract to create strong element links. As a result, the corresponding legal element remains only partially supported. This suggests that stronger intermediate representations, such as legal knowledge graphs or more fine-grained legal entailment modules, may be necessary when statutory language is highly abstract relative to user facts. These failure cases indicate that MAP-Law is not a complete solution to legal consultation. Rather, it is a structured control framework whose success still depends on the quality of element extraction, retrieval granularity, and evidence-element alignment. 
+
+# 5 Limitations, Implications, and Future Work 
+
+## 5.1 Limitations 
+
+Although MAP-Law produces a favorable efficiency-completeness profile in our experiments, its implications should be interpreted cautiously given the high-risk nature of legal applications. 
+
+Limited external validity. Our evaluation uses 50 self-constructed cases in labor-law consul-tation. This design is useful for isolating the effect of stopping control, but it is not sufficient to support strong claims of generalization across legal domains. Relative to larger benchmarks such as LexRAG [9], the current study should be seen primarily as a proof of concept. 17 Dependence on upstream legal modeling. MAP-Law works by organizing control around legal elements, but this means performance depends heavily on element extraction quality and element granularity. If elements are too coarse, coverage may overstate completion; if they are too fine, the system may over-retrieve. Coverage is therefore not a theory-free quantity; it inherits assumptions from upstream legal knowledge modeling. 
+
+Thresholds remain empirically chosen. The current settings of θE , θEV , and δ are tuned on held-out validation data rather than derived from jurisprudential notions of sufficiency. This is ac-ceptable for system development, but still unsatisfactory from a legal-methodological perspective, because different case types may require different standards of evidentiary completeness. 
+
+Interpretability remains structural rather than justificatory. The joint graph makes it possible to inspect which evidence supports which element, but it does not yet fully explain why a given evidence item was treated as sufficient, why a certain retrieval path was prioritized, or why stopping was justified at a particular moment. In legal settings, acceptable explanations often require reasons rather than merely structures [6]. 
+
+Safety evaluation remains incomplete. The current results show that MAP-Law reduces redundant retrieval, but they do not establish that it sufficiently suppresses legal hallucinations or citation errors. Prior work repeatedly shows that legal language models may appear confident while failing on crucial details [ 7 ]. Practical deployment would therefore require more direct safety-oriented evaluation, such as statutory citation accuracy, precedent citation accuracy, and correction of users’ false factual or legal premises. 
+
+## 5.2 Implications for AI and Law 
+
+From an AI & Law perspective, MAP-Law supports a broader methodological point. Legal-agent performance should not be assessed only in terms of end-answer plausibility or benchmark accuracy. In high-stakes domains, process-sensitive quantities such as support coverage, retrieval discipline, and explicit stopping justification are also central system properties. In this sense, MAP-Law aligns with a strand of AI & Law research that treats representation, reasoning, and system design as inseparable rather than as isolated optimization targets [3, 13]. The framework also suggests a more cautious interpretation of LLM capability in law. Rather than positioning the language model as an autonomous legal reasoner, our results support a narrower but more defensible role: the LLM is most useful when embedded inside a structured evidentiary control architecture. This may be a more realistic path for legally accountable deployment than unconstrained end-to-end generation. 
+
+Implications for legal informatics and responsible deployment. For legal informatics, the main implication of MAP-Law is that retrieval should be treated not merely as a back-end support function, but as a first-class object of legal system design. In practice, legal professionals rarely regard the act of finding authorities as separable from the act of evaluating whether those authorities are sufficient, current, and worth further pursuit. A legal agent that retrieves without an explicit model of sufficiency risks producing outputs that are superficially grounded yet procedurally weak. By making stopping decisions explicit and state-dependent, MAP-Law moves closer to how legal research is actually conducted: iterative, selective, and justification-sensitive. 18 From the perspective of responsible deployment, this also suggests a concrete governance principle. Legal AI systems should not only expose what sources were retrieved, but also provide some account of why the system believed the retrieved materials were enough to answer. Such support is important for downstream human review, for contestability, and for calibrated trust. In deployment settings, a coverage-driven controller could be combined with escalation rules, such that the system abstains or requests human intervention whenever legally salient elements remain insufficiently supported, when retrieval is unstable across rounds, or when marginal gain fails to converge in a predictable way. This would situate legal generation within a safer human-in-the-loop architecture rather than presenting it as a self-sufficient replacement for professional judgment. 
+
+## 5.3 Future Work 
+
+At least five directions appear promising. 
+
+Validation in more realistic legal consultation ecologies. Future work should test MAP-Law on larger and more realistic multi-turn consultation data, including longer dialogues, missing fact supplementation, premise correction, and intent drift across turns. 
+
+Deeper integration of legal structure into retrieval control. The current framework models local issue-element-evidence relations, but it does not yet exploit codified hierarchy, citation networks, judicial authority levels, or cross-case similarity structure. These forms of legal structure may further improve stopping decisions. 
+
+Adaptive thresholds and risk-sensitive control. Not all legal tasks tolerate the same degree of uncertainty. A natural extension is to make stopping thresholds depend on case complexity, risk level, or downstream use context, such as early-stage consultation versus litigation preparation. 
+
+Multi-agent state sharing. ChatLaw and LawLuo suggest that multi-agent collaboration is promising for legal tasks [ 8 , 10 ]. MAP-Law could be extended so that multiple agents share a common plan graph and evidence graph, with different roles specializing in retrieval, legal assessment, drafting, or quality control. 
+
+From visible structure to contestable reasons. From the perspective of AI & Law, the most valuable explanations do not merely display links among issues, elements, and evidence; they also articulate why a piece of evidence is sufficient, why a legal element matters, and why further retrieval is no longer warranted [ 6]. A next step is therefore to combine coverage control with reason-generation modules aimed at both professional and lay users. 
+
+# 6 Conclusion 
+
+This paper does not primarily propose a larger legal model or a more elaborate legal workflow orchestrator. Instead, it focuses on a problem that has been underemphasized in legal-agent research: by what standard should a multi-turn legal consultation system decide that retrieval has become sufficiently complete to justify answering? MAP-Law addresses this question by 19 reframing retrieval control as a coverage-driven planning problem over a joint plan-evidence graph, using EC, EVC, and MG to govern continuation, redirection, and stopping. Our experiments show that this design reduces retrieval rounds and evidence redundancy without sacrificing substantive element coverage. More importantly, MAP-Law suggests a broader lesson: in high-risk legal tasks, better system performance need not come only from stronger generation. It can also come from better control. For legal consultation, this may be especially valuable because controllability bears directly on whether a system can be understood, audited, and responsibly used. We therefore view the main contribution of this work as methodological. MAP-Law brings retrieval control, evidentiary sufficiency, and structured interpretability into the center of legal-agent design. Along this path, future legal agents may become not only better at answering legal questions, but also better at explaining why they are entitled to answer when they do. 
+
+# References 
+
+[1] Harry Surden. Artificial intelligence and law: An overview. Georgia State University Law Review , 35, 2019. [2] Haoxi Zhong, Chaojun Xiao, Cunchao Tu, Tianyang Zhang, Zhiyuan Liu, and Maosong Sun. How does NLP benefit legal system: A summary of legal artificial intelligence. In 
+
+Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics ,pp. 5218–5230, 2020. [3] Serena Villata, Michal Araszkiewicz, Kevin Ashley, Trevor Bench-Capon, L. Karl Branting, Jack G. Conrad, and Adam Wyner. Thirty years of artificial intelligence and law: the third decade. Artificial Intelligence and Law 30:561–591, 2022. [4] Jinqi Lai, Wensheng Gan, Jiayang Wu, Zhenlian Qi, and Philip S. Yu. Large language models in law: A survey. AI Open 5:181–196, 2024. [5] Ilias Chalkidis, Manos Fergadiotis, Prodromos Malakasiotis, and Nikolaos Aletras. Natural language processing in the legal domain. arXiv preprint arXiv:2302.12039 , 2023. [6] Karen McGregor Richmond, Satya M. Muddamsetty, Thomas Gammeltoft-Hansen, Henrik Palmer Olsen, and Thomas B. Moeslund. Explainable AI and law: An evidential survey. 
+
+Digital Society 3(1), 2024. [7] Matthew Dahl, Varun Magesh, Mirac Suzgun, and Daniel E. Ho. Large legal fictions: Profiling legal hallucinations in large language models. arXiv preprint arXiv:2401.01301 ,2024. [8] Jiaxi Cui, Munan Ning, Zongjian Li, Bohua Chen, Yang Yan, Hao Li, Bin Ling, Yonghong Tian, and Li Yuan. Chatlaw: A multi-agent collaborative legal assistant with knowledge graph enhanced mixture-of-experts large language model. arXiv preprint arXiv:2306.16092 ,2023. [9] Haitao Li, Yifan Chen, Yiran Hu, Qingyao Ai, Junjie Chen, Xiaoyu Yang, Jianhui Yang, Yueyue Wu, Zeyang Liu, and Yiqun Liu. LexRAG: Benchmarking retrieval-augmented generation in multi-turn legal consultation conversation. arXiv preprint arXiv:2502.20640 ,2025. 20 [10] Jingyun Sun, Chengxiao Dai, Zhongze Luo, Yangbo Chang, and Yang Li. LawLuo: A multi-agent collaborative framework for multi-round chinese legal consultation. arXiv preprint arXiv:2407.16252 , 2024. [11] Nicholas Pipitone and Ghita Houir Alami. LegalBench-RAG: A benchmark for retrieval-augmented generation in the legal domain. arXiv preprint arXiv:2408.10343 , 2024. [12] Antoine Louis, Gijs van Dijck, and Gerasimos Spanakis. Finding the law: Enhancing statutory article retrieval via graph neural networks. In Proceedings of the 17th Conference of the European Chapter of the Association for Computational Linguistics , pp. 2761–2776, 2023. [13] Faraz Dadgostari, Mauricio Guim, Peter A. Beling, Michael A. Livermore, and Daniel N. Rockmore. Modeling law search as prediction. Artificial Intelligence and Law 29(1):3–34, 2021. [14] Ilias Chalkidis, Abhik Jana, Dirk Hartung, Michael Bommarito, Ion Androutsopoulos, Daniel Martin Katz, and Nikolaos Aletras. LexGLUE: A benchmark dataset for legal language understanding in english. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics , pp. 4310–4330, 2022. [15] Joel Niklaus, Veton Matoshi, Pooja Rani, Andrea Galassi, Matthias Stürmer, and Ilias Chalkidis. LEXTREME: A multi-lingual and multi-task benchmark for the legal domain. In Findings of the Association for Computational Linguistics: EMNLP 2023 , pp. 3056–3080, 2023. [16] Joel Niklaus, Veton Matoshi, Matthias Stürmer, Ilias Chalkidis, and Daniel E. Ho. MultiLe-galPile: A 689GB multilingual legal corpus. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics , pp. 15077–15094, 2024. [17] Nikolaos Aletras, Dimitrios Tsarapatsanis, Daniel Preoţiuc-Pietro, and Vasileios Lampos. Predicting judicial decisions of the European Court of Human Rights: A natural language processing perspective. PeerJ Computer Science 2:e93, 2016. [18] Ilias Chalkidis, Manos Fergadiotis, Dimitrios Tsarapatsanis, Nikolaos Aletras, Ion An-droutsopoulos, and Prodromos Malakasiotis. Paragraph-level rationale extraction through regularization: A case study on European Court of Human Rights cases. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies , pp. 226–241, 2021. [19] Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. ReAct: Synergizing reasoning and acting in language models. In Proceedings of the International Conference on Learning Representations , 2023. [20] Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Thomas L. Griffiths, Yuan Cao, and Karthik Narasimhan. Tree of thoughts: Deliberate problem solving with large language models. In Advances in Neural Information Processing Systems , 2023. [21] Bhuwan Dhingra, Lihong Li, Xiujun Li, Jianfeng Gao, Yun-Nung Chen, Faisal Ahmed, and Li Deng. Towards end-to-end reinforcement learning of dialogue agents for information access. In Proceedings of the 55th Annual Meeting of the Association for Computational Linguistics , pp. 484–495, 2017. 21
