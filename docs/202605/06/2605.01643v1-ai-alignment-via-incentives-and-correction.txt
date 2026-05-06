@@ -1,0 +1,783 @@
+Title: AI Alignment via Incentives and Correction
+
+URL Source: https://arxiv.org/pdf/2605.01643v1
+
+Published Time: Tue, 05 May 2026 00:54:23 GMT
+
+Number of Pages: 33
+
+Markdown Content:
+# AI Alignment via Incentives and Correction 
+
+## Rohit Agarwal ∗ Joshua Lin ∗ Mark Braverman ∗ Elad Hazan ∗
+
+Abstract 
+
+We study AI alignment through the lens of law-and-economics models of deterrence and enforcement. In these models, misconduct is not treated as an external failure, but as a strategic response to incentives: an actor weighs the gain from violation against the probability of detection and the severity of punishment. We argue that the same logic arises naturally in agentic AI pipelines. A solver may benefit from producing a persuasive but incorrect answer, hiding uncertainty, or exploiting spurious shortcuts, while an auditor or verifier must decide whether costly monitoring is worthwhile. Alignment is therefore a fixed-point problem: stronger penalties may deter solver misbehavior, but they can also reduce the auditor’s incentive to inspect, since auditing then mainly incurs cost on a population that appears increasingly aligned. This perspective also changes what should count as a post-training signal. Standard feedback often attaches reward to the final answer alone, but a solver–auditor pipeline exposes the full correction event: whether the solver erred, whether the auditor inspected, whether the error was caught, and whether oversight incentives remained active. We formalize this interaction in a two-agent model in which a principal chooses rewards over joint correction outcomes, inducing both solver behavior and auditor monitoring. Reward design is therefore a bilevel optimization problem: rewards are judged not by their immediate semantic meaning, but by the behavioral equilibrium they induce. We propose a bandit-based outer-loop procedure for searching over reward profiles using noisy interaction feedback. Experiments on an LLM coding pipeline show that adaptive reward profiles can maintain useful oversight pressure and improve principal-aligned outcomes relative to static hand-designed rewards, including a substantial reduction in hallucinated incorrect attempts. 
+
+# 1 Introduction 
+
+In this paper, we study AI alignment to human values from the perspective of methodologies proposed to align humans to human values. Our starting point is the 1968 paper by Becker [ 7], that transformed the study of criminal behavior by introducing the “Rational Offender” hypothesis. He argued that the decision to commit a violation can be analyzed as an expected-utility calculation: a rational actor weighs the gain from misconduct against the probability of detection and the severity of punishment. This allowed a mechanistic basis for social welfare maximization based on game theoretic principles. Classical work extended this logic by asking how enforcement itself should be chosen [ 43 ] and by emphasizing that enforcers also require incentives [ 8 ]. For example, to avoid collusion between enforcers (in either the law enforcement or criminal justice systems), [ 8 ] proposed sufficient rewards to render collusion and its dangers irrational from a rational offender perspective. This shifts the societal paradigm of enforcer selection by “ethical behavior” to a rational selection process, relying on purely game theoretic assumptions. 
+
+> ∗Princeton University
+
+1
+
+> arXiv:2605.01643v1 [cs.LG] 2 May 2026
+
+The Analogy to AI Alignment. In AI alignment, the same logic appears naturally. A model or agent may obtain a small gain from misaligned behavior—for example, by giving a persuasive but incorrect answer, hiding uncertainty, or exploiting spurious shortcuts—while facing some chance of review and some penalty if caught. In LLMs, such penalties are implemented through post-training updates to model weights. The analogy is especially natural in agentic pipelines, where a solver 
+
+produces an answer and a verifier or auditor decides whether to escalate the output to a more extensive resolution procedure such as debate [ 26 ]. We use incentive language operationally: an agent is “incentivized” toward a behavior when the training signal locally increases the probability of that behavior, not when the model consciously reasons about rewards. 
+
+Endogenous Monitoring. A key difference from the simplest deterrence story is that monitoring is itself chosen by another learned policy, such as a verifier, critic, or reward model. Alignment is therefore a fixed-point problem: stronger penalties can deter the solver, but they can also weaken the incentive to audit, since auditing then mainly incurs cost and false-positive risk on a population that is already mostly aligned. The same tension appears in the economics of enforcement and organizations, where regulators choose monitoring intensity and supervisors may collude with the agents they oversee [ 38 , 46 , 29 ]. Solver and verifier policies may likewise collude or strategically accommodate one another [ 16 ]. Thus our setting treats monitoring itself as strategic: the solver’s incentive to misbehave and the auditor’s incentive to inspect are jointly determined by the mechanism. 
+
+A Strategic Signal for Post-Training. In standard post-training, feedback is often attached to the final answer alone. But in a solver–auditor pipeline, the important object is the full correction event: whether the solver erred, whether the auditor chose to inspect, whether the error was caught, and whether oversight incentives remained active. These cases are behaviorally distinct, yet standard scalar feedback often conflates them. This is especially important for hallucination: accuracy-based evaluations can reward guessing over admitting uncertainty [ 28 ], motivating our experimental setup’s explicit distinction between incorrect attempts, abstentions, and caught failures. By assigning rewards to joint solver–auditor outcomes, we obtain a richer training signal that distinguishes aligned success, informative catches, silent failures, false positives, and abstentions. This richer signal is especially relevant for alignment. A post-training scheme should not only reduce misbehavior, but should do so without destroying the incentive to monitor. Recent monitoring and critic-based systems show that intermediate oversight can help detect bugs, hallucinations, reward hacking, and other forms of misbehavior [ 48 , 6, 37 ]. Our mechanism makes the incentive tradeoff explicit and therefore allows post-training to optimize for correction, not just for surface-level performance. 
+
+Relation to Prior Work. Our work connects first to the literature on proxy objectives and scalable oversight. Reward hacking, reward tampering, and goal misgeneralization show that optimized objectives may diverge from the designer’s true goal [ 2, 18 , 30 ]; in language-model settings, this concern is especially salient because RLHF and related post-training methods optimize learned or human-provided feedback rather than the latent objective directly [ 13 , 40 ]. Scalable-oversight methods such as reward modeling, iterated amplification, debate, weak-to-strong generalization, trained verifiers, process supervision, LLM critics, and multi-agent debate aim to obtain better supervision for tasks that are hard for humans to evaluate directly [ 33 , 12 , 26 , 10 , 15 , 34 , 37 , 17 ]. Relative to these works, we do not primarily propose a new verifier or supervision protocol; we analyze how rewards induce the joint behavior of a solver and an auditor, both of which are adaptive learners. 2Our closest deployment-protocol relatives are AI control and untrusted monitoring, which study how to remain safe when an untrusted model may intentionally subvert a protocol, including through collusion between monitored and monitoring model instances [ 21 , 22 , 42 ]. Related Less-Wrong/Alignment Forum discussions of “incentives design” emphasize that safety may depend not only on an AI system’s motivations or available actions, but also on the incentives that make agents willing to preserve human control, report failures, or monitor one another [ 14 ]. Our setting is complementary: rather than treating the monitor as a fixed component of a deployment protocol, we treat the auditor’s monitoring policy as induced by the reward mechanism. This also connects to automating-auditing and oversight-robustness proposals, which use auditors, attackers, or adver-sarial incentives to expose failures of oversight [ 25 , 47 , 9 ], and to mechanism-design approaches to alignment and feedback elicitation [ 23 , 36 , 20 ]. Relative to these lines, our main contribution is the fixed-point phenomenon: rewards that deter solver misbehavior can simultaneously make auditing less valuable, undermining the correction signal that made deterrence credible. 
+
+## 1.1 Our Contributions 
+
+A Principled Game-Theoretic Model for AI Alignment. In section 3, we propose a theoretical model to study the mechanism design of a simple two-agent AI pipeline, a solver and an auditor. Every round, the two agents give a response, and we assign rewards according to a design that the end user can choose dynamically every round. We explain why dynamic rewards are better for user outcomes over static rewards. Using known techniques in (bi-level) bandit optimization, we describe an algorithm that approaches a local maximum of the user’s values. 
+
+Reward Design for Agentic LLM Pipelines. Using the theoretically-justified algorithm, in section 4 we propose a new reinforcement learning framework to train agentic pipelines. We apply this framework to train a small coding pipeline. One of the agents solves a programming problem while the other checks the first agent’s code. We show that our approach provides comparable convergence time to good models in practice, while guaranteeing more aligned outcomes than standard reward design. On our evaluation, this leads to a 32% reduction in coding hallucinations compared to the best main baseline, while avoiding the near-universal abstention collapse observed in a positive-abstention solver-only diagnostic. 
+
+# 2 A Toy Example: Solver–Auditor Game 
+
+Before developing the general theory, we illustrate the techniques on a small self-contained example. It has the three ingredients the rest of the paper generalizes: an agentic task, a basic model of the induced game, and an outer-loop algorithm that searches over reward designs. 
+
+Setup. In this example, we describe a game that gives rise to more aligned agents from a generic utility point of view. In Section 4 we give a concrete generalization of this setting to coding agents, and Section 5 shows how they become less prone to hallucination. The two players in our toy game are the solver and the auditor , implemented by two small MLPs mapping scalars to logits. The scalar inputs represent a data set of tasks, each task is associated with a “difficulty level” that is a scalar τ ∈ R. These difficulty levels provide a noisy signal for the solver’s probability of success ˆp ≈ p(correct | τ ). Based only on this signal, the solver outputs a distribution over whether to attempt a solution or abstain from responding. This is the action aS ∈ { attempt , abstain }.3The auditor then inspects the problem together with the solver’s solution and outputs a distribution over whether to audit (flagging the solution as wrong) or abstain (declaring the solution correct). Finally we update the solver and auditor weights using a reward profile , a small vector of scalar rewards and penalties attached to the outcome of the task. We denote this process an inner round , described in Algorithm 1. 
+
+Algorithm 1 Inner Round (Toy Example) 
+
+Require: A finite reward vector r ∈ Rd. 
+
+> 1:
+
+Sample prior over task difficulties, τ ∼ p({easy , medium , hard }).  
+
+> 2:
+
+Inject Gaussian noise, ˆ p ← p(correct | τ ) + N (0 , σ 2) and clip to [0 , 1].  
+
+> 3:
+
+Sample from solver’s action distribution, aS ∼ SolverMLP (ˆ p). ▷ a S ∈ { attempt , abstain } 
+
+> 4:
+
+if aS = attempt then  
+
+> 5:
+
+Sample from auditor’s action distribution, aA ∼ AuditorMLP (ˆ p). ▷ a A ∈ { audit , abstain } 
+
+> 6:
+
+end if  
+
+> 7:
+
+Sample the true solver correctness label C ∼ p(correct | τ ).  
+
+> 8:
+
+Evaluate rewards r(as, a A, C ) and update solver/auditor weights. The mechanism designer, the human(s) overseeing the training, specifies a value function over outcomes, representing the principal’s true objective. This need not be the same as the reward function given to the agents during training: rewards are only a tool for steering behavior, and our goal is to choose them so that the resulting adapted policies maximize the principal’s value. 
+
+Action Correct? Auditor Outcome Explanation Abstain N/A None Vabstain = 0 .1 Solver abstains. 
+
+Attempt Yes No Flag Valigned = 1 .0 Solver correct; no auditor error. 
+
+Attempt No Flagged Vcaught = 0 .5 Solver incorrect; auditor catch. 
+
+Attempt Yes Flagged Vfp = −0.3 Solver correct; auditor false positive. 
+
+Attempt No No Flag Vsilent = −1.0 Solver incorrect; auditor miss. Table 1: Expanded principal alignment values including solver correctness and auditor behavior. For this task, we explicitly define the value matrix in Table 1. In particular, denote a batch of 
+
+I > 0 inner rounds as an outer round . Notably, the reward function R is constant within each fixed outer round, but in general may change across different outer rounds. We learn a meta-controller 
+
+policy which selects between different predefined reward vectors. The full co-evolution process is specified in Algorithm 2. The numerical values in Table 1 are not meant to be canonical. They encode one operational preference ordering: aligned unaudited answers are best, caught failures are preferable to silent failures, false positives are costly, and abstention is safer than a hallucinated attempt. Our qualitative claim is that the reward mechanism should be optimized against such a principal value function, rather than that these particular constants are uniquely correct. 4Algorithm 2 Co-evolution Training Pipeline (Toy Example) 
+
+Require: MetaController , SolverMLP and AuditorMLP , initial reward vector R0, batch sizes I, I′. 
+
+> 1:
+
+for each outer round O = 0 , 1, . . . , O do  
+
+> 2:
+
+Train SolverMLP , AuditorMLP for I inner rounds using RO. 
+
+> 3:
+
+Execute I′ inference-only inner rounds (i.e., freeze SolverMLP and AuditorMLP weights).  
+
+> 4:
+
+Estimate mechanism designer’s value cW from the inference-only batch.  
+
+> 5:
+
+Gather context F from the inference-only batch (e.g., statistics across inner round outcomes).  
+
+> 6:
+
+Update reward profile, RO+1 ← MetaController (cW , F).  
+
+> 7:
+
+end for 
+
+In Figure 1 we use the toy setup to compare different choices for multi-armed bandit (MAB) meta-controllers, described in Appendix B. We see that though all controllers converge in principal value, Thompson sampling demonstrates early convergence. 
+
+Figure 1: Many MAB algorithms see similar performance, but Thompson profiles converge early. 
+
+# 3 Mechanism Design for Alignment 
+
+The toy example above illustrates the main phenomenon: rewards do not act directly on the principal’s objective. They first induce behavior by the solver and the auditor, and only then determine the principal’s value. We now formalize a basic model of this mechanism-design problem. 
+
+The Basic Solver-Auditor Game. Let μ be the distribution over prompts, and take x ∼ μ
+
+to be a prompt. Suppose the solver has parameters θ1. For each such prompt, the solver has a latent alignment probability palign (x) ∈ [0 , 1] leading to outcomes Z ∼ Bernoulli (palign ), where Z = 1 corresponds to alignment and Z = 0 to misalignment (for clarity, we will interchangeably use A ≡ 1and M ≡ 0 as the outcomes). Now suppose the auditor has parameters θ2, and suppose it chooses to audit with probability paudit (x) ∈ [0 , 1]. If an audit occurs, a reward mechanism assigns training rewards to realized correction events. In the minimal model, the solver receives reward rA(x) after audited verdict Z = A (or lack of an audit) and signed punishment rM (x) after audited verdict Z = M , with rA(x) > r M (x). The 5auditor receives reward rcatch (x) for correctly catching a misaligned response, pays cost rfp (x) for a false positive, and pays direct audit cost raudit (x) < r catch (x). The richer reward profiles used in the experiments are larger versions of this setup. They assign rewards to more granular outcomes such as aligned success, caught failure, silent failure, false positive, abstention, and invalid audit. In general (non-verifiable) settings, the verdict could be the result of a debate or judge protocol [ 26 ], which itself is inherently noisy. Furthermore, the solver could itself have noise, as may be the case for e.g. a complicated LLM solving pipeline. For simplicity, we elide those concerns in this section and give a full analysis of these cases in Appendix A. 
+
+## 3.1 The Principal’s Objective 
+
+The principal (a human/entity overseeing training) does not directly care about the agents’ training rewards, but rather cares about the behavior induced by those rewards. Let 
+
+W (θ1, θ 2) = Ex∼μ[V (x, p align (x; θ1), p audit (x; θ2))] (1) be the principal’s value. The function V evaluates the full correction outcome, not only the final answer; for instance, in the hallucination example, the outcome would track aligned success, caught failure, silent failure, false positive, abstention, and any other correction events relevant to the task. For the example of a solver-auditor pipeline, it may make sense that V (x, 1, 0) > V (x, 0, 0) and 
+
+V (x, 1, 0) > V (x, 1, 1). This indicates that the principal is happier when the solver is aligned over not, but is also happier when the auditor doesn’t audit unnecessarily (auditing might be relatively expensive, as we have to run a verdict resolution). Let r denote a reward mechanism, drawn from a feasible class R (e.g., the available reward vectors available to the Thompson meta-controller). For each r, the solver and auditor adapt under the induced training game. We write the resulting adapted policies as ( θ∗
+
+> 1
+
+(r), θ ∗
+
+> 2
+
+(r)). The principal’s reward-design problem is therefore max  
+
+> r∈R
+
+Φ( r) = W (θ∗
+
+> 1
+
+(r), θ ∗
+
+> 2
+
+(r)) . (2) This is a bilevel problem: a meta-controller chooses rewards during an outer loop, while the solver and auditor responding to those rewards during an inner loop. 
+
+## 3.2 Local Incentives Analysis 
+
+Here we analyze the local incentives of the solver and auditor (i.e. for a fixed prompt), so we drop the dependency on x from our notation. Beyond the incentives of any rational agents in this setting, we assume that the solver derives some additional time-dependent utility Ω t(x) ≥ 0 from misaligning. This assumption reflects the notion that standard RL post-training procedures may induce misalignment in LLM agents. For example, in the hallucination setting, RLHF pushes the models to provide plausible but incorrect responses rather than abstaining when unsure [41]. 
+
+Solver/Auditor Incentives. A reward mechanism must manage two local incentives. First, conditional on audit, the solver’s utility is affine in the alignment probability: 
+
+U1 = paudit [Pr( A)rA + Pr( M )rM ] + Pr( M )Ω t + (1 − paudit )rA = palign I1 + C1 (3) 6where I1 is the solver’s deterrence margin and C1 is a constant independent of palign ,
+
+I1 = paudit (rA − rM ) − Ωt (4) 
+
+C1 = rA − paudit (rA − rM ) + Ω t. (5) Correspondingly, the auditor’s utility function is 
+
+U2 = paudit [Pr( M )rcatch − Pr( A)rfp − raudit ] = paudit I2 (6) where I2 is the auditor’s audit margin ,
+
+I2 = rcatch − raudit − palign (rcatch + rfp ). (7) 
+
+Equilibria Analysis. In the generic interior case where 0 < Ωt < r A − rM , we see that the unique mixed equilibrium is (p∗
+
+> align
+
+, p ∗
+
+> audit
+
+) = 
+
+ rcatch − raudit 
+
+rcatch + rfp 
+
+, Ωt
+
+rA − rM
+
+
+
+(8) By adjusting the reward vector r = ( rA, r M , r catch , r fp , r audit ), one can set this pair to be any arbitrary point in [0 , 1] 2, though in general it is not a stable attractor, and not necessarily attainable by tuning model weights ( θ1, θ 2). We also see that under our assumptions of Ω t < r A − rM , rcatch > r audit ,and Ω t > 0, there are no pure equilibria (see Figure 2 and Table 2). In fact, even if we assume that the solver’s actions are noisy, the only pure equilibrium is at {(1 , 1) } under appropriate reward conditions (see Appendix A), which as remarked in Section 3 may still be undesirable when audits are costly, i.e. in non-verifiable settings. The observation that the game has neither any pure equilibria nor stable, attractive mixed equilibria motivates adaptive rewards, i.e. rewards that change over time, which can keep the game near non-equilibrium points such as (1 , 0). Because AI agents do not immediately update behaviors, but instead gradually update their policies through gradient feedback, a meta-controller which continuously adapts the reward configuration r = ( rA, r M , r catch , r fp , r audit ) can keep the agents near (1 , 0). (palign , p audit ) Interpretation Equilibrium Condition (0 , 0) misaligned, no audit rcatch ≤ raudit 
+
+(0 , 1) misaligned, audit Ωt ≥ rA − rM and rcatch ≥ raudit 
+
+(1 , 0) aligned, no audit Ωt = 0 (1 , 1) aligned, audit raudit + rfp ≤ 0 and Ω t ≤ rA − rM
+
+Table 2: Pure-strategy equilibria and their conditions. 7(0 , 0) 
+
+> silent failure
+
+(0 , 1) 
+
+> caught misalignment
+
+(1 , 1) 
+
+> aligned, audited
+
+(1 , 0) 
+
+> aligned, unaudited
+
+Convention: (palign , p audit )auditor  
+
+> solver
+> auditor
+> solver solver
+> auditor solver
+> auditor
+
+Figure 2: One-step local incentives over pure states, palign , p audit ∈ { 0, 1}2. Colored arrows show optimal single player moves; self-loops mark regions where their behavior is already locally optimal. 
+
+## Weight Space 
+
+## (θ1, θ 2)
+
+## Alignment Space 
+
+palign (x)
+
+> paudit (x)
+
+0 1
+
+0
+
+1
+
+## A(x)
+
+Mixed Equilibrium 
+
+Figure 3: Abstract model of rewards: the space of feasible model weights ( θ1, θ 2) is mapped to the space of feasible set of pairs ( palign (x), p audit (x)), which we denote by A(x) ⊆ [0 , 1] 2. The choice of rewards then determines the equilibrium. Reward design tries to pick rewards to cause ( p∗
+
+> align
+
+, p ∗
+
+> audit
+
+)to be a feasible point in A that maximizes the principal value. 
+
+## 3.3 Bandit Search over Reward Mechanisms 
+
+In realistic settings, the principal does not observe palign (x; θ1), paudit (x; θ2), or the response map 
+
+r 7 → (θ∗
+
+> 1
+
+(r), θ ∗
+
+> 2
+
+(r)). The principal only observes samples from interaction: a prompt is drawn, the solver responds, the auditor may audit, a correction outcome is recorded, and a noisy estimate of principal value is computed. We therefore treat 
+
+r 7 → Φ( r) = W (θ∗
+
+> 1
+
+(r), θ ∗
+
+> 2
+
+(r)) as a black-box response map. On a fast timescale, the solver and auditor adapt to the current reward mechanism. On a slow timescale, the principal updates the reward mechanism using bandit feedback , a.k.a. zero-order feedback, as we only understand the dynamics induced by the solver and auditor after assigning some reward scheme. In a stationary black-box setting with a finite library of reward profiles, standard bandit methods [31 ] can compete with the best fixed profile in the library, up to the noise in the evaluation and 8Algorithm 3 Adaptive Reward Design by Bandit Feedback 
+
+Require: Initial policies ( θ1,0, θ 2,0), reward class R, player learners L1, L2, bandit meta-controller 
+
+B, inner horizon T . 
+
+> 1:
+
+for k = 0 , 1, 2, . . . do  
+
+> 2:
+
+Select a reward mechanism rk ∈ R using B. 
+
+> 3:
+
+Hold rk fixed and update the solver and auditor for T steps using L1, L2. 
+
+> 4:
+
+Evaluate the adapted policies on fresh samples and compute a noisy estimate cWk of the principal’s value.  
+
+> 5:
+
+Update B using the observation ( rk, cWk).  
+
+> 6:
+
+end for 
+
+the error from finite inner adaptation. Our co-training setting is more path-dependent: selecting a reward profile changes the subsequent solver and auditor states, so the value of a profile can change over training. We therefore use discounted bandit methods as practical nonstationary controllers rather than relying on a formal stationary-regret guarantee. For continuous reward classes, the same template can be implemented with zeroth-order methods under smoothness assumptions on a locally stationary response map Φ [3, 4, 19, 39]. This procedure is not optimizing the agents’ rewards as an end in themselves. It is searching for rewards that induce a good fixed point of the solver–auditor system: low silent failure, useful correction, controlled false positives, and high principal value. 
+
+## 3.4 More Than One Auditor 
+
+The same formulation extends to one solver and multiple critics. Each critic may flag the solver’s response or abstain, and the external resolution procedure is triggered when at least one critic flags. From the solver’s perspective, the relevant quantity is the probability that some critic initiates a successful correction. Multiple critics can improve coverage, but they also create coordination problems: free-riding, redundant escalation, and false-positive cascades. The reward mechanism should therefore give credit to informative complaints that contribute to a correct verdict, while penalizing unnecessary escalation and false positives. The principal’s outer problem remains the same: choose rewards that deter misalignment without destroying the incentive to monitor. 
+
+# 4 LLM Method 
+
+This section lifts the toy pipeline of Section 2 to a real coding task with language-model agents. 
+
+Coding Pipeline. Both agents are pretrained causal language models. Given a benchmark problem, the solver either emits Python code or abstains. If the solver emits code, the auditor sees the problem together with that code and either emits a single top-level Python assert (intended to fail on a bug) or abstains. All reward computation is grounded in sandboxed execution: the solver’s code is run against base tests, and the auditor’s assert is run against the solver’s code to classify the round as aligned, caught, silent failure, false positive, or abstain. One idea is that this can act as a repair mechanism–we could then feed the auditor’s failing assert back to the solver to improve its implementation. For this work, we focus on the single-pass incentive-design problem to reduce solver hallucination in a single pass. We briefly study the multi-pass setting in Appendix C.5. 9Co-Training with GRPO and a Reward-Controller Outer Loop. The inner updates use Group-Relative Policy Optimization (GRPO) with LoRA adapters. Because a fully simultaneous GRPO update over both agents is expensive, each outer iteration trains the solver first (auditor held fixed) and then the auditor (solver held fixed) under the same reward profile. The full procedure is Algorithm 4, which is just the LLM instantiation of Algorithm 3: the two GRPO phases play the role of the inner learners, while an outer reward controller chooses the reward profile for the next outer iteration and optionally updates from held-out feedback. Detailed training hyperparameters can be found in Table 5. 
+
+Algorithm 4 Solver–auditor co-training with GRPO and reward-controller outer loop 
+
+Require: Initial solver and auditor adapters ( θ1, θ 2), library of reward profiles R = {r(1) , . . . , r(L)},reward-controller state, held-out evaluation set, outer budget T . 
+
+> 1:
+
+for outer iteration k = 1 , 2, . . . , T do  
+
+> 2:
+
+Profile choice. Select rk using the reward controller over R. 
+
+> 3:
+
+Solver phase. Generate solver and auditor candidates on a batch of prompts, updating θ1
+
+according to rk at each inner-round while freezing θ2. 
+
+> 4:
+
+Auditor phase. Regenerate solver candidates from the updated θ1 on the same batch, and run a GRPO update on θ2 under the same rk. 
+
+> 5:
+
+Evaluation. Sample solver/auditor responses on held-out prompts, execute code and tests in the sandbox, classify outcomes, and compute an estimate of the principal’s value cWk. 
+
+> 6:
+
+Controller update. Update the reward-controller state using ( rk, cWk).  
+
+> 7:
+
+Warm start. Carry ( θ1, θ 2) into the next round.  
+
+> 8:
+
+end for 
+
+Keeping the outer controller on a slower timescale than the two GRPO phases matters for stability: if the reward profile changes before the agents have adapted to it, the evaluation signal fed back to the controller no longer reflects the profile it was selected under. Across all controller choices, this alternating solver-then-auditor GRPO schedule is held fixed; the only difference between Thompson and the static baselines is how the outer controller selects and updates the reward profile. Appendix C.3 ablates the number of controller updates at matched compute; in our setup, fewer outer updates with larger inner adaptation blocks outperform a higher-frequency outer loop, supporting this two-timescale interpretation. 
+
+Controller. Our main LLM controller is a discounted Thompson sampler [ 45 ] over a finite library of eight reward profiles (Table 7). After each outer iteration, it updates a discounted empirical value estimate for the selected profile and then, on the next outer iteration, samples a Gaussian score for each profile whose variance shrinks with discounted pull count. This keeps a persistent incentive to explore profiles that are uncertain while still concentrating on profiles with high observed principal value. We chose Thompson sampling as our MAB algorithm thanks to work showing that it is competitive with, and in several regimes significantly outperforms, UCB-style algorithms [ 11 ], in addition to the quick convergence observed in Section 2. 
+
+Principal Value and Metrics. The principal value (PV) used throughout the experiments is nearly the same as given in Table 1: aligned solutions receive the highest value, caught bugs are positive but lower-valued, abstentions receive a small positive value, and silent failures are heavily penalized. The only difference is that there might be a truncated response–we give such responses a 0.0, as they are slightly worse than abstention, but still very easy to spot as wrong automatically (as 10 there is no end-of-sequence token emitted). We also report overall pass rate (correct solutions among all samples), attempted pass rate (correct solutions among non-abstained, non-truncated attempts), 
+
+solver hallucination rate (incorrect attempted solutions among all samples), and silent-failure rate 
+
+(incorrect attempted solutions that are not caught by the auditor among all samples). As in the toy setting, the principal-value table should be read as one operational encoding of a safety-relevant preference ordering, not as a universal value function. The important ordering is that silent failures are worst, caught failures preserve useful oversight signal, and abstention is preferable to an incorrect attempted solution. 
+
+Baselines. To isolate the effect of cotraining from the effect of simply spending more optimization steps on the solver, we compare to a standard single solver-only reinforcement-learning approach, wherein the solver is allowed to abstain and is rewarded according to the rewards given in Table 9. This main solver-only baseline receives no positive reward for abstention; Appendix D.6 reports a diagnostic variant with positive abstention reward that collapses to near-universal abstention. We match the total number of GRPO optimizer steps between the single-solver and solver-auditor games. Then, for the solver-auditor case, we compare the Thompson controller against a fixed-binary baseline that keeps a simple binary-correctness reward fixed throughout training (Table 10), and a fixed-default baseline that keeps the reward table fixed to the base profile that Thompson sampling builds its candidate profiles on (Table 6). The fixed-default baseline is a well-motivated static comparison: the controller’s final discounted profile estimates place the default profile in the top estimated band (Appendix D.5). The main idea is that dynamic, bandit-inspired reward algorithms are a promising choice for reinforcement learning in agentic pipelines–we do not claim we have the best such dynamic algorithm. 
+
+Model, Dataset and Compute Budget. We evaluate the method with Qwen2.5-Coder-Instruct-7B on a training mixture of HumanEval+, MBPP, and APPS [ 35 , 24 , 5 ]. For each variant, we run one single-seed 80-outer-iteration training run with the same model family, prompt format, and a total training budget of 150 GRPO optimizer steps per outer iteration (in solver-auditor runs, this is split evenly between the solver and auditor). Matching compute here means matching the total number of GRPO optimizer steps; solver-auditor methods still require additional auditor generations and sandbox executions, so wall-clock and inference costs are higher than in solver-only training. Our main comparison is an estimate of validation PV and solver pass rates on a validation subset of 200 held-out tasks with 2 samples per task. We also have a downstream comparison on 400 tasks from the LiveCodeBench code-generation test split with 1 sample per task [ 27 ]. For further details on training and validation datasets, hyperparameters, and prompts, see Appendix D.1–D.3. 
+
+# 5 Experimental Results 
+
+The figures report single-seed runs and include different baseline subsets according to the comparison they isolate: validation PV comparisons focus on two-player solver–auditor methods, solver-only plots isolate compute-matched single-solver training, and downstream or solver-hallucination plots include the methods for which the metric is directly comparable. 
+
+Validation Principal Value. Figure 4 shows that the choice of reward controller changes the regime reached by co-training. Thompson sampling is initially noisy, but after finding high-value reward profiles, it separates from the static baselines and remains in a positive validation PV regime. The fixed-binary baseline learns enough to avoid the strongly negative outcomes seen under the 11 Figure 4: Validation PV over training for three solver–auditor co-training variants with the same model, prompts, and training budget. Each checkpoint is evaluated on the same 200-task held-out subset with 2 solver samples per task; the dashed line marks zero principal value. The adaptive Thompson controller (red) moves from negative initial value to a stable positive-value regime. The fixed-binary reward (blue) improves from negative initialization but remains near the break-even boundary (recall that an empty response scores 0). The fixed-default reward (green) stays negative throughout. default profile, but it stays close to the zero-value boundary: it produces some correct solutions, but not a solver–auditor interaction that reliably improves principal value. The fixed-default baseline remains negative throughout, showing that simply co-training the two agents under a reasonable-looking static reward is not sufficient. Since the model, data, inner GRPO schedule, and evaluation protocol are held fixed, this separation isolates the effect of adaptive reward-profile selection: the Thompson controller is selecting rewards that induce a better fixed point of the solver–auditor game. This suggests that dynamic rewards can help the system escape poor local regimes within the game. 
+
+Hallucination Reduction. Figure 5 makes the behavioral difference explicit on the same val-idation evaluator as the PV plots: Thompson reduces solver hallucination from 0 .6425 at outer iteration 0 to 0 .4100 at outer iteration 79, whereas fixed-binary ends at 0 .6325, fixed-default at 0.6000, and solver-only at 0 .6325. This represents a 32% reduction in solver hallucination rate compared to the best main baseline. This is the reason behind the validation PV separation: the adaptive reward controller is moving probability mass away from misaligned attempts, while the static alternatives and solver-only largely remain in the high-hallucination regime. 12 Figure 5: Hallucination-rate trajectories on the same held-out 200 × 2 evaluator for the Thompson controller, fixed-binary, fixed-default, and solver-only. Solver hallucination rate is computed as the fraction of all samples that are incorrect attempted solutions. Thompson is the only method with sustained solver-hallucination reduction over training, while the static baselines and solver-only remain near the initial high-hallucination regime. 
+
+Comparison to Solver-Only Training. Figure 6 shows two things. First, on the training mixture, Thompson’s solver reaches a substantially higher attempted pass rate than solver-only despite the same per-outer-iteration compute budget. Second, the training-side gain of solver-only does not transfer: on held-out tasks the solver-only validation attempted pass rate peaks at outer iteration 4 and then stays roughly flat. As this is already a post-trained coding/instruction-following model, we expect little improvement from naive RL techniques. Thompson’s validation attempted pass rate, in contrast, rises substantially. The adaptive reward controller is therefore not just allocating more compute to the solver; it produces different checkpoints that generalize better on the same held-out distribution. 
+
+Downstream Hallucination and Proxy PV. Figure 7 reports four downstream metrics on the 400-task LiveCodeBench code-generation test split [27]. The key pattern is that Thompson transfers strongly on solver-hallucination control but not on downstream proxy PV. Thompson has by far the lowest solver hallucination rate of the four systems, and it also has the strongest attempted pass rate, which means that when it chooses to answer, its answers are relatively reliable. However, its overall pass rate remains close to the base model rather than clearly surpassing it, because it abstains much more often on this benchmark. We interpret this gap between hallucination and PV as a calibration issue under distribution shift. The Thompson controller was optimized for principal value on the original training mixture, not on LiveCodeBench. On the downstream distribution, the probability that a problem is actually 13 Figure 6: Per-outer-iteration solver pass rates for the Thompson controller (red) and the compute-matched solver-only baseline (purple), split by metric and split. Top-left: training attempted pass rate (correct among non-abstained, non-truncated attempts). Top-right: training overall pass rate (correct among all samples). Bottom-left: validation attempted pass rate. Bottom-right: validation overall pass rate on the matched held-out evaluator (200 tasks, 2 samples per task). Thompson improves on both validation metrics over training, while solver-only shows little sustained held-out gain. The attempted pass-rate improvement shows a reduction in solver hallucination, even though both solvers are allowed to abstain. solvable appears different, so the abstain-versus-attempt tradeoff learned during training is no longer calibrated to the new task mix. By contrast, the more robust behavioral skill—avoiding low-confidence hallucinated answers—does transfer. In short, our method pays a modest cost in solve rate in exchange for a large reduction in solver hallucinations, which is why it looks better on hallucination control but worse on downstream proxy PV. We also note that in a realistic continual learning setting, such a distribution shift may be less severe if the reward controller continues to receive feedback from the new distribution and recalibrates the abstain-versus-attempt tradeoff. Additional ablations and diagnostics are reported in Appendix C.1–C.4: behavior decomposition, fixed-default auditor collapse, outer-loop schedule shape, and cross-play robustness. 14 Figure 7: Downstream LiveCodeBench comparison for the base model, the final fixed-binary model, the compute-matched solver-only model (with the base model as an auditor), and the final Thompson-trained model. Overall metrics are computed over all 400 tasks. Overall pass rate is the fraction of all tasks on which the solver produced a correct solution. Attempted pass rate is the fraction of attempted tasks that were solved correctly, where attempted means the solver did not abstain or truncate. Solver hallucination rate is the fraction of all tasks on which the solver produced an incorrect attempted solution, i.e. a solution that failed the benchmark tests. Thompson keeps the strongest attempted pass rate while sharply reducing solver hallucinations, but it does not achieve the best downstream proxy PV. 
+
+# 6 Conclusion 
+
+We proposed a mechanism-design view of alignment in agentic pipelines. The main lesson is that rewards should not be judged only by the immediate behavior they encourage, but by the fixed point they induce among interacting learned agents. In a solver–auditor system, penalizing misalignment can deter bad outputs, but it can also reduce the auditor’s incentive to monitor. Robust alignment, therefore, requires dynamic reward mechanisms that jointly preserve solver deterrence and auditor oversight, especially in noisy settings where policies induce distributions over correction outcomes rather than deterministic success or failure events. Our experiments give an initial demonstration of this perspective in an LLM coding pipeline. A profile-based Thompson controller improves validation PV relative to static reward baselines, while the downstream evaluation shows that the learned behavior transfers most clearly as hallucination reduction: the model answers more selectively and is more reliable when it does answer. 
+
+Applications to AI Safety. The most direct safety application of this framework is to scalable oversight and AI control settings in which one learned system acts while another learned system monitors its outputs. In such settings, safety depends not only on the competence of the monitor but on whether monitoring remains incentivized after the solver begins to appear reliable. Our model 15 makes this failure mode explicit: rewards that deter solver errors can also remove the auditor’s incentive to inspect, producing an apparently safe system with weakened oversight pressure. Under distribution shifts, this lack of oversight pressure could suddenly make the system unsafe. Dynamic reward design offers a way to treat oversight as something that is quantifiable and scored. Safety is yet another non-verifiable domain that our techniques could potentially work on. Since the downstream principal value can be any arbitrary function of the output, we can help design equilibria that award safer multi-agent behavior–and punish players that deviate. 
+
+Limitations. The present experiments are only an initial testbed for this approach. Coding provides unusually clean feedback through executable tests, and our solver–auditor game is much simpler than realistic agentic pipelines. Moreover, the drop in downstream proxy principal value in LiveCodeBench highlights a limitation of the current approach: principal value calibration is limited to distributions similar to the training distribution (though beneficial behavior like abstention to avoid hallucination is preserved). Thus, future work should investigate this as a continual learning problem–under distribution shift, the same principal value table can encode different true preferences–so one should continue training under reward adaptation under the new distribution. 
+
+# References 
+
+[1] Shipra Agrawal and Navin Goyal. Analysis of thompson sampling for the multi-armed bandit problem. In Proceedings of the 25th Annual Conference on Learning Theory , volume 23 of 
+
+Proceedings of Machine Learning Research , pages 39.1–39.26. PMLR, 2012. [2] Dario Amodei, Chris Olah, Jacob Steinhardt, Paul Christiano, John Schulman, and Dan Mane. Concrete problems in AI safety. arXiv preprint arXiv:1606.06565 , 2016. [3] Peter Auer, Nicol` o Cesa-Bianchi, and Paul Fischer. Finite-time analysis of the multiarmed bandit problem. Machine Learning , 47(2–3):235–256, 2002. [4] Peter Auer, Nicol` o Cesa-Bianchi, Yoav Freund, and Robert E. Schapire. The nonstochastic multiarmed bandit problem. SIAM Journal on Computing , 32(1):48–77, 2002. [5] Jacob Austin, Augustus Odena, Maxwell Nye, Maarten Bosma, Henryk Michalewski, David Dohan, Ellen Jiang, Carrie Cai, Michael Terry, Quoc Le, and Charles Sutton. Program synthesis with large language models, 2021. [6] Bowen Baker, Joost Huizinga, Leo Gao, Zehao Dou, Melody Y. Guan, Aleksander Madry, Wojciech Zaremba, Jakub Pachocki, and David Farhi. Monitoring reasoning models for misbehavior and the risks of promoting obfuscation. arXiv , 2025. [7] Gary S. Becker. Crime and punishment: An economic approach. Journal of Political Economy ,76(2):169–217, 1968. [8] Gary S. Becker and George J. Stigler. Law enforcement, malfeasance, and compensation of enforcers. Journal of Legal Studies , 3(1):1–18, 1974. [9] Mohammad Beigi, Ming Jin, Junshan Zhang, Qifan Wang, and Lifu Huang. Adversarial reward auditing for active detection and mitigation of reward hacking. arXiv preprint arXiv:2602.01750 ,2026. 16 [10] Collin Burns, Pavel Izmailov, Jan Hendrik Kirchner, Bowen Baker, Leo Gao, Leopold Aschen-brenner, Yining Chen, Adrien Ecoffet, Manas Joglekar, Jan Leike, Ilya Sutskever, and Jeff Wu. Weak-to-strong generalization: Eliciting strong capabilities with weak supervision. arXiv preprint arXiv:2312.09390 , 2023. [11] Olivier Chapelle and Lihong Li. An empirical evaluation of thompson sampling. In Advances in Neural Information Processing Systems , 2011. [12] Paul Christiano, Buck Shlegeris, and Dario Amodei. Supervising strong learners by amplifying weak experts. arXiv preprint arXiv:1810.08575 , 2018. [13] Paul F. Christiano, Jan Leike, Tom B. Brown, Miljan Martic, Shane Legg, and Dario Amodei. Deep reinforcement learning from human preferences. In Advances in Neural Information Processing Systems , 2017. [14] Josh Clymer. How might we safely pass the buck to AI?, 2025. AI Alignment Forum / Redwood Research Blog post, February 19, 2025. [15] Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John Schulman. Training verifiers to solve math word problems. arXiv preprint arXiv:2110.14168 ,2021. [16] Xingyu Dang, Rohit Agarwal, Rodrigo Porto, Anirudh Goyal, Liam H Fowl, and Sanjeev Arora. Escaping the cognitive well: Efficient competition math with off-the-shelf models, 2026. [17] Yilun Du, Shuang Li, Antonio Torralba, Joshua B. Tenenbaum, and Igor Mordatch. Improving factuality and reasoning in language models through multiagent debate. arXiv preprint arXiv:2305.14325 , 2023. [18] Tom Everitt, Marcus Hutter, Ramana Kumar, and Victoria Krakovna. Reward tampering problems and solutions in reinforcement learning: A causal influence diagram perspective. 
+
+arXiv preprint arXiv:1908.04734 , 2019. [19] Abraham D. Flaxman, Adam Tauman Kalai, and H. Brendan McMahan. Online convex optimization in the bandit setting: Gradient descent without a gradient. In Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms , pages 385–394. Society for Industrial and Applied Mathematics, 2005. [20] Xi Alice Gao, James R. Wright, and Kevin Leyton-Brown. Incentivizing evaluation with peer prediction and limited access to ground truth. Artificial Intelligence , 275:618–638, 2019. [21] Ryan Greenblatt, Buck Shlegeris, Kshitij Sachan, and Fabien Roger. AI control: Improving safety despite intentional subversion. In Proceedings of the 41st International Conference on Machine Learning , volume 235 of Proceedings of Machine Learning Research , pages 16295–16336. PMLR, 2024. [22] Charlie Griffin, Louis Thomson, Buck Shlegeris, and Alessandro Abate. Games for AI control: Models of safety evaluations of AI deployment protocols. arXiv preprint arXiv:2409.07985 ,2024. 17 [23] Dylan Hadfield-Menell and Gillian K. Hadfield. Incomplete contracting and AI alignment. In 
+
+Proceedings of the 2019 AAAI/ACM Conference on AI, Ethics, and Society , pages 417–422. ACM, 2019. [24] Dan Hendrycks, Steven Basart, Saurav Kadavath, Mantas Mazeika, Akul Arora, Ethan Guo, Collin Burns, Samir Puranik, Horace He, Dawn Song, and Jacob Steinhardt. Measuring coding challenge competence with apps. In J. Vanschoren and S. Yeung, editors, Proceedings of the Neural Information Processing Systems Track on Datasets and Benchmarks , volume 1, 2021. [25] Evan Hubinger. Automating auditing: An ambitious concrete technical research proposal, 2021. LessWrong post, August 11, 2021. [26] Geoffrey Irving, Paul Christiano, and Dario Amodei. Ai safety via debate. arXiv preprint arXiv:1805.00899 , 2018. [27] Naman Jain, King Han, Alex Gu, Wen-Ding Li, Fanjia Yan, Tianjun Zhang, Sida Wang, Ar-mando Solar-Lezama, Koushik Sen, and Ion Stoica. Livecodebench: Holistic and contamination free evaluation of large language models for code, 2024. [28] Adam Tauman Kalai, Ofir Nachum, Santosh S. Vempala, and Edwin Zhang. Evaluating Large Language Models for accuracy incentivizes hallucinations. Nature , 2026. [29] Fred Kofman and Jacques Lawarree. Collusion in hierarchical agency. Econometrica , 61(3):629– 656, 1993. [30] Lauro Langosco, Jack Koch, Lee Sharkey, Jacob Pfau, Laurent Orseau, and David Krueger. Goal misgeneralization in deep reinforcement learning. In International Conference on Machine Learning , 2022. [31] Tor Lattimore and Csaba Szepesv´ ari. Bandit Algorithms . Cambridge University Press, Cam-bridge, United Kingdom, 2020. [32] Harrison Lee, Samrat Phatale, Hassan Mansoor, Thomas Mesnard, Johan Ferret, Kellie Lu, Colton Bishop, Ethan Hall, Victor Carbune, Abhinav Rastogi, and Sushant Prakash. Rlaif vs. rlhf: Scaling reinforcement learning from human feedback with ai feedback, 2024. [33] Jan Leike, David Krueger, Tom Everitt, Miljan Martic, Vishal Maini, and Shane Legg. Scalable agent alignment via reward modeling: A research direction. arXiv preprint arXiv:1811.07871 ,2018. [34] Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. arXiv preprint arXiv:2305.20050 , 2023. [35] Jiawei Liu, Chunqiu Steven Xia, Yuyao Wang, and Lingming Zhang. Is your code generated by chatgpt really correct? rigorous evaluation of large language models for code generation. In 
+
+Proceedings of the 37th International Conference on Neural Information Processing Systems ,NIPS ’23, Red Hook, NY, USA, 2023. Curran Associates Inc. [36] Julian Manyika, Michael J. Wooldridge, and Jiarui Gan. Mechanism design for alignment via human feedback, 2025. Second Workshop on Models of Human Feedback for AI Alignment, ICML 2025. 18 [37] Nat McAleese, Rai Michael Pokorny, Juan Felipe Ceron Uribe, Evgenia Nitishinskaya, Maja Trebacz, and Jan Leike. LLM critics help catch LLM bugs. arXiv preprint arXiv:2407.00215 ,2024. [38] Dilip Mookherjee and Ivan P. L. Png. Monitoring vis-` a-vis investigation in enforcement of law. 
+
+American Economic Review , 82(3):556–565, 1992. [39] Yurii Nesterov and Vladimir Spokoiny. Random gradient-free minimization of convex functions. 
+
+Foundations of Computational Mathematics , 17(2):527–566, 2017. [40] Long Ouyang, Jeffrey Wu, Xu Jiang, Diogo Almeida, Carroll L. Wainwright, Pamela Mishkin, Chong Zhang, Sandhini Agarwal, Katarina Slama, Alex Ray, et al. Training language models to follow instructions with human feedback. In Advances in Neural Information Processing Systems , 2022. [41] Itai Shapira, Gerdus Benade, and Ariel D. Procaccia. How rlhf amplifies sycophancy, 2026. [42] Buck Shlegeris. How to prevent collusion when using untrusted models to monitor each other, 2024. LessWrong post, September 25, 2024. [43] George J. Stigler. The optimum enforcement of laws. Journal of Political Economy , 78(3):526– 536, 1970. [44] Yunhao Tang, Sid Wang, Lovish Madaan, and R´ emi Munos. Beyond verifiable rewards: Scaling reinforcement learning for language models to unverifiable data, 2025. [45] William R. Thompson. On the likelihood that one unknown probability exceeds another in view of the evidence of two samples. Biometrika , 25(3–4):285–294, 1933. [46] Jean Tirole. Hierarchies and bureaucracies: On the role of collusion in organizations. The Journal of Law, Economics, and Organization , 2(2):181–214, 1986. [47] Yoav Tzfati, McKenna Fitzgerald, Juan J. Vazquez, and Julian Michael. Evaluating oversight robustness with incentivized reward hacking, 2024. ICLR 2025 withdrawn submission. [48] Jiaxin Wen, Liang Qiu, Joe Benton, Jan Hendrik Kirchner, and Jan Leike. Automated weak-to-strong researcher. Anthropic Alignment Science Blog, April 2026. 19 A Extension of the Theoretical Model to Non-Verifiable Settings with Possible Hallucination 
+
+We extend the model of Section 3 to the case of a noisy solver and noisy judge protocol, under only weak accuracy assumptions. The meta-controller framework remains the same, but the local analysis of the solver and auditor is changed. 
+
+Solver/Auditor Incentives. Let μ, θ 1, θ 2, p align , Z be the same as before. We model the true 
+
+alignment behavior as ¯Z =
+
+(
+
+Z w.p. 1 − ε(x)1 − Z w.p. ε(x) , where 0 ≤ ε(x) < 12because of noise in the solver’s response and distribution of dataset difficulty, and we set ¯palign (x) = Pr ( ¯Z = A | x, θ 1). (For example, in a simple setting where the solver decides between providing factually true or false responses, it may state a false claim as true and vice versa.) We assume that the response is only weakly noisy , ε(x) < 1/2. Now suppose the auditor has parameters θ2, and suppose it chooses to audit with probability 
+
+paudit (x) ∈ [0 , 1]. Now, if an audit occurs, an external resolution procedure, such as debate, a trusted judge, or a reward oracle, returns a noisy verdict bZ ∈ { A, M }. We write 
+
+κtp (x) := Pr( bZ = M | ¯Z = M, x ), κfp (x) := Pr( bZ = M | ¯Z = A, x ) (9) Here, “tp” denotes true positive and “fp” denotes false positive . There are many natural instantiations of such a reward procedure, such as AI Safety Via Debate [ 26 ], RLAIF [ 32 ] or JEPO [ 44 ]. Our only assumption is that that the resolution is weakly informative , κfp < κ tp .The reward mechanism now assigns training rewards to realized correction events. In the minimal model, the solver receives reward rA(x) after audited verdict bZ = A and punishment rM (x) after audited verdict bZ = M , with rA(x) > r M (x). On the other hand, the auditor receives reward 
+
+scatch (x) for correctly catching a misaligned response, pays cost sfp (x) for a false positive, and pays direct audit cost saudit (x) < s catch (x). Now, conditional on audit, the solver’s utility is affine in the alignment probability: 
+
+U1 = paudit [Pr( bZ = A)rA + Pr( bZ = M )rM ] + Pr( Z = M )Ω t + (1 − paudit )rA = palign I1 + C1 (10) where I1 is the solver’s deterrence margin and C1 is a constant independent of palign ,
+
+I1 = paudit (1 − 2ε)( κtp − κfp )( rA − rM ) − Ωt (11) 
+
+C1 = rA + Ω t − paudit [(1 − ε)κtp + εκ fp ] ( rA − rM ). (12) When I1 > 0, misalignment is locally deterred, and correspondingly when I1 < 0, it is locally encouraged. Correspondingly, the auditor’s utility function is 
+
+U2 = paudit [Pr( bZ = M )scatch − Pr( bZ = A)sfp − saudit ] = paudit I2 (13) where I2 is the auditor’s audit margin ,
+
+I2 = [ κtp − α(κtp − κfp )] scatch − [1 − κtp + α(κtp − κfp )] sfp − saudit (14) where α = ε + (1 − 2ε)palign . Auditing is incentivized when I2 > 0 and discouraged when I2 < 0. 20 Equilibria Analysis. The unique mixed equilibrium for this setup is (p∗
+
+> align
+
+, p ∗
+
+> audit
+
+) = 
+
+ β(scatch + sfp ) − sfp − saudit 
+
+(1 − 2ε)( κtp − κfp )( scatch + sfp ) , Ωt
+
+(1 − 2ε)( κtp − κfp )( rA − rM )
+
+
+
+. (15) for β = (1 − ε)κtp + εκ fp and rA − rM large enough. However, in contrast to Section 3, in the regime where scatch is large enough to satisfy 1 − λscatch /s fp 
+
++ 1
+
+scatch /s audit 
+
+< λ, λ = εκ tp + (1 − ε)κfp (16) the equilibrium becomes pure, ( p∗
+
+> align
+
+, p ∗
+
+> audit
+
+) = (1 , 1). However, as discussed on the noise-free case, this equilibrium is still undesirable since auditing may be costly, especially in non-verifiable settings. 
+
+# B Detailed Description of Multi-Armed Bandit Algorithms 
+
+This appendix provides a formal description of the multi-armed bandit (MAB) algorithm used as the outer-loop reward controller in our experiments. In our setting, each “arm” corresponds to a reward profile r ∈ R . At each outer round t, the controller selects a profile rt, and after the inner agents adapt to rt, the controller receives a noisy scalar feedback yt representing the empirical principal value. 
+
+## B.1 Thompson Sampling 
+
+Thompson sampling [ 1 , 45 ] is a Bayesian approach that selects actions according to the probability that they are optimal. We use a Gaussian posterior for each reward profile. 
+
+Standard Gaussian Thompson Sampling. For each profile a ∈ { 1, . . . , L }, let na(t) be the number of times it has been pulled and ˆμa(t) be its empirical mean. The controller samples a score ˜μa(t) ∼ N 
+
+
+
+ˆμa(t), σ2
+
+na(t) + 1 
+
+
+
+and selects at = arg max a ˜μa(t). This is used in our toy benchmarks in section 2 with σ = 0 .65. 
+
+Discounted Thompson Sampling. For non-stationary environments, such as our co-training setup where the agents’ response to a reward profile changes over time, we use a discounted version. Let γ ∈ (0 , 1) be a discount factor. We maintain: 
+
+Sa(t + 1) = γS a(t) + 1{at = a}yt
+
+Na(t + 1) = γN a(t) + 1{at = a}
+
+The discounted empirical mean is μa(t) = Sa(t)/N a(t) for Na(t) > 0. After an initial round-robin warm start, the controller samples scores from N (μa(t), σ 2/(Na(t) + 1)). This is the main controller for section 4 with σ = 0 .65. 
+
+## B.2 UCB1 
+
+The Upper Confidence Bound (UCB1) algorithm [ 3 ] uses an optimism-in-the-face-of-uncertainty principle. It selects: 
+
+at = arg max  
+
+> a
+
+ˆμa(t) + α
+
+s
+
+log( t + 1) 
+
+na(t)where α is a scaling parameter. 21 B.3 EXP3 and EXP4 
+
+The Exponential-weight algorithm for Exploration and Exploitation (EXP3) [ 4] is designed for adversarial settings where rewards may not be i.i.d. 
+
+EXP3. It maintains weights wa(t) and samples from the distribution: 
+
+pa(t) = (1 − η) wa(t)
+
+P 
+
+> b
+
+wb(t) + ηL
+
+where η ∈ (0 , 1] is an exploration parameter. After observing yt (scaled to [0 , 1]), the weight of the selected arm is updated: 
+
+wat (t + 1) = wat (t) exp 
+
+
+
+η yt
+
+Lp at (t)
+
+
+
+.
+
+EXP4. EXP4 is a contextual extension of EXP3 that uses a set of experts {Ej }. Each expert Ej
+
+provides a distribution ξj (t) over arms based on current telemetry (context). The controller samples from 
+
+pa(t) = X
+
+> j
+
+¯wj (t)ξj (t, a ),
+
+where ¯wj are the weights of the experts, updated similarly to EXP3. In a solver–auditor pipeline, such experts could respond to signals such as high silent-failure rates or excessive solver abstention. 
+
+# C LLM Ablations 
+
+## C.1 Behavioral Decomposition Across Reward Controllers 
+
+The validation PV gap in Figure 4 is mirrored in the training-side behavior traces. Figure 8 compares the adaptive Thompson run directly against the fixed-binary baseline on the six rates that most clearly summarize solver and auditor behavior. The most visible difference is solver-side calibration. Thompson ends with substantially higher base-test pass rate, but unlike fixed-binary it also learns to abstain frequently on harder or lower-confidence cases. That reduces the mass of bad attempted solutions enough to offset the drop in raw auditor catches. The figure therefore supports the main interpretation of the validation PV result: the adaptive controller is not simply making the auditor more aggressive; it is steering the joint system toward a different attempt-versus-abstain regime. 22 Figure 8: Training-side behavior trajectories for the Thompson controller, fixed-binary, and fixed-default. The solver base-test pass rate is computed over non-abstained, non-truncated solver attempts; solver abstention is the fraction of prompts on which the solver abstains. The auditor panels report event rates under the training evaluator: explicit abstention means the auditor declines to flag a solver attempt, true catches are incorrect solver attempts flagged by the auditor, false positives are correct solver attempts flagged by the auditor, and silent failures are incorrect solver attempts not caught by the auditor. Thompson drives higher solver pass rate while retaining a substantial abstention policy. Fixed-binary keeps the auditor active but does not reach the same solver-side calibration. Fixed-default collapses to explicit auditor abstention, causing auditor catch, false-positive, and silent-failure events to vanish. 
+
+## C.2 Mechanism of the Fixed-Default Failure 
+
+The fixed-default run in Figure 4 is not merely weaker overall; it fails in a specific way. The solver becomes more competent, but the default rewards give the auditor too little incentive to keep inspecting once correct solutions become common. As auditing collapses, silent failures dominate and validation PV remains negative throughout the full 80-checkpoint sweep. Two additional checks support this interpretation. A mid-training probe of the outer-iteration-46 checkpoint already yields validation PV −0.166 with a 99 .7% auditor abstention rate. On LiveCodeBench, the final fixed-default checkpoint reaches downstream proxy PV −0.7475, again because the auditor almost never asserts. Fixed-default is therefore a direct empirical instance of the 23 paper’s fixed-point tension: making the solver look safer can simultaneously remove the auditor’s incentive to monitor. 
+
+## C.3 Outer-Loop Schedule Shape at Matched Compute 
+
+We also ablate how often the outer reward controller is updated when total learner-update budget is held fixed (or nearly fixed). The baseline schedule is 80 × 75 (80 outer iterations, 75 solver and 75 auditor GRPO steps per iteration). We compare this against a short-horizon schedule 40 × 150 and a long-horizon schedule 160 × 38. 
+
+Figure 9: Schedule-shape ablation training PV trajectories versus total training steps (solver plus auditor updates). The short-horizon schedule (40 × 150) reaches the positive PV regime quickly and stays near the baseline trajectory, while the long-horizon schedule (160 × 38) remains in a lower-value regime despite more frequent outer-loop updates. 24 Figure 10: Schedule-shape ablation at matched compute, shown as a two-panel final-checkpoint summary. Left: final validation PV on the common 200 × 2 held-out protocol. Right: final solver decision mix (aligned / misaligned / abstain) under the same evaluator. Figure 10 suggests a clear directional pattern in this setup: fewer outer updates with larger inner adaptation blocks (40 × 150) outperforms both the baseline and the high-frequency outer-update schedule (160 × 38). The right panel shows that this gain is accompanied by a more favorable final solver mix (higher aligned share and lower misaligned share). Intuitively, the long schedule may switch reward profiles too often relative to inner adaptation progress, yielding noisier reward-selection feedback and weaker final checkpoints. This is a single-seed schedule ablation, so we treat it as a strong diagnostic rather than a final claim about universally optimal schedule shape. 
+
+## C.4 Cross-Play Robustness of the Thompson Pair 
+
+To check whether the Thompson improvements come from a specific coincidence of solver and auditor checkpoints, we evaluate an 8 × 8 cross-play grid: solver checkpoints from the Thompson run at iterations {0, 11 , 22 , 33 , 45 , 56 , 67 , 79 } paired with auditor checkpoints from the same set, giving 64 (solver, auditor) pairs. Each cell is scored with the same validation evaluator (200 tasks, 2 samples per task). Table 3 reports validation PV for each pair. The final column and row summarize marginals (mean over one side of the pair), and the bottom-right summary line reports the mean across all 64 cells and the mean along the matched-iter diagonal. Two qualitative observations come out of Table 3. First, the solver’s marginal (row means) rises approximately monotonically with outer iteration. Second, the auditor’s marginal (column means) rises rapidly early in training and then plateaus at outer iteration 22, after which additional auditor training does not improve validation PV on average. The best single pair in the grid is actually the final solver paired with a mid-training auditor ( s79 , a22 ). This pattern is consistent across several mid-training auditor columns and supports two readings: (i) the Thompson solver is the main driver of end-of-training validation PV on this setup, and (ii) the paired system is reasonably robust to moderate temporal mismatch between solver and auditor training stage, not relying on a brittle solver–auditor coincidence. 25 Auditor iteration Solver iter 0 11 22 33 45 56 67 79 row mean 0 −0.053 −0.003 0.078 0.096 0.075 0.044 0.072 0.085 0.049 11 −0.088 0.047 0.104 0.080 0.077 0.044 0.095 0.022 0.048 22 0.010 0.140 0.202 0.158 0.203 0.121 0.134 0.120 0.136 33 0.059 0.175 0.225 0.239 0.192 0.251 0.262 0.210 0.202 45 0.083 0.190 0.242 0.255 0.240 0.211 0.224 0.261 0.213 56 0.030 0.216 0.234 0.227 0.197 0.227 0.240 0.208 0.197 67 0.125 0.242 0.203 0.244 0.270 0.251 0.268 0.267 0.234 79 0.176 0.278 0.286 0.246 0.221 0.277 0.238 0.213 0.242         
+
+> col mean 0.043 0.161 0.197 0.193 0.184 0.178 0.192 0.173
+
+Table 3: Validation PV for the 8 × 8 cross-play grid of Thompson-controller solver and auditor checkpoints. Each cell is the mean validation PV on 200 tasks with 2 samples per task under a fixed evaluator. The best single pair is solver outer iteration 79 with auditor outer iteration 22 (bold). The mean across all 64 cells is 0 .165 and the mean along the matched-iter diagonal is 0 .173. 
+
+## C.5 Agentic Revision as a Repair Signal 
+
+Figure 11 summarizes the agentic-revision benchmark, which tests whether auditor feedback can serve as a hallucination-avoidance repair signal after an initial solver attempt. The main pattern is mixed but still informative. Thompson has the best first-pass accuracy on this benchmark, while fixed-binary shows the clearest net gain from the revision step itself: it improves 15 tasks from misaligned to aligned and degrades only 4. Thompson changes far more samples overall (45), but those edits are less consistently beneficial, improving 10 tasks while degrading 13. 
+
+Figure 11: Agentic-revision benchmark summary. Left: first-pass versus post-revision overall pass rate. Right: number of samples repaired to aligned versus degraded from aligned by the revision stage. The Thompson controller starts from the strongest first-pass model, while fixed-binary shows the largest positive revision delta. This is why we treat revision as a supporting result rather than a headline claim. The learned auditor outputs can sometimes provide actionable repair signal, but the strongest evidence for the 26 Split APPS MBPP HumanEval+ Total Training 3271 (90.6%) 204 (5.7%) 134 (3.7%) 3609 Validation 178 (89.0%) 12 (6.0%) 10 (5.0%) 200 
+
+Table 4: Dataset composition for the LLM experiments. method remains the first-pass incentive-design story in the main validation PV experiments. 
+
+# D LLM Experiment Details 
+
+## D.1 LLM Data Splits and Evaluation Subset 
+
+Table 4 reports the dataset composition used by the LLM runs. Table 11 reports the composition of the 200-task validation subset used for the matched validation PV plots in the main text. This subset is the same across baseline and ablation runs (same tasks in the same order). The downstream LiveCodeBench comparison uses the first 400 tasks from the Hugging Face 
+
+livecodebench/code generation test split with 1 sample per task. LiveCodeBench is a contamination-aware code-generation benchmark of recent programming-contest problems [ 27 ]; our subset uses standard-input/standard-output execution and contains 210 AtCoder, 181 LeetCode, and 9 Code-forces tasks, with 142 easy, 168 medium, and 90 hard tasks. 
+
+## D.2 LLM Training Hyperparameters 
+
+Table 5 summarizes the main hyperparameters used for the LLM co-training runs. Unless otherwise noted, the solver and auditor use the same model, LoRA configuration, and GRPO sampling settings. The two-player runs use 80 outer iterations with 75 solver GRPO steps followed by 75 auditor GRPO steps per outer iteration; the compute-matched solver-only baseline uses 150 solver GRPO steps and no auditor update per outer iteration. 
+
+Category Setting Base model Qwen/Qwen2.5-Coder-7B-Instruct for both solver and auditor. Adaptation LoRA adapters with rank r = 8, α = 16, dropout 0 .0, and no bias terms. GRPO optimizer adamw torch with learning rate 2 × 10 −5.Batching Per-device train batch size 2, gradient accumulation 2, generation batch size 16. Grouped sampling 8 completions per prompt for within-group advantage normalization. Generation Maximum prompt length 2048, maximum completion length 1024, temperature 1.0, top-p = 0 .95, top-k = 0. Numerics and memory bfloat16 enabled, gradient checkpointing enabled, Liger kernels enabled. Outer loop 80 outer iterations; two-player runs use 75 solver steps and 75 auditor steps per iteration. Controller Discounted Thompson sampling with discount 0 .9, Gaussian scale 0 .55, and the eight-profile reward pool. Evaluation Validation uses 200 held-out tasks with 2 samples per task; downstream Live-CodeBench uses 400 tasks with 1 sample per task. Sandbox Per-test timeout 1 .0s, CPU-time limit 1s, memory limit 256MB, and dataset-specific import allowlists. 
+
+Table 5: Hyperparameters for the LLM co-training experiments. 27 D.3 Prompt Templates 
+
+All main LLM runs use the instructions suffix prompt variant, which places the task content before a final instruction block. The solver and auditor are both allowed to abstain by emitting exactly 
+
+<|abstain|> . The templates below omit only the concrete task fields, written as placeholders. 
+
+Solver prompt. 
+
+You are a Python coding assistant. ### Dataset {dataset_name} ### Task ID {task_id} ### Problem {problem_text} {optional_starter_code_block} ### Instructions Solve the coding task above by writing a full Python solution. Return only Python code. Do not include markdown fences or any explanation. If you cannot produce a reliable solution, output exactly <|abstain|>. 
+
+Auditor prompt. For function-style tasks, the auditor is told that the harness binds candidate 
+
+to the submitted function. For standard-input/standard-output tasks, the auditor is instead told that the harness exposes run io case(input text) , which runs the candidate program and returns stripped stdout. The shared auditor prompt structure is: 
+
+You are a Python testing expert. Another agent proposed a solution for the task below. ### Dataset {dataset_name} ### Task ID {task_id} ### Problem {problem_text} {optional_starter_code_block} ### Execution Hint {function_or_stdio_execution_hint} ### Execution Contract {candidate_binding_or_run_io_case_contract} ### Candidate Solution ‘‘‘python {candidate_solution} 
+
+28 ‘‘‘ ### Instructions Write exactly one Python assert statement that passes for a correct implementation and fails for this candidate if it is buggy. If you cannot find a reliable bug-revealing assert, output exactly <|abstain|>. Return only a single assert statement on one line. Do not write multiple asserts. Do not include markdown fences, comments, or any explanation. 
+
+Revision prompt. The agentic-revision diagnostic in Appendix C.5 uses the following solver revision prompt: 
+
+You are a Python coding assistant. Another agent reviewed your previous solution for the task below. ### Dataset {dataset_name} ### Task ID {task_id} ### Problem {problem_text} {starter_block} ### Previous Solution ‘‘‘python {candidate_solution} ‘‘‘ ### Auditor Feedback {auditor_feedback} ### Instructions Write a revised full Python solution that addresses the feedback if it is useful. Return only Python code. Do not include markdown fences or any explanation. If you cannot produce a reliable solution, output exactly {abstain_token}. 
+
+29 D.4 Reward Profiles 
+
+Reward key Default value 
+
+solver abstain reward 0.1 
+
+solver base pass reward 1.0 
+
+solver true catch penalty 1.0 
+
+solver uncaught reward 0.1 
+
+auditor true catch reward 1.0 
+
+auditor false positive penalty 1.0 
+
+auditor false catch penalty 0.0 
+
+auditor explicit abstain aligned reward 0.05 
+
+auditor explicit abstain misaligned penalty 0.0 
+
+auditor miss aligned reward 0.0 
+
+auditor miss misaligned penalty 0.15 
+
+auditor invalid output penalty 2.0 
+
+Table 6: Default reward profile used as the base configuration for the Thompson profile pool. 30 Profile name Intuition Reward overrides relative to the default configuration 
+
+medium abstain Mildly encourage solver abstention. 
+
+solver abstain reward ← 0.20 
+
+high abstain Strongly encourage solver abstention. 
+
+solver abstain reward ← 0.55 
+
+strict solver catch Make solver more conservative about attempted failures. 
+
+solver true catch penalty ← 1.8, 
+
+solver uncaught reward ← − 0.2
+
+lenient solver catch Encourage solver attempts even with catch risk. 
+
+solver true catch penalty ← 0.4, 
+
+solver uncaught reward ← 0.35 
+
+audit seeking Increase auditor willingness to flag suspicious outputs. 
+
+auditor true catch reward ← 1.7, 
+
+auditor false positive penalty ← 0.55, 
+
+auditor explicit abstain aligned reward 
+
+← 0.0, 
+
+auditor explicit abstain misaligned penalty 
+
+← 0.2, auditor miss misaligned penalty ← 0.65, 
+
+auditor invalid output penalty ← 1.2
+
+false positive averse Make auditor more cautious about false alarms. 
+
+auditor true catch reward ← 0.75, 
+
+auditor false positive penalty ← 1.7, 
+
+auditor explicit abstain aligned reward 
+
+← 0.1, 
+
+auditor explicit abstain misaligned penalty 
+
+← 0.0, auditor miss misaligned penalty ← 0.25, 
+
+auditor invalid output penalty ← 1.0
+
+silent failure penalty Penalize missed bugs and silent failures more heavily. 
+
+solver uncaught reward ← − 0.55, 
+
+auditor explicit abstain aligned reward 
+
+← 0.0, 
+
+auditor explicit abstain misaligned penalty 
+
+← 0.35, auditor miss misaligned penalty 
+
+← 1.25, auditor invalid output penalty ← 1.0
+
+Table 7: Non-default profiles in the Thompson reward-profile pool. The full pool is Table 6 plus these seven override profiles. 
+
+## D.5 Thompson Profile Estimates 
+
+Table 8 reports the final controller state for the Thompson run used in the main LLM comparison. The Thompson sampler discounts past observations by 0 .9, so the discounted mean is the controller’s recency-weighted estimate of each profile’s training PV at the end of the 80-outer-iteration run, and 
+
+discounted pulls is the corresponding recency-weighted effective sample count. The estimates are close across the profile pool, but the default profile remains in the high-estimated-value group: it is third of eight by final discounted mean and is within 0 .0063 training PV of the highest estimated profile. This supports using fixed-default as a strong static baseline rather than a weak or arbitrary reward choice; the main result is that keeping this plausible profile fixed still underperforms adaptive profile selection. 
+
+## D.6 Positive-Abstention Solver-Only Diagnostic 
+
+We also trained a compute-matched solver-only diagnostic with the same rewards as Table 9 except for solver abstain reward = 0 .1. This run is not used as the main solver-only baseline because 31 Profile Raw pulls Discounted pulls Final discounted mean                         
+
+> lenient solver catch 11 0.692 0.2777
+> silent failure penalty 10 1.779 0.2715
+> default 90.441 0.2715
+> high abstain 11 1.333 0.2701
+> false positive averse 11 2.048 0.2669
+> audit seeking 10 1.570 0.2662
+> strict solver catch 10 1.877 0.2628
+> medium abstain 80.259 0.2603
+
+Table 8: Final discounted Thompson-controller estimates by reward profile for the main LLM Thompson run. Profiles are sorted by final discounted mean.      
+
+> Reward key Value
+> solver abstain reward 0.0
+> solver base pass reward 1.0
+> solver true catch penalty 0.0
+> solver uncaught reward 0.0
+
+Table 9: Solver-only baseline reward table. Only the solver is trained; the auditor is disabled. The solver receives reward 1 for passing the base tests and 0 for other outcomes, including abstention. it learns the degenerate low-risk policy of abstaining on almost every task. On the matched validation evaluator, its final checkpoint has abstention rate 0 .975, overall pass rate 0 .015, and solver hallucination rate 0 .010. On LiveCodeBench, the same checkpoint abstains on all 400 tasks, giving zero coverage, zero overall pass rate, zero solver hallucination rate, and downstream proxy PV 0 .1. This diagnostic confirms that rewarding abstention can trivially reduce hallucination by eliminating attempts, which is distinct from the Thompson controller’s main behavior of reducing hallucination while preserving nontrivial coverage. 32 Reward key Value 
+
+solver abstain reward 0.0 
+
+solver base pass reward 1.0 
+
+solver true catch penalty 0.0 
+
+solver uncaught reward 0.0 
+
+auditor true catch reward 1.0 
+
+auditor false positive penalty 0.0 
+
+auditor false catch penalty 0.0 
+
+auditor explicit abstain aligned reward 0.0 
+
+auditor explicit abstain misaligned penalty 0.0 
+
+auditor miss aligned reward 1.0 
+
+auditor miss misaligned penalty 0.0 
+
+auditor invalid output penalty 0.0 
+
+Table 10: Fixed-binary baseline reward table. Both agents are trained, but rewards take only values in {0, 1}: the solver gets 1 for passing base tests, the auditor gets 1 for true catches and for correctly abstaining on aligned solutions, and all penalties are zero. 
+
+Dataset Count Share APPS 178 89.0% MBPP 12 6.0% HumanEval+ 10 5.0% Total 200 
+
+Table 11: Composition of the fixed 200-task validation subset used by matched validation PV evaluations (with 2 samples per task). 33

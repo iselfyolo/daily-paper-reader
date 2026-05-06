@@ -6,94 +6,79 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-05
-- 运行时间：2026-05-05 20:55:51 UTC
+- 最新运行日期：2026-05-06
+- 运行时间：2026-05-06 20:42:06 UTC
 - 运行状态：成功
-- 本次总论文数：24
-- 精读区：12
+- 本次总论文数：19
+- 精读区：7
 - 速读区：12
 
 ### 今日简报（AI）
-今日精选 24 篇前沿成果，深度复盘法律大模型在文书生成与论辩挖掘领域的突破性进展。
-重点推荐通过智能体采集与量表优化提升法律判决质量，并剖析 AI 法律论辩的结构性困境与演进路径。
-建议关注法律 AI 如何实现从“文本生成”向“逻辑推理”的跨越，并同步探索专利预测等垂直领域的实战价值。
-- 详情：[/202605/05/README](/202605/05/README)
+今日深度研读 19 篇前沿论文，重点聚焦法律 AI 的风险评估与领域自适应检索。
+满分论文揭示了司法工作流中 LLM 的潜在风险，并展示了针对特定法律体系的领域自适应检索新突破。
+建议关注 AI 在垂直专业领域的合规性与精准度提升，这正成为大模型落地的关键战场。
+- 详情：[/202605/06/README](/202605/06/README)
 
 ### 精读区论文标签
-1. [Enhancing Judgment Document Generation via Agentic Legal Information Collection and Rubric-Guided Optimization](/202605/05/2605.02011v1-enhancing-judgment-document-generation-via-agentic-legal-information-collection-and-rubric-guided-optimization)  
-   标签：评分：10.0/10、query:q8
-   evidence：基于大模型的法律文书生成与法律信息采集
-2. [Structural Dilemmas and Developmental Pathways of Legal Argument Mining in the Era of Artificial Intelligence](/202605/05/2605.02308v1-structural-dilemmas-and-developmental-pathways-of-legal-argument-mining-in-the-era-of-artificial-intelligence)  
+1. [TriBench-Ko: Evaluating LLM Risks in Judicial Workflows](/202605/06/2605.03792v1-tribench-ko-evaluating-llm-risks-in-judicial-workflows)  
    标签：评分：10.0/10、query:profile-3
-   evidence：法律论证挖掘与论证结构建模
-3. [Can Causal Discovery Algorithms Help in Generating Legal Arguments?](/202605/05/2605.02318v1-can-causal-discovery-algorithms-help-in-generating-legal-arguments)  
-   标签：评分：10.0/10、query:q1
-   evidence：利用因果发现自动生成法律论点
-4. [Accurate Legal Reasoning at Scale: Neuro-Symbolic Offloading and Structural Auditability for Robust Legal Adjudication](/202605/05/2605.02472v1-accurate-legal-reasoning-at-scale-neuro-symbolic-offloading-and-structural-auditability-for-robust-legal-adjudication)  
-   标签：评分：10.0/10、query:profile-3
-   evidence：用于稳健法律裁决和自动推理的神经符号方法
-5. [Democratizing the medieval English legal tradition](/202605/05/2605.00977v1-democratizing-the-medieval-english-legal-tradition)  
+   evidence：评估司法工作流和判例检索中的大模型
+2. [Domain-Adaptive Dense Retrieval for Brazilian Legal Search](/202605/06/2605.04005v1-domain-adaptive-dense-retrieval-for-brazilian-legal-search)  
+   标签：评分：10.0/10、query:kgee
+   evidence：巴西法律搜索与判例检索
+3. [Privy: From Fine Print to Fair Practice in Privacy Rights Exercise](/202605/06/2605.02005v1-privy-from-fine-print-to-fair-practice-in-privacy-rights-exercise)  
+   标签：评分：9.0/10、query:q4
+   evidence：隐私政策的自动化分析和法律权利解释
+4. [Evaluating Prompting and Execution-Based Methods for Deterministic Computation in LLMs](/202605/06/2605.03227v1-evaluating-prompting-and-execution-based-methods-for-deterministic-computation-in-llms)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：构建中世纪刑事和民事案件数据集
-6. [AI Expert Twin: Capturing Expert Cognition for Human-Centred, Practice-Based Learning](/202605/05/2605.01401v1-ai-expert-twin-capturing-expert-cognition-for-human-centred-practice-based-learning)  
-   标签：评分：9.0/10、query:edu-llm
-   evidence：AI 驱动的教育系统与专家实践学习
-7. [MAP-Law: Coverage-Driven Retrieval Control for Multi-Turn Legal Consultation](/202605/05/2605.01486v1-map-law-coverage-driven-retrieval-control-for-multi-turn-legal-consultation)  
+   evidence：包含自然语言指令的合成数据集，用于确定性计算
+5. [PatRe: A Full-Stage Office Action and Rebuttal Generation Benchmark for Patent Examination](/202605/06/2605.03571v1-patre-a-full-stage-office-action-and-rebuttal-generation-benchmark-for-patent-examination)  
    标签：评分：9.0/10、query:profile-3
-   evidence：多轮法律咨询与检索控制
-8. [StressEval: Failure-Driven Dynamic Benchmarking for Knowledge-Intensive Reasoning in Large Language Models](/202605/05/2605.01939v1-stresseval-failure-driven-dynamic-benchmarking-for-knowledge-intensive-reasoning-in-large-language-models)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：推理任务的失败驱动数据合成框架
-9. [Tenability and Weak Semantics: Modeling Non-uniform Defense -- Extended Version](/202605/05/2605.02024v1-tenability-and-weak-semantics-modeling-non-uniform-defense----extended-version)  
-   标签：评分：9.0/10、query:q1
-   evidence：在Dung风格抽象论证中建模防御和可接受性
-10. [Controllable and Verifiable Process Data Synthesis for Process Reward Models](/202605/05/2605.02395v1-controllable-and-verifiable-process-data-synthesis-for-process-reward-models)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：为推理模型合成过程监督数据
-11. [Double Rectified Linear Unit-based Modular Semantics for Quantitative Bipolar Argumentation Framework](/202605/05/2605.02551v1-double-rectified-linear-unit-based-modular-semantics-for-quantitative-bipolar-argumentation-framework)  
-   标签：评分：9.0/10、query:q1
-   evidence：论证框架与论点可接受性的形式化模型
-12. [SCPRM: A Schema-aware Cumulative Process Reward Model for Knowledge Graph Question Answering](/202605/05/2605.02819v1-scprm-a-schema-aware-cumulative-process-reward-model-for-knowledge-graph-question-answering)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：针对风险敏感的法律知识图谱推理任务的过程奖励模型
+   evidence：专利审查和答辩生成中的法律推理
+6. [TRACE: A Metrologically-Grounded Engineering Framework for Trustworthy Agentic AI Systems in Operationally Critical Domains](/202605/06/2605.03838v1-trace-a-metrologically-grounded-engineering-framework-for-trustworthy-agentic-ai-systems-in-operationally-critical-domains)  
+   标签：评分：9.0/10、query:q8
+   evidence：司法AI助手决策支持的实例化
+7. [Enhancing Agent Safety Judgment: Controlled Benchmark Rewriting and Analogical Reasoning for Deceptive Out-of-Distribution Scenarios](/202605/06/2605.03242v1-enhancing-agent-safety-judgment-controlled-benchmark-rewriting-and-analogical-reasoning-for-deceptive-out-of-distribution-scenarios)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：受控的基准测试构建流水线用于安全评估
 
 ### 速读区论文标签
-1. [Evaluating Strategic Reasoning in Forecasting Agents](/202605/05/2604.26106v1-evaluating-strategic-reasoning-in-forecasting-agents)  
-   标签：评分：8.0/10、query:kgee
-   evidence：评估预测智能体中的判断与策略推理
-2. [Rethinking Explanations: Formalizing Contrast in Description Logics](/202605/05/2605.01442v1-rethinking-explanations-formalizing-contrast-in-description-logics)  
-   标签：评分：8.0/10、query:q6
-   evidence：描述逻辑知识库中的蕴含解释
-3. [Is It Novel and Why? Fine-Grained Patent Novelty Prediction Based on Passage Retrieval](/202605/05/2605.02392v1-is-it-novel-and-why-fine-grained-patent-novelty-prediction-based-on-passage-retrieval)  
+1. [AI Alignment via Incentives and Correction](/202605/06/2605.01643v1-ai-alignment-via-incentives-and-correction)  
    标签：评分：8.0/10、query:profile-3
-   evidence：专利新颖性评估与法律文件中的特征级匹配
-4. [Efficient Temporal Datalog Materialisation for Composite Event Recognition](/202605/05/2605.02488v1-efficient-temporal-datalog-materialisation-for-composite-event-recognition)  
+   evidence：通过法律经济学威慑模型进行AI对齐
+2. [SERE: Structural Example Retrieval for Enhancing LLMs in Event Causality Identification](/202605/06/2605.03701v1-sere-structural-example-retrieval-for-enhancing-llms-in-event-causality-identification)  
    标签：评分：8.0/10、query:kgee
-   evidence：复合事件识别与时序推理
-5. [XGRAG: A Graph-Native Framework for Explaining KG-based Retrieval-Augmented Generation](/202605/05/2604.24623v1-xgrag-a-graph-native-framework-for-explaining-kg-based-retrieval-augmented-generation)  
-   标签：评分：7.0/10、query:kgee
-   evidence：基于知识图谱的检索与推理
-6. [UnIte: Uncertainty-based Iterative Document Sampling for Domain Adaptation in Information Retrieval](/202605/05/2604.25142v1-unite-uncertainty-based-iterative-document-sampling-for-domain-adaptation-in-information-retrieval)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：为领域自适应生成伪查询
-7. [Learning from Medical Entity Trees: An Entity-Centric Medical Data Engineering Framework for MLLMs](/202605/05/2604.25296v1-learning-from-medical-entity-trees-an-entity-centric-medical-data-engineering-framework-for-mllms)  
-   标签：评分：7.0/10、query:kgee
-   evidence：用于知识编码的分层医疗实体树
-8. [JURY-RL: Votes Propose, Proofs Dispose for Label-Free RLVR](/202605/05/2604.25419v1-jury-rl-votes-propose-proofs-dispose-for-label-free-rlvr)  
+   evidence：用于事件因果识别的结构化示例检索
+3. [Inconsistent Databases and Argumentation Frameworks with Collective Attacks](/202605/06/2605.03954v1-inconsistent-databases-and-argumentation-frameworks-with-collective-attacks)  
+   标签：评分：8.0/10、query:q1
+   evidence：形式化论证框架与可接受参数集
+4. [Partially Finite Model Reasoning in Description Logics Extended Version](/202605/06/2604.25549v1-partially-finite-model-reasoning-in-description-logics-extended-version)  
+   标签：评分：7.0/10、query:q6
+   evidence：描述逻辑和知识库中的推理
+5. [LLM-ReSum: A Framework for LLM Reflective Summarization through Self-Evaluation](/202605/06/2604.25665v1-llm-resum-a-framework-for-llm-reflective-summarization-through-self-evaluation)  
    标签：评分：7.0/10、query:profile-3
-   evidence：在机器可检查推理领域使用Lean形式化验证器
-9. [Agentic Witnessing: Pragmatic and Scalable TEE-Enabled Privacy-Preserving Auditing](/202605/05/2604.24203v1-agentic-witnessing-pragmatic-and-scalable-tee-enabled-privacy-preserving-auditing)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：用于审计代码库定性逻辑的证明推理
-10. [MEG-RAG: Quantifying Multi-modal Evidence Grounding for Evidence Selection in RAG](/202605/05/2604.24564v1-meg-rag-quantifying-multi-modal-evidence-grounding-for-evidence-selection-in-rag)  
+   evidence：对法律和政府文档摘要生成的评估
+6. [Hierarchical Long-Term Semantic Memory for LinkedIn's Hiring Agent](/202605/06/2604.26197v1-hierarchical-long-term-semantic-memory-for-linkedins-hiring-agent)  
+   标签：评分：7.0/10、query:kgee
+   evidence：用于语义知识的模式对齐存储树
+7. [Breaking the Autoregressive Chain: Hyper-Parallel Decoding for Efficient LLM-Based Attribute Value Extraction](/202605/06/2604.26209v1-breaking-the-autoregressive-chain-hyper-parallel-decoding-for-efficient-llm-based-attribute-value-extraction)  
+   标签：评分：7.0/10、query:kgee
+   evidence：从文档上下文中高效提取属性值
+8. [When to Retrieve During Reasoning: Adaptive Retrieval for Large Reasoning Models](/202605/06/2604.26649v1-when-to-retrieve-during-reasoning-adaptive-retrieval-for-large-reasoning-models)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：大推理模型多步推理过程中的自适应检索
+9. [SCOPE:Planning for Hybrid Querying over Clinical Trial Data](/202605/06/2604.25120v2-scopeplanning-for-hybrid-querying-over-clinical-trial-data)  
+   标签：评分：6.0/10、query:q2
+   evidence：使用轻量级领域推理对临床数据进行推理
+10. [RADD: Retrieval-Augmented Discrete Diffusion for Multi-Modal Knowledge Graph Completion](/202605/06/2604.25693v1-radd-retrieval-augmented-discrete-diffusion-for-multi-modal-knowledge-graph-completion)  
    标签：评分：6.0/10、query:kgee
-   evidence：检索增强生成中证据选择的语义感知指标
-11. [Green Shielding: A User-Centric Approach Towards Trustworthy AI](/202605/05/2604.24700v1-green-shielding-a-user-centric-approach-towards-trustworthy-ai)  
-   标签：评分：6.0/10、query:q8
-   evidence：用于医疗诊断决策支持的 AI
-12. [One Refiner to Unlock Them All: Inference-Time Reasoning Elicitation via Reinforcement Query Refinement](/202605/05/2604.25444v1-one-refiner-to-unlock-them-all-inference-time-reasoning-elicitation-via-reinforcement-query-refinement)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：推理引导的逻辑分解
+   evidence：用于知识图谱补全的检索增强离散扩散模型
+11. [Finite Kripke models and provability interpretations in quantified modal logic](/202605/06/2604.25780v1-finite-kripke-models-and-provability-interpretations-in-quantified-modal-logic)  
+   标签：评分：6.0/10、query:q6
+   evidence：用于可证明性解释的量化模态逻辑和Kripke模型
+12. [Evergreen: Efficient Claim Verification for Semantic Aggregates](/202605/06/2604.26180v1-evergreen-efficient-claim-verification-for-semantic-aggregates)  
+   标签：评分：6.0/10、query:kgee
+   evidence：语义查询处理与主张验证
 
 
 <div class="dpr-home-promo-card">
