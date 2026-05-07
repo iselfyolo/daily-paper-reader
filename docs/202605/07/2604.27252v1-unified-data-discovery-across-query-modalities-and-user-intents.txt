@@ -1,0 +1,1446 @@
+Title: Unified Data Discovery across Query Modalities and User Intents
+
+URL Source: https://arxiv.org/pdf/2604.27252v1
+
+Published Time: Fri, 01 May 2026 00:17:20 GMT
+
+Number of Pages: 16
+
+Markdown Content:
+# Unified Data Discovery across Query Modalities and User Intents 
+
+## Tingting Wang 
+
+The University of Queensland St Lucia, QLD, Australia tingting.wang@uq.edu.au 
+
+## Shixun Huang 
+
+The University of Wollongong Wollongong, NSW, Australia shixunh@uow.edu.au 
+
+## Zhifeng Bao 
+
+The University of Queensland St Lucia, QLD, Australia zhifeng.bao@uq.edu.au 
+
+## J. Shane Culpepper 
+
+The University of Queensland St Lucia, QLD, Australia s.culpepper@uq.edu.au 
+
+## Shazia Sadiq 
+
+The University of Queensland St Lucia, QLD, Australia shazia@eecs.uq.edu.au 
+
+## Volkan Dedeoglu 
+
+CSIRO’s Data61 Pullenvale, QLD, Australia Volkan.Dedeoglu@data61.csiro.au 
+
+## Reza Arablouei 
+
+CSIRO’s Data61 Pullenvale, QLD, Australia Reza.Arablouei@data61.csiro.au 
+
+Abstract 
+
+Data discovery – retrieving relevant tables from a data lake in response to user queries – is a fundamental building block for downstream analytics. In practice, data discovery must support different query modalities, including natural language (NL) state-ments and tables. It must also accommodate diverse user intents, ranging from open-ended enrichment to task-driven inference for applications such as table question answering and fact verification. However, most existing methods are designed for a single query modality or a specific user intent, limiting their generalizability. We propose UniDisc, a Unified Data Discovery framework that supports both NL statements and tables as queries, and general-izes across diverse user intents without relying on intent-specific representations or relevance modeling. At its core, UniDisc learns a common cross-modal representation learning model that pro-duces unified representations for queries of different modalities and candidate tables, enabling uniform relevance assessment across discovery scenarios. Learning such a common model typically requires large collec-tions of labeled (query, table) pairs to bridge the substantial semantic gap between queries of different modalities and candidate tables, which is expensive to obtain. To this end, we introduce a cross-modal graph learning model that learns unified representations for both queries and candidate tables under limited supervision by capturing naturally occurring contextual signals in a data lake. NL statements and tables are modeled as nodes in a heterogeneous graph with multiple edge types, over which dual-view neighbor aggregation and joint optimization are applied to learn robust and  
+
+> Permission to make digital or hard copies of all or part of this work for personal or classroom use is granted without fee provided that copies are not made or distributed for profit or commercial advantage and that copies bear this notice and the full citation on the first page. Copyrights for components of this work owned by others than the author(s) must be honored. Abstracting with credit is permitted. To copy otherwise, or republish, to post on servers or to redistribute to lists, requires prior specific permission and/or a fee. Request permissions from permissions@acm.org.
+> Conference acronym ’XX, Woodstock, NY
+> ©2018 Copyright held by the owner/author(s). Publication rights licensed to ACM. ACM ISBN 978-1-4503-XXXX-X/2018/06 https://doi.org/XXXXXXX.XXXXXXX
+
+context-aware representations. These representations then form the basis for flexible relevance estimation during retrieval. Extensive experiments on seven datasets, covering three types of NL statements – short texts without explicit intents, clearly stated questions, and unverified factual claims – show that Uni-Disc consistently outperforms strong baselines on both NL- and table-based discovery. Moreover, UniDisc improves downstream applications such as table question answering and fact verification, while maintaining strong performance with only 1% of the training data, demonstrating high label efficiency and scalability. 
+
+ACM Reference Format: 
+
+Tingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei. 2018. Unified Data Discov-ery across Query Modalities and User Intents. In Proceedings of Make sure to enter the correct conference title from your rights confirmation email (Conference acronym ’XX). ACM, New York, NY, USA, 16 pages. https: //doi.org/XXXXXXX.XXXXXXX 
+
+1 Introduction 
+
+The proliferation of data collection technologies has led to massive, often uncurated repositories known as data lakes [37 ]. While rich in potential, data lakes pose significant challenges for locating data tailored to specific downstream tasks. As a result, data discovery 
+
+– the process of identifying relevant tables from a data lake in re-sponse to user queries – has emerged as a fundamental component of modern data science pipelines, attracting increasing attention from both academia and industry [3–5, 17]. Despite its fundamental role, data discovery in practice involves diverse user intents – either explicit or implicit – giving rise to two representative discovery scenarios, as illustrated in Fig. 1: 
+
+• Open-ended Enrichment. In this scenario, the query does not ex-plicitly specify a concrete information need. Enrichment can be instantiated across different query modalities, including text en-richment [ 9, 31 ] and table enrichment [ 12 , 24 ]. For example, given a short text describing an auction event (Fig. 1(a)), a user may retrieve structured tables to fill in missing information, such as the buyer and seller. Similarly, given a table containing state-level informa-tion in the U.S. (Fig. 1(b)), the user may augment its attributes by retrieving joinable tables (e.g., City ). 
+
+> arXiv:2604.27252v1 [cs.DB] 29 Apr 2026
+
+Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei CNN News : Leonardo da Vinci’s “Salvator Mundi” has become the most expensive artwork to ever sell at auction,                                
+
+> going for $450.3 million at Christie’s in New York. Dating back to around 1500, the rare painting is one of fewer
+> than 20 authenticated works by the Italian in existence. Original estimates had predicted bids of over $100 million
+> for the piece. But the new record was set after approximately 20 minutes of telephone bidding, far surpassing the
+> previous auction record held by Picasso’s “Les Femmes d’Alger,” which sold for $179.4 million in 2015.
+> Price Name artist Year Date of Sale Seller Buyer
+> $450M Salvator Mundi Leonardo da Vinci 1500 November
+> 2017 Dmitry Rybolovlev
+> Badr bin Abdullah
+> Al Saud
+> $300M Interchange Willem de Kooning 1955 September
+> 2015
+> David Geffen
+> Foundation Kenneth C. Griffin
+> $250M The Card
+> Players Paul Cézanne 1892 April
+> 2011
+> George
+> Embiricos State of Qatar
+> $210M Nafea Faa Ipoipo Paul Gauguin 1892 September
+> 2014 Rudolf
+> Staechelin heirs State of Qatar
+> $200M Number 17A Jackson Pollock 1948 September
+> 2015
+> David Geffen
+> Foundation Kenneth C. Griffin
+
+... ... ... ... ... 
+
+... 
+
+> Data lake
+> Wikipedia Table
+
+query 
+
+enrich 
+
+retrieve 
+
+(a) Open-ended text enrichment state area country                            
+
+> Arizona 114000 USA California 158000 USA
+> District of Columbia 1100 USA Florida 68664 USA Georgia 58900 USA
+> ...... ...... ......
+> city population state
+> Phoenix 789704 Arizona
+> Los Angeles 2966850 California
+> Washington 638333 District of Columbia
+> Miami 346865 Florida
+> Atlanta 425022 Georgia
+> ...... ...... ...... State City
+
+... ... ... ... 
+
+> Data lake
+
+... 
+
+query 
+
+enrich 
+
+retrieve 
+
+(b) Open-ended table enrichment Claim 1: Townsville Crocodile score 82 point and the south dragon score 77 point                                        
+
+> date home team score away team venue crowd
+> 24 -Feb South Dragons 94 -81 Townsville Crocodiles Hisense Arena 3613
+> 25 -Feb Melbourne Tigers 117 -99 New Zealand
+> Breakers State Netball and Hockey Centre 2998
+> 26 -Feb Townsville Crocodiles 82 -77 South Dragons Townsville
+> Entertainment Centre 4505
+> 27 -Feb New Zealand
+> Breakers 97 -103 Melbourne Tigers
+> North Shore Events
+> Centre 4500
+> 28 -Feb South Dragons 101 -78 Townsville
+> Crocodiles Hisense Arena 3007
+> Claim 2: Townsville Crocodile and South Dragon play at Townsville Entertainment Centre
+
+... ... 
+
+... ... ... ... 
+
+> Data lake
+
+infer 
+
+query query infer 
+
+retrieve 
+
+(c) Table-based fact verification state area country                             
+
+> Arizona 114000 USA California 158000 USA
+> District of Columbia 1100 USA
+> Florida 68664 USA Georgia 58900 USA
+> ...... ...... ......
+> city population state
+> Phoenix 789704 Arizona
+> Los Angeles 2966850 California
+> Washington 638333 District of Columbia
+> Miami 346865 Florida Atlanta 425022 Georgia
+> ...... ...... ......
+> Question: what are the major cities in the smallest state in the us ?
+> State City
+
+... ... ... ... 
+
+> Data lake
+
+query 
+
+... ... 
+
+retrieve 
+
+Infer 
+
+(d) Table question answering 
+
+Figure 1: Data discovery for diverse user intents. Retrieved tables provide the information (in blue) to fulfill user intents. 
+
+• Task-driven Inference. In this scenario, data discovery is explicitly guided by downstream tasks, with retrieved tables serving as inputs for subsequent inference. In table-based fact verification [ 6, 23 ], users issue factual claims and seek relevant tables as evidence to support or refute the claims. For example, a table of sports team statistics can serve as evidence for multiple factual claims, as shown in Fig. 1(c). In table question answering (QA) [ 2, 51 ], users issue questions, and relevant table identification is a necessary precondi-tion for answer inference. For example, the tables State and City 
+
+can be retrieved to infer the answer to the question in Fig. 1(d). Although user intents and query modalities vary widely, they share a common goal: retrieving tables that are relevant to a query, where the query is a natural language (NL) statement or a table. This motivates the unified data discovery problem : given a query in either modality, retrieve relevant tables from a data lake in an intent-agnostic manner across discovery scenarios. However, existing methods largely fall short of this goal, as they are typically designed for specific query modalities or user intents. Most prior work supports a single query modality – either tables [ 3,5 , 19 ] or NL statements [ 9, 31 , 51 ]. Within a given query modality, these methods are typically optimized for a specific user intent in a particular discovery scenario, such as open-ended enrichment (e.g., joinable table search [ 11 , 12 , 24 ] or unionable table search [ 15 , 28 ,38 ]) or task-driven inference (e.g., table retrieval for QA [ 2 , 51 , 55 ]). CMDL [ 14 ] partially addresses this limitation by learning uni-fied representations for both NL and table queries, but still relies on intent-specific relevance modeling. Recent advances in large language models (LLMs) demonstrate strong general relevance as-sessment capabilities [ 1, 43 , 48 ]. However, applying LLMs to data discovery typically requires exhaustive query–table evaluation, re-sulting in prohibitive cost and latency (See our experiments in Sec. 7.2). Consequently, extending existing methods to broader query modalities or user intents often incurs task-specific adapta-tions, additional supervision, or substantial computational over-head, limiting scalability and generality. To fill this gap, we propose UniDisc, a unified data discovery framework that supports different query modalities and general-izes across diverse user intents in discovery scenarios, including open-ended enrichment and task-driven inference. The design of UniDisc is guided by a central question: how can relevance between a query – either an NL statement or a table – and candidate tables be assessed without relying on intent-specific representations or relevance modeling? A natural answer is to design a common cross-modal representation learning model. Such a model embeds queries of different modalities and tables into a shared space, providing a ba-sis for uniformly estimating relevance across discovery scenarios. However, learning this model typically requires large collections of labeled (query, table) pairs to bridge the semantic gap between NL statements and tables. In practice, obtaining such labeled pairs is expensive – even synthetic generation incurs non-trivial effort [ 14 ]. 
+
+Contributions . To address this, we make contributions as follows: 
+
+• We introduce a graph learning model to learn unified representa-tions for queries of different modalities and candidate tables under 
+
+limited supervision , which is central to UniDisc. This model amplifies the available supervision by leveraging rich contextual signals that naturally exist in data lakes. For example, tables with overlapping content (e.g., tables in Fig. 1(d)) are often relevant to the same query, while NL statements about related topics (e.g., claims in Fig. 1(c)) frequently reference the same table. We encode such signals in a heterogeneous graph where NL statements and tables are nodes, and edges capture rich cross-modal and intra-modal con-textual signals, including semantic or co-occurrence links (between NL statements and tables), structural or semantic similarity (be-tween tables), and topical relatedness (between NL statements). By propagating information over this graph, the model learns robust representations that capture relational context unavailable from isolated query-table pairs (Secs. 3–6). 
+
+• We materialize the learned representations into a vector index to enable efficient retrieval. Built on this index, UniDisc introduces an adaptive retrieval module that operates on the learned representa-tions to uniformly support relevance assessment across discovery scenarios, including retrieving all tables identified as relevant and returning a top-𝑘 ranked list (Sec. 2.2.2). 
+
+• We conduct extensive experiments on seven real-world datasets against strong baselines, including CMDL, demonstrating that Uni-Disc achieves superior effectiveness and efficiency across diverse discovery scenarios. In particular, UniDisc outperforms baselines for NL-based discovery over short texts without explicit intents, Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+clearly stated questions, and unverified factual claims, as well as for table-based discovery using tables as queries, achieving significant effectiveness gains and orders-of-magnitude speed-ups. Moreover, by improving retrieval quality, UniDisc yields measurable end-to-end performance gains on downstream tasks such as table-based fact verification, and remains robust under limited supervision (as little as 1% training data) and sparse graph structures (Sec. 7). 
+
+2 A Unified Data Discovery Framework 
+
+In this section, we first present the unified data discovery problem setting and then introduce the design of UniDisc, a unified data discovery framework tailored to this setting. 
+
+2.1 Problem Setting 
+
+We study the unified data discovery problem in data lakes, where users seek to identify tables relevant to a given query in an intent-agnostic manner. As illustrated in Fig. 1, a query may take different modalities, including a natural language (NL) statement or a table, and may reflect diverse user intents. User intents may be explicit , targeting task-driven inference – such as a clearly stated question (Fig. 1(d)) or an unverified fac-tual claim (Fig. 1(c)) – or implicit , targeting open-ended enrichment, such as a short text (Fig. 1(a)) or a table (Fig. 1(b)) that reflects an un-derlying information need. UniDisc treats both NL statements and tables as valid query modalities and aims to support data discovery uniformly across these modalities. A data lake comprises a collection of heterogeneous tables to-gether with a set of NL statements, which may arise from user queries or downstream applications. Formally, we define a data lake as D = (𝑇 , 𝑆 ), where 𝑇 = {𝑡 1, . . . , 𝑡 |𝑇 | } denotes the collection of tables and 𝑆 = {𝑠 1, . . . , 𝑠 |𝑆 | } denotes the collection of NL statements. 
+
+Definition 2.1 (Unified Data Discovery). Given a data lake D =
+
+(𝑇 , 𝑆 ) and a query 𝑞 , which can be either an NL statement or a table, it aims to retrieve a set of relevant tables 𝑇 rel ⊆ 𝑇 based on the relevance between the query 𝑞 and candidate tables in 𝑇 . Two common relevance formulations are considered: (1) A relevance scoring function 𝑟 : 𝑞 × 𝑡 → R, where 𝑟 (𝑞, 𝑡 )
+
+measures the relevance score between 𝑞 and a candidate table 𝑡 .Based on this, 𝑇 rel is returned as a top-𝑘 ranked list of tables, i.e., 
+
+𝑇 rel = ⟨𝑡 1, . . . , 𝑡 𝑘 ⟩ such that 𝑟 (𝑞, 𝑡 1) ≥ · · · ≥ 𝑟 (𝑞, 𝑡 𝑘 ), 𝑡 𝑖 ∈ 𝑇 . 
+
+(2) A binary relevance function 𝑓 : 𝑞 ×𝑡 → { 0, 1}, where 𝑓 (𝑞, 𝑡 ) = 1
+
+indicates that a candidate table 𝑡 is relevant to 𝑞 , and 𝑓 (𝑞, 𝑡 ) = 0
+
+otherwise. Based on this, 𝑇 rel is returned as all tables identified as relevant, i.e., 𝑇 rel = {𝑡 ∈ 𝑇 | 𝑓 (𝑞, 𝑡 ) = 1}.
+
+2.2 Framework Overview 
+
+To solve the unified data discovery problem, we propose UniDisc, a Uni fied Data Disc overy framework that integrates offline rep-resentation learning with online retrieval. As illustrated in Fig. 2, UniDisc consists of two modules with clearly separated responsi-bilities. Together, these two modules enable UniDisc to support queries of different modalities and diverse discovery scenarios. 
+
+2.2.1 Cross-modal Representation Module. This module serves as the core of UniDisc, aiming to learn unified representations for queries of different modalities and tables under limited supervi-sion. To this end, it exploits contextual signals that exist in data lakes by modeling both NL statements and tables as nodes in a heterogeneous graph. In this graph, edges encode multiple types of contextual relationships, including cross-modal associations (e.g., claims supported by an evidence table in Fig. 1(c) or tables required to answer a question in Fig. 1(d)) and intra-modal relationships (e.g., joinable tables such as State and City in Fig. 1(b), or topically related claims in Fig. 1(c)). Building on this graph, the learning process integrates two complementary aggregation mechanisms to capture both semantic and structural context, and jointly optimizes two training objectives to align representations across modalities while preserving relational consistency within each modality. As a result, the learned representations reside in a shared embedding space that supports direct relevance estimation between queries and tables. These embeddings are materialized and indexed, serving as the foundation for efficient retrieval across diverse discovery scenarios. We describe the details of this module in Secs. 3–6. 
+
+2.2.2 Adaptive Retrieval Module. Given the unified representations learned by the cross-modal representation module, this module performs data discovery by retrieving relevant tables for a given query based on the constructed index efficiently and flexibly. At query time, a query 𝑞 – either an NL statement or a table – is mapped to its embedding h𝑞 using the trained representation model, which is then used to estimate relevance with the embeddings h𝑡 
+
+of candidate tables 𝑡 ∈ 𝑇 . Following Definition 2.1, the module supports retrieval under two relevance formulations, which we refer to as ranked retrieval and binary retrieval .
+
+Ranked Retrieval. In ranked retrieval, data discovery proceeds via relevance ranking, where the user specifies the number of tables to retrieve, as commonly required in scenarios such as table question answering for focused reasoning. The module computes a relevance score 𝑟 using cosine similarity. Given the query embedding h𝑞 ,tables are retrieved from the constructed index, ranked by 𝑟 (h𝑞 , h𝑡 ),and the top-𝑘 results are returned. This retrieval procedure runs in sublinear time with respect to the number of tables |𝑇 |, typically 
+
+𝑂 (log |𝑇 |) per query in practice, and avoids exhaustive similarity computation over the data lake. 
+
+Binary Retrieval. In binary retrieval, relevance is determined by a binary function 𝑓 , and all tables predicted as relevant are returned. This setting fits discovery scenarios where users do not specify the number of tables to retrieve and aim to obtain comprehensive results. For example, users may want to obtain tables that together provide comprehensive evidence in table-based fact verification. To efficiently support this setting, the module adopts a two-stage retrieval strategy. First, it uses the constructed index to retrieve a candidate set of tables for the query embedding h𝑞 , where the candidate size is chosen to be sufficiently larger than typical result sets to mitigate potential recall loss. Second, a lightweight multi-layer perceptron (MLP) classifier is applied to estimate the binary relevance function 𝑓 . For each query-table pair (h𝑞 , h𝑡 ) within the candidate set, 𝑓 (h𝑞 , h𝑡 ) determines relevance, and the subset predicted as relevant is returned. This design avoids evaluating all tables in the data lake while naturally supporting variable-size discovery results. The overall inference time consists of sublinear candidate retrieval followed by linear-time relevance prediction over the candidate set. In practice, the candidate size is bounded independently of |𝑇 |, ensuring scalability to large-scale data lakes. Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei Å  !Å !
+
+> Embedding Graph Generation Joint Optimization Objective
+> Edge Reconstruction Loss
+> ... ...
+> target node
+> "
+
++             
+
+> #$%
+> &
+> #'%
+> &
+> #'(
+> &
+> #')
+> &
+> #'*
+> &
+> #$*
+> &
+> #$)
+> &
+> #$+
+> &
+> #$(
+> &
+> #'+
+> &
+> #$,
+> &
+> #',
+> &
+> "-. Binary Retrieval
+> #'%
+> /#$*
+> /
+> #'%
+> /#$,
+> /
+> ...
+> #'%
+> /#$%
+> /
+> #'%
+> /#$)
+> /
+> ...
+> Masked edges Negative edges
+> positive target negative
+> #'%
+> 0#'%
+> /#')
+> 0
+> #'(
+> 0
+> #')
+> /
+> positive target negative
+> #'%
+> 0
+> #'%
+> /
+> #'(
+> /
+> ... ...
+> Contrastive Learning Loss "12
+> Dual-view Neighbor Aggregation
+> Meta-path-based Neighbor Aggregation
+> r-Neighbor Aggregation
+> #'%
+> /
+> ... ... #'%
+> 0
+> #'%
+> &
+> #'(
+> &
+> #$*
+> &
+> #$,
+> &
+> Meta
+> meta path 
+> !"#
+> $
+> !%#
+> $
+> !%&
+> $
+> !%'
+> $
+> !%(
+> $
+> !"(
+> $
+> !"'
+> $
+> !")
+> $
+> meta-path-based neighbors
+> r-neighbors (r = 2)
+> target node
+> Each node serves as a target for dual-view neighbor aggregation; here, *+is used as an example.
+> Ranked Retrieval
+
+Cross-modal Representation Module (Offline) Adaptive Retrieval Module (Online)       
+
+> query: or
+> Vector Index
+> ,,-,.
+> query: or k = 2
+> relevant relevant relevant
+> ,.,
+> score:0.9 score:0.8
+
+Figure 2: Overview of UniDisc. 
+
+3 Graph-Based Cross-Modal Representation Learning 
+
+As discussed in Sec. 2.2.1, the cross-modal representation module of UniDisc operates offline to learn shared representations across data modalities in the data lake, providing the foundation for Uni-Disc. A key modeling challenge is to enable direct comparison between unstructured NL statements and structured tables without relying heavily on labeled (NL statement, table) pairs. Prior ap-proaches address this by embedding both modalities into a shared space [ 9, 14 , 31 , 51 ], bringing semantically aligned pairs closer together. However, such methods typically require substantial la-beled supervision or rely on pseudo-pair synthesis [14], incurring additional computational overhead. 
+
+Key Observation. Beyond direct supervision from labeled (NL statement, table) pairs, data lakes naturally exhibit rich contextual signals that can serve as indirect supervision. For instance, tables with similar schemas or overlapping rows often correspond to re-lated queries, while NL statements within a similar topic frequently reference similar table content. These semantic and relational de-pendencies provide valuable signals for representation learning, yet are often underexploited in existing cross-modal methods. 
+
+Graph-based Cross-Modal Representation Learning. Moti-vated by this observation, we instantiate the cross-modal represen-tation module using a graph learning model. We model NL state-ments and tables as nodes in a heterogeneous graph, where edges encode both cross-modal and intra-modal contextual relationships. Each node iteratively refines its representation by interacting with different types of neighbors, allowing information to propagate across modalities and capture contextual signals. Through this graph modeling, representations of NL statements and tables are enriched by semantically related or co-occurring nodes of either type. As a result, the model learns high-quality cross-modal representations without relying heavily on labeled (NL statement, table) pairs. As illustrated in Fig. 2, the cross-modal representation module consists of three key components, which we describe in the following sections: (1) Embedding Graph Generation. To support cross-modal represen-tation learning under limited supervision, we construct a hetero-geneous graph with NL statements and tables as nodes, connected by three types of edges: NL statement–Table, Table–Table, and NL statement–NL statement. Rather than encoding node contents in-dependently, we project heterogeneous node contents into a shared latent space by modeling inter-content dependencies using a bi-directional LSTM, which captures contextual relationships among tabular and textual elements. This allows heterogeneous nodes to be comparable while retaining fine-grained semantic cues (Sec. 4). (2) Dual-View Neighbor Aggregation. To effectively exploit contex-tual signals in the graph, we adopt a dual-view aggregation strategy. Meta-path-based aggregation captures semantically meaningful re-lational patterns from typed interactions between NL statements and tables, while 𝑟 -neighbor aggregation incorporates broader struc-tural context by hierarchically aggregating information from higher-order neighbors. These two views provide complementary signals for refining node representations (Sec. 5). (3) Joint Optimization Objective. To learn robust node represen-tations under available supervision, we jointly optimize a con-trastive loss and an edge reconstruction loss. The former enforces consistency across representations learned from different aggrega-tion views, while the latter preserves observed relational structure among nodes. Together, these objectives encourage view-consistent and structurally faithful representations (Sec. 6). 
+
+4 Embedding Graph Generation 
+
+To support cross-modal representation learning under limited su-pervision, UniDisc constructs a heterogeneous graph over tables and NL statements to capture contextual relationships, and then encodes node contents into a unified embedding space, forming a heterogeneous embedding graph. 
+
+Heterogeneous Graph. We construct a heterogeneous graph 𝐺 =
+
+(𝑉 , 𝐸 ) based on the problem setting in Sec. 2.1. The node set 𝑉 =
+
+𝑆 ∪ 𝑇 consists of two types of nodes: NL statements (𝑠 ∈ 𝑆 ) and 
+
+tables (𝑡 ∈ 𝑇 ). The edge set 𝐸 contains three types of edges: 
+
+• NL statement-Table edges encode co-occurrence or semantic rele-vance relationships between NL statements and tables, capturing diverse NL-based discovery intents. During training, these edges are initialized with limited ground-truth relevance annotations, enabling the model to infer relevance for unseen pairs. 
+
+• Table-Table edges encode semantic or structural similarity between tables. Their construction is adapted to downstream requirements. When ground-truth links are available (e.g., in table-based discov-ery), we use them directly; otherwise, we estimate table relevance scores and connect each table to its top-𝐾 most similar neighbors. 
+
+• NL statement-NL statement edges encode topical relatedness among NL statements. We construct these edges by computing pairwise similarity scores and connecting each NL statement to its top-𝐾 
+
+most similar peers. Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+These edges provide complementary cross-modal and intra-modal contextual signals, which are crucial for representation learn-ing under sparse supervision. 
+
+Remarks . In our experiments, we employ CMDL [ 14 ] to estimate table-table relevance, as it leverages both syntactic and semantic signals corresponding to the relationships we aim to encode. For NL statement-NL statement edges, we use BM25 [ 44 ] due to its strong empirical performance [ 30 ]. We emphasize that these methods are concrete instantiations of the underlying relationship types, and our framework does not rely on any particular choice. 
+
+Unified Node Content Encoding. A key challenge in this het-erogeneous graph is to unify heterogeneous node contents across modalities. NL statements and tables differ substantially in struc-ture, semantic granularity, and raw feature dimensionality, which makes direct comparison difficult. Therefore, a modality-agnostic encoding is required to project heterogeneous node contents into a shared latent space before graph-based aggregation. To this end, we associate each node 𝑣 with a content set 𝐶 𝑣 =
+
+{x𝑣 
+
+> 1
+
+, . . . , x𝑣   
+
+> |𝐶 𝑣 |
+
+}, where each content element x𝑣 𝑖 ∈ R𝑑 𝑐 is a feature vector. For an NL statement 𝑠 ∈ 𝑆 , 𝐶 𝑠 contains a single textual feature. For a table 𝑡 ∈ 𝑇 , 𝐶 𝑡 consists of features associated with all columns and the table caption, if available. A simple baseline is to use a linear transformation for each node type to map the content vectors into a shared space. Specifically, for a node 𝑣 of type 𝑎 (i.e., NL statement or table), we have: 
+
+h𝑐 𝑣 = Í|𝐶 𝑣 | 
+
+> 𝑖 =1
+
+W𝑎 x𝑣 𝑖 (1) where h𝑐 𝑣 ∈ R𝑑 ×1, 𝑑 is the content embedding dimension, W𝑎 ∈
+
+R𝑑 ×𝑑 𝑐 is a trainable projection matrix specific to node type 𝑎 .However, a simple linear approach fails to capture dependencies between content elements. This is particularly important for tables, where contextual relationships between columns (e.g., attribute cor-relation) can be crucial to the interpretation and reasoning needed in tasks such as answering questions or verifying claims. To over-come this limitation, we employ a bi-directional LSTM (Bi-LSTM) encoder [ 59 ] that models inter-content dependencies and context. Specifically, the content embedding for a node 𝑣 is computed as: 
+
+h𝑐 𝑣 = Í|𝐶 𝑣 | 
+
+> 𝑖 =1
+
+[−−−−→
+
+LSTM (x𝑣 
+
+> 1
+
+, ..., x𝑣   
+
+> |𝐶 𝑣 |
+
+)𝑖 ⊕ ←−−−−
+
+LSTM (x𝑣 
+
+> 1
+
+, ..., x𝑣   
+
+> |𝐶 𝑣 |
+
+)𝑖 ]/| 𝐶 𝑣 | (2) where −−−−→
+
+LSTM (·) 𝑖 and ←−−−−
+
+LSTM (·) 𝑖 denotes the forward and backward LSTM hidden states at the 𝑖 -th position in the content set, respec-tively. The operator ⊕ denotes concatenation. This yields a fixed-length embedding h𝑐 𝑣 ∈ R𝑑 ×1 that incorporates contextual informa-tion from both directions of the content set. The final embedding is obtained by averaging the forward and backward hidden states across all content elements. This yields a heterogeneous embedding graph with unified node content representations, which is used for subsequent graph-based aggregation. 
+
+Example 4.1. As illustrated in Fig. 3, an example of the con-structed heterogeneous graph contains six NL statement nodes and six table nodes. The red lines denote NL statement-Table edges, green lines represent NL statement-NL statement edges, and orange lines represent the Table–Table edges. We initialize each content element of an NL statement or a table using a pretrained BERT model [ 10 ], and then apply a Bi-LSTM to encode node contents. For each NL statement 𝑠 𝑖 (𝑖 ∈ { 1, 2, 3, 4, 5, 6}), the output of the Bi-LSTM is used as the content embedding h𝑐 𝑠 𝑖 . For mean pooling  
+
+> ÅÅ
+> BERT
+> BERT
+> BERT
+> BERT
+> Bi-LSTM
+> !"#
+> !$#
+> Å
+> %"#
+> &
+> Å
+> %$#
+> &
+
+# ... ... ... ... ... ...      
+
+> %$#
+> &
+> %"#
+> &
+> %"'
+> &
+> %"(
+> &
+> %")
+> &
+> %$)
+> &
+> %$(
+> &
+> %$*
+> &
+> %$'
+> &
+> %"*
+> &
+> %$+
+> &
+> %"+
+> &
+> ,,
+> --
+> ..
+> //
+> 00
+
+Figure 3: Embedding Graph Generation. 
+
+each table 𝑡 𝑖 (𝑖 ∈ { 1, 2, 3, 4, 5, 6}), each content element is processed by the Bi-LSTM sequentially. The forward and backward hidden states at each position are concatenated together, and the resulting vectors are aggregated using mean pooling to obtain a table content embedding h𝑐 𝑡 𝑖 . This process results in a heterogeneous embedding graph with unified node content representations. 
+
+5 Dual-view Neighbor Aggregation 
+
+Given the heterogeneous embedding graph constructed in the pre-vious section, the next challenge is how to aggregate contextual signals from neighboring nodes to refine node representations. A key design consideration is the choice of neighbors for aggregation, as restricting aggregation to only direct (first-order) neighbors may exclude informative contextual signals from distant nodes. To address this, we employ two complementary neighbor aggre-gation views: meta-path-based neighbor aggregation and 𝑟 -neighbor aggregation . The former captures semantically meaningful rela-tional patterns arising from heterogeneous interactions between tables and NL statements, while the latter incorporates broader structural context by hierarchically aggregating information from higher-order neighbors. Together, these two views provide comple-mentary signals for refining cross-modal node representations. 
+
+5.1 Meta-path-based Neighbor Aggregation 
+
+Meta-path-based neighbor aggregation captures high-order seman-tic relationships by modeling typed relational patterns in a hetero-geneous graph. A meta-path defines how two types of nodes are indirectly connected via a sequence of node and edge types [ 18 ], enabling aggregation beyond direct connections. We define two meta-paths commonly arising in discovery sce-narios. The first is NL statement-Table-NL statement (𝑠 −𝑡 −𝑠 ), which connects NL statements that reference the same table. This pattern frequently appears in table-based fact verification [ 7 , 22 ], where multiple claims are supported or refuted by the same evidence table. The second is Table-NL statement-Table (𝑡 − 𝑠 − 𝑡 ), which connects tables referenced by the same NL statement. This pattern is com-mon in table question answering [ 39 , 55 ], where multiple tables are required to answer a question. Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+For a given meta-path 𝑃 , we define the meta-path-based neighbors 
+
+N𝑃 (𝑣 ) of a node 𝑣 as the set of nodes reachable from 𝑣 via any instance of 𝑃 . When multiple path instances connect the same node pair, each instance is treated separately during aggregation to account for different relational contexts. For symmetric meta-paths, 
+
+N𝑃 (𝑣 ) also includes a self-reference to 𝑣 .The design of meta-path-based neighbor aggregation considers three key goals: (i) preserving information from intermediate nodes along a meta-path to capture multi-hop dependencies, (ii) integrat-ing multiple meta-paths to uncover diverse and complementary semantic relationships, and (iii) differentiating neighbor contribu-tions based on both the meta-path and contextual relationships. To realize these design goals, we employ a two-level attention mechanism that combines node-level and path-level attention. Node-level attention differentiates the contributions of neighbors along a given meta-path, including both end and intermediate nodes, while path-level attention learns the relative importance of different meta-paths when integrating semantic signals. These two mechanisms enable weighted aggregation across and within meta-paths, cap-turing fine-grained semantic relationships while accounting for broader contextual signals. 
+
+Node-level attention. To compute the relative weight contribution for each neighbor from a meta-path to a target node, we employ a self-attention mechanism [ 49 ]. Therefore, for a node pair (𝑣, 𝑣 ′)
+
+connected by a meta-path 𝑃 , the attention score 𝛼 𝑃 𝑣𝑣 ′ represents the influence of neighbor node 𝑣 ′ on the target node 𝑣 . It is computed in a normalized form as follows: 
+
+𝛼 𝑃 𝑣,𝑣 ′ = exp {LeakyReLU (a𝑇 𝑃 [h𝑐 𝑣 ∥ h𝑐 𝑣 ′ ])} 
+
+Í𝑣 ′′ ∈ N 𝑃 (𝑣 ) exp {LeakyReLU (a𝑇 𝑃 [h𝑐 𝑣 ∥ h𝑐 𝑣 ′′ ])} , (3) where LeakyReLU denotes the leaky rectified linear unit function, 
+
+a𝑃 ∈ R2𝑑 ×1 is the learnable attention vector specific to a meta-path 
+
+𝑃 , and ∥ denotes the vector concatenation. This node-level attention mechanism enables differentiated weighting of neighbors along a given meta-path, capturing fine-grained contextual dependencies. By aggregating the content embeddings from the meta-path-based neighbors using the weights derived from the corresponding attention scores, the aggregated neighbor embedding for a target node 𝑣 based on meta-path 𝑃 is computed as follows: 
+
+h𝑃 𝑣 = 𝜎 
+
+Í𝑣 ′ ∈ N 𝑃 (𝑣 ) 𝛼 𝑃 𝑣,𝑣 ′ h𝑐 (𝑣 ′)
+
+
+
+(4) where h𝑃 𝑣 ∈ R𝑑 ×1, 𝜎 is a nonlinear activation function, h𝑐 (𝑣 ′) is the content embedding of neighbor 𝑣 ′, and 𝛼 𝑃 𝑣,𝑣 ′ denotes the attention-based weight assigned to node 𝑣 ′ relative to 𝑣 under path 𝑃 .
+
+Path-level attention. After aggregating the node information from each meta-path, the node embedding can be further refined by integrating the semantic signals revealed from other meta-paths. Following prior work on heterogeneous graph modeling [ 18 ], we apply a path-level attention mechanism to learn the relative impor-tance of different meta-paths, which we then use to aggregate the path-specific vector representations as follows: 
+
+hP 
+
+> 𝑣
+
+= 𝜎  Í 𝑃 ∈ P 𝛽 𝑃 h𝑃 𝑣 
+
+ (5) where hP 
+
+> 𝑣
+
+∈ R𝑑 ×1 is the path-aggregated embedding, P denotes the path set in a heterogeneous graph, and 𝛽 𝑃 is the attention-based weight assigned to the contribution of path 𝑃 to node 𝑣 .target node               
+
+> node-level attention
+> !
+> "
+> #
+> $##
+> $%
+> path-level attention
+> !
+> "
+> !
+> #
+> $%
+> #$&
+> #$&
+> #
+> !
+> #
+> node-level attention
+> !
+> "
+> #!
+> "
+> #$
+> "
+> #%
+> "
+> #&
+> "
+> &
+> "
+> %
+> "
+> '
+> "
+> $
+> "
+> #'
+> "
+> (
+> "
+> #(
+> "
+> )*
+> )+
+
+Figure 4: Example of meta-path-based neighbor aggregation. 
+
+To determine 𝛽 𝑃 , we first compute the path importance score 
+
+𝜔 𝑃 by averaging the transformed path-specific vectors as 
+
+𝜔 𝑃 = 1
+
+|𝑉 |
+
+Í𝑣 ∈𝑉 q𝑇  
+
+> 0
+
+· tanh (W0 · h𝑃 𝑣 + b0)
+
+where q0 ∈ R𝑑 ×1 is the path-level attention vector, and W0 ∈ R𝑑 ×𝑑 
+
+and b0 ∈ R𝑑 ×1 are shared learnable parameters. We then apply a softmax function to normalize the path importance scores and obtain a normalized path attention weight as follows: 
+
+𝛽 𝑃 = exp (𝜔 𝑃 )/ Í𝑃 ′ ∈ P exp (𝜔 𝑃 ′
+
+)
+
+This aggregation produces a meta-path-aware embedding for each target node by combining information from multiple meta-paths using Eq. 5. We denote the resulting embedding for an NL statement node 𝑠 ∈ 𝑆 as hP 
+
+> 𝑠
+
+and for a table node 𝑡 ∈ 𝑇 as hP 
+
+> 𝑡
+
+.
+
+Example 5.1. As shown in Fig. 4, given a target node 𝑠 1, the meta-path instance 𝑠 1–𝑡 5–𝑠 4 for 𝑃 1 yields the meta-path–based neighbors 
+
+𝑡 5 and 𝑠 4, while the instance 𝑡 2–𝑠 1–𝑡 5 for 𝑃 2 yields the neighbors 
+
+𝑡 2 and 𝑡 5. We apply node-level attention to aggregate the meta-path–based neighbors for each path, resulting in the embeddings 
+
+h𝑃 1 
+
+> 𝑠 1
+
+and h𝑃 2 
+
+> 𝑠 1
+
+. These are then combined using path-level attention to compute the final path-aggregated embedding hP 
+
+> 𝑠 1
+
+.
+
+5.2 𝑟 -Neighbor Aggregation 
+
+In addition to meta-path-based aggregation, we incorporate a com-plementary structural view by hierarchically aggregating informa-tion from higher-order neighbors. Specifically, the 1-hop neighbors provide 0th-layer embeddings, 2-hop neighbors provide 1st-layer embeddings, and so on, up to 𝑟 -hop neighbors for the (𝑟 − 1)th layer embeddings. We refer to this hierarchical aggregation process as 𝑟 -neighbor aggregation .To implement 𝑟 -neighbor aggregation, we employ a multi-layer graph convolutional network (GCN) [ 29 ] as a generic mechanism for hierarchical neighbor aggregation. While standard GCNs are designed for homogeneous graphs, we adapt the propagation to our heterogeneous setting by constructing a unified (| 𝑆 | + | 𝑇 |) × (| 𝑆 | + | 𝑇 |) adjacency matrix 𝐴 that integrates all node and edge types while preserving the symmetry required by GCN-based prop-agation. We index the adjacency matrix such that NL statement-NL state-ment, NL statement-Table, and Table-Table edges are all encoded within a single matrix. The weight assigned to an NL statement-Table edge (𝑠 𝑖 , 𝑡 𝑗 ) is represented as 𝑎 𝑖 { 𝑗 +| 𝑆 | } , an NL statement-NL statement edge (𝑠 𝑖 , 𝑠 𝑗 ) as 𝑎 𝑖 𝑗 , a Table-NL statement edge (𝑡 𝑖 , 𝑠 𝑗 ) as 
+
+𝑎 {𝑖 +| 𝑆 | } 𝑗 , and a Table-Table edge (𝑡 𝑖 , 𝑡 𝑗 ) as 𝑎 {𝑖 +| 𝑆 | } { 𝑗 +| 𝑆 | } . To ensure Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 0th-layer                         
+
+> !
+> "#!
+> "#$
+> "1st-layer
+> !
+> "
+> #
+> $%
+> $&#
+> $&%
+> $
+> !
+> $'
+> $&!
+> $&(
+> $
+> GCN GCN GCN
+> GCN
+> 2nd-layer
+> !
+> "
+> #!
+> "
+> #$
+> "
+> #%
+> "
+> #&
+> "
+> &
+> "
+> %
+> "
+> '
+> "
+> $
+> "
+> #'
+> "
+> (
+> "
+> #(
+> "
+> target node
+> !
+> "
+> GCN
+
+Figure 5: Example of 𝑟 -neighbor aggregation. 
+
+numerical stability and incorporate self-loops, we apply standard normalization to obtain ˆ𝐴 = ˜𝐷 −1/2 ˜𝐴 ˜𝐷 −1/2, where ˜𝐴 = 𝐴 + 𝐼 |𝑆 |+| 𝑇 | ,
+
+𝐼 |𝑆 |+| 𝑇 | is an identity matrix, and ˜𝐷 is a degree matrix containing the diagonal entries ˜𝐷 𝑖𝑖 = Í𝑗 ˜𝐴 𝑖 𝑗 .Let H𝑙 ∈ R( | 𝑆 |+| 𝑇 | ) × 𝑑 denote the latent feature matrix at layer 𝑙 .The propagation rule for 𝑟 -neighbor aggregation is defined as: 
+
+H𝑙 +1 = 𝜎 ( ˆ𝐴 H𝑙 W𝑙 ) (6) where W𝑙 ∈ R𝑑 ×𝑑 is a learnable weight matrix specific to layer 
+
+𝑙 , and 𝜎 is an activation function. After 𝑟 layers, the final node embeddings are obtained from H𝑟 . For an NL statement node 𝑠 𝑖 ∈ 𝑆 ,the embedding is h𝑟 𝑠 𝑖 = H𝑟 [𝑖 ], and for a table node 𝑡 𝑖 ∈ 𝑇 , it is 
+
+h𝑟 𝑡 𝑖 = H𝑟 [𝑖 + | 𝑆 |] . This produces 𝑟 -neighbor-aware node embed-dings that capture broader structural context, forming the structural aggregation view in our dual-view framework. 
+
+Example 5.2. As shown in Fig. 5, we perform 2-hop neighbor aggregation. The 1-hop neighbors for the target node 𝑠 1 include the NL statement 𝑠 2 and the tables 𝑡 2 and 𝑡 5. By aggregating the content embeddings (i.e., the 0-th layer embeddings) for these neighbors using a GCN, we obtain the 1st-layer embedding of 𝑠 1. Likewise, we compute the 1st-layer embeddings of 𝑠 2, 𝑡 2, and 𝑡 5 by aggregating the respective 1-hop neighbors. A second round of GCN aggregation for these 1st-layer embeddings produces the 2nd-layer embedding of 𝑠 1,denoted as the node embedding under 2-hop neighbor aggregation, 
+
+h2 
+
+> 𝑠 1
+
+.
+
+6 Joint Optimization Objective 
+
+After applying the dual-view neighbor aggregation in Sec. 5, each node is associated with two complementary embeddings that cap-ture semantic and structural context, respectively. To learn robust cross-modal representations under limited supervision, these two views need to be aligned while preserving meaningful relationships across different node types. To this end, we adopt a joint optimiza-tion objective that combines a cross-view contrastive learning loss, which aligns the two aggregation views of the same node, with an edge reconstruction loss that explicitly models interactions between tables and NL statements. 
+
+6.1 Contrastive Learning Loss 
+
+For each node 𝑣 ∈ 𝑉 , we obtain two embeddings: hP 
+
+> 𝑣
+
+from meta-path-based aggregation and h𝑟 𝑣 from 𝑟 -neighbor aggregation. These embeddings capture complementary semantic and structural con-texts and are treated as two views of the same node. To align the two views, we adopt a cross-view contrastive learning objective. For a given node 𝑣 , we treat h𝑟 𝑣 as the positive sample for hP 
+
+> 𝑣
+
+, while embeddings of other nodes of the same type are treated as nega-tive samples. Restricting negatives to the same node type avoids trivial alignment across heterogeneous node types and encourages meaningful view consistency. For example, in Fig. 2, for the target node 𝑠 1, h𝑟 𝑠 1 serves as the positive sample, whereas h𝑟 𝑠 3 and h𝑟 𝑠 4 are used as negative samples. We instantiate the contrastive objective using an InfoNCE-based loss [41, 53, 58], defined as: 
+
+L P 
+
+> CL
+
+=∑︁  
+
+> 𝑣 ∈𝑉
+
+− log exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 )/ 𝜏 )
+
+Í𝑣 ′ ∈𝑉 − exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 ′ )/ 𝜏 )
+
+where 𝑉 − is the set of sampled negative nodes of the same type as 𝑣 ,
+
+sim (·) denotes cosine similarity, and 𝜏 is a temperature parameter that adjusts the importance of hard negatives. To facilitate loss normalization and stabilize training, we charac-terize an upper bound of the contrastive learning loss. 
+
+Theorem 6.1. The contrastive learning loss L P 
+
+> CL
+
+is upper-bounded as: L P 
+
+> CL
+
+≤ Í𝑣 ∈𝑉 log (| 𝑉 − | + 1).
+
+Proof. The bound follows from a degenerate case where the model fails to distinguish the positive sample from negative ones. That is, when the similarity between positive and negative pairs becomes indistinguishable. We have: 
+
+exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 )/ 𝜏 ) ≈ exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 ′ )/ 𝜏 ), ∀𝑣 ′ ∈ 𝑉 −
+
+Thus, the denominator in the contrastive learning loss becomes ∑︁   
+
+> 𝑣 ′∈𝑉 −
+
+exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 ′ )/ 𝜏 ) ≈ (| 𝑉 − | + 1) exp (sim (hP 
+
+> 𝑣
+
+, h𝑟 𝑣 ′ )/ 𝜏 ).
+
+Hence, the loss can be approximated as 
+
+L P 
+
+> CL
+
+≈∑︁  
+
+> 𝑣 ∈𝑉
+
+− log 1
+
+|𝑉 − | + 1 =∑︁  
+
+> 𝑣 ∈𝑉
+
+log (| 𝑉 − | + 1),
+
+which establishes the stated upper bound. □
+
+Based on the above upper bound, we normalize L P 
+
+> CL
+
+as ˆL P 
+
+> CL
+
+=     
+
+> LP
+> CL Í𝑣 ∈𝑉 log ( | 𝑉 −|+ 1)
+
+. Similarly, ˆL𝑟  
+
+> CL
+
+is defined by swapping the roles of the two views, treating h𝑟 𝑣 as the anchor and hP 
+
+> 𝑣
+
+as the positive, with the meta-path-aware embeddings of other nodes as negatives. The overall contrastive learning loss is a weighted combination of both contrastive views: 
+
+LCL = 𝜆 ˆL P 
+
+> CL
+
++ ( 1 − 𝜆 ) ˆL𝑟  
+
+> CL
+
+(7) where 𝜆 ∈ [ 0, 1] balances the effect of two aggregation functions. 
+
+6.2 Edge Reconstruction Loss 
+
+While contrastive learning enforces consistency between different aggregation views of the same node, it does not explicitly model relational structures between nodes. To complement this, we in-troduce an edge reconstruction loss that regularizes the learned representations to preserve observed cross-modal and intra-modal relationships in the graph. Specifically, we consider NL statement–Table edges and Ta-ble–Table edges in Sec. 4. A subset of these edges is randomly masked using a Bernoulli distribution, 𝐸 𝑚 ∼ Bernoulli (𝑝 ), where 
+
+𝑝 < 1 is the masking ratio. The masked edges are treated as positive samples, while an equal number of negative samples 𝐸 − are drawn from unconnected node pairs of the same types to match the corre-sponding edge types. For example, in Fig. 2, two edges, 𝑠 1-𝑡 2 and Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+Algorithm 1 Training Procedure 
+
+Input: Graph 𝐺 = (𝑉 , 𝐸 ) with 𝑉 = 𝑆 ∪ 𝑇 , training nodes 𝑆 train and 
+
+𝑇 train , validation nodes 𝑆 val and 𝑇 val ;
+
+Output: Optimized parameters Θ; 
+
+> 1:
+
+Construct contrastive samples by sampling same-type nega-tives for each 𝑣 ∈ 𝑆 train ∪ 𝑇 train for contrastive learning;  
+
+> 2:
+
+Obtain 𝐸 𝑆𝑇 including NL statement–Table edges and Ta-ble–Table edges incident to training nodes;  
+
+> 3:
+
+Sample masked edges 𝐸 𝑚 ⊂ 𝐸 𝑆𝑇 and negative edges 𝐸 − ∉ 𝐸 𝑆𝑇 ; 
+
+> 4:
+
+for each epoch do  
+
+> 5:
+
+Compute hP 
+
+> 𝑣
+
+and h𝑟 𝑣 for anchors and their negatives;  
+
+> 6:
+
+Compute LCL by Eq. 7;  
+
+> 7:
+
+Compute LER on 𝐸 𝑚 and 𝐸 − by Eq. 8;  
+
+> 8:
+
+L ← L ER + 𝛽 ∗ L CL using Eq. 9;  
+
+> 9:
+
+Update the parameters Θ by Adam optimizer based on L; 
+
+> 10:
+
+Keep the checkpoint with the best validation performance; 
+
+return Θ.
+
+𝑠 1-𝑡 5, are sampled as masked positive edges, while two unconnected pairs, ( 𝑠 1, 𝑡 1) and ( 𝑠 1, 𝑡 3), are sampled as negative edges. We define a decoder ℎ𝜔 parameterized by 𝜔 to predict the prob-ability that an edge exists between two nodes: 
+
+L+ = 1
+
+|𝐸 𝑚 |∑︁ 𝑣,𝑣 ′ ∈𝐸 𝑚 
+
+log ℎ𝜔 (hP 
+
+> 𝑣
+
+, hP 
+
+> 𝑣 ′
+
+),
+
+L− = 1
+
+|𝐸 − |∑︁ 𝑣,𝑣 ′ ∈𝐸 −
+
+log (1 − ℎ𝜔 (hP 
+
+> 𝑣
+
+, hP 
+
+> 𝑣 ′
+
+)) ,
+
+˜LER = −(L + + L − ).
+
+Here, ℎ𝜔 (hP 
+
+> 𝑣
+
+, hP 
+
+> 𝑣 ′
+
+) = sigmoid  MLP (hP 
+
+> 𝑣
+
+◦ hP 
+
+> 𝑣 ′
+
+) where MLP denotes a multi-layer perceptron and ◦ indicates element-wise multiplica-tion. We use meta-path–aware embeddings hP for edge reconstruc-tion, as they explicitly encode semantic relational patterns aligned with the reconstructed edge types. In practice, the binary cross-entropy loss can exhibit large gradi-ents when positive edges are assigned low predicted probabilities, which may destabilize training. To improve robustness and smooth optimization, we apply a logarithmic transformation to the recon-struction loss: 
+
+LER = log ( ˜LER + 1). (8) Finally, we jointly optimize the contrastive learning loss and the edge reconstruction loss: 
+
+L = LER + 𝛽 ∗ L CL (9) where 𝛽 is a hyperparameter that controls the trade-off between the two losses. Appendix A provides an example of the joint objective. 
+
+Representation Materialization and Indexing. The overall train-ing procedure is summarized in Alg. 1. The model is trained by jointly optimizing the contrastive learning loss and the edge re-construction loss. After training, the learned node representations are fixed. In particular, we use the embeddings derived from meta-path-based neighbor aggregation as semantic representations that encode relational context of target-type nodes. To enable efficient retrieval over large-scale data lakes, we mate-rialize the learned table embeddings into an approximate nearest neighbor (ANN) index. Specifically, we employ Annoy [34 ], a space-partitioning-based ANN method that provides a favorable trade-off between retrieval efficiency and accuracy, as demonstrated in prior work [ 14 ]. The index is constructed and serves as the foundation for the adaptive retrieval module described in Sec. 2.2.2. 
+
+7 Experiments 
+
+In this section, we evaluate the effectiveness and efficiency of Uni-Disc. We aim to answer the following questions. 
+
+• Q1 . How does UniDisc perform on NL-based data discovery? We evaluate UniDisc using NL queries with binary retrieval and ranked retrieval in terms of effectiveness and efficiency. (Sec. 7.2) 
+
+• Q2 . How does UniDisc perform on table-based data discovery? We assess the effectiveness and efficiency of UniDisc using tables as queries under binary retrieval and ranked retrieval. (Sec. 7.3) 
+
+• Q3 . How does UniDisc benefit downstream applications? We evaluate the impact of UniDisc on an end-to-end table-based fact verification task, analyzing accuracy and runtime. (Sec. 7.4) 
+
+• Q4 . How do key factors affect the performance of UniDisc? We study the sensitivity of UniDisc to training supervision and graph construction choices. (Sec. 7.5) 
+
+7.1 Experimental Setup 
+
+Datasets. We evaluate UniDisc on seven datasets supporting three research scenarios. Their statistics are summarized in Table 1. 
+
+• Pharma , ML-Open , and UK-Open are sourced from CMDL [ 14 ], a state-of-the-art cross-modal data discovery system that supports both NL-based and table-based discovery. These datasets were cu-rated by the authors of CMDL and are widely used as benchmarks for evaluating cross-modal data discovery across diverse domains. 
+
+Pharma contains tables from the DrugBank database [ 13 ] together with a corpus of PubMed abstracts referenced by DrugBank entries. For example, rows in tables such as “Drug” and “Enzyme” include citations to related abstracts. ML-Open consists of machine learning datasets, including both tabular and textual data collected from open data portals such as Kaggle and OpenML. UK-Open contains UK government open data in CSV format, paired with synthetic textual descriptions generated by the authors of CMDL. 
+
+• GeoQuery [39 ], Atis [39 ], and MMQA [ 55 ] are standard bench-marks for table question answering (QA). GeoQuery and Atis focus on domain-specific settings – U.S. geography and flight booking, re-spectively – and have been widely adopted in prior work to evaluate table QA methods [ 39 ]. In contrast, MMQA is a large-scale bench-mark designed for comprehensive evaluation of table QA across domains. It spans 200 databases covering 138 domains, each con-taining multiple interrelated tables, and poses significant challenges for cross-domain reasoning and complex question understanding. 
+
+• TabFact [ 7] is a widely used benchmark for table-based fact veri-fication. It consists of Wikipedia tables paired with crowd-sourced factual claims labeled as either supported or refuted. Our experi-ments focus on simple claims that describe single-table rows, as complex claims are often artificially constructed and tend to reflect factual expressions less faithfully than straightforward claims [6]. 
+
+Evaluation Metrics. For binary retrieval, we evaluate effectiveness using precision , recall , and F1 score . For ranked retrieval, we report 
+
+precision@ 𝑘 and recall@ 𝑘 in terms of effectiveness. We evaluate efficiency in terms of training time , training memory usage , and 
+
+average inference time per query .Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+Table 1: Statistical properties for the datasets                         
+
+> Datasets # NL statements # tables Query modality Pharma 1380 82 NL statement, table ML-Open 1501 158 NL statement, table UK-Open 2360 654 NL statement GeoQuery 832 7NL statement Atis 515 11 NL statement MMQA 3313 553 NL statement TabFact 49850 9181 NL statement
+
+Implementation Details. By default, each dataset is split into training, validation, and test sets with a ratio of 20% / 20% / 60%. We set 𝐾 = 10 for top-𝐾 Table-Table and NL statement-NL statement neighbor construction. We initialize content features for both NL statements and tables using a pretrained BERT model [ 10 ]. The node embedding dimension is set to 128. We train the model for 50 epochs using Adam with a learning rate of 0.0008. Unless otherwise specified, we set 𝑟 = 3, 𝜏 = 0.07 , 𝜆 = 0.5, and 𝛽 = 0.5 for the cross-modal representation module. For binary retrieval, the candidate size is set to 50% of the total number of tables in each dataset. All experiments are conducted on a server running Red Hat Enterprise Linux with a 2.60GHz Intel ® Xeon ® CPU, 512GB memory, and two NVIDIA Tesla P100 GPUs (16GB each). 
+
+7.2 NL-based Data Discovery (Q1) 
+
+We compare UniDisc with the following baselines: 
+
+• Variants of UniDisc . We consider three variants: UniDisc linear 
+
+replaces the Bi-LSTM node content encoder with a linear trans-formation; UniDisc noCL removes the contrastive learning loss; and UniDisc noER removes the edge reconstruction loss. 
+
+• CMDL [ 14 ]. A state-of-the-art cross-modal data discovery system supporting both NL-based and table-based discovery. 
+
+• Llama4-Scout [ 36 ]. A large language model with an industry-leading 10M-token context window. 
+
+• MTR-TableLlama [55 ]. A state-of-the-art method identifies rele-vant tables for multi-table QA. It is the first to explicitly perform multi-table retrieval as part of an end-to-end QA pipeline. 
+
+• Pneuma [2 ]. A state-of-the-art method for retrieving the most relevant table in single-table QA. 
+
+• PASTA [ 22 ]. A state-of-the-art method for table-based fact verifi-cation that predicts whether a table supports or refutes a claim. We adapt it for relevance prediction by fine-tuning on TabFact with relabeled (claim, table) pairs. We compare UniDisc with CMDL and Llama4-Scout on all seven datasets, as they support general-purpose NL-based data discovery. MTR-TableLlama and Pneuma are evaluated on the three table QA datasets (Atis, GeoQuery, and MMQA), as they are specifically designed for table QA. PASTA is evaluated on the TabFact dataset, which focuses on table-based fact verification. 
+
+7.2.1 Binary Retrieval. We first evaluate the effectiveness and effi-ciency of UniDisc under binary retrieval. 
+
+Task Implementation. Binary retrieval requires predicting binary relevance for each (query, table) pair. Accordingly, we adapt appli-cable baselines to this setting. The adapted PASTA directly predicts binary relevance for (query, table) pairs. For Llama4-Scout , we adopt a prompting-based relevance prediction strategy following prior work on LLM-based retrieval [ 1], where the model is prompted to determine whether a table is relevant to a query and outputs a binary label. CMDL is originally designed to produce column-level embeddings. To enable table-level relevance prediction, we apply mean pooling over column embeddings to obtain table rep-resentations and use our binary retrieval method. Since the code of MTR-TableLlama is not publicly available, we re-implement it by following the pipeline suggested by the original authors [ 55 ]. Specifically, each query is decomposed into sub-questions using GPT-4-turbo [21] with the prompting strategy in [55], augmented with examples from [ 54 ], and both tables and sub-questions are encoded by fine-tuning TableLlama-7B [ 62 ] with LoRA [ 26 ] on WikiTableQuestions [ 40 ]. To support binary retrieval, we represent each query by averaging the embeddings of its sub-questions and apply our binary retrieval method. We do not include Pneuma , as it is specifically designed for top-𝑘 retrieval by combining multiple relevance signals and does not support binary relevance prediction. 
+
+Effectiveness . Table 2 summarizes effectiveness results. Observe that: (1) UniDisc and its variants consistently outperform CMDL across all datasets in precision, recall, and F1, with improvements up to 200%. Although Llama4-Scout achieves higher recall on some datasets, UniDisc yields better precision and F1, suggesting that they can generalize across domains and effectively model the rela-tionship between NL statements and tables. (2) On table QA datasets (Atis, GeoQuery, MMQA), UniDisc surpasses MTR-TableLlama by up to 70%, demonstrating stronger retrieval of question-relevant tables. (3) UniDisc is competitive with PASTA on TabFact, show-ing its ability to support fact verification. (4) UniDisc outperforms UniDisc linear , confirming the benefit of Bi-LSTM encoders for cap-turing contextual signals across columns. (5) UniDisc outperforms UniDisc noCL and UniDisc noER , validating that the joint optimization objective leads to more robust and discriminative node embeddings. 
+
+Efficiency . We evaluate the efficiency of the compared methods across three key aspects of training time, training memory usage, and average inference time per query. Note that Llama4-Scout is used in a zero-shot setting via prompting and is not fine-tuned, and thus we report only its inference time. 
+
+• Training time . For PASTA, training time refers to the average per-epoch fine-tuning time. For MTR-TableLlama, it includes both the average per-epoch fine-tuning time and the additional MLP training time. For UniDisc, its variants, and CMDL, it includes the average per-epoch model training time plus MLP overhead. As shown in Fig. 6(a): (1) UniDisc and its variants consistently require less train-ing time compared to other methods across all datasets. Compared to the strongest baseline, CMDL, UniDisc achieves at least a 10% reduction in training time and up to a 2 × speedup in some cases, demonstrating high computational efficiency. (2) UniDisc is three orders of magnitude faster than MTR-TableLlama and an order of magnitude faster than PASTA, reflecting the substantial overhead of large pretrained language models used in MTR-TableLlama and PASTA. (3) UniDisc linear is the fastest variant, as it replaces the Bi-LSTM with a linear encoder and thus avoids modeling inter-content dependencies and contextual information. Similarly, UniDisc noCL 
+
+and UniDisc noER train faster than UniDisc, since optimizing a single loss is less computationally intensive than joint optimization. 
+
+• Training memory usage . As shown in Fig. 6(b), UniDisc, its variants, and CMDL consume substantially less memory than other methods, with CMDL requiring up to 30% more memory than UniDisc. In Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+Table 2: Effectiveness of binary retrieval for NL-based data discovery (P represents precision, R represents recall) 
+
+Method Pharma ML-Open UK-Open GeoQuery Atis MMQA TabFact P R F1 P R F1 P R F1 P R F1 P R F1 P R F1 P R F1 CMDL 0.82 0.996 0.683 0.905 0.537 0.674 0.507 0.852 0.636 0.501 0.802 0.616 0.499 0.898 0.642 0.463 0.255 0.329 0.428 0.163 0.236 UniDisc 0.974 1 0.987 0.967 1 0.983 0.987 0.998 0.992 0.625 0.878 0.73 0.772 0.934 0.845 0.663 0.772 0.713 0.665 0.994 0.797 UniDisc linear 0.958 1 0.978 0.94 1 0.969 0.978 0.989 0.983 0.615 0.862 0.718 0.705 0.802 0.751 0.623 0.708 0.663 0.638 0.968 0.769 UniDisc noCL 0.968 1 0.984 0.956 1 0.978 0.984 0.996 0.99 0.62 0.87 0.724 0.762 0.897 0.824 0.645 0.756 0.696 0.649 0.97 0.778 UniDisc noER 0.96 1 0.979 0.951 1 0.975 0.98 0.99 0.985 0.619 0.866 0.722 0.756 0.891 0.818 0.637 0.757 0.692 0.657 0.962 0.781 Llama4-Scout 0.822 1 0.902 0.815 1 0.898 0.754 0.967 0.847 0.502 0.975 0.663 0.591 0.941 0.726 0.439 0.863 0.582 0.518 0.985 0.679 MTR-TableLlama N/A N/A N/A N/A N/A N/A N/A N/A N/A 0.478 0.827 0.606 0.528 0.834 0.647 0.512 0.355 0.419 N/A N/A N/A PASTA N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A N/A 0.731 0.899 0.806 CMDL UniDisc UniDisc      
+
+> linear UniDisc
+> noCL UniDisc
+> noER Llama4-Scout MTR -TableLlama PAST APharma
+> ML- Open
+> UK - Open
+> GeoQuery
+> Atis
+> MMQA
+> TabF act
+> 10
+> 1
+> 10
+> 2
+> 10
+> 3
+> 10
+> 4
+> Training  Time  (s)
+
+(a) Training time Pharma  
+
+> ML- Open
+> UK - Open
+> GeoQuery
+> Atis
+> MMQA
+> TabF act
+> 10
+> 2
+> 10
+> 3
+> 10
+> 4
+> Memory  Usage  (MB)
+
+(b) Training memory usage Pharma  
+
+> ML- Open
+> UK - Open
+> GeoQuery
+> Atis
+> MMQA
+> TabF act
+> 10
+>  
+> 
+>  
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+> 
+>     Time  (s)
+
+(c) Average inference time per query 
+
+Figure 6: Efficiency of binary retrieval for NL-based data discovery. 
+
+contrast, MTR-TableLlaMa and PASTA incur significantly higher memory usage – by three and one orders of magnitude, respectively – due to the storage demands of their large language models. 
+
+• Inference time . PASTA and Llama4-Scout evaluate each query against all tables to predict binary relevance, whereas other meth-ods adopt our binary retrieval method. For fairness, we report inference time as the amortized per-query cost, computed as the total time of (i) one-time table embedding generation and (ii) ex-ecuting table relevance evaluation for all queries, divided by the number of queries. As shown in Fig. 6(c): (1) UniDisc and its vari-ants consistently achieve the lowest inference time, with at least a 10% reduction and up to a 2 × speedup over the strongest baseline, CMDL. (2) Llama4-Scout exhibits the highest inference time, being at least three orders of magnitude slower due to its 17B-parameter model and long input prompts. (3) MTR-TableLlaMa and PASTA also incur substantially higher inference costs – approximately two and one orders of magnitude more, respectively – owing to their more complex model architectures for embedding generation. (4) UniDisc, UniDisc noCL , and UniDisc noER have identical inference costs, as they share the same model architecture. 
+
+Discussion . In summary, UniDisc and its variants consistently outperform competing methods in both effectiveness and efficiency. UniDisc achieves the best overall effectiveness, while UniDisc linear is the most efficient, enabling flexible trade-offs between performance and computational cost. Although Llama4-Scout and PASTA attain slightly higher effectiveness in some cases, UniDisc offers a more favorable balance between effectiveness and efficiency. Across datasets, Pharma is relatively easier due to stronger lexical overlap and explicit links between NL statements and tables (e.g., DrugBank citations), resulting in smaller performance gaps. In contrast, MMQA and TabFact are more challenging due to weaker lexical alignment, requiring models to leverage contextual and structural signals. Despite this increased difficulty, UniDisc remains the top-performing model by effectively exploiting graph structure and multi-type neighborhood information. MTR-TableLlama Pneuma UniDisc 0.2 0.4 0.6 0.8 1.0 Recall 
+
+> 0.10
+> 0.12
+> 0.14
+> 0.16
+> 0.18
+> 0.20
+> 0.22 Precision  k=3 k=8
+
+(a) GeoQuery 0.2 0.4 0.6 0.8 1.0 Recall   
+
+> 0.20
+> 0.23
+> 0.25
+> 0.28
+> 0.30
+> 0.33
+> 0.35
+> 0.38
+> 0.40 Precision
+> k=5 k=10
+
+(b) Atis 0.2 0.4 0.6 0.8 1.0 Recall   
+
+> 0.05
+> 0.10
+> 0.15
+> 0.20
+> 0.25
+> 0.30
+> 0.35
+> 0.40 Precision
+> k=10 k=100
+
+(c) MMQA 3 4 5 6 7 8k
+
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5 Inference Time (s)
+
+(d) GeoQuery 5 6 7 8 9 10 k 
+
+> 0.0
+> 0.5
+> 1.0
+> 1.5
+> 2.0
+> 2.5 Inference Time (s)
+
+(e) Atis 20 40 60 80 100 k 
+
+> 0
+> 5
+> 10
+> 15
+> 20
+> 25
+> 30
+> 35
+> 40 Inference Time (s)
+
+(f) MMQA 
+
+Figure 7: Evaluation of ranked retrieval for NL-based data discovery. 
+
+7.2.2 Ranked Retrieval. In this section, we evaluate the effective-ness and efficiency of UniDisc under ranked retrieval. 
+
+Task Implementation. We consider three table QA datasets – Atis, GeoQuery, and MMQA, as table question answering is a rep-resentative downstream application for ranked retrieval in prior work [ 2 , 51 , 55 ]. Accordingly, we compare UniDisc against two state-of-the-art table retrieval methods for table QA: MTR-TableLlama and Pneuma. Pneuma follows its original pipeline and retrieves the top-𝑘 most relevant tables for single-table QA, outperforming earlier methods such as Solo [ 51 ]. MTR-TableLlama performs multi-table retrieval by decomposing each input question into multiple sub-questions, encoding them using a fine-tuned TableLlama model (as described in Sec. 7.2.1), and retrieving the top-𝑘 most relevant tables via 𝑛 independent retrieval rounds, one for each sub-question. The range of 𝑘 in ranked retrieval varies across datasets due to differences in the number of available tables. As recall approaches one when nearly all tables are retrieved, excessively large 𝑘 values become uninformative. Accordingly, we set the maximum 𝑘 to 10 for Atis and 8 for GeoQuery, which are close to their respective table counts. For MMQA, which contains 553 tables, UniDisc reaches full recall at 𝑘 = 100 ; we therefore set the maximum 𝑘 to 100. Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+Table 3: Effectiveness of binary retrieval for table-based data discovery                                           
+
+> Method Pharma ML-Open PRF1 PRF1 CMDL 0.815 0.856 0.835 0.865 0.832 0.848 UniDisc 0.956 10.977 0.965 10.982
+> UniDisc linear 0.939 10.968 0.942 10.97 UniDisc noCL 0.948 10.973 0.952 10.975 UniDisc noER 0.95 10.974 0.958 10.979 CMDL UniDisc UniDisc
+> linear UniDisc
+> noCL UniDisc
+> noER Pharma ML- Open
+> 0.00
+> 0.02
+> 0.04
+> 0.06
+> 0.08
+> 0.10 Infer ence  Time  (s)
+
+Figure 8: Average inference time per query of binary retrieval for table-based data discovery. Effectiveness. As shown in Figs. 7(a)–7(c), UniDisc consistently outperforms MTR-TableLlaMa and Pneuma in both precision and recall under ranked retrieval. In particular, UniDisc reaches full recall at smaller values of 𝑘 . This indicates that UniDisc more ef-fectively identifies question-relevant tables when only a limited number of tables are returned, thereby increasing the likelihood of accurate answer generation in table QA. 
+
+Efficiency. Since Pneuma does not involve model training and directly invokes LLMs for table representation, we focus on infer-ence time. As these methods adopt different embedding generation strategies, inference time is reported as the amortized per-query cost, computed by dividing the sum of the one-time table embedding generation and the total retrieval time by the number of queries. As illustrated in Figs. 7(d)–7(f), UniDisc achieves up to two orders of magnitude speedup over MTR-TableLlaMa and up to three orders of magnitude speedup over Pneuma, with increasing 𝑘 having a negligible impact on inference time. This is because inference is dominated by embedding generation rather than retrieval. UniDisc generates embeddings substantially more efficiently than MTR-TableLlaMa and Pneuma, both of which rely on large foundation models. For example, on MMQA, UniDisc requires about 100ms for embedding generation and only a few milliseconds for retrieval, whereas MTR-TableLlaMa and Pneuma require approximately 10s and 39s for embedding generation, respectively; table retrieval for both methods takes only milliseconds to sub-second time. 
+
+7.3 Table-based Data Discovery (Q2) 
+
+We compare UniDisc with CMDL [ 14 ] on Pharma and ML-Open, as CMDL supports table-based discovery and provides ground-truth (table, table) relevance labels for these two datasets, enabling a fair comparison. 
+
+7.3.1 Binary Retrieval. We adapt CMDL to this setting by following the binary retrieval setup used for NL-based discovery in Sec. 7.2.1. 
+
+Effectiveness. The effectiveness results are reported in Table 3. UniDisc and its variants consistently outperform CMDL on both datasets, achieving up to a 17% improvement. This demonstrates UniDisc’s ability to learn discriminative table representations that bring semantically related tables closer while separating irrele-vant ones in the embedding space. UniDisc also achieves better CMDL UniDisc 0.2 0.4 0.6 0.8 1.0 Recall                       
+
+> 0.62
+> 0.64
+> 0.66
+> 0.68
+> 0.70
+> 0.72
+> 0.74
+> 0.76 Precision
+> k=2 k=10
+> (a) Pharma 0.2 0.4 0.6 0.8 1.0 Recall
+> 0.55
+> 0.60
+> 0.65
+> 0.70 Precision
+> k=2 k=10 (b) ML-Open 2345678910 k
+> 0.04
+> 0.05
+> 0.06
+> 0.07
+> 0.08 Inference Time (s)
+> (c) Pharma 2345678910 k
+> 0.07
+> 0.08
+> 0.09
+> 0.10
+> 0.11 Inference Time (s) (d) ML-Open
+
+Figure 9: Evaluation of ranked retrieval for table-based data discovery. Table 4: End-to-end evalution for table-based fact verification             
+
+> Methods Precision Recall F1 Total inference time OpenTFV 0.618 0.687 0.651 2261s UniDisc 0.623 0.688 0.654 13s
+
+performance than all variants – UniDisc linear , UniDisc noCL , and UniDisc noER – highlighting the benefits of using a Bi-LSTM encoder for table content and jointly optimizing the contrastive learning and edge reconstruction objectives. Together, these design choices contribute to more informative and robust table representations. 
+
+Efficiency. Since training time and memory usage have been re-ported in Figs. 6(a) and 6(b), we focus on average inference time per query, as shown in Fig. 8. Consistent with the NL-based data discovery setting, UniDisc and its variants achieve at least 30% lower inference latency than CMDL across both datasets. 
+
+7.3.2 Ranked Retrieval. To support ranked retrieval with CMDL, we follow its original design by computing relevance scores be-tween the query embedding and individual column embeddings of each candidate table, and aggregating these scores to rank tables. 
+
+Results. As shown in Figs. 9(a)–9(b), UniDisc consistently achieves higher precision and recall than CMDL across different values of 
+
+𝑘 , and reaches full recall at 𝑘 = 10 , demonstrating its effectiveness for table-based data discovery under ranked retrieval. These results indicate that even when users request only a limited number of tables, UniDisc is more likely to retrieve the relevant ones. In terms of efficiency, Figs. 9(c)–9(d) further show that UniDisc incurs lower inference latency than CMDL, achieving up to a 75% speedup, which further highlights the efficiency of our framework. 
+
+7.4 Downstream Application (Q3) 
+
+UniDisc is designed as a fundamental building block for down-stream tasks that rely on effective data discovery. In this section, we use table-based fact verification as a representative application to illustrate how UniDisc supports high-quality table retrieval. Ta-ble question answering is another representative application, and we have already demonstrated the strong performance of UniDisc in retrieving question-relevant tables in Sec. 7.2.2. In table-based fact verification, the goal is to determine whether a given factual claim is supported or refuted by a table. Most prior Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+Table 5: Impact of training set size (“Size” indicates the per-centage of the entire dataset used for training)                                                                                                                         
+
+> Dataset Size UniDisc CMDL PASTA PRF1 PRF1 PRF1 UK-Open 1% 0.968 0.991 0.979 0.457 0.785 0.577 N/A N/A N/A 5% 0.979 0.994 0.986 0.466 0.799 0.588 N/A N/A N/A 10% 0.982 0.997 0.989 0.487 0.829 0.613 N/A N/A N/A 20% 0.987 0.998 0.992 0.507 0.852 0.636 N/A N/A N/A MMQA 1% 0.65 0.753 0.698 0.367 0.201 0.26 N/A N/A N/A 5% 0.653 0.761 0.703 0.422 0.213 0.283 N/A N/A N/A 10% 0.661 0.768 0.71 0.446 0.241 0.313 N/A N/A N/A 20% 0.663 0.772 0.713 0.463 0.255 0.329 N/A N/A N/A TabFact 1% 0.655 0.965 0.78 0.351 0.122 0.181 0.675 0.879 0.764 5% 0.659 0.979 0.788 0.374 0.131 0.194 0.699 0.881 0.779 10% 0.661 0.989 0.792 0.408 0.158 0.228 0.718 0.891 0.795 20% 0.665 0.994 0.797 0.428 0.163 0.236 0.731 0.899 0.806
+
+work focuses on the verification step, assuming that the relevant table is already available [ 6 , 7 , 22 ]. In contrast, UniDisc retrieves claim-relevant tables, which can be paired with existing verification models. OpenTFV [ 23 ] adopts a similar two-stage approach: key-word matching retrieves the top-𝑘 tables ( 𝑘 = 10 in our setting) for high recall, followed by semantic re-ranking and final verification using models like LPA [7]. We compare UniDisc with OpenTFV on TabFact using this retrieval-and-verification pipeline, where both methods employ the state-of-the-art PASTA model [ 22 ] for fact verification to ensure a fair comparison. As shown in Table 4, UniDisc achieves superior end-to-end verification performance compared to OpenTFV. This im-provement stems from more effective retrieval of relevant evidence tables, which directly enhances verification accuracy. In addition, UniDisc achieves substantially lower total inference time across all queries, with up to two orders of magnitude speedup, as OpenTFV relies on TAPAS [ 25 ], a large pre-trained model for embedding generation that incurs significant computational overhead. 
+
+7.5 Sensitivity Analysis (Q4) 
+
+In this section, we analyze the sensitivity of UniDisc with respect to the training set size and the number of neighbor links ( 𝐾 ) used in graph construction. 
+
+Impact of training set size. As discussed in Sec. 1, UniDisc is designed to achieve strong performance under limited supervision. To evaluate this property, we examine how its performance varies with different training set sizes and compare it against relevant baselines under the same training conditions. We select three datasets – UK-Open, MMQA, and TabFact – that involve diverse types of NL statements and were among the more challenging cases in our earlier experiments (Sec. 7.2). We focus on comparing UniDisc with CMDL across three datasets, as CMDL is trained using the same training splits and thus allows for a fair comparison under varying training sizes. Although Llama4-Scout and MTR-TableLlama were included in earlier experiments on MMQA, we exclude them because they are trained or fine-tuned in prior work and are not adapted to our training data, making them unsuitable for this evaluation. For TabFact, we additionally include PASTA, which is fine-tuned on our training data and serves as a strong baseline for table-based fact verification. As shown in Table 5, UniDisc consistently outperforms CMDL across all three datasets in terms of precision, recall, and F1 score, even when trained on smaller subsets of the data. On TabFact, Uni-Disc achieves competitive performance compared to PASTA. While 
+
+Table 6: Impact of the number of neighbor links 𝐾                                                         
+
+> KUK-Open MMQA TabFact PRF1 PRF1 PRF1 10.984 0.996 0.990 0.660 0.767 0.710 0.661 0.992 0.794 50.986 0.997 0.992 0.661 0.770 0.712 0.663 0.993 0.795 10 0.987 0.998 0.992 0.663 0.772 0.713 0.665 0.994 0.797 15 0.988 0.999 0.994 0.665 0.773 0.715 0.667 0.995 0.798 20 0.989 0.999 0.994 0.666 0.775 0.716 0.668 0.996 0.799
+
+PASTA attains higher precision, UniDisc consistently yields sub-stantially higher recall. Notably, when trained on only 1% or 5% of the full dataset, UniDisc surpasses PASTA in F1 score, highlight-ing its advantage under limited supervision. Overall, these results demonstrate the robustness of UniDisc in low-resource settings, where only a small number of labeled examples are available. 
+
+Impact of the number of neighbor links 𝐾 . We evaluate the sensitivity of UniDisc to the number of neighbor links 𝐾 using three datasets – UK-Open, MMQA, and TabFact. As shown in Table 6, increasing 𝐾 leads to modest improvements in precision, recall, and F1 score. However, the overall impact is limited, and UniDisc main-tains strong performance even when 𝐾 = 1. This result suggests that while richer contextual connectivity can benefit data discovery, UniDisc remains robust to sparse graph construction. 
+
+8 Related Work 
+
+Data discovery in data lakes . A substantial body of work has focused on data discovery in data lakes, primarily using either an exemplar table [ 3, 11 , 12 , 17 , 38 , 65 ] or keywords [ 4 , 8, 46 , 61 ] as input. They typically support a single query modality and assume a specific user intent, leveraging similarity signals such as value overlap [ 65 ], schema similarity [ 38 ], or distances between learned embeddings [ 11 , 12 ]. Systems such as Aurum [ 17 ] and D3L [ 3]further combine multiple signals to improve retrieval accuracy. More recent studies [ 9, 14 , 16 , 31 , 50 ] explore using unstructured text as queries, but they are still designed around specific user intents (e.g., open-ended text enrichment [ 9 , 31 ]). Among these, CMDL [ 14 ] is most closely related to our work, as it supports both table- and NL-based queries. However, CMDL assumes a targeted intent for each query type and does not generalize to diverse intents. In contrast, UniDisc accommodates diverse intents within a unified framework and consistently outperforms CMDL on both NL- and table-based discovery. 
+
+Table question answering . Table retrieval for question answering (QA) is a prominent user intent in data discovery, where the goal is to retrieve one or multiple tables required to answer a query. However, most existing work on table QA assumes that the rele-vant tables are already provided and focuses primarily on answer generation [ 25 , 35 , 57 , 63 ]. Only a few studies explicitly address table retrieval. Single-table retrieval methods such as Solo [ 51 ]and Pneuma [ 2] aim to identify a single table that can answer a question. For multi-table QA, MTR-TableLLaMa [ 55 ] decomposes complex questions into sub-questions and retrieves tables itera-tively before answer generation. In contrast, UniDisc is designed as a unified table retrieval framework that directly supports this user intent. By jointly modeling relationships between questions and tables, UniDisc enables holistic retrieval without explicit question decomposition. Experimental results show that UniDisc consis-tently outperforms MTR-TableLLaMa and Pneuma in retrieving Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+relevant tables, demonstrating its effectiveness in supporting table QA through robust data discovery. Beyond the closely related work discussed above, we discuss addi-tional related topics, including table-based fact verification [ 6 , 22 ,23 , 25 , 60 , 64 ], NL-to-SQL [ 20 , 32 , 33 , 45 , 47 ] and heterogeneous graph neural networks [18, 27, 52, 53, 56, 59], in Appendix B. 
+
+9 Conclusion 
+
+We introduced UniDisc, a unified data discovery framework for data lakes that supports both natural language statements and tables as queries, while generalizing across diverse user intents in discovery scenarios, such as open-ended enrichment and task-driven infer-ence. At its core, UniDisc employs a cross-modal representation module that learns unified embeddings for NL statements and tables via a graph learning model under limited supervision, by exploit-ing naturally occurring contextual relationships in data lakes to substantially reduce reliance on large collections of labeled (query, table) pairs. These learned embeddings are materialized and in-dexed, enabling an adaptive retrieval module to efficiently support both binary and ranked retrieval across diverse discovery scenarios. Extensive experiments on seven real-world datasets demonstrate that UniDisc enables effective and efficient data discovery for both NL- and table-based queries, consistently outperforming strong baselines on downstream tasks such as table question answering and table-based fact verification, while remaining robust under limited supervision and sparse graph structures. Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+References 
+
+[1] Negar Arabzadeh and Charles L. A. Clarke. 2025. Benchmarking LLM-based Relevance Judgment Methods. In SIGIR . 3194–3204. [2] Muhammad Imam Luthfi Balaka, David Alexander, Qiming Wang, Yue Gong, Adila Krisnadhi, and Raul Castro Fernandez. 2025. Pneuma: Leveraging LLMs for Tabular Data Representation and Retrieval in an End-to-End System. Proc. ACM Manag. Data 3, 3 (2025), 200:1–200:28. [3] Alex Bogatu, Alvaro A. A. Fernandes, Norman W. Paton, and Nikolaos Konstanti-nou. 2020. Dataset Discovery in Data Lakes. In ICDE . 709–720. [4] Dan Brickley, Matthew Burgess, and Natasha F. Noy. 2019. Google Dataset Search: Building a search engine for datasets in an open Web ecosystem. In 
+
+WWW . 1365–1375. [5] Sonia Castelo, Rémi Rampin, Aécio S. R. Santos, Aline Bessa, Fernando Chirigati, and Juliana Freire. 2021. Auctus: A Dataset Search Engine for Data Discovery and Augmentation. Proc. VLDB Endow. 14, 12 (2021), 2791–2794. [6] Mingke Chai, Zihui Gu, Xiaoman Zhao, Ju Fan, and Xiaoyong Du. 2021. TFV: A Framework for Table-Based Fact Verification. IEEE Data Eng. Bull. 44, 3 (2021), 39–51. [7] Wenhu Chen, Hongmin Wang, Jianshu Chen, Yunkai Zhang, Hong Wang, Shiyang Li, Xiyou Zhou, and William Yang Wang. 2020. TabFact: A Large-scale Dataset for Table-based Fact Verification. In ICLR .[8] Zhiyu Chen, Mohamed Trabelsi, Jeff Heflin, Yinan Xu, and Brian D. Davison. 2020. Table Search Using a Deep Contextualized Language Model. In SIGIR . 589–598. [9] Levy de Souza Silva and Luciano Barbosa. 2023. Matching news articles and wikipedia tables for news augmentation. Knowl. Inf. Syst. 65, 4 (2023), 1713–1734. [10] Jacob Devlin, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2019. BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding. In 
+
+NAACL-HLT . 4171–4186. [11] Yuyang Dong, Kunihiro Takeoka, Chuan Xiao, and Masafumi Oyamada. 2021. Efficient Joinable Table Discovery in Data Lakes: A High-Dimensional Similarity-Based Approach. In ICDE . 456–467. [12] Yuyang Dong, Chuan Xiao, Takuma Nozawa, Masafumi Enomoto, and Masafumi Oyamada. 2023. DeepJoin: Joinable Table Discovery with Pre-trained Language Models. Proc. VLDB Endow. 16, 10 (2023), 2458–2470. [13] DrugBank. 2024. https://www.drugbank.com/ [14] Mohamed Y. Eltabakh, Mayuresh Kunjir, Ahmed K. Elmagarmid, and Moham-mad Shahmeer Ahmad. 2023. Cross Modal Data Discovery over Structured and Unstructured Data Lakes. Proc. VLDB Endow. 16, 11 (2023), 3377–3390. [15] Grace Fan, Jin Wang, Yuliang Li, Dan Zhang, and Renée J. Miller. 2023. Semantics-aware Dataset Discovery from Data Lakes with Contextualized Column-based Representation Learning. Proc. VLDB Endow. 16, 7 (2023), 1726–1739. [16] Yanlin Feng, Sajjadur Rahman, Aaron Feng, Vincent Chen, and Eser Kandogan. 2024. CMDBench: A Benchmark for Coarse-to-fine Multimodal Data Discovery in Compound AI Systems. In GUIDE-AI@SIGMOD . 16–25. [17] Raul Castro Fernandez, Ziawasch Abedjan, Famien Koko, Gina Yuan, Samuel Madden, and Michael Stonebraker. 2018. Aurum: A Data Discovery System. In 
+
+ICDE . 1001–1012. [18] Xinyu Fu, Jiani Zhang, Ziqiao Meng, and Irwin King. 2020. Magnn: Metapath aggregated graph neural network for heterogeneous graph embedding. In WWW .2331–2341. [19] Sainyam Galhotra, Yue Gong, and Raul Castro Fernandez. 2023. Metam: Goal-Oriented Data Discovery. In ICDE . 2780–2793. [20] Dawei Gao, Haibin Wang, Yaliang Li, Xiuyu Sun, Yichen Qian, Bolin Ding, and Jingren Zhou. 2024. Text-to-SQL Empowered by Large Language Models: A Benchmark Evaluation. Proc. VLDB Endow. 17, 5 (2024), 1132–1145. [21] GPT-4. 2024. https://openai.com/research/gpt-4 [22] Zihui Gu, Ju Fan, Nan Tang, Preslav Nakov, Xiaoman Zhao, and Xiaoyong Du. 2022. PASTA: Table-Operations Aware Fact Verification via Sentence-Table Cloze Pre-training. In EMNLP . 4971–4983. [23] Zihui Gu, Ruixue Fan, Xiaoman Zhao, Meihui Zhang, Ju Fan, and Xiaoyong Du. 2022. OpenTFV: An Open Domain Table-Based Fact Verification System. In 
+
+SIGMOD . 2405–2408. [24] Yuxiang Guo, Yuren Mao, Zhonghao Hu, Lu Chen, and Yunjun Gao. 2025. Snoopy: Effective and Efficient Semantic Join Discovery via Proxy Columns. IEEE Trans. Knowl. Data Eng. 37, 5 (2025), 2971–2985. [25] Jonathan Herzig, Pawel Krzysztof Nowak, Thomas Müller, Francesco Piccinno, and Julian Martin Eisenschlos. 2020. TaPas: Weakly Supervised Table Parsing via Pre-training. In ACL . 4320–4333. [26] Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. 2022. LoRA: Low-Rank Adaptation of Large Language Models. In ICLR .[27] Ziniu Hu, Yuxiao Dong, Kuansan Wang, and Yizhou Sun. 2020. Heterogeneous Graph Transformer. In WWW . 2704–2710. [28] Aamod Khatiwada, Grace Fan, Roee Shraga, Zixuan Chen, Wolfgang Gatter-bauer, Renée J. Miller, and Mirek Riedewald. 2023. SANTOS: Relationship-based Semantic Table Union Search. Proc. ACM Manag. Data 1, 1 (2023), 9:1–9:25. [29] Thomas N. Kipf and Max Welling. 2017. Semi-Supervised Classification with Graph Convolutional Networks. In ICRL .[30] Kezhi Kong, Jiani Zhang, Zhengyuan Shen, Balasubramaniam Srinivasan, Chuan Lei, Christos Faloutsos, Huzefa Rangwala, and George Karypis. 2024. OpenTab: Advancing Large Language Models as Open-domain Table Reasoners. In ICLR .[31] Alyssa Lees, Luciano Barbosa, Flip Korn, Levy de Souza Silva, You Wu, and Cong Yu. 2021. Collocating News Articles with Structured Web Tables. In Companion of The Web Conference . 393–401. [32] Fei Li and H. V. Jagadish. 2014. Constructing an Interactive Natural Language Interface for Relational Databases. Proc. VLDB Endow. 8, 1 (2014), 73–84. [33] Jinyang Li, Binyuan Hui, Ge Qu, Jiaxi Yang, Binhua Li, Bowen Li, Bailin Wang, Bowen Qin, Ruiying Geng, Nan Huo, Xuanhe Zhou, Chenhao Ma, Guoliang Li, Kevin Chen-Chuan Chang, Fei Huang, Reynold Cheng, and Yongbin Li. 2023. Can LLM Already Serve as A Database Interface? A BIg Bench for Large-Scale Database Grounded Text-to-SQLs. In NIPS .[34] Wen Li, Ying Zhang, Yifang Sun, Wei Wang, Mingjie Li, Wenjie Zhang, and Xuemin Lin. 2020. Approximate Nearest Neighbor Search on High Dimensional Data - Experiments, Analyses, and Improvement. IEEE Trans. Knowl. Data Eng. 
+
+32, 8 (2020), 1475–1488. [35] Qian Liu, Bei Chen, Jiaqi Guo, Morteza Ziyadi, Zeqi Lin, Weizhu Chen, and Jian-Guang Lou. 2022. TAPEX: Table Pre-training via Learning a Neural SQL Executor. In ICLR .[36] Llama4-Scout. 2025. https://www.llama.com/models/llama-4/ [37] Fatemeh Nargesian, Erkang Zhu, Renée J. Miller, Ken Q. Pu, and Patricia C. Arocena. 2019. Data Lake Management: Challenges and Opportunities. Proc. VLDB Endow. 12, 12 (2019), 1986–1989. [38] Fatemeh Nargesian, Erkang Zhu, Ken Q. Pu, and Renée J. Miller. 2018. Table Union Search on Open Data. Proc. VLDB Endow. 11, 7 (2018), 813–825. [39] Vaishali Pal, Andrew Yates, Evangelos Kanoulas, and Maarten de Rijke. 2023. MultiTabQA: Generating Tabular Answers for Multi-Table Question Answering. In ACL . 6322–6334. [40] Panupong Pasupat and Percy Liang. 2015. Compositional Semantic Parsing on Semi-Structured Tables. In ACL . 1470–1480. [41] Jiezhong Qiu, Qibin Chen, Yuxiao Dong, Jing Zhang, Hongxia Yang, Ming Ding, Kuansan Wang, and Jie Tang. 2020. Gcc: Graph contrastive coding for graph neural network pre-training. In KDD . 1150–1160. [42] Colin Raffel, Noam Shazeer, Adam Roberts, Katherine Lee, Sharan Narang, Michael Matena, Yanqi Zhou, Wei Li, and Peter J. Liu. 2020. Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer. J. Mach. Learn. Res. 21 (2020), 140:1–140:67. [43] Mandeep Rathee, Sean MacAvaney, and Avishek Anand. 2025. Guiding Retrieval Using LLM-Based Listwise Rankers. In ECIR .[44] Stephen E. Robertson and Hugo Zaragoza. 2009. The Probabilistic Relevance Framework: BM25 and Beyond. Found. Trends Inf. Retr. 3, 4 (2009), 333–389. [45] Diptikalyan Saha, Avrilia Floratou, Karthik Sankaranarayanan, Umar Farooq Minhas, Ashish R. Mittal, and Fatma Özcan. 2016. ATHENA: An Ontology-Driven System for Natural Language Querying over Relational Data Stores. Proc. VLDB Endow. 9, 12 (2016), 1209–1220. [46] Roee Shraga, Haggai Roitman, Guy Feigenblat, and Mustafa Canim. 2020. Web Table Retrieval using Multimodal Deep Learning. In SIGIR . 1399–1408. [47] Chang-Yu Tai, Ziru Chen, Tianshu Zhang, Xiang Deng, and Huan Sun. 2023. Exploring Chain of Thought Style Prompting for Text-to-SQL. In EMNLP . 5376– 5393. [48] Rikiya Takehi, Ellen M. Voorhees, Tetsuya Sakai, and Ian Soboroff. 2025. LLM-Assisted Relevance Assessments: When Should We Ask LLMs for Help?. In SIGIR .95–105. [49] Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser, and Illia Polosukhin. 2017. Attention is All you Need. In NIPS . 5998–6008. [50] Jin Wang, Yanlin Feng, Chen Shen, Sajjadur Rahman, and Eser Kandogan. 2025. Towards Operationalizing Heterogeneous Data Discovery. arXiv preprint arXiv:2504.02059 (2025). [51] Qiming Wang and Raul Castro Fernandez. 2023. Solo: Data Discovery Using Natural Language Questions Via A Self-Supervised Approach. Proc. ACM Manag. Data 1, 4 (2023), 262:1–262:27. [52] Xiao Wang, Houye Ji, Chuan Shi, Bai Wang, Yanfang Ye, Peng Cui, and Philip S. Yu. 2019. Heterogeneous Graph Attention Network. In WWW . 2022–2032. [53] Xiao Wang, Nian Liu, Hui Han, and Chuan Shi. 2021. Self-supervised heteroge-neous graph neural network with co-contrastive learning. In KDD . 1726–1736. [54] Jian Wu, Linyi Yang, Yuliang Ji, Wenhao Huang, Börje F. Karlsson, and Manabu Okumura. 2024. GenDec: A robust generative Question-decomposition method for Multi-hop reasoning. CoRR abs/2402.11166 (2024). [55] Jian Wu, Linyi Yang, Dongyuan Li, Yuliang Ji, Manabu Okumura, and Yue Zhang. 2025. MMQA: Evaluating LLMs with Multi-Table Multi-Hop Complex Questions. In ICLR .[56] Zonghan Wu, Shirui Pan, Fengwen Chen, Guodong Long, Chengqi Zhang, and Philip S. Yu. 2021. A Comprehensive Survey on Graph Neural Networks. IEEE Trans. Neural Networks Learn. Syst. 32, 1 (2021), 4–24. Unified Data Discovery across Query Modalities and User Intents Conference acronym ’XX, June 03–05, 2018, Woodstock, NY 
+
+[57] Pengcheng Yin, Graham Neubig, Wen-tau Yih, and Sebastian Riedel. 2020. TaBERT: Pretraining for Joint Understanding of Textual and Tabular Data. In 
+
+ACL . 8413–8426. [58] Yuning You, Tianlong Chen, Yongduo Sui, Ting Chen, Zhangyang Wang, and Yang Shen. 2020. Graph contrastive learning with augmentations. Advances in neural information processing systems 33 (2020), 5812–5823. [59] Chuxu Zhang, Dongjin Song, Chao Huang, Ananthram Swami, and Nitesh V. Chawla. 2019. Heterogeneous Graph Neural Network. In KDD . 793–803. [60] Hongzhi Zhang, Yingyao Wang, Sirui Wang, Xuezhi Cao, Fuzheng Zhang, and Zhongyuan Wang. 2020. Table Fact Verification with Structure-Aware Trans-former. In EMNLP . 1624–1629. [61] Shuo Zhang and Krisztian Balog. 2018. Ad Hoc Table Retrieval using Semantic Similarity. In WWW . 1553–1562. [62] Tianshu Zhang, Xiang Yue, Yifei Li, and Huan Sun. 2024. TableLlama: Towards Open Large Generalist Models for Tables. In NAACL . 6024–6044. [63] Yunjia Zhang, Jordan Henkel, Avrilia Floratou, Joyce Cahoon, Shaleen Deep, and Jignesh M. Patel. 2024. ReAcTable: Enhancing ReAct for Table Question Answering. Proc. VLDB Endow. 17, 8 (2024), 1981–1994. [64] Yuxuan Zhou, Xien Liu, Kaiyin Zhou, and Ji Wu. 2022. Table-based Fact Verifica-tion with Self-adaptive Mixture of Experts. In Findings of ACL . 139–149. [65] Erkang Zhu, Dong Deng, Fatemeh Nargesian, and Renée J. Miller. 2019. JOSIE: Overlap Set Similarity Search for Finding Joinable Tables in Data Lakes. In 
+
+SIGMOD . 847–864. Conference acronym ’XX, June 03–05, 2018, Woodstock, NYTingting Wang, Shixun Huang, Zhifeng Bao, J. Shane Culpepper, Shazia Sadiq, Volkan Dedeoglu, and Reza Arablouei 
+
+A An Example for Joint Optimization Objective 
+
+This example shows how the joint learning objective in UniDisc combines contrastive learning loss and edge reconstruction loss. 
+
+Example A.1. As illustrated in Fig. 10, based on the heteroge-neous graph with node embeddings obtained using meta-path-based neighbor aggregation, we sample three observed edges, 𝑠 1–𝑡 2,
+
+𝑠 1–𝑡 5, and 𝑡 3–𝑡 4, as masked positive edges, and three unconnected pairs, 𝑠 1–𝑡 1, 𝑠 1–𝑡 3, and 𝑡 1–𝑡 3, as negative edges. These edges are decoded using an MLP model, and the MLP outputs are used to compute the edge reconstruction loss LER .To compute the contrastive learning loss, we consider both meta-path-based neighbor and 𝑟 -neighbor aggregation views. For target nodes 𝑠 1 and 𝑡 1, we treat embeddings under 𝑟 -neighbor aggregation as positive samples, and use the embeddings of another node under 
+
+𝑟 -neighbor aggregation – 𝑠 3, 𝑠 4 for 𝑠 1, and 𝑡 3, 𝑡 4 for 𝑡 1 – as negative samples to compute the loss ˆL P
+
+> CL
+
+. Similarly, we can compute the loss ˆL𝑟 
+
+> CL
+
+. The total contrastive loss LCL is obtained by combining 
+
+ˆL P 
+
+> CL
+
+with ˆL𝑟 
+
+> CL
+
+.Finally, we combine the contrastive learning loss LCL and the edge reconstruction loss LER to form the overall objective L.Edge reconstruction loss              
+
+> !MLP
+> !
+> "#$
+> %"#$
+> &"#'
+> %
+> Contrastive learning loss
+> !" #
+> $%&
+> '$()
+> '
+> $%&
+> '$(*
+> '
+> $(+
+> '$(,
+> '
+> $%&
+> '$(&
+> '
+> $%&
+> '$(+
+> '
+> $(&
+> '$(+
+> '
+> Edge reconstruction loss
+> Masked edges 
+> Negative edges 
+> !"
+> !
+
+# +                    
+
+> masked edge
+> target node
+> !
+> "
+> #$
+> "#$
+> %#&
+> "
+> #!
+> "
+> $
+> %$
+> "
+> &
+> %
+> !
+> %
+> #$
+> %#$
+> "#&
+> %
+> #!
+> %
+> positive target negative
+> positive target negative
+> positive target negative
+> positive target negative !"
+> #
+
+# +
+
+# + 
+
+> !"
+> #
+> $"
+> #
+> $%
+> #
+> $&
+> #
+> $'
+> #
+> !'
+> #
+> !&
+> #
+> !(
+> #
+> !%
+> #
+> $(
+> #
+> !)
+> #
+> $)
+> #
+> !"
+> *
+> $"
+> *
+> $%
+> *
+> $&
+> *
+> $'
+> *
+> !'
+> *
+> !&
+> *
+> !(
+> *
+> !%
+> *
+> $(
+> *
+> !)
+> *
+> $)
+> *
+
+Figure 10: The illustration of joint optimization objective. 
+
+B Additional Related Work 
+
+Table-based fact verification . Table-based fact verification is an important user intent in data discovery, where the goal is to verify natural language claims using structured tables as evidence. How-ever, most prior work assumes relevant tables are readily available and focuses solely on the verification step [ 6, 22 , 25 , 60 , 64 ]. To bridge this gap, OpenTFV [ 23 ] introduces a two-stage pipeline: (i) keyword matching to retrieve the top-𝑘 candidate tables, and (ii) semantic re-ranking and final verification using models such as LPA [ 7]. In our experiments, we adopt this pipeline but replace LPA with PASTA [ 22 ], a state-of-the-art verification model. Results show that UniDisc substantially improves retrieval quality, leading to better end-to-end verification performance. 
+
+Natural Language to SQL (NL-to-SQL) . NL-to-SQL approaches aim to translate natural language queries into executable SQL state-ments. Early methods relied on syntactic parsers and handcrafted rules [ 32 , 45 ], followed by pre-trained language models such as BERT [ 10 ] and T5 [ 42 ]. More recent works [ 20 , 33 , 47 ] leverage large language models (LLMs) with advanced prompting techniques for SQL generation. A key challenge in these methods is schema linking – accurately aligning natural language phrases with the corresponding table and column names. This is typically addressed under the assumption that the relevant tables are provided with complete schemas. Moreover, these methods primarily focus on query answering – generating effective SQL queries based on given tables. In contrast, our work tackles the problem of data discovery: identifying relevant tables from a large corpus, often with incom-plete or missing schema information. This setting is more realistic in large-scale data lakes and serves as a crucial prerequisite for downstream query answering. 
+
+Heterogeneous Graph Neural Networks . Graph neural net-works (GNNs) have attracted considerable attention in recent years. Most GNNs are homogeneous, as summarized in the comprehen-sive survey by [ 56 ]. Recently, increasing efforts have been made to extend GNNs to heterogeneous data. For example, HAN [ 52 ] intro-duces both node-level and semantic-level attention mechanisms to learn node embeddings. MAGNN [ 18 ] incorporates intra-metapath and inter-metapath aggregation to enhance representation learning. HetGNN [ 59 ] jointly considers heterogeneous content encoding, type-based neighbor aggregation, and the integration of different node types to enhance representation learning. HeCo [ 53 ] employs a cross-view contrastive learning framework to capture both local and high-order structural information. HGT [ 27 ] is designed to han-dle web-scale heterogeneous graphs effectively. Inspired by these recent advances, UniDisc introduces a specialized heterogeneous graph neural network tailored to effectively learn embeddings for both NL statements and tables.
