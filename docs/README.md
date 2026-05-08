@@ -6,76 +6,76 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-07
-- 运行时间：2026-05-07 20:53:16 UTC
+- 最新运行日期：2026-05-08
+- 运行时间：2026-05-08 20:48:07 UTC
 - 运行状态：成功
 - 本次总论文数：18
 - 精读区：6
 - 速读区：12
 
 ### 今日简报（AI）
-今日精选 18 篇前沿论文，深度聚焦 LLM 在结构化数据检索与复杂推理控制上的最新突破。
-重点推荐通过属性图强化实体搜索及利用结构感知分块优化表格 RAG 的两项高分研究。
-建议优先关注如何将非结构化信息转化为结构化知识，以显著提升大模型在专业领域的检索精度。
-- 详情：[/202605/07/README](/202605/07/README)
+今日深度研读 18 篇前沿文献，重点攻克民事诉讼结果预测与大模型确定性计算两大核心课题。
+满分论文揭示了案件复杂度对和解动态的影响，同时 9 分佳作验证了优化提示策略能显著提升 LLM 处理复杂计算的准确性。
+建议关注 AI 在法律实务中的决策辅助潜力，并尝试将执行增强技术应用于大模型工作流。
+- 详情：[/202605/08/README](/202605/08/README)
 
 ### 精读区论文标签
-1. [From Unstructured to Structured: LLM-Guided Attribute Graphs for Entity Search and Ranking](/202605/07/2604.27410v1-from-unstructured-to-structured-llm-guided-attribute-graphs-for-entity-search-and-ranking)  
+1. [Predicting civil litigation outcomes and the evolution of case complexity and settlement dynamics](/202605/08/2605.06151v1-predicting-civil-litigation-outcomes-and-the-evolution-of-case-complexity-and-settlement-dynamics)  
+   标签：评分：10.0/10、query:kgee
+   evidence：预测民事诉讼结果与司法决策支持
+2. [Evaluating Prompting and Execution-Based Methods for Deterministic Computation in LLMs](/202605/08/2605.03227v2-evaluating-prompting-and-execution-based-methods-for-deterministic-computation-in-llms)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：用于评估大模型推理和计算的合成数据集
+3. [Generating Query-Focused Summarization Datasets from Query-Free Summarization Datasets](/202605/08/2605.05392v1-generating-query-focused-summarization-datasets-from-query-free-summarization-datasets)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：生成查询聚焦的摘要数据集
+4. [A Few Good Clauses: Comparing LLMs vs Domain-Trained Small Language Models on Structured Contract Extraction](/202605/08/2605.05532v1-a-few-good-clauses-comparing-llms-vs-domain-trained-small-language-models-on-structured-contract-extraction)  
+   标签：评分：9.0/10、query:profile-3
+   evidence：法律工作流中的结构化合同提取
+5. [GRAVITY: Architecture-Agnostic Structured Anchoring for Long-Horizon Conversational Memory](/202605/08/2605.01688v1-gravity-architecture-agnostic-structured-anchoring-for-long-horizon-conversational-memory)  
    标签：评分：8.0/10、query:kgee
-   evidence：用于结构化信息提取和排序的大模型引导属性图
-2. [Structure-Aware Chunking for Tabular Data in Retrieval-Augmented Generation](/202605/07/2605.00318v1-structure-aware-chunking-for-tabular-data-in-retrieval-augmented-generation)  
-   标签：评分：8.0/10、query:kgee
-   evidence：用于语义关系的层次化行树表示
-3. [SC-Taxo: Hierarchical Taxonomy Generation under Semantic Consistency Constraints using Large Language Models](/202605/07/2605.00620v1-sc-taxo-hierarchical-taxonomy-generation-under-semantic-consistency-constraints-using-large-language-models)  
-   标签：评分：8.0/10、query:kgee
-   evidence：使用语义一致性约束的层次化分类法生成
-4. [AI Alignment via Incentives and Correction](/202605/07/2605.01643v2-ai-alignment-via-incentives-and-correction)  
+   evidence：为记忆提取时间事件元组和关系图
+6. [UFAL-CUNI at SemEval-2026 Task 11: An Efficient Modular Neuro-symbolic Method for Syllogistic Reasoning](/202605/08/2605.04941v1-ufal-cuni-at-semeval-2026-task-11-an-efficient-modular-neuro-symbolic-method-for-syllogistic-reasoning)  
    标签：评分：8.0/10、query:profile-3
-   evidence：通过法律经济学威慑模型进行AI对齐
-5. [Static Analysis of Recursive SHACL](/202605/07/2605.02787v1-static-analysis-of-recursive-shacl)  
-   标签：评分：8.0/10、query:q9
-   evidence：使用SHACL和描述逻辑进行知识表示的形式化方法
-6. [A Foundation Model for Zero-Shot Logical Rule Induction](/202605/07/2605.04916v1-a-foundation-model-for-zero-shot-logical-rule-induction)  
-   标签：评分：8.0/10、query:profile-3
-   evidence：使用基础模型进行零样本逻辑规则归纳
+   evidence：三段论推理与形式逻辑的神经符号方法
 
 ### 速读区论文标签
-1. [Compliance versus Sensibility: On the Reasoning Controllability in Large Language Models](/202605/07/2604.27251v1-compliance-versus-sensibility-on-the-reasoning-controllability-in-large-language-models)  
+1. [Polaris: Coupled Orbital Polar Embeddings for Hierarchical Concept Learning](/202605/08/2605.00265v1-polaris-coupled-orbital-polar-embeddings-for-hierarchical-concept-learning)  
+   标签：评分：7.0/10、query:kgee
+   evidence：分层概念学习与标签树
+2. [Effect-Transparent Governance for AI Workflow Architectures: Semantic Preservation, Expressive Minimality, and Decidability Boundaries](/202605/08/2605.01030v1-effect-transparent-governance-for-ai-workflow-architectures-semantic-preservation-expressive-minimality-and-decidability-boundaries)  
+   标签：评分：7.0/10、query:q9
+   evidence：使用交互树对 AI 工作流架构进行形式化
+3. [ABox Abduction for Inconsistent Knowledge Bases under Repair Semantics](/202605/08/2605.01341v1-abox-abduction-for-inconsistent-knowledge-bases-under-repair-semantics)  
+   标签：评分：7.0/10、query:q9
+   evidence：不一致知识库的溯因推理
+4. [Verbal-R3: Verbal Reranker as the Missing Bridge between Retrieval and Reasoning](/202605/08/2605.01399v1-verbal-r3-verbal-reranker-as-the-missing-bridge-between-retrieval-and-reasoning)  
    标签：评分：7.0/10、query:profile-3
-   evidence：研究大语言模型中的归纳、演绎和溯因等推理模式
-2. [AppTek Call-Center Dialogues: A Multi-Accent Long-Form Benchmark for English ASR](/202605/07/2604.27543v1-apptek-call-center-dialogues-a-multi-accent-long-form-benchmark-for-english-asr)  
+   evidence：通过口头注释连接检索与推理
+5. [TIJERE: A Novel Threat Intelligence Joint Extraction Model Based on Analyst Expert Knowledge](/202605/08/2605.02041v1-tijere-a-novel-threat-intelligence-joint-extraction-model-based-on-analyst-expert-knowledge)  
+   标签：评分：7.0/10、query:kgee
+   evidence：用于知识图谱的实体和关系联合抽取
+6. [Compositional Multi-hop Factual Error Correction via Decomposition-and-Injection](/202605/08/2605.02277v1-compositional-multi-hop-factual-error-correction-via-decomposition-and-injection)  
    标签：评分：7.0/10、query:ds-gen
-   evidence：构建新研究数据集的方法论
-3. [Reproducing Adaptive Reranking for Reasoning-Intensive IR](/202605/07/2604.27577v1-reproducing-adaptive-reranking-for-reasoning-intensive-ir)  
-   标签：评分：7.0/10、query:kgee
-   evidence：针对推理密集型检索的自适应重排序
-4. [Polymorphism Meets DHOL](/202605/07/2605.00295v1-polymorphism-meets-dhol)  
-   标签：评分：7.0/10、query:q6
-   evidence：用于知识表示的形式逻辑和自动定理证明器
-5. [Hierarchical Abstract Tree for Cross-Document Retrieval-Augmented Generation](/202605/07/2605.00529v1-hierarchical-abstract-tree-for-cross-document-retrieval-augmented-generation)  
-   标签：评分：7.0/10、query:kgee
-   evidence：用于检索的分层抽象树
-6. [A11y-Compressor: A Framework for Enhancing the Efficiency of GUI Agent Observations through Visual Context Reconstruction and Redundancy Reduction](/202605/07/2605.00551v1-a11y-compressor-a-framework-for-enhancing-the-efficiency-of-gui-agent-observations-through-visual-context-reconstruction-and-redundancy-reduction)  
-   标签：评分：7.0/10、query:kgee
-   evidence：GUI代理的可访问性树语义结构化
-7. [Distributional Learning of Graph Languages Generated by Fixed-Interface Clause Systems](/202605/07/2604.26333v1-distributional-learning-of-graph-languages-generated-by-fixed-interface-clause-systems)  
-   标签：评分：6.0/10、query:kgee
-   evidence：由子句系统生成的图语言的分布学习
-8. [Auto-Relational Reasoning](/202605/07/2604.26507v1-auto-relational-reasoning)  
+   evidence：用于生成事实错误纠正数据的推理感知合成
+7. [A Survey of Reasoning-Intensive Retrieval: Progress and Challenges](/202605/08/2605.00063v1-a-survey-of-reasoning-intensive-retrieval-progress-and-challenges)  
    标签：评分：6.0/10、query:profile-3
-   evidence：集成神经网络的自动推理框架
-9. [TRUST: A Framework for Decentralized AI Service v.0.1](/202605/07/2604.27132v1-trust-a-framework-for-decentralized-ai-service-v01)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：可信AI推理与审计的去中心化框架
-10. [Unified Data Discovery across Query Modalities and User Intents](/202605/07/2604.27252v1-unified-data-discovery-across-query-modalities-and-user-intents)  
-   标签：评分：6.0/10、query:kgee
-   evidence：跨查询模态的统一数据发现与检索
-11. [Mechanized Foundations of Structural Governance: Machine-Checked Proofs for Governed Intelligence](/202605/07/2604.27289v1-mechanized-foundations-of-structural-governance-machine-checked-proofs-for-governed-intelligence)  
+   evidence：推理密集型检索综述
+8. [Semia: Auditing Agent Skills via Constraint-Guided Representation Synthesis](/202605/08/2605.00314v1-semia-auditing-agent-skills-via-constraint-guided-representation-synthesis)  
    标签：评分：6.0/10、query:q9
-   evidence：结构化治理与安全的形式化方法与机械化证明
-12. [Mechanized Foundations of Structural Governance: Machine-Checked Proofs for Governed Intelligence](/202605/07/2604.27289v2-mechanized-foundations-of-structural-governance-machine-checked-proofs-for-governed-intelligence)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：受控智能的机械化基础和机器校验证明
+   evidence：用于技能表示的Datalog事实库
+9. [Zero-Knowledge Model Checking](/202605/08/2605.00487v1-zero-knowledge-model-checking)  
+   标签：评分：6.0/10、query:q9
+   evidence：形式验证与零知识模型检测
+10. [When More Reformulations Hurt: Avoiding Drift using Ranker Feedback](/202605/08/2605.00560v1-when-more-reformulations-hurt-avoiding-drift-using-ranker-feedback)  
+   标签：评分：6.0/10、query:kgee
+   evidence：检索文档和查询重构的自适应选择
+11. [H-RAG at SemEval-2026 Task 8: Hierarchical Parent-Child Retrieval for Multi-Turn RAG Conversations](/202605/08/2605.00631v1-h-rag-at-semeval-2026-task-8-hierarchical-parent-child-retrieval-for-multi-turn-rag-conversations)  
+   标签：评分：6.0/10、query:kgee
+   evidence：用于RAG对话的分层父子检索
+12. [SCARV: Structure-Constrained Aggregation for Stable Sample Ranking in Redundant NLP Datasets](/202605/08/2605.00944v1-scarv-structure-constrained-aggregation-for-stable-sample-ranking-in-redundant-nlp-datasets)  
+   标签：评分：6.0/10、query:ds-gen
+   evidence：NLP数据集中稳定样本排序的结构约束聚合
 
 
 <div class="dpr-home-promo-card">
