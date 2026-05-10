@@ -1,0 +1,429 @@
+Title: Reproducing Complex Set-Compositional Information Retrieval
+
+URL Source: https://arxiv.org/pdf/2605.03824v1
+
+Published Time: Wed, 06 May 2026 01:07:29 GMT
+
+Number of Pages: 10
+
+Markdown Content:
+# Reproducing Complex Set-Compositional Information Retrieval 
+
+# Vincent Degenhart 
+
+Radboud University Nijmegen, NL vincent.degenhart@ru.nl 
+
+# Dewi Timman 
+
+Radboud University Nijmegen, NL dewi.timman@ru.nl 
+
+# Arjen P. de Vries 
+
+Radboud University Nijmegen, NL arjen.devries@ru.nl 
+
+# Faegheh Hasibi 
+
+Radboud University Nijmegen, NL faegheh.hasibi@ru.nl 
+
+# Mohanna Hoveyda 
+
+Radboud University Nijmegen, NL mohanna.hoveyda@ru.nl 
+
+## Abstract 
+
+Complex information needs may involve set-compositional queries using conjunction, disjunction, and exclusion, yet it remains unclear whether current retrieval paradigms genuinely satisfy such con-straints or exploit ‘semantic shortcuts’. We conduct a reproducibility study to benchmark major retrieval families and reasoning-targeted methods on QUEST and QUEST+Variants, and introduce LIMIT+, a controlled benchmark where relevance depends on arbitrary at-tribute predicates and constraint satisfaction, and less on pretrained knowledge. Our findings show that (i) on QUEST, the best neural re-trievers achieve an effectiveness that is more than double what can be achieved with BM25 (Recall@100 >0.41 vs. 0.20), but reasoning-targeted methods like ReasonIR and Search-R1 do not outperform general-purpose retrievers uniformly; (ii) on LIMIT+, gains fail to transfer, where the strongest QUEST method collapses from Recall@100 ≈0.42 to below 0.02, while classic lexical retrieval gains to ∼0.96. Lastly, (iii) stratifying by compositional depth reveals a consistent degradation across all methods, where algebraic sparse and lexical methods show more stable performance while dense approaches collapse. We release code and LIMIT+ data generation scripts to support future reproducibility and controlled evaluation. 
+
+## CCS Concepts 
+
+• Information systems → Retrieval effectiveness .
+
+## Keywords 
+
+Set-Compositional Retrieval; Complex Queries; Constraint Satisfac-tion; Reproducibility; Reasoning-Intensive Information Retrieval 
+
+ACM Reference Format: 
+
+Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda. 2026. Reproducing Complex Set-Compositional Information Retrieval. In Proceedings of the 49th International ACM SIGIR Conference on Research and Development in Information Retrieval (SIGIR ’26), July 20–24, 2026, Melbourne, VIC, Australia. ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/3805712.3808555  
+
+> This work is licensed under a Creative Commons Attribution 4.0 International License.
+> SIGIR ’26, Melbourne, VIC, Australia.
+> ©2026 Copyright held by the owner/author(s). ACM ISBN 979-8-4007-2599-9/2026/07 https://doi.org/10.1145/3805712.3808555
+
+## 1 Introduction 
+
+In many real-world deployments, information needs involve more than topical or semantic similarity, and need to satisfy several conditions, avoiding results that violate these constraints [ 25 ]. A user may seek entities that match several properties, or match one property while excluding another [ 11 , 29 ]. These information needs can be formalized as set operations; intersection (AND), union (OR), and set difference (NOT). 
+
+Figure 2: The transition from context-rich narrative to atomic datasets. 
+
+The urgency of addressing these operations is underscored by two trends: 
+
+Deep Research: The frequency of constraint-heavy queries in-creases as users engage in more specialized, deep-research tasks that move beyond simple keyword matching [31]. 
+
+Agentic Query Rewriting: In agentic workflows, autonomous systems frequently rewrite user prompts into multi-step logical queries, requiring the underlying retrieval engine to be more than just semantically aware [26]. Yet most modern retrieval systems are trained and evaluated on benchmarks where semantic relatedness is a dominant signal [ 1, 4]. Consequently, improvements on complex-query retrieval bench-marks can be difficult to interpret: strong aggregate performance does not, by itself, demonstrate reliable enforcement of composi-tional requirements, and may instead reflect semantic heuristics and pretrained world knowledge that correlate with the query con-straints. Recent benchmarks such as QUEST [11 , 17 ] operationalize set-compositional retrieval by instantiating entity-seeking queries  
+
+> arXiv:2605.03824v1 [cs.CL] 5 May 2026 SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda
+
+whose templates imply set operations over a large Wikipedia cor-pus. In parallel, retrieval research now spans a broad range of paradigms, from lexical and dense bi-encoders to late-interaction, learned sparse retrieval, and LLM-based rerankers, alongside recent methods proposed specifically for reasoning-intensive retrieval via LLMs or enhanced constraint representation learning. This mo-tivates two empirical questions. Firstly, it is unclear how major retrieval families compare under a consistent, reproducible evalua-tion protocol in complex set-compositional retrieval. Second, even when aggregate scores improve, it is unclear whether observed gains reflect improved adherence to compositional requirements or improvements driven by correlations in the underlying data and model priors. To address these questions, we conduct a reproducibility study with a two-part evaluation. We first benchmark a broad suite of retrievers and rerankers on QUEST and QUEST+Variants [17 ]under a unified pipeline that standardizes indexing, retrieval, and evaluation. We then introduce LIMIT+ , a new benchmark designed to isolate constraint satisfaction from semantic shortcut effects. 
+
+LIMIT+ extends LIMIT [23 ] by composing atomic attribute predi-cates into QUEST -style templates, so that relevance is determined by exact predicate satisfaction rather than topical relatedness. This construction yields exact gold sets by design and associates each query instance with template and attribute metadata, enabling strat-ified analyses by constraint type and compositional depth. 
+
+Research Questions. Concretely, we study the following: 
+
+RQ1. How do major retrieval families and reasoning-targeted methods (e.g., Search-R1 [ 7 ], ReasonIR [ 16 ]) perform on set-compo-sitional queries in QUEST and QUEST+Variants ?
+
+RQ2. Do gains observed on QUEST persist in a controlled setting in LIMIT+ (Section 3) where semantic similarity provides limited signal and relevance is driven by constraint satisfaction? 
+
+RQ3. How does effectiveness change with increasing composi-tional depth and across constraint types? 
+
+Summary of main findings. Our experiments reveal 3 key results. 
+
+(RQ1) On QUEST and QUEST+Variants , retrieval families sepa-rate clearly: the best neural retrievers demonstrate a twofold im-provement over BM25 (Recall@100 >0.41 vs. 0.20), yet methods explicitly designed for reasoning in retrieval, such as ReasonIR and Search-R1, do not outperform strong general-purpose retrievers; suggesting that a reasoning specific objective is not sufficient to perform well on set compositional retrieval tasks. (RQ2) When se-mantic shortcuts are minimized in LIMIT+ , the performance gains observed on simpler benchmarks fail to generalize: the strongest enhanced method on QUEST (LogiCol; Recall@100 ≈0.42) collapses below 0.02, and all dense single-vector models fall below 0.10, while lexical retrieval ( ≈0.96) and token-level methods remain robust, suggesting that much of the observed progress on QUEST reflects learned correlations with semantic cues rather than genuine con-straint satisfaction. Under a controlled re-ranking setup where all gold documents are guaranteed to appear in the candidate set, the LLM-based re-ranker achieves near-ceiling effectiveness (nDCG@5 up to 0.97). The neuro-symbolic approach is a close second, trailing by only a marginal gap, while the cross-encoder fails at successfully positioning relevant documents on the top ( ≈0.16). This localizes the primary bottleneck in set-compositional complex queries to first-stage candidate generation. (RQ3) Lastly, stratifying by con-straint type and compositional depth reveals that aggregate scores mask heterogeneity: templates with negations, in isolation or com-bined with other constraints, are markedly harder than atomic or disjunctive queries, and performance degrades monotonically with depth. On LIMIT+ , algebraic sparse methods ([ 9]) remain stable (nDCG@20 ≈0.22) where learned dense approaches collapse ( ≈0.01). 
+
+Contributions. 
+
+(1) A reproducibility study benchmarking lexical, dense, late-interaction, learned sparse, cross-encoder, LLM and neuro-symbolic reranking pipelines, alongside reasoning-oriented methods (ReasonIR, Search-R1, LogiCol [ 17 ], Set-Comp [ 9]), under a unified evaluation protocol for set-compositional retrieval. (2) LIMIT+ , a controlled set-compositional benchmark derived from LIMIT by composing QUEST -style constraint templates with controlled depth and constraint types, enabling strat-ified analyses that disentangle semantic relatedness from constraint satisfaction. (3) Diagnostic ablations over compositional depth and constraint types, exposing failure modes invisible in aggregate met-rics, showing how learned dense representations and some reasoning-enhanced methods collapse under complex com-position. The remainder of the paper is organized as follows. Section 2 sur-veys related work on complex-query retrieval, retrieval paradigms, and reasoning-targeted methods. Section 3 describes the construc-tion of the LIMIT+ benchmark. Section 4 details the experimental setup, including the models, indexing pipelines, and evaluation pro-tocol used to ensure reproducibility. Section 5 presents results on 
+
+QUEST , QUEST+Variants , and LIMIT+ , together with constraint-type and depth-stratified analyses. Section 6 discusses implications and concludes. Additional experimental details, prompts, and a replication comparison against originally reported scores are pro-vided in the Appendix. 
+
+## 2 Background 
+
+Complex queries and set-compositional retrieval. Develop-ing retrieval benchmarks with complex queries has gained signifi-cant attention in recent years; benchmarks such as BEIR [ 19 ] and MAIR [ 18 ] evaluate retrieval models across heterogeneous tasks and instruction-following settings, yet their queries are predomi-nantly topical: relevance is driven by semantic similarity between query and document content. Set-compositional queries pose a structurally different challenge. Here, the correct answer set is defined by the logical combination of multiple constraints (inter-section, union, set difference), and a model must satisfy all of them rather than match a single information need. QUEST [ 11 ] formal-izes this by constructing entity-seeking queries whose templates implicitly compose set operations over Wikipedia, with gold answer sets derived from Wikidata. NevIR [ 25 ] isolates the negation dimen-sion, showing that even strong bi-encoders struggle to distinguish a query from its negated counterpart; a subsequent reproducibility study [ 20 ] confirms these findings. ExcluIR [ 29 ] further demon-strates the difficulty of exclusionary queries for neural retrievers. Reproducing Complex Set-Compositional Information Retrieval SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. 
+
+Table 1: Reproducibility results on complex-query retrieval datasets with set-compositional queries (QUEST). Metrics show Recall and nDCG @5,20,100 for first-stage retrieval. Params and training objectives are summarized for each model. Scores in bold indicate the highest score in that column. 
+
+QUEST QUEST+Variants Recall nDCG Recall nDCG Model Params Train. obj. @5 @20 @100 @5 @20 @100 @5 @20 @100 @5 @20 @100 
+
+Lexical 
+
+BM25 [15] – – 0.047 0.104 0.197 0.095 0.094 0.130 0.019 0.043 0.093 0.056 0.054 0.064 
+
+Dense (single-vector) 
+
+Contriever [6] 110M InfoNCE 0.036 0.079 0.146 0.052 0.064 0.087 0.014 0.032 0.073 0.050 0.048 0.053 
+
+Promptriever [24] 7B InfoNCE 0.027 0.051 0.092 0.068 0.055 0.070 0.015 0.028 0.053 0.057 0.047 0.045 
+
+Qwen3-Embedding (8B) [30] 8B InfoNCE 0.095 0.203 0.384 0.192 0.186 0.257 0.038 0.090 0.196 0.118 0.119 0.141 
+
+E5-Mistral-Instruct [22] 7B InfoNCE 0.085 0.179 0.336 0.178 0.167 0.229 0.036 0.080 0.170 0.107 0.107 0.124 
+
+E5-base-V2 [21] 110M InfoNCE 0.079 0.166 0.318 0.161 0.152 0.210 0.033 0.073 0.158 0.106 0.103 0.116 
+
+GritLM-7B [12] 7B LM+contrast 0.107 0.225 0.419 0.218 0.209 0.284 0.047 0.103 0.211 0.139 0.136 0.156 
+
+Dense (multi-vector) 
+
+GTE-ModernColBERT [2] 0.1B KL-Div+CE 0.100 0.189 0.294 0.198 0.184 0.229 0.040 0.087 0.150 0.121 0.117 0.120 
+
+Learned Sparse Retrieval (LSR) 
+
+SPLADE [10] 110M KL-Div+MSE 0.102 0.212 0.393 0.192 0.191 0.262 0.039 0.087 0.186 0.108 0.110 0.133 
+
+Enhanced Methods 
+
+Search-R1 (with BM25) [7] 7B EM+PPO 0.053 0.116 0.228 0.101 0.103 0.147 0.022 0.051 0.110 0.064 0.064 0.076 
+
+Set-Comp LSR [9] 0 Zeroshot 0.091 0.178 0.289 0.180 0.171 0.217 0.041 0.088 0.180 0.117 0.117 0.135 
+
+ReasonIR-8B [16] 8B InfoNCE 0.082 0.184 0.364 0.170 0.167 0.237 0.039 0.090 0.192 0.120 0.120 0.140 
+
+LogiCol [17] 110M Mod. contrastive 0.115 0.234 0.419 0.216 0.213 0.284 0.047 0.103 0.217 0.146 0.144 0.163  
+
+> Train. obj. abbreviations: InfoNCE = contrastive loss; KL-Div+CE = KL-divergence + cross-entropy; KL-Div+MSE = KL-divergence + MarginMSE; LM+contrast = language modeling + contrastive embedding; EM+PPO = exact match reward + PPO; Mod. contrastive = modified supervised contrastive loss.
+
+Limitations of neural IR under composition. Retrieval fami-lies differ in how they represent and match query–document pairs, which has direct implications for compositional queries. Lexical methods (BM25) match on exact terms and are insensitive to im-plicit logical structure. Dense single-vector bi-encoders [ 6, 12 , 21 , 22 ,24 , 30 ] compress the full query into one embedding, making it diffi-cult to enforce multiple independent constraints. Late-interaction models [ 2 , 8 ] retain per-token representations and aggregate fine-grained similarities, potentially capturing constraint-level structure. Learned sparse retrievers such as SPLADE [ 10 ] produce weighted term expansions that stay in the lexical space while learning rel-evance weighting. LogiCol [ 17 ] provides empirical evidence that standard contrastive training fails on conjunctive and negative con-straints in QUEST , and proposes a modified contrastive objective to address this. LIMIT [ 23 ] takes a complementary angle: it constructs a synthetic corpus where relevance depends on explicit attribute predicates, showing that even atomic queries can expose funda-mental representational limits of single-vector embeddings when semantic overlap is removed. 
+
+Emerging reasoning-focused methods. Several recent methods explicitly target complex-query or reasoning-intensive retrieval, though they differ substantially in their inductive biases: ReasonIR 
+
+[16 ] trains a dense retriever on synthetic reasoning tasks to improve retrieval on multi-step and compositional queries. LogiCol [17 ]modifies the contrastive objective to be sensitive to set-theoretic structure in the query. Set-Comp LSR [9 ] composes learned sparse representations algebraically—performing vector addition and sub-traction to mirror logical operators—without additional training. 
+
+Search-R1 [ 7] uses reinforcement learning to train an LLM to itera-tively reformulate queries and aggregate search results. OrLog [5] and NS-IR [27 ] adopt neuro-symbolic pipelines that decompose the query into logical sub-expressions before retrieval or re-ranking. Comparing these methods requires a unified evaluation pipeline and shared benchmarks, because they optimize fundamentally dif-ferent surrogates; synthetic data, modified contrastive losses, RL search policies, algebraic composition, or symbolic decomposition. 
+
+Research gap. Despite the breadth of prior work, two questions remained unanswered so far. First, no existing study systematically compares all major retrieval families and the emerging reasoning-focused methods under a single protocol for set-compositional queries. Second, it is unclear to what extent reported gains re-flect genuine constraint satisfaction rather than exploitation of semantic cues present in natural-language benchmarks. Our study addresses both gaps: we benchmark all families on QUEST and 
+
+QUEST+Variants , and introduce LIMIT+ to disentangle semantic relatedness from predicate satisfaction, enabling controlled abla-tions by constraint type and compositional depth. SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda 
+
+Table 2: Reproducibility results on complex-query retrieval datasets with set-compositional queries (LIMIT). Metrics show Recall and nDCG @5,20,100. Scores in bold indicate the highest score in that column.                                                                                                                                                                            
+
+> LIMIT LIMIT+Constraints Recall nDCG Recall nDCG
+> @5 @20 @100 @5 @20 @100 @5 @20 @100 @5 @20 @100
+> Lexical
+> BM25 [15] 0.944 0.954 0.964 0.939 0.943 0.945 0.632 0.733 0.837 0.758 0.785 0.801
+> Dense (single-vector)
+> Contriever [6] 0.033 0.067 0.146 0.027 0.039 0.056 0.022 0.050 0.112 0.080 0.075 0.075
+> Promptriever [24] 0.036 0.041 0.048 0.037 0.039 0.041 0.016 0.020 0.034 0.027 0.026 0.026
+> Qwen3-Embedding (8B) [30] 0.015 0.024 0.051 0.012 0.015 0.021 0.013 0.020 0.045 0.027 0.028 0.030
+> E5-Mistral-Instruct [22] 0.016 0.027 0.060 0.012 0.016 0.023 0.007 0.021 0.068 0.027 0.030 0.037
+> E5-base-V2 [21] 0.008 0.018 0.038 0.006 0.010 0.014 0.004 0.011 0.032 0.020 0.020 0.022
+> GritLM-7B [12] 0.024 0.043 0.097 0.020 0.027 0.038 0.019 0.038 0.094 0.061 0.057 0.061
+> Dense (multi-vector)
+> GTE-ModernColBERT [2] 0.885 0.911 0.930 0.876 0.886 0.890 0.454 0.582 0.733 0.610 0.654 0.685
+> Learned Sparse Retrieval (LSR)
+> SPLADE [10] 0.472 0.665 0.810 0.406 0.475 0.508 0.240 0.402 0.614 0.373 0.428 0.469
+> Enhanced Methods
+> ReasonIR-8B [16] 0.020 0.039 0.089 0.018 0.024 0.035 0.022 0.058 0.130 0.091 0.091 0.092
+> Set-Comp LSR (zero-shot) [9] 0.472 0.665 0.810 0.406 0.475 0.508 0.199 0.288 0.368 0.273 0.258 0.248
+> LogiCol [17] 0.003 0.005 0.015 0.003 0.003 0.006 0.003 0.004 0.017 0.006 0.007 0.009
+> Search-R1 (with BM25) [7] 0.939 0.950 0.960 0.934 0.938 0.940 0.537 0.658 0.829 0.651 0.694 0.730
+
+## 3 Generating LIMIT+ 
+
+Motivation. QUEST provides a realistic complex-query benchmark, but its queries are grounded in Wikipedia and therefore entangle set-compositional structure with rich lexical and world-knowledge cues. To isolate the effect of compositional constraint structure from semantic shortcuts, we derive LIMIT+ from LIMIT [23 ], a synthetic benchmark whose corpus consists of entities described by explicit attribute lists (e.g., “ Olinda Posso likes Bagels, Hot Chocolate, Pump-kin Seeds, . . . ”), so that relevance reduces to attribute predicate satisfaction rather than semantic relatedness. Since LIMIT contains only atomic queries, we extend it into a set-compositional bench-mark by composing atomic predicates into QUEST -style logical templates. For example, given the exclusion template 𝐴 \ 𝐵 , the query “ Who likes Thin Mints but not the Los Angeles Rams? ” yields a gold set containing exactly those entities whose attribute list includes Thin Mints and excludes the Los Angeles Rams .
+
+Generation procedure. The LIMIT corpus contains 50,000 synthetic entities, each associated with a subset of 1,848 distinct attributes. We parse each entity description to extract its attribute set A ( 𝑒 )
+
+and build an inverted index mapping each attribute to the set of entities possessing it. We instantiate seven query templates that mirror QUEST ’s compositional structure, spanning three levels of depth (one to three predicates) and four logical operations: 
+
+• Atomic : “Who likes 𝐴 ?” (𝐴 )
+
+• Disjunction : “ 𝐴 or 𝐵 ”; “ 𝐴 or 𝐵 or 𝐶 ” (𝐴 ∪ 𝐵 ; 𝐴 ∪ 𝐵 ∪ 𝐶 )
+
+• Conjunction : “ 𝐴 and also 𝐵 ”; “ 𝐴 and also both 𝐵 and 𝐶 ” ( 𝐴 ∩ 𝐵 ;
+
+𝐴 ∩ 𝐵 ∩ 𝐶 )
+
+• Exclusion : “ 𝐴 but not 𝐵 ”; “ 𝐴 and also 𝐵 but not 𝐶 ” (𝐴 \ 𝐵 ;
+
+(𝐴 ∩ 𝐵 ) \ 𝐶 )For atomic queries, we sample directly from LIMIT ’s original query set. For the remaining six templates, we sample one to three at-tributes and compute the gold answer set exactly via the corre-sponding set operation on the inverted index—e.g., for template 
+
+(𝐴 ∩ 𝐵 ) \ 𝐶 , the gold set is {𝑒 | 𝐴 ∈ A ( 𝑒 ) ∧ 𝐵 ∈ A ( 𝑒 ) ∧ 𝐶 ∉ A ( 𝑒 )} .Uniqueness within each template is enforced by keying on the (sorted) attribute tuple. 
+
+Stratified sampling. To prevent any single template from being dom-inated by queries with very large or very small answer sets, we apply stratified acceptance sampling over the gold-set size. We de-fine five buckets over the range [1, 200 ] and aim for approximately equal counts per bucket within each template. Queries with gold-set sizes outside [1, 200 ] are discarded. A two-phase procedure first fills each bucket to a per-bucket quota, then tops up with any remaining valid queries until the per-template limit is reached. 
+
+Statistics. The final LIMIT+ benchmark contains 700 queries (100 per template), with an overall mean gold-set size of ≈37 entities. Mean gold-set sizes vary substantially across templates; from 1 (exclusion 𝐴 \ 𝐵 ) to 128.3 (conjunction-with-exclusion (𝐴 ∩ 𝐵 ) \ 
+
+𝐶 ), reflecting the inherent asymmetry of set operations over the attribute distribution. Each query is stored with its natural-language form, gold entity identifiers, and metadata (template type, sampled attributes), enabling stratified evaluation by constraint type and compositional depth. We release the generation script to enable exact reproduction and construction of further complex queries. Reproducing Complex Set-Compositional Information Retrieval SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. 
+
+## 4 Experimental Setup 
+
+We evaluate a broad range of retrieval models spanning several paradigm families on multiple set-compositional benchmarks, con-sidering six first stage rankers and four re-rankers. The first-stage retrievers are evaluated in a zero-shot setting—no model is fine-tuned on the target datasets (except LogiCol, which is trained on 
+
+QUEST+Variants ). Our experimental code is shared publicly 1, and implementation details and prompts are provided in Appendix A. 
+
+## 4.1 First-Stage Retrieval 
+
+Lexical. We use BM25 [ 15 ] as the lexical baseline, indexing all doc-uments and retrieving the top-1,000 results per query. 
+
+Dense (single-vector). Single-vector bi-encoders encode query and document into one embedding each and score by dot product or cosine similarity. We evaluate six models spanning two parameter scales: Contriever [ 6 ] and E5-base-V2 [ 21 ] (both 110M parameters); E5-Mistral-Instruct [ 22 ], GritLM-7B [ 12 ], and Promptriever [ 24 ](7B); and Qwen3-Embedding [ 30 ] (8B). All models use (variants of) contrastive InfoNCE loss [ 3 ], except for GritLM-7B, which uses language modeling together with contrastive embedding loss. 
+
+Dense (multi-vector). Late-interaction models retain per-token em-beddings and aggregate fine-grained token-level similarities at scoring time. We evaluate GTE-ModernColBERT [ 2 ], a ColBERT-style [ 8] retriever with 0.1B parameters. The model uses KL-Diver-gence loss and cross-entropy loss. 
+
+Learned sparse retrieval (LSR). LSR models produce sparse, high-dimensional term-weight vectors that can be indexed with inverted indices while benefiting from learned relevance weighting. We evaluate SPLADE-v3 [10] (110M). Splade uses KL-Divergence loss and MarginMSE loss. 
+
+Enhanced methods. We include four methods that explicitly target compositional or reasoning-intensive retrieval: 
+
+• ReasonIR-8B [16 ] fine-tunes LLaMA-3.1-8B as a bi-encoder us-ing public retrieval data augmented with synthetic reasoning-intensive queries. It uses InfoNCE contrastive loss. 
+
+• Set-Comp LSR [ 9 ] constructs set-compositional query represen-tations by performing linear algebra (addition, subtraction) on SPLADE vectors in a zero-shot setting, prior to training. Our experiments are limited to the zero-shot setting, as the trained checkpoint was not available. 
+
+• LogiCol [17 ] fine-tunes multiple baselines, including E5-base-V2, with a modified contrastive objective that groups logically related queries in the same mini-batch. In our setting, we train E5-base-V2 on QUEST+Variants following the original setup in LogiCol. The reported results are all based on the trained checkpoint. 
+
+• Search-R1 [ 7] trains a Qwen-2.5-7B model via reinforcement learn-ing (proximal policy optimization (PPO) with exact-match re-ward) to iteratively reformulate queries and aggregate retrieved evidence. Our implementation follows a multi-run execution loop: we use the checkpoint trained on NQ and HotpotQA, with BM25 as the underlying retriever, and set the maximum number  
+
+> 1Repository https://github.com/informagi/Complex-Set-Compositional-IR/, last ac-cessed April 28 𝑡ℎ , 2026.
+
+of turns to 5, retrieving the top-100 entities from which the top-3 are fed to the model. For evaluation, to be consistent with the rest of our setup, the aggregated top-100 BM25 results are used. The details of this implementation are in our repository. 
+
+## 4.2 Re-ranking 
+
+To isolate ranking capacity from candidate generation, we evaluate re-rankers under a curated candidate set. For each query, the candi-date pool consists of all gold documents plus five noise documents (top-ranked non-gold BM25 hits, which are topically related but not relevant) and five irrelevant documents (bottom-ranked BM25 hits). This construction controls candidate-set difficulty while ensuring all gold documents are retrievable. 
+
+Cross-encoder. MonoT5 [ 13 ] (220M) performs pointwise relevance scoring by feeding each query–document pair through a T5 encoder-decoder and computing the score as 𝑝 (“true” ).
+
+LLM-based. We evaluate two LLMs in a pointwise re-ranking setup using the fine-grained relevance scoring scheme of Zhuang et al .[32]: GPT-Oss [14] (120B) and Qwen-2.5-7B-Instruct [28]. 
+
+Neuro-symbolic. OrLog [ 5 ] decomposes complex queries into log-ical sub-expressions via an LLM parser (LLaMA-70B), estimates per-document predicate plausibilities with a smaller LLM (Qwen-2.5-7B), and aggregates them via probabilistic reasoning (ProbLog). We use the param+ configuration. OrLog adds no trainable parame-ters beyond its backbone LLMs. 
+
+## 4.3 Datasets 
+
+QUEST and QUEST+Variants . QUEST [ 11 ] contains 1,727 test queries over 325,427 Wikipedia entity documents, with queries generated from templates encoding up to two implicit set operations. 
+
+QUEST+Variants [ 17 ] augments this to 11,854 queries over 361,646 documents by constructing companion queries that share the same atomic sub-queries but differ in logical connectives, enabling more comprehensive evaluation across operators. 
+
+LIMIT and LIMIT+ . LIMIT [23 ] contains 1,000 atomic queries over a synthetic corpus of 50,000 entities, each described by an explicit at-tribute list. LIMIT+ (Section 3) extends this to 700 set-compositional queries (100 per template) over the same corpus, with gold sets com-puted exactly via set operations on the attribute inverted index. 
+
+## 4.4 Evaluation Metrics 
+
+For first-stage retrieval we report Recall@ 𝑘 and nDCG@ 𝑘 for 
+
+𝑘 ∈ { 5, 20 , 100 }, capturing both coverage and ranking quality at increasing depths. For re-ranking we report nDCG@ {5, 20 } and mean average precision (MAP) over the curated candidate set. 
+
+## 5 Results 
+
+In this section we answer the raised research questions in the be-ginning of the paper. 
+
+RQ1: How do major retrieval families and reasoning-targeted methods perform on set-compositional queries in QUEST and QUEST+? Table 1 reports first-stage retrieval results on QUEST 
+
+and QUEST+ .SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda All AA ∨ BA ∨ B ∨ CA ∧ BA ∧ B ∧ CA ∧ ¬ BA ∧ B ∧ ¬ CPromptriever Contriever BM25 Search-R1 E5-base-V2 ReasonIR-8B E5-Mistral-Inst. Set-Comp LSR GTE-ColBERT Qwen3-Emb-8B SPLADE GritLM-7B LogiCoL 
+
+.05 .09 .09 .07 .02 .02 .07 .02 .06 .13 .09 .07 .03 .03 .05 .02 .09 .18 .18 .15 .03 .03 .06 .02 .10 .22 .16 .14 .05 .04 .07 .02 .15 .28 .24 .21 .08 .08 .12 .05 .17 .30 .27 .24 .07 .08 .13 .06 .17 .33 .26 .23 .06 .07 .15 .05 .17 .41 .27 .21 .06 .02 .19 .01 .18 .34 .31 .30 .09 .08 .10 .04 .19 .34 .29 .27 .09 .07 .15 .06 .19 .38 .32 .26 .11 .09 .10 .03 .21 .38 .32 .29 .09 .11 .18 .07 
+
+.21 .39 .31 .24 .12 .13 .17 .09 
+
+All 1 2 3
+
+.05 .09 .06 .04 .06 .13 .06 .04 .09 .18 .09 .07 .10 .22 .10 .07 .15 .28 .15 .11 .17 .30 .16 .13 .17 .33 .16 .12 .17 .41 .17 .08 .18 .34 .17 .14 .19 .34 .18 .14 .19 .38 .18 .13 .21 .38 .20 .16 .21 .39 .20 .16 
+
+Promptriever Contriever BM25 Search-R1 E5-base-V2 E5-Mistral-Inst. SPLADE GTE-ColBERT Set-Comp LSR Qwen3-Emb-8B ReasonIR-8B GritLM-7B LogiCoL 
+
+.05 .07 .04 .03 .04 .02 .05 .03 .05 .08 .04 .02 .05 .04 .04 .03 .05 .09 .05 .04 .06 .04 .04 .03 .06 .12 .05 .04 .07 .06 .05 .03 .10 .15 .08 .06 .11 .08 .10 .06 .11 .17 .09 .07 .11 .08 .09 .07 .11 .19 .10 .07 .13 .09 .08 .06 .12 .19 .10 .08 .14 .11 .09 .06 .12 .19 .09 .06 .09 .03 .13 .02 .12 .18 .10 .08 .13 .10 .11 .07 .12 .17 .10 .08 .13 .11 .11 .08 .14 .21 .11 .09 .16 .14 .12 .09 
+
+.14 .21 .10 .07 .16 .14 .14 .11 
+
+.05 .07 .04 .03 .05 .08 .04 .03 .05 .09 .05 .04 .06 .12 .05 .04 .10 .15 .09 .06 .11 .17 .10 .07 .11 .19 .09 .07 .12 .19 .10 .08 .12 .19 .11 .04 .12 .18 .11 .08 .12 .17 .11 .08 .14 .21 .12 .10 .14 .21 .13 .10 
+
+LogiCoL E5-base-V2 Promptriever Qwen3-Emb-8B E5-Mistral-Inst. GritLM-7B Contriever ReasonIR-8B Set-Comp LSR SPLADE GTE-ColBERT Search-R1 BM25 
+
+.01 .00 .00 .00 .01 .00 .01 .02 .02 .01 .00 .00 .07 .02 .00 .05 .03 .03 .05 .02 .02 .00 .03 .03 .03 .01 .02 .00 .06 .02 .02 .06 .03 .02 .01 .01 .06 .03 .01 .07 .06 .02 .03 .01 .15 .06 .02 .11 .07 .04 .03 .01 .26 .09 .02 .08 .09 .03 .03 .02 .25 .12 .02 .17 .22 .47 .31 .25 .09 .01 .37 .05 .43 .44 .27 .25 .89 .75 .17 .22 
+
+.65 .85 .64 .56 1.00 .99 .35 .19 .69 .92 .72 .82 .98 .86 .42 .14 
+
+.79 .92 .93 .95 .99 .99 .53 .18 
+
+.01 .00 .01 .01 .02 .01 .02 .02 .03 .03 .03 .02 .03 .01 .03 .03 .03 .02 .03 .03 .06 .02 .07 .06 .07 .04 .10 .06 .09 .03 .10 .10 .22 .47 .26 .10 .43 .44 .45 .41 .65 .85 .66 .58 .69 .92 .71 .61 
+
+.79 .92 .82 .71 
+
+> 0.00 0.05 0.10 0.15 0.20 0.25 0.30 0.35 0.40 0.45
+> 0.00 0.05 0.10 0.15 0.20 0.25
+> nDCG@20
+> 0.00.20.40.60.81.0
+> QUEST QUEST+ LIMIT+
+
+Constraint Type Compositional Depth 
+
+Figure 3: Constraint type and compositional depth analysis. 
+
+Retrieval paradigm-level separation. On QUEST , lexical retrieval (BM25) is substantially outperformed by all neural methods (Re-call@100 = 0.197). Among neural retrievers, the best coverage is achieved by GritLM-7B and LogiCol, both attaining Recall@100 ≈
+
+0.42, followed by SPLADE (0.393) and Qwen3-Embedding (0.384). Reproducing Complex Set-Compositional Information Retrieval SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. 
+
+LogiCol additionally achieves the highest early-cutoff recall (Re-call@5 = 0.115, Recall@20 = 0.234). In terms of ranking quality, GritLM-7B and LogiCol also lead on nDCG@100 (both 0.284), with SPLADE (0.262) and Qwen3-Embedding (0.257) following. GTE-ModernColBERT, despite having only 0.1B parameters, achieves competitive nDCG (0.229 at cutoff 100) with lower recall (0.294), sug-gesting that late interaction ranks the items it retrieves effectively but surfaces fewer of them. 
+
+Generalization to QUEST+ . Moving from QUEST to QUEST+ , ab-solute effectiveness drops substantially for all methods. Recall@100 roughly halves across the board, indicating that QUEST+Variants 
+
+is a harder setting that exposes sensitivity to how constraints are expressed. Despite this drop, the relative ordering among lead-ing methods is largely preserved: LogiCol (Recall@100 = 0.217, nDCG@100 = 0.163) and GritLM (0.211, 0.156) remain the top per-formers, suggesting that the shift primarily affects absolute scores rather than fully reordering the approaches. 
+
+Reasoning-targeted methods. Enhanced methods differ substan-tially in effectiveness. LogiCol achieves the best or near-best scores across all cutoffs, competing with the strongest general-purpose retriever (GritLM-7B) despite being over 60 × smaller (110M vs. 7B parameters). ReasonIR-8B performs comparably to standard dense models of similar scale (Recall@100 = 0.364 on QUEST ), offering no clear advantage for set-compositional queries despite its reasoning-oriented synthetic training data. Search-R1 provides only marginal gains over BM25 (Recall@100 = 0.228 vs. 0.197); its RL-trained re-formulation strategy, optimized for finding a single correct answer, appears poorly matched to the task of retrieving complete answer sets. Set-Comp LSR, despite adding zero parameters, achieves Re-call@100 = 0.289 and nDCG@100 = 0.217 by algebraically com-posing SPLADE vectors, though it falls short of SPLADE itself on coverage (0.289 vs. 0.393), indicating that naive vector arithmetic does not fully capture set-compositional semantics. These results show that a reasoning-specific training objective does not automatically translate into better set-compositional re-trieval; what matters is the alignment between a model’s inductive bias and the compositional structure of the task. 
+
+RQ2: Do gains observed on QUEST persist in a controlled setting in LIMIT+ where semantic similarity provides limited signal and relevance is driven by constraint satisfaction? 
+
+Figure 3 reports first-stage retrieval results on LIMIT and LIMIT+ .The picture changes dramatically compared to QUEST . On atomic 
+
+LIMIT queries, BM25 (Recall@100 = 0.964), Search-R1 (0.960), and GTE-ModernColBERT (0.930) are near-perfect, while all dense single-vector models collapse below 0.15 and LogiCol falls to 0.015. On the compositional LIMIT+ queries, BM25 remains the strongest first-stage retriever (Recall@100 = 0.837), closely followed by Search-R1 (0.829) and GTE-ModernColBERT (0.733), while dense single-vector models stay below 0.13 and LogiCol remains near zero (0.017). Methods that dominated on QUEST do not maintain their advantage once the opportunity to take ‘semantic shortcuts’ is removed, con-firming the observed gains on QUEST can be (partially) attributed to semantic relatedness rather than satisfying logical constraints. 
+
+Comparative analysis: Set-Comp LSR and LogiCol. While both LogiCol [ 17 ] and Set-Comp LSR [ 9 ] identify the inability of current retrievers to handle complex boolean queries, they approach the solution from a different angle, dictated by the underlying architec-ture. LogiCol focuses on dense retrievers, arguing that logical oper-ators can be internalized through learning. In contrast, Set-Comp LSR relies on the lexical grounding in learned sparse retrievers, constructing compositional queries by performing linear algebra operations on the embeddings. In our benchmarking on QUEST (Figure 3), LogiCol generally outperforms Set-Comp LSR with an overall nDCG of 0.21 compared to 0.17. This is most evident in cases of intersections such as A ∩ B or 
+
+A ∩ B ∩ C, where LogiCol achieves scores of 0.12 and 0.13 compared to Set-Comp LSR’s 0.06 and 0.02. However, for simple atomic queries A and single negations A ∩¬ B, Set-Comp LSR demonstrates a slight advantage with 0.41 and 0.19 compared to LogiCol’s 0.39 and 0.17. This shows that while LogiCol effectively teaches dense retrievers to handle complex queries, Set-Comp LSR remains on a competitive level using lexical grounding and algebraic manipulation of the embeddings. Nevertheless, we experience a performance shift going to LIMIT+ benchmarking. Here Set-Comp LSR proves significantly more ro-bust with an overall nDCG of 0.22, while LogiCol achieves a score of 0.01. This contrast implies that LogiCoL’s learned representa-tions may be overfitted to the semantic distributions of the QUEST training data, leading to poor generalization when those semantic cues are removed. In contrast, Set-Comp LSR’s zero-shot algebraic framework provides a more stable and generalizable baseline for logical evaluation. 
+
+Assessing template-specific gains in Set-Comp LSR. The transition from context rich datasets like QUEST to constraint driven LIMIT+ dataset showcases differing level of robustness among sparse re-trievers. We observe that adding logical context to the model via SetComp LSR only benefits specific templates such as A ∩¬ B within the QUEST benchmark. In this scenario, SetComp LSR achieves an nDCG of 0.19, nearly doubling the 0.10 achieved by SPLADE. This suggests that the Set-Comp LSR zero shot framework effectively handles logical exclusion when semantic information is abundant. This performance increase is similarly reflected in the LIMIT+ benchmark, appearing not only in the A ∩¬ B template but also in the A ∪ B template. In these specific logical scenarios, Set-Comp LSR achieves nDCG scores of 0.37 and 0.31, respectively. When com-pared against SPLADE, which only yields lower scores of 0.17 and 0.27, it may suggest that Set-Comp LSR improve template specific performance such as negation and union. However, this specialized robustness does not translate across all logical constraints from QUEST to LIMIT+. Specifically, for intersections A ∩ B and A ∩
+
+B ∩ C, performance collapses to nDCG scores of 0.09 and 0.01, respectively. 
+
+General picture. Comparing the models across both benchmarks reveals a strong contrast in robustness against logical constraints. While the best performing models on QUEST, such as LogiCol (nDCG 0.21), GritLM-7B (nDCG 0.21) or Qwen3-Emb-8B (nDCG 0.19), establish a performance ceiling, they experience a near-total collapse when evaluated on LIMIT+ with nDCG varying from 0.01 to 0.06. This implies that these models rely heavily on semantic context rather than explicit logical constraints, the former of which is absent in the LIMIT+ dataset. SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda 
+
+Apart from other models performing worse or better on the LIMIT+ data, we observe an inverse effect in models such as BM25 and Search-R1, which demonstrate notable performance gains in this restricted setting. Specifically, BM25, whose performance on QUEST was limited to an nDCG of 0.09, now becomes the best performing model on the LIMIT+ data with an nDCG of 0.79. This is closely followed by Search-R1 who increased its nDCG from 0.10 on QUEST to 0.69 on LIMIT+. 
+
+RQ3: How does effectiveness change with increasing compo-sitional depth and across constraint types? 
+
+Figure 3 presents nDCG@20 stratified by constraint type (left column) and compositional depth (right column) across QUEST ,
+
+QUEST+Variants , and LIMIT+ .
+
+Constraint type. Across all three benchmarks, performance varies substantially by template. On QUEST , atomic ( 𝐴 ) and disjunctive queries ( 𝐴 ∪ 𝐵 , 𝐴 ∪ 𝐵 ∪ 𝐶 ) are comparatively easier for most mod-els, while conjunction ( 𝐴 ∩ 𝐵 , 𝐴 ∩ 𝐵 ∩ 𝐶 ) and exclusion ( 𝐴 \ 𝐵 ,
+
+𝐴 ∩ 𝐵 \ 𝐶 ) templates yield markedly lower scores. This pattern intensifies on LIMIT+ : for conjunction templates, most dense mod-els approach nDCG@20 of zero, whereas BM25, Search-R1, and GTE-ModernColBERT retain moderate effectiveness. Exclusion templates reveal a different split: Set-Comp LSR shows a clear advantage for 𝐴 \ 𝐵 (nDCG@20 ≈ 0.37 on LIMIT+ , nearly dou-bling SPLADE’s 0.17), confirming that algebraic vector subtraction captures negation more directly than learned representations. 
+
+Compositional depth. Performance degrades monotonically as the number of atomic predicates increases from one to three. On 
+
+QUEST , the drop from depth one to depth three is moderate for lead-ing models (e.g., GritLM nDCG@20 decreases from ∼0.35 to ∼0.13). On LIMIT+ , the degradation is steeper and more discriminating: BM25 and Search-R1 decline gradually, while dense single-vector models and LogiCol collapse to near-zero at depth two or three. This confirms that compositional depth is a primary driver of diffi-culty, and that models which appear strong at depth one may fail entirely under deeper composition. 
+
+Takeaway. Aggregate scores mask pronounced heterogeneity across constraint types and depths. The stratified analysis reveals that no single model dominates across all templates: token-level methods (BM25, SPLADE, GTE-ModernColBERT) are more robust to increasing depth, algebraic composition (Set-Comp LSR) provides targeted gains on exclusion, and learned dense models degrade sharply once either conjunction or depth increases beyond one. 
+
+Re-ranking: LLMs, cross-encoder, neuro-symbolic To isolate ranking capacity from candidate generation, Table 3 evaluates re-rankers under a curated candidate set on QUEST and LIMIT+ .
+
+Cross-encoder. MonoT5 fails on both benchmarks (nDCG@5 = 0.155 on QUEST , 0.033 on LIMIT+ ), indicating that a seq2seq cross-encoder trained on passage ranking lacks the capacity to handle multi-constraint relevance judgments. 
+
+LLM-based. GPT-Oss achieves near-perfect re-ranking on both benchmarks (nDCG@5 = 0.889 on QUEST , 0.970 on LIMIT+ ; MAP = 0.872 and 0.967 respectively). Qwen-2.5-7B-Instruct is also strong (nDCG@5 = 0.751 / 0.858), substantially outperforming MonoT5 despite using pointwise scoring. The high performance on LIMIT+ ,
+
+Table 3: Re-ranking results under a curated candidate set. For each query, candidates are composed of all gold documents plus 5 noise documents (top-ranked non-gold BM25 hits) and 5 irrelevant documents (bottom-ranked BM25 hits). Metrics show nDCG@5, nDCG@20, and MAP (computed per query and averaged). Scores in bold indicate the highest score in that column.                                  
+
+> QUEST LIMIT+ nDCG MAP nDCG MAP
+> @5 @20 (all) @5 @20 (all)
+> Cross-encoder
+> MonoT5 [13] 0.155 0.530 0.402 0.033 0.452 0.309
+> LLM-based
+> GPT-Oss-120B [14] 0.889 0.915 0.872 0.970 0.967 0.967
+> Qwen-2.5-7B-Inst [28] 0.751 0.821 0.736 0.858 0.882 0.849
+> Neuro-symbolic
+> OrLog (Qwen-2.5-7B-Inst) [5] 0.870 0.911 0.860 0.920 0.927 0.917
+
+where semantic cues are minimal, suggests that LLMs can reason about attribute constraints when the task is framed as classification rather than retrieval. 
+
+Neuro-symbolic. OrLog achieves nDCG@5 = 0.870 on QUEST 
+
+and 0.920 on LIMIT+ , matching or exceeding GPT-Oss on LIMIT+ 
+
+while adding zero trainable parameters. Its explicit logical decom-position and probabilistic aggregation appear well suited to set-compositional queries, and its strong LIMIT+ performance confirms that the approach does not rely on semantic shortcuts. 
+
+Implications. The contrast between first-stage retrieval (where most models struggle) and re-ranking (where LLMs and neuro-symbolic methods achieve nDCG@5 > 0.87) localizes the primary bottleneck to candidate generation. When gold documents are present in the candidate set, both LLMs and lightweight symbolic pipelines can resolve complex constraints effectively; the challenge is surfacing those candidates in the first place. 
+
+## 6 Conclusion and Discussion 
+
+We presented a reproducibility study of set-compositional informa-tion retrieval, benchmarking twelve retrieval models across four paradigm families and four reasoning-targeted methods on QUEST ,
+
+QUEST+ , and the newly introduced LIMIT+ benchmark. The over-arching finding is: absolute performance on set-compositional queries remains low across the board . Even the best first-stage retrievers recover fewer than half the gold entities on QUEST (Recall@100 ≤
+
+0.42), and the strongest enhanced methods provide only incremental gains over well-tuned general-purpose models. On LIMIT+ , where semantic cues are removed, most dense models collapse to near-zero while lexical retrieval achieves Recall@100 ≈ 0.96, exposing that much of the progress observed on natural-language bench-marks reflects learned correlations with semantic context rather than genuine constraint satisfaction. Three implications emerge from our results. Firstly, a step-by-step reasoning-specific train-ing objective is insufficient for set-compositional retrieval. LogiCol Reproducing Complex Set-Compositional Information Retrieval SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. 
+
+Table 4: Reproduced vs. original recall scores (Ours/Orig). Q=QUEST, Q+=QUEST+Variants, L=LIMIT. 
+
+Model Dataset R@20 R@100 
+
+BM25 [11, 17] Q 0.104/0.104 0.197/0.197 BM25 [17] Q+ 0.043/0.044 0.093/0.093 Contriever [17] Q 0.079/0.064 0.146/0.136 Q+ 0.032/0.032 0.073/0.073 E5-base-V2 [17] Q 0.166/0.163 0.318/0.310 Q+ 0.073/0.069 0.158/0.150 LogiCol [17] Q 0.234/0.235 0.419/0.421 Q+ 0.103/0.104 0.217/0.219 BM25 [23] L – 0.964/0.936 GTE-ModernColBERT [23] L – 0.930/0.548 Qwen3-Embedding [23] L – 0.048/0.048 GritLM-7B [23] L – 0.097/0.129 E5-Mistral-Instruct [23] L – 0.060/0.083 
+
+(110M) matches GritLM-7B on QUEST but collapses on LIMIT+ ;Search-R1’s RL-trained reformulation barely improves over BM25; and the zero-shot algebraic approach of Set-Comp LSR generalizes more robustly than any learned method to the controlled setting. This suggests that the field needs benchmarks that disentangle se-mantic relatedness from compositional structure, LIMIT+ is one step in that direction. Secondly, the bottleneck lies in first-stage retrieval, not in ranking. Under controlled re-ranking, both LLMs (nDCG@5 up to 0.97) and a neuro-symbolic pipeline (OrLog; 0.92) achieve near-perfect constraint resolution, confirming that the chal-lenge is surfacing the right candidates rather than judging them. This points toward multi-stage pipelines that pair broad-coverage first-stage retrievers with constraint-aware re-rankers as a promis-ing direction. Thirdly, aggregate metrics conceal critical failure modes. Our constraint-type and depth-stratified analyses show that conjunction and negation templates are markedly harder to satisfy than disjunction, and that performance degrades monotonically with compositional depth. These patterns are invisible in single-number comparisons and argue for fine-grained, template-level evaluation as a standard practice in complex-query IR. 
+
+Limitations. LIMIT+ uses synthetic entities with explicit attribute lists, which simplifies the retrieval problem relative to natural text; its value lies in controlled diagnosis rather than as a standalone benchmark. Our re-ranking evaluation uses a curated candidate set that guarantees gold-document presence, which upper-bounds real-world re-ranking performance. We do have not evaluated generative retrieval or retrieval-augmented generation pipelines, which may handle compositional structure differently. 
+
+Future work. The gap between first-stage and re-ranking per-formance suggests that retrieve-then-reason architectures deserve systematic investigation for set-compositional queries. Extending 
+
+LIMIT+ with deeper compositions (four or more predicates) and ad-ditional operators (e.g., symmetric difference, subset containment) would further stress-test model capabilities. Finally, developing training objectives that explicitly encode set-theoretic structure— rather than relying on contrastive or RL surrogates—remains an open and pressing challenge. 
+
+## Acknowledgments 
+
+This work has received funding from the Dutch Research Council (NWO) under project number NWA.1389.20.-183 and the European Union’s Horizon Europe research and innovation programme under grant agreement No 101070014 (OpenWebSearch.EU, https://doi. org/10.3030/101070014). All content represents the opinion of the authors, not necessarily shared or endorsed by their respective employers and/or sponsors. 
+
+## A Additional Experimental Details A.1 Prompts 
+
+A.1.1 ReasonIR-8B and GritLM-7B. We follow [ 12 , 16 ] query tem-plate: 
+
+Query Encoding Template 
+
+<|user|> Given a query, retrieve relevant documents that answer the query <|embed|> {query_text} 
+
+A.1.2 Reranking with Oss and Qwen. For reranking with LLMs we use the following prompt template: 
+
+Prompting Template 
+
+From a scale of 0 to 4, judge the relevance between the query and the document. Return ONLY the integer score. Query: {query_text} 
+
+Document: {document_text} 
+
+Output: 
+
+## B Reproducibility results 
+
+In Table 4, we compare our reproduced recall scores to those re-ported in prior work [ 11 , 17 , 23 ]. For QUEST and QUEST+Variants, our reproduced results closely match the original reports, suggest-ing that our preprocessing and evaluation pipeline is consistent for these datasets. However, we observe larger discrepancies on LIMIT, which is likely more sensitive to evaluation and retrieval details (e.g., dataset handling and scoring implementations). 
+
+## References       
+
+> [1] Payal Bajaj, Daniel Campos, Nick Craswell, Li Deng, Jianfeng Gao, Xiaodong Liu, Rangan Majumder, Andrew McNamara, Bhaskar Mitra, Tri Nguyen, Mir Rosenberg, Xia Song, Alina Stoica, Saurabh Tiwary, and Tong Wang. 2016. MS MARCO: A human generated MAchine Reading COmprehension dataset . Technical Report. Microsoft Research. 1–11 pages. arXiv:1611.09268 [cs.CL] [2] Antoine Chaffin. 2025. GTE-ModernColBERT. https://huggingface.co/lightonai/ GTE-ModernColBERT-v1 [3] Ting Chen, Simon Kornblith, Mohammad Norouzi, and Geoffrey Hinton. 2020. A simple framework for contrastive learning of visual representations. In Proceed-ings of the 37th International Conference on Machine Learning (ICML’20) . Vienna, Austria.
+
+SIGIR ’26, July 20–24, 2026, Melbourne, VIC, Australia. Vincent Degenhart, Dewi Timman, Arjen P. de Vries, Faegheh Hasibi, and Mohanna Hoveyda 
+
+[4] Nick Craswell, Bhaskar Mitra, Emine Yilmaz, Daniel Campos, Ellen M Voorhees, and Ian Soboroff. 2021. TREC deep learning track: Reusable test collections in the large data regime. In Proceedings of the 44th International ACM SIGIR Conference on Research and Development in Information Retrieval (Virtual Event Canada). ACM, New York, NY, USA, 1–7. [5] Mohanna Hoveyda, Jelle Piepenbrock, Arjen P de Vries, Maarten de Rijke, and Faegheh Hasibi. 2026. OrLog: Resolving Complex Queries with LLMs and Proba-bilistic Reasoning. arXiv:2601.23085 [cs.IR] https://arxiv.org/abs/2601.23085 [6] Gautier Izacard, Mathilde Caron, Lucas Hosseini, Sebastian Riedel, Piotr Bo-janowski, Armand Joulin, and Edouard Grave. 2021. Unsupervised Dense Infor-mation Retrieval with Contrastive Learning. doi:10.48550/ARXIV.2112.09118 [7] Bowen Jin, Hansi Zeng, Zhenrui Yue, Jinsung Yoon, Sercan Arik, Dong Wang, Hamed Zamani, and Jiawei Han. 2025. Search-R1: Training LLMs to reason and leverage search engines with reinforcement learning. In Proceedings of the Conference on Language Modeling (CoLM) . COLM – Conference on Language Modeling, Montreal, Canada, 1–31. [8] Omar Khattab and Matei Zaharia. 2020. ColBERT: Efficient and Effective Passage Search via Contextualized Late Interaction over BERT. In Proceedings of the 43rd International ACM SIGIR Conference on Research and Development in Information Retrieval . ACM, New York, NY, USA, 39–48. [9] Antonios Minas Krasakis, Andrew Yates, and Evangelos Kanoulas. 2025. Con-structing Set-Compositional and Negated Representations for First-Stage Ranking. In Proceedings of the 34th ACM International Conference on Information and Knowl-edge Management (Seoul, Republic of Korea) (CIKM ’25) . Association for Com-puting Machinery, New York, NY, USA, 1406–1416. doi:10.1145/3746252.3761238 [10] Carlos Lassance, Hervé Déjean, Thibault Formal, and Stéphane Clinchant. 2024. SPLADE-v3: New baselines for SPLADE. arXiv:2403.06789 [cs.IR] [11] Chaitanya Malaviya, Peter Shaw, Ming-Wei Chang, Kenton Lee, and Kristina Toutanova. 2023. QUEST: A Retrieval Dataset of Entity-Seeking Queries with Implicit Set Operations. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Anna Rogers, Jordan Boyd-Graber, and Naoaki Okazaki (Eds.). Association for Computational Linguistics, Toronto, Canada, 14032–14047. doi:10.18653/v1/2023.acl-long.784 [12] Niklas Muennighoff, Hongjin Su, Liang Wang, Nan Yang, Furu Wei, Tao Yu, Aman-preet Singh, and Douwe Kiela. 2024. Generative Representational Instruction Tuning. arXiv:2402.09906 [cs.CL] [13] Rodrigo Nogueira, Zhiying Jiang, Ronak Pradeep, and Jimmy Lin. 2020. Docu-ment Ranking with a Pretrained Sequence-to-Sequence Model. In Findings of the Association for Computational Linguistics: EMNLP 2020 , Trevor Cohn, Yulan He, and Yang Liu (Eds.). Association for Computational Linguistics, Online, 708–718. doi:10.18653/v1/2020.findings-emnlp.63 [14] OpenAI. 2025. gpt-oss-120b & gpt-oss-20b Model Card. arXiv:2508.10925 [cs.CL] https://arxiv.org/abs/2508.10925 [15] Stephen E. Robertson, Steve Walker, Susan Jones, Micheline Hancock-Beaulieu, and Mike Gatford. 1994. Okapi at TREC-3. In Proceedings of the Third Text REtrieval Conference (TREC-3) . NIST, NIST, Gaithersburg, MD, 109–126. [16] Rulin Shao, Rui Qiao, Varsha Kishore, Niklas Muennighoff, Xi Victoria Lin, Daniela Rus, Bryan Kian Hsiang Low, Sewon Min, Wen tau Yih, Pang Wei Koh, and Luke Zettlemoyer. 2025. ReasonIR: Training Retrievers for Reasoning Tasks. In 
+
+Second Conference on Language Modeling . COLM - Conference on Language Mod-eling, Montreal, Canada, 1–39. https://openreview.net/forum?id=kkBCNLMbGj [17] Yanzhen Shen, Sihao Chen, Xueqiang Xu, Yunyi Zhang, Chaitanya Malaviya, and Dan Roth. 2025. LogiCoL: Logically-Informed Contrastive Learning for Set-based Dense Retrieval. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing , Christos Christodoulopoulos, Tanmoy Chakraborty, Carolyn Rose, and Violet Peng (Eds.). Association for Computational Linguistics, Suzhou, China, 12114–12125. doi:10.18653/v1/2025.emnlp-main.608 [18] Weiwei Sun, Zhengliang Shi, Wu Jiu Long, Lingyong Yan, Xinyu Ma, Yiding Liu, Min Cao, Dawei Yin, and Zhaochun Ren. 2024. MAIR: A massive benchmark for evaluating instructed retrieval. In Proceedings of the 2024 Conference on Em-pirical Methods in Natural Language Processing . Association for Computational Linguistics, Miami, Florida, USA, 14044–14067. [19] Nandan Thakur, Nils Reimers, Andreas Rücklé, Abhishek Srivastava, and Iryna Gurevych. 2021. BEIR: A Heterogeneous Benchmark for Zero-shot Evaluation of Information Retrieval Models. In Thirty-fifth Conference on Neural Information Processing Systems Datasets and Benchmarks Track (Round 2) . NeurIPS, virtual, 1–16. https://openreview.net/forum?id=wCu6T5xFjeJ [20] Coen van den Elsen, Francien Barkhof, Thijmen Nijdam, Simon Lupart, and Mohammad Aliannejadi. 2025. Reproducing NevIR: Negation in Neural Informa-tion Retrieval. In Proceedings of the 48th International ACM SIGIR Conference on Research and Development in Information Retrieval . Association for Computing Machinery, New York, NY, USA, 3346–3356. [21] Liang Wang, Nan Yang, Xiaolong Huang, Binxing Jiao, Linjun Yang, Daxin Jiang, Rangan Majumder, and Furu Wei. 2022. Text Embeddings by Weakly-Supervised Contrastive Pre-training. [22] Liang Wang, Nan Yang, Xiaolong Huang, Linjun Yang, Rangan Majumder, and Furu Wei. 2024. Improving Text Embeddings with Large Language Models. In 
+
+Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , Lun-Wei Ku, Andre Martins, and Vivek Srikumar (Eds.). Association for Computational Linguistics, Bangkok, Thailand, 11897–11916. doi:10.18653/v1/2024.acl-long.642 [23] Orion Weller, Michael Boratko, Iftekhar Naim, and Jinhyuk Lee. 2025. On the Theoretical Limitations of Embedding-Based Retrieval. arXiv:2508.21038 [cs.IR] https://arxiv.org/abs/2508.21038 [24] Orion Weller, Benjamin Van Durme, Dawn Lawrie, Ashwin Paranjape, Yuhao Zhang, and Jack Hessel. 2024. Promptriever: Instruction-Trained Retrievers Can Be Prompted Like Language Models. arXiv:2409.11136 [cs.IR] https://arxiv.org/ abs/2409.11136 [25] Orion Weller, Dawn Lawrie, and Benjamin Van Durme. 2024. NevIR: Negation in Neural Information Retrieval. In Proceedings of the 18th Conference of the European Chapter of the Association for Computational Linguistics (Volume 1: Long Papers) .Association for Computational Linguistics, St. Julian’s, Malta, 2274–2287. [26] Junde Wu, Jiayuan Zhu, Yuyuan Liu, Min Xu, and Yueming Jin. 2025. Agen-tic Reasoning: A Streamlined Framework for Enhancing LLM Reasoning with Agentic Tools. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) .[27] Ganlin Xu, Zhoujia Zhang, Wangyi Mei, Jiaqing Liang, Weijia Lu, Xiaodong Zhang, Zhifei Yang, Xiaofeng Ma, Yanghua Xiao, and Deqing Yang. 2025. Log-ical Consistency is Vital: Neural-Symbolic Information Retrieval for Negative-Constraint Queries. In Findings of the Association for Computational Linguistics: ACL 2025 . Association for Computational Linguistics, Vienna, Austria, 1828– 1847. [28] An Yang, Baosong Yang, Beichen Zhang, Binyuan Hui, Bo Zheng, Bowen Yu, Chengyuan Li, Dayiheng Liu, Fei Huang, Haoran Wei, Huan Lin, Jian Yang, Jianhong Tu, Jianwei Zhang, Jianxin Yang, Jiaxi Yang, Jingren Zhou, Junyang Lin, Kai Dang, Keming Lu, Keqin Bao, Kexin Yang, Le Yu, Mei Li, Mingfeng Xue, Pei Zhang, Qin Zhu, Rui Men, Runji Lin, Tianhao Li, Tingyu Xia, Xingzhang Ren, Xuancheng Ren, Yang Fan, Yang Su, Yichang Zhang, Yu Wan, Yuqiong Liu, Zeyu Cui, Zhenru Zhang, and Zihan Qiu. 2025. Qwen2.5 Technical Report. arXiv:2412.15115 [cs.CL] https://arxiv.org/abs/2412.15115 [29] Wenhao Zhang, Mengqi Zhang, Shiguang Wu, Jiahuan Pei, Zhaochun Ren, Maarten de Rijke, Zhumin Chen, and Pengjie Ren. 2025. Excluir: Exclusionary neural information retrieval. In Proceedings of the AAAI Conference on Artificial Intelligence . AAAI Press, Philadelphia, Pennsylvania, USA, 13295 – 13303. [30] Yanzhao Zhang, Mingxin Li, Dingkun Long, Xin Zhang, Huan Lin, Baosong Yang, Pengjun Xie, An Yang, Dayiheng Liu, Junyang Lin, Fei Huang, and Jingren Zhou. 2025. Qwen3 Embedding: Advancing Text Embedding and Reranking Through Foundation Models. arXiv:2506.05176 [cs.CL] https://arxiv.org/abs/2506.05176 [31] Yuxiang Zheng, Dayuan Fu, Xiangkun Hu, Xiaojie Cai, Lyumanshan Ye, Pengrui Lu, and Pengfei Liu. 2025. DeepResearcher: Scaling Deep Research via Reinforce-ment Learning in Real-world Environments. In Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing .[32] Honglei Zhuang, Zhen Qin, Kai Hui, Junru Wu, Le Yan, Xuanhui Wang, and Michael Bendersky. 2024. Beyond yes and no: Improving zero-shot llm rankers via scoring fine-grained relevance labels. In Proceedings of the 2024 conference of the North American chapter of the Association for Computational Linguistics: Human language technologies (volume 2: short papers) . Association for Computational Linguistics, Mexico City, Mexico, 358–370.

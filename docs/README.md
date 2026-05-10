@@ -6,74 +6,73 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-05-09
-- 运行时间：2026-05-09 20:28:19 UTC
+- 最新运行日期：2026-05-10
+- 运行时间：2026-05-10 20:24:32 UTC
 - 运行状态：成功
-- 本次总论文数：18
-- 精读区：6
+- 本次总论文数：17
+- 精读区：5
 - 速读区：12
 
 ### 今日简报（AI）
-今日精选 18 篇前沿成果，深度解析了真实世界数据分析 Agent 的评测基准与神经符号规则提取技术
-- 详情：[/202605/09/README](/202605/09/README)
+今日精选 17 篇前沿论文，深度聚焦 AI 辅助写作反馈系统与医疗大模型幻觉检测技术。
+重点关注 Prober.ai 如何通过角色约束提升写作逻辑，以及 MedFabric 框架在医疗文本造假检测上的突破。
+建议普通读者关注 LLM 多步推理的理论极限，警惕封闭系统下的“推理陷阱”。
+- 详情：[/202605/10/README](/202605/10/README)
 
 ### 精读区论文标签
-1. [DataClaw: A Process-Oriented Agent Benchmark for Exploratory Real-World Data Analysis](/202605/09/2605.02503v1-dataclaw-a-process-oriented-agent-benchmark-for-exploratory-real-world-data-analysis)  
-   标签：评分：9.0/10、query:ds-gen
-   evidence：构建新研究数据集的方法论
-2. [ANDRE: An Attention-based Neuro-symbolic Differentiable Rule Extractor](/202605/09/2605.04193v1-andre-an-attention-based-neuro-symbolic-differentiable-rule-extractor)  
-   标签：评分：8.0/10、query:q6
-   evidence：学习可解释的一阶规则与逻辑结构
-3. [Temporal Reasoning Is Not the Bottleneck: A Probabilistic Inconsistency Framework for Neuro-Symbolic QA](/202605/09/2605.04243v1-temporal-reasoning-is-not-the-bottleneck-a-probabilistic-inconsistency-framework-for-neuro-symbolic-qa)  
-   标签：评分：8.0/10、query:kgee
-   evidence：将非结构化文本提升为显式事件图和区间约束
-4. [Knowledge-Graph Paths as Intermediate Supervision for Self-Evolving Search Agents](/202605/09/2605.05702v1-knowledge-graph-paths-as-intermediate-supervision-for-self-evolving-search-agents)  
+1. [Prober.ai: Gated Inquiry-Based Feedback via LLM-Constrained Personas for Argumentative Writing Development](/202605/10/2605.05598v1-proberai-gated-inquiry-based-feedback-via-llm-constrained-personas-for-argumentative-writing-development)  
+   标签：评分：10.0/10、query:edu-llm
+   evidence：教育场景下大模型用于论证写作能力培养
+2. [MedFabric and EtHER: A Data-Centric Framework for Word-Level Fabrication Generation and Detection in Medical LLMs](/202605/10/2605.04180v1-medfabric-and-ether-a-data-centric-framework-for-word-level-fabrication-generation-and-detection-in-medical-llms)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：通过自我博弈生成搜索任务和训练问题
-5. [Logic-Regularized Verifier Elicits Reasoning from LLMs](/202605/09/2605.05893v1-logic-regularized-verifier-elicits-reasoning-from-llms)  
-   标签：评分：8.0/10、query:profile-3
-   evidence：受逻辑规则约束的无监督推理验证器
-6. [From Articles to Premises: Building PrimeFacts, an Extraction Methodology and Resource for Fact-Checking Evidence](/202605/09/2605.06006v1-from-articles-to-premises-building-primefacts-an-extraction-methodology-and-resource-for-fact-checking-evidence)  
+   evidence：生成逼真词级伪造数据的流水线
+3. [DataDignity: Training Data Attribution for Large Language Models](/202605/10/2605.05687v1-datadignity-training-data-attribution-for-large-language-models)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：提取证据与构建数据集的方法论和资源
+   evidence：用于数据归因的伪造文章基准数据集
+4. [Multi-agent decision making: A Blackwell's informativeness approach](/202605/10/2605.06028v1-multi-agent-decision-making-a-blackwells-informativeness-approach)  
+   标签：评分：8.0/10、query:q1
+   evidence：多代理辩论和决策信息量的形式化分析
+5. [MANTRA: Synthesizing SMT-Validated Compliance Benchmarks for Tool-Using LLM Agents](/202605/10/2605.06334v1-mantra-synthesizing-smt-validated-compliance-benchmarks-for-tool-using-llm-agents)  
+   标签：评分：8.0/10、query:ds-gen
+   evidence：为LLM智能体合成经SMT验证的合规性基准数据集
 
 ### 速读区论文标签
-1. [Evaluating the Architectural Reasoning Capabilities of LLM Provers via the Obfuscated Natural Number Game](/202605/09/2605.00677v1-evaluating-the-architectural-reasoning-capabilities-of-llm-provers-via-the-obfuscated-natural-number-game)  
+1. [The Reasoning Trap: An Information-Theoretic Bound on Closed-System Multi-Step LLM Reasoning](/202605/10/2605.01704v1-the-reasoning-trap-an-information-theoretic-bound-on-closed-system-multi-step-llm-reasoning)  
    标签：评分：7.0/10、query:profile-3
-   evidence：通过 Lean 4 中的形式化证明评估架构推理
-2. [EventADL: Open-Box Anomaly Detection and Localization Framework for Events in Cloud-Based Service Systems](/202605/09/2605.00936v1-eventadl-open-box-anomaly-detection-and-localization-framework-for-events-in-cloud-based-service-systems)  
+   evidence：多智能体辩论与基于证据的推理
+2. [The Reasoning Trap: An Information-Theoretic Bound on Closed-System Multi-Step LLM Reasoning](/202605/10/2605.01704v2-the-reasoning-trap-an-information-theoretic-bound-on-closed-system-multi-step-llm-reasoning)  
+   标签：评分：7.0/10、query:q1
+   evidence：多智能体辩论和推理失败的形式化模型
+3. [Revisiting Semantic Role Labeling: Efficient Structured Inference with Dependency-Informed Analysis](/202605/10/2605.02505v1-revisiting-semantic-role-labeling-efficient-structured-inference-with-dependency-informed-analysis)  
    标签：评分：7.0/10、query:kgee
-   evidence：基于事件的异常检测与定位框架
-3. [Effect-Transparent Governance for AI Workflow Architectures: Semantic Preservation, Expressive Minimality, and Decidability Boundaries](/202605/09/2605.01030v2-effect-transparent-governance-for-ai-workflow-architectures-semantic-preservation-expressive-minimality-and-decidability-boundaries)  
-   标签：评分：7.0/10、query:q9
-   evidence：AI工作流架构治理的机器验证形式化
-4. [OracleProto: A Reproducible Framework for Benchmarking LLM Native Forecasting via Knowledge Cutoff and Temporal Masking](/202605/09/2605.03762v1-oracleproto-a-reproducible-framework-for-benchmarking-llm-native-forecasting-via-knowledge-cutoff-and-temporal-masking)  
+   evidence：显式结构约束与语义角色标注
+4. [Reproducing Complex Set-Compositional Information Retrieval](/202605/10/2605.03824v1-reproducing-complex-set-compositional-information-retrieval)  
    标签：评分：7.0/10、query:kgee
-   evidence：决策支持中情境判断与预测的基准测试
-5. [MCJudgeBench: A Benchmark for Constraint-Level Judge Evaluation in Multi-Constraint Instruction Following](/202605/09/2605.03858v1-mcjudgebench-a-benchmark-for-constraint-level-judge-evaluation-in-multi-constraint-instruction-following)  
-   标签：评分：7.0/10、query:ds-gen
-   evidence：指令遵循中约束级裁判评估的基准数据集
-6. [An Agent-Oriented Pluggable Experience-RAG Skill for Experience-Driven Retrieval Strategy Orchestration](/202605/09/2605.03989v1-an-agent-oriented-pluggable-experience-rag-skill-for-experience-driven-retrieval-strategy-orchestration)  
+   evidence：在复杂集合组合查询上对检索范式进行基准测试
+5. [The Scaling Properties of Implicit Deductive Reasoning in Transformers](/202605/10/2605.04330v1-the-scaling-properties-of-implicit-deductive-reasoning-in-transformers)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：Horn子句上的隐式演绎推理
+6. [A Hybrid Method for Low-Resource Named Entity Recognition](/202605/10/2605.04489v1-a-hybrid-method-for-low-resource-named-entity-recognition)  
    标签：评分：7.0/10、query:kgee
-   evidence：RAG的案例检索与策略编排
-7. [TUR-DPO: Topology- and Uncertainty-Aware Direct Preference Optimization](/202605/09/2605.00224v1-tur-dpo-topology--and-uncertainty-aware-direct-preference-optimization)  
-   标签：评分：6.0/10、query:profile-3
-   evidence：为大语言模型对齐和偏好优化提取推理拓扑结构
-8. [FollowTable: A Benchmark for Instruction-Following Table Retrieval](/202605/09/2605.00400v1-followtable-a-benchmark-for-instruction-following-table-retrieval)  
+   evidence：用于信息提取的混合神经符号框架
+7. [Arbitrarily Conditioned Hierarchical Flows for Spatiotemporal Events](/202605/10/2605.01226v1-arbitrarily-conditioned-hierarchical-flows-for-spatiotemporal-events)  
    标签：评分：6.0/10、query:kgee
-   evidence：具有模式约束的指令遵循表格检索
-9. [Adaptive Querying with AI Persona Priors](/202605/09/2605.00696v1-adaptive-querying-with-ai-persona-priors)  
-   标签：评分：6.0/10、query:edu-llm
-   evidence：计算机化自适应测试与心理测量指标
-10. [Multimodal Data Curation Through Ranked Retrieval](/202605/09/2605.01163v1-multimodal-data-curation-through-ranked-retrieval)  
-   标签：评分：6.0/10、query:ds-gen
-   evidence：构建和策划研究数据集的方法论
-11. [ClarifySTL: An Interactive LLM Agent Framework for STL Transformation through Requirements Clarification](/202605/09/2605.01209v1-clarifystl-an-interactive-llm-agent-framework-for-stl-transformation-through-requirements-clarification)  
+   evidence：用于时空事件建模的层次流匹配
+8. [HepScript: A Dual-Use DSL for Human-AI Collaborative Data Analysis Workflows in High-Energy Physics](/202605/10/2605.01423v1-hepscript-a-dual-use-dsl-for-human-ai-collaborative-data-analysis-workflows-in-high-energy-physics)  
    标签：评分：6.0/10、query:q9
-   evidence：使用信号时序逻辑的形式化知识表示方法
-12. [Measuring Understanding Through Discrete Compositional Knowledge Structures in Hierarchical Automata](/202605/09/2605.01430v1-measuring-understanding-through-discrete-compositional-knowledge-structures-in-hierarchical-automata)  
+   evidence：用于形式化接口和分析逻辑的领域特定语言
+9. [CP-SynC: Multi-Agent Zero-Shot Constraint Modeling in MiniZinc with Synthesized Checkers](/202605/10/2605.01675v1-cp-sync-multi-agent-zero-shot-constraint-modeling-in-minizinc-with-synthesized-checkers)  
    标签：评分：6.0/10、query:kgee
-   evidence：离散组合知识结构与分层自动机
+   evidence：为约束建模和反馈合成语义检查器
+10. [Counterfactual Reasoning in Automated Planning](/202605/10/2605.02603v1-counterfactual-reasoning-in-automated-planning)  
+   标签：评分：6.0/10、query:q2
+   evidence：自动推理系统与反事实推理
+11. [Towards Definitional Interpreters for Hoare Logics](/202605/10/2605.02963v1-towards-definitional-interpreters-for-hoare-logics)  
+   标签：评分：6.0/10、query:q2
+   evidence：用于程序正确性和自动推理的Hoare逻辑
+12. [SURE-RAG: Sufficiency and Uncertainty-Aware Evidence Verification for Selective Retrieval-Augmented Generation](/202605/10/2605.03534v1-sure-rag-sufficiency-and-uncertainty-aware-evidence-verification-for-selective-retrieval-augmented-generation)  
+   标签：评分：6.0/10、query:kgee
+   evidence：证据验证与主张-证据关系检测
 
 
 <div class="dpr-home-promo-card">
