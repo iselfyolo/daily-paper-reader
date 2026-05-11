@@ -1,0 +1,572 @@
+Title: SCGNN: Semantic Consistency enhanced Graph Neural Network Guided by Granular-ball Computing
+
+URL Source: https://arxiv.org/pdf/2605.02617v2
+
+Published Time: Wed, 06 May 2026 00:36:55 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# SCGNN: Semantic Consistency enhanced Graph Neural Network Guided by Granular-ball Computing 
+
+## Genhao Tian a, Taihua Xu a,∗, Shuyin Xia b, Qinghua Zhang b, Jie Yang c and Jianjun Chen a
+
+> a
+
+JiangSu University of Science and Technoloy, Zhenjiang, Jiangsu, China 
+
+> b
+
+Chongqing University of Posts and Telecommunications, Chongqing, China 
+
+> c
+
+Zunyi Normal University, Zunyi, Guizhou, China 
+
+A R T I C L E I N F O 
+
+Keywords :granular-ball computing graph neural network semantic mining semantic consistency scalability 
+
+A B S T R A C T 
+
+Capturing semantic consistency among nodes is crucial for effective graph representation learning. Existing approaches typically rely on 𝑘 -nearest neighbors ( 𝑘 NN) or other node-level full search algorithms (FSA) to mine semantic relationships via exhaustive pairwise similarity computation, which suffer from high computational complexity and rigid neighbor selection, limiting scalability and introducing noisy connections. In this paper, we propose the Semantic Consistency enhanced Graph Neural Network (SCGNN), a novel plug-and-play framework that leverages granular-ball computing (GBC) to efficiently capture semantic consistency in a scalable manner. Unlike node-level FSA methods, SCGNN models group-level semantic structure by adaptively partitioning nodes into granular balls, significantly reducing computational cost while improving robustness to noise. To effectively utilize the discovered group-level semantic consistency, we design a dual enhancement strategy. Specifically, (1) a structure enhancement module constructs an anchor-based graph structure, where each anchor is a virtual node representing the group-level semantic carried by a granular ball, then injecting group-level semantic information into the graph structure; and (2) a supervision enhancement module performs label consistency checking (LCC) by combining GBC predictions with model-generated pseudo-labels, thereby producing more reliable supervision signals. SCGNN is compatible with various GNN backbones. During the forward propagation of SCGNN, the vanilla graph and the augment graph are jointly encoded, and their predictions are fused; during the backpropagation, the supervision enhancement module provides enhanced supervision signals to guide parameter updates. Extensive experiments on every benchmarks demonstrate that SCGNN consistently improves performance while maintaining high computational efficiency and scalability. 
+
+## 1. Introduction 
+
+Graph-structured data is widely encountered in real-world applications, and graph neural networks (GNNs) Kipf and Welling (2017); Veličković, Cucurull, Casanova, Romero, Liò and Bengio (2018); Gasteiger, Bojchevski and Günnemann (2019) have become a dominant paradigm for learning representations from such data. Depending on the task granularity, GNNs have been successfully applied to node-level tasks Kipf and Welling (2017), edge-level tasks Cai and Ji (2020); Zhang and Chen (2018), and graph-level tasks Xu, Hu, Leskovec and Jegelka (2019); Han, Jiang, Liu and Hu (2022); Zhang, Cui, Neumann and Chen (2018). Despite their differences, these approaches generally rely on learning informative node embeddings through message passing over graph structure. However, such structure-driven message passing pri-marily exploits the given graph structure and may fail to fully capture rich semantic relationships embedded in node features. Therefore, relying solely on the observed graph structure is insufficient, and mining semantic information from node features has emerged as an important research direction in graph representation learning Wu, Li and Li 
+
+> ∗
+
+Corresponding author  
+
+> 241110702108@stu.just.edu.cn
+
+(G. Tian);  
+
+> xutaihua2019@just.edu.cn
+
+(T. Xu); xiasy@cqupt.edu.cn (S. Xia);  
+
+> zhangqh@cqupt.edu.cn
+
+(Q. Zhang); 2012009@zync.edu.cn (J. Yang);  
+
+> jianjunchen@just.edu.cn
+
+(J. Chen) 
+
+> ORCID
+
+(s): 0009-0006-0249-8983 (G. Tian) 
+
+(2024a); Wu, Chen, Du, Huang and Wang (2024b); Pei, Wei, Chang, Lei and Yang (2020); Rubio-Madrigal, Jamadandi and Burkholz (2025); Xie, Tam and Lau (2023); Wang, Yang, Zhang, Xia, Yang and Xu (2026). The semantic mining direction mainly revolve around two key aspects: (1) the extraction of semantic consistency information, i.e., how to efficiently mine high-quality seman-tic consistency from features, and (2) the utilization of such information, i.e., how to properly incorporate the extracted semantic consistency into graph neural networks (GNNs) to enhance representation learning. Node-level full search algorithms (FSA) are widely used for semantic mining Li, Yang, Bai and Ma (2024); Xu, Tian, Fan, Yang, Zhang and Cui (2026); Huang, Shen, Shi and Zhu (2024). These methods operate at a very fine granularity, where the semantic consistency (feature similarity) between every pair of samples is computed. Consequently, in the utilization phase, they naturally modify the graph structure based on pairwise similarity. Specifically, for each node, the 
+
+𝑡𝑜𝑝 K most similar candidates are selected as its neighbors (commonly referred to as 𝑘 NN or 𝑡𝑜𝑝 K), or neighbors are filtered based on a predefined similarity threshold. In theory, FSA can extract the highest-quality semantic consistency information. However, they suffer from notable limitations in both extraction and utilization. On the ex-traction side, their quadratic complexity leads to prohibitive computational costs as the number of samples increases Bar-bero, Velingker, Saberi, Bronstein and Giovanni (2024); Li 
+
+: Preprint submitted to Elsevier Page 1 of 12                        
+
+> arXiv:2605.02617v2 [cs.AI] 5 May 2026 Table 1
+> Comparison of time and memory overhead of GBC and 𝑘 NN on datasets of different scales. We have a total of 92160MB (90GB) of RAM memory. Datasets(scale) Time(s) Memory(MB) GBC 𝑘 NN GBC 𝑘 NN Amazon-ratings(24k) 20 12 227 3995 arxiv2023(46k) 30 33 379 10538 ogbn-arxiv(169k) 106 N/A 597 >92160 ogbn-products(2449k) 1035 N/A 7109 ≫92160
+
+et al. (2024). On the utilization side, 𝑘 NN or 𝑡𝑜𝑝 K methods rely on a predefined k, which introduces hyperparameter sensitivity and 𝑘 -value noise Yang, Yan, Pan, Ye and Fan (2023b); Wang et al. (2026). Similarity threshold based methods provide better adaptivity at the node level, but determining an appropriate threshold is often challenging. To reduce the computational costs of FSA in seman-tic consistency mining, we introduce a highly efficient ap-proach—Granular Ball Computing (GBC) Xia, Liu, Ding, Wang, Yu and Luo (2019); Xia, Dai, Wang, Gao and Giem (2022); Xia, Shi, Wang, Xie, Wang and Gao (2025); Cheng, Li, Xia, Wang, Huang and Zhang (2023). GBC can alleviate the FSA scalability bottleneck while also mitigate the chal-lenges of hyperparameter selection and 𝑘 -value noise in the utilization phase. Unlike node-level FSA, which performs one-shot global computation, GBC adopts an iterative process that progres-sively splits granular balls (GBs) until all of them satisfy a predefined stopping criterion Xia et al. (2019). The most significant advantage of GBC lies in its scalability. As shown in Table 1, we compare the overhead of GBC and 𝑘 NN across datasets of different scales. Even with up to 90 GB of RAM, 𝑘 NN fails to process the million-scale ogbn-arxiv dataset, whereas GBC can efficiently handle the ten-million-scale ogbn-products dataset with low memory overhead even lower than the overhead of 𝑘 NN on the much smaller arxiv2023 dataset with only 46k samples. Notably, GBC is slightly slower than 𝑘 NN only on Amazon-ratings dataset, mainly because 𝑘 NN benefits from highly optimized matrix operations, whereas GBC incurs additional fixed overhead from its recursive splitting. As the scale increases (e.g., arxiv2023 and beyond), this overhead becomes negligible which makes GBC quickly outperforms 𝑘 NN. The substantial gap in computational overhead between 
+
+𝑘 NN and GBC demonstrates the superior scalability of GBC. However, the group-level consistency discovered by GBC cannot be directly used to select neighbors based on pairwise similarity, as in FSA. Therefore, effectively utiliz-ing group-level consistency is the key to integrating GBC into GNNs. Based on the scalability of GBC and the utilization of its group-level semantic consistency, we propose the Semantic Consistency enhanced Graph Neural Network (SCGNN). First, we apply GBC to extract group-level semantic con-sistency. Then, for semantic utilization, we design a dual enhancement strategy consisting of structure enhancement and supervision enhancement. Specifically, for structure enhancement, we design an anchor-based two-level graph structure construction strat-egy, where each anchor is a virtual node representing the group-level semantics carried by a granular ball (GB). The two-level graph structure consists of (1) projection edges connecting each anchor to the nodes within its correspond-ing granular ball, and (2) bridging edges linking anchors that share similar semantics, which inject group-level semantic consistency into the graph structure and enables GNNs to exploit semantic consistency via spectral information. For supervision enhancement, we perform GB-based label prediction, and use the proposed Label Consistency Check (LCC) which combines GB label with the pseudo-label Lee (2013) from model predictions, to produce LCC labels for additional supervision. In the overall architecture of SCGNN, during the forward propagation, we adopt a parallel prediction and prediction fusion scheme based on both the vanilla graph and the aug-ment graph. During the backpropagation, the model is jointly supervised by train labels and LCC labels. Furthermore, the model is designed in a plug-and-play manner, enabling SCGNN to be compatible with various GNN backbones. The main contributions are summarized as follows: 1. A new perspective for semantic consistency min-ing. We introduce granular-ball computing (GBC) into graph representation learning, providing a scal-able alternative to node-level FSA for capturing se-mantic consistency. 2. A dual enhancement strategy for utilizing group-level semantic consistency. To effectively exploit the group-level semantic consistency discovered by GBC, we design a dual enhancement strategy: (1) a structure enhancement module that constructs an anchor-based two-level graph structure to inject semantic consis-tency into the graph structure, and (2) a supervision enhancement module that combines GB predictions with model-generated pseudo-labels via a Label Con-sistency Check (LCC). 3. A plug-and-play GNN framework. SCGNN is de-signed in a plug-and-play manner which enable it to be compatible with various GNN backbones. 4. Extensive experimental validation. Extensive ex-periments on multiple benchmark datasets show that SCGNN consistently outperforms state-of-the-art meth-ods while maintaining high computational efficiency and scalability. The source code is publicly available at: https://github. com/GCNJust/SCGNN .  
+
+> :Preprint submitted to Elsevier Page 2 of 12
+
+## 2. Related Work 
+
+2.1. Semantic consistency research of GNN 
+
+Several studies attempt to exploit semantic consistency in node features to augment or refine graph structure. For in-stance, AM-GCNWang, Zhu, Bo, Cui, Shi and Pei (2020b): Adaptive Multi-channel Graph Convolutional Networks con-structs a feature similarity graph by computing k-nearest neighbors in the vanilla feature space, thereby introduc-ing additional edges beyond the vanilla graph structure to capture potential semantic relations between nodes. Geom-GCNPei et al. (2020): Geometric Graph Convolutional Networks embeds nodes into a latent geometric space and reorganizes neighborhoods based on geometric proxim-ity, enabling the model to capture semantic relationships that may not align with the vanilla graph connectivity. IDGLChen, Wu and Zaki (2020): Iterative Deep Graph Learning proposes to iteratively learn an optimized graph structure from node features by refining edge weights based on feature similarity, allowing the model to better capture intrinsic semantic relationships and alleviate the limitations of the vanilla graph structure. 
+
+2.2. Granular-ball computing 
+
+Granular-Ball Computing (GBC) was first introduced as a data representation and learning framework grounded in Granular Computing Xia et al. (2019). Instead of treat-ing individual samples as the basic computational units, GBC represents data using granular balls, each of which corresponds to a locally semantically consistent region. A granular ball summarizes its contained samples through statistical properties such as the center, radius, and label dis-tribution, enabling learning at a higher level of granularity. This paradigm effectively preserves structural information while improving computational efficiency and robustness to noise. Subsequent works have focused on improving the con-struction and scalability of granular balls. Xia et al. Xia et al. (2022, 2025) proposed adaptive granular-ball gener-ation methods that iteratively split the data space based on criteria such as purity and data distribution, enabling flexible and efficient granulation for complex data. These methods significantly enhance the stability and adaptability of GBC in practical scenarios. To further extend GBC to large-scale unsupervised settings, Cheng et al. Cheng et al. (2023) introduced a size-constrained granular-ball construction strategy, where the number of samples within each ball is bounded (e.g., 
+
+𝑂 (√𝑛 )), removing the reliance on label information. Based on this representation, they combined GBC with density peaks clustering, performing density estimation and clus-tering at the granular-ball level to substantially reduce computational cost on large-scale datasets. 
+
+## 3. Methodology 
+
+In this section, we first introduce the notations and functions in section 3.1, then we will introduce our method                 
+
+> Table 2
+> Notations and descriptions. Notatation Description
+> 𝑥 a node
+> 𝐆 the vanilla graph
+> 𝐆 𝐚𝐮𝐠 the augment graph
+> 𝐋 the label vector
+> 𝐅 the features matrix
+> 𝐆𝐁𝐬 the generated granular balls set
+> 𝐆𝐁 𝐤 the 𝑘 −th granular ball
+> 𝑙 (𝐆𝐁 ∕𝑥 )the label of 𝐆𝐁 or node 𝑥 𝑝 (𝐆𝐁 )the purity of a granular ball
+> 𝐆𝐍𝐍 (⋅)an classic GNN model
+> 𝐆𝐁𝐂 (⋅)GBC semantic consistency estimator
+
+starting from the GBC semantic consistency estimator in section 3.2, finally, the data enhancement strategy and the semantic consistency graph neural network (SCGNN) will be introduced in section 3.3 and 3.4. 
+
+3.1. Preliminary 
+
+In this section, we give all functions and notations we use in the equations of this paper, presented as Table 2. We give the functions and notations usually used in GNN fields first. The origin graph G = ( V, E), 𝐕 denotes the node set and E denotes the edge set, and Gaug = ( Vaug , Eaug ) is the augment graph, 𝐆 ⊂ 𝐆 𝐚𝐮𝐠 . All features are represented by a matrix F ∈ ℝ𝑛 ×𝑑 where 𝑛 = |V| is the number of nodes and 𝑑 is the number of features. Each node has only one label represented as a label vector L.
+
+𝐆𝐍𝐍 (⋅) denotes any GNN model, the predictions of GNNs is P ∈ ℝ𝑛 ×𝑐 . 𝐆𝐁𝐂 (⋅) is the semantic consistency estimator guided by the granular ball computing, and the predictions of the estimator is Pgbc ∈ ℝ𝑛 ′×𝑐 .
+
+3.2. GBC semantic consistency estimator 
+
+In this section, we will introduce the granular-ball com-puting (GBC) we used in this paper, and next build on the GBC introduce the GBC semantic consistency estimator. We feed all samples into GBC in a transductive manner, including features of all samples and labels of the training samples, to perform granular-ball computing, before formu-lating the GBC, we need to introduce an important threshold index in granular-ball computing which is purity and it is computed as below: 
+
+𝑝 (𝐆𝐁 ) = 
+
+𝑚𝑎𝑥  
+
+> 𝑦 𝑗 ∈𝐆𝐁 𝑘
+
+∑
+
+> 𝑥 𝑖 ∈𝐆𝐁
+
+⨿(𝑙 (𝑥 𝑖 ) = 𝑦 𝑗 )
+
+|𝐆𝐁 | . (1) In particular, if there is no labeled node inside the 𝐆𝐁 , the 
+
+𝑝 (𝐆𝐁 ) will be directly set to 1 to terminate the continued division of it. For intuitive and rigorous expression, we will intro-ducing the semi-supervised GBC we adapted and used via algorithm 1. The 𝑘 -means algorithm we use is based on the euclidean distance.   
+
+> :Preprint submitted to Elsevier Page 3 of 12
+
+Algorithm 1 GBC 
+
+Input: Vanilla features matrix 𝐅 , Train nodes label 𝐋 𝐭𝐫𝐚𝐢𝐧 .
+
+Parameter: the purity threshold 𝑡 = 0 .8.
+
+Output: 𝐆𝐁𝐬 .Initialization an queue with one element 𝐆𝐁𝐬 =[{ 𝑓 1, 𝑓 2, ..., 𝑓 𝑛 }] , 𝑓 ∈ F.
+
+Do 
+
+Let 𝑛𝑢𝑚 equal to the length of the queue 𝐆𝐁𝐬 , i.e., 
+
+𝑛𝑢𝑚 = |𝐆𝐁𝐬 |.
+
+For each 𝐆𝐁 in 𝐆𝐁𝐬 
+
+Let 𝑝 = 𝑝 (𝐆𝐁 ), by Eq. 1. 
+
+IF 𝑝 ≤ 𝑡 
+
+Let 𝑘 equal to the classes number of all labeled nodes in current 𝐆𝐁 .Dequeue 𝐆𝐁 from 𝐆𝐁𝐬 queue. Employ 𝑘 -means algorithm to divide one 𝐆𝐁 into 
+
+𝑘 little 𝐬𝐮𝐛 _𝐆𝐁𝐬 .Enqueue 𝐬𝐮𝐛 _𝐆𝐁𝐬 to 𝐆𝐁𝐬 .
+
+END END While The length of the queue no longer changes, i.e., 
+
+𝑛𝑢𝑚 equal to |𝐆𝐁𝐬 |
+
+Do 
+
+Let 𝑛𝑢𝑚 equal to the length of the queue 𝐆𝐁𝐬 , i.e., 
+
+𝑛𝑢𝑚 = |𝐆𝐁𝐬 |.
+
+For each 𝐆𝐁 in 𝐆𝐁𝐬 
+
+IF |𝐺𝐵 | ≥ √𝑛 
+
+Dequeue 𝐆𝐁 from 𝐺𝐵𝑠 queue. Employ 2-means algorithm to divide one 𝐆𝐁 into 
+
+2 little 𝐬𝐮𝐛 _𝐆𝐁𝐬 .Enqueue 𝐬𝐮𝐛 _𝐆𝐁𝐬 to 𝐆𝐁𝐬 .
+
+END END While The length of the queue no longer changes, i.e., 
+
+𝑛𝑢𝑚 equal to |𝐆𝐁𝐬 |
+
+We combine supervised granular-ball computing Xia et al. (2019) and unsupervised granular-ball computing Cheng et al. (2023), the advantage of this is that unsuper-vised method will split the oversized 𝐺𝐵 produced by the supervised method to ensure that the size of the 𝐺𝐵 remains uniform to a certain extent. 
+
+𝐆𝐁 may have the label, it is computed as fallow: 
+
+𝑙 (𝐆𝐁 ) = 𝑎𝑟𝑔𝑚𝑎𝑥  
+
+> 𝑦 𝑗 ∈𝐆𝐁 𝑘
+
+∑
+
+> 𝑥 𝑖 ∈𝐆𝐁
+
+⨿(𝑙 (𝑥 𝑖 ) = 𝑦 𝑗 ). (2) Traditional Granular Ball Computing (GBC) adopts an inductive paradigm, where only training samples are used to construct granular balls. Each ball is explicitly modeled as 
+
+𝐆𝐁 = ( 𝑐, 𝑟, 𝑙 (𝐆𝐁 )) , 𝑐 is the center of 𝐆𝐁 , 𝑟 is the radius of 
+
+𝐆𝐁 , and test samples are subsequently classified based on their nearest ball. In contrast, our objective is not to build an explicit granular ball classifier, but to exploit the scalability and ro-bustness of GBC for estimating local semantic consistency. Therefore, we adopt a transductive GBC strategy, where both Definite  
+
+> Uncertain
+> Chaos
+> Figure 1: The illustration of three kinds of semantic domain, green circle is definite domain, white circle is uncertain domain and out of circle is chaos domain.
+
+training and unlabeled samples participate in the granular formation process, and the transductive strategy has another strength, it can directly use the coverage characteristics of GBC to measure the uncertainty of local semantic con-sistency. And, owing to this intrinsic properties, all nodes are ultimately assigned to one of three semantic domains: the semantic definite domain: covered by GB; the semantic uncertain domain: covered by GB but without label; and the semantic chaos domain: not covered by any GB; as illustration of Figure 1. This characteristic naturally provides a principled way to quantify the uncertainty of local semantic consistency estimation. Based on these three semantic domains, we can intu-itively and reasonably divide all nodes into two categories: nodes in the semantic definite domain we called it UG(under GB) nodes an the others in the semantic uncertain and semantic chaos domain we called it OOG(out of GB) nodes. UG nodes are more likely to share consistent local se-mantics with the labeled samples inside the same ball. In contrast, OOG nodes typically correspond to semantically ambiguous or feature-complex instances that are difficult to separate based solely on feature similarity, these instances tend to exhibit higher noise levels. Due to the inherent robustness of GBC, such noisy or uncertain samples can be effectively identified through the coverage mechanism. Based on the motivations above, the GBC semantic consistency estimator will be introduced. We provide a for-mal description of the GBC semantic consistency estimator by integrating the semi-supervised granular-ball computing method introduced above. The GBC (algorithm 1) denoted as 𝐆𝐁𝐂 (⋅) receive the features of samples 𝐅 and the su-pervision information 𝐋 𝐭𝐫𝐚𝐢𝐧 and last return the 𝐆𝐁𝐬 after computing. 
+
+𝐆𝐁𝐬 = 𝐆𝐁𝐂 (𝐅 , 𝐋 𝐭𝐫𝐚𝐢𝐧 ). (3) According the semantic consistency, the label 𝑙 (𝐆𝐁 ) i.e., the most common supervised label in each 𝐆𝐁 can be treated as the label of all non-label nodes within this 𝐆𝐁 , simply put, each 𝐆𝐁 is treated as a local label domain.      
+
+> :Preprint submitted to Elsevier Page 4 of 12 Original Edge New Edge Anchor Node Labeled Node Unlabeled Node GBC Prediction Label Domain
+
+Figure 2: The process of the structure enhancement, four arrows represent GB initialization, GBC predicting, new edges generation and output augment graph. 
+
+𝐏 𝐠𝐛𝐜 𝐣 = 𝑙 (𝐆𝐁 ), 𝑗 ∈ 𝐆𝐁 . (4) 
+
+𝐣 is the sample under 𝐆𝐁 , and 𝐏 𝐠𝐛𝐜 𝐣 ∈ ℝ𝑛 ′×𝑐 , because of the highly uncertainty of OOG nodes, we gave up label prediction for OOG nodes, so 𝑛 ′ is less than the total sample number 𝑛 , this will make the predictions of GBC much more reliable. 
+
+3.3. Semantic consistency enhancement strategy 
+
+In this section we will introduce our data enhancement strategy, it contains two parts, one is the structure enhance-ment and the other is the supervision enhancement, these two will be introduced in turn. 
+
+3.3.1. Structure enhancement 
+
+The structure enhancement constructs high-quality in-formation propagation pathways based on local semantic consistency, enabling cross-hop connections that capture long-range dependencies beyond the reach of conventional GNNs. The process is illustrated in Figure 2. Granular-ball computing models feature semantics at the group level. Therefore, explicit pairwise neighbor relations between nodes are not directly available. So, we design a novel two-level graph structure construc-tion mechanism that converts granular-ball distributions into graph connections. The construction of augment graph con-sists of two main steps: 
+
+First , selecting the UG training nodes belonging to the label of corresponding GB and compute their mean feature as an anchor representing these UG nodes, that is: 
+
+𝐅 𝐚𝐧𝐜𝐡𝐨𝐫 𝐢 = 1
+
+𝑛 
+
+> 𝑛
+
+∑
+
+> 𝑗 =1
+
+𝑓 𝑗 , 𝑗 ∈ 𝐆𝐁 𝑖 , 𝐕 𝐣 ∈ 𝐕 𝐭𝐫𝐚𝐢𝐧 . (5) And the label of each anchor is assigned to be the label of corresponding GB: 
+
+𝐋 𝐚𝐧𝐜𝐡𝐨𝐫 𝐤 = 𝑙 (𝐆𝐁 ). (6) 
+
+Figure 3: Anchor-based graph structure illustration. For clarity, only the edges associated with blue-labeled nodes is shown. Green edges are bridging edges between anchor nodes, red edges are projection edges. 
+
+Second , based on the anchors generated above, we con-struct the high-quality pathways via a two level graph struc-ture, the first level is the projection edges 𝐄 𝐩𝐫𝐨𝐣𝐞𝐜𝐭 which is responsible for communicating to the vanilla nodes within each GB from the anchor, and the second level is the bridg-ing edges 𝐄 𝐛𝐫𝐢𝐝𝐠𝐞 which is responsible for connecting all anchors which are belonging to the same label (on large scale dataset, for controlling the number of bridging edges, the full connection could be replaced by random 𝑘 edges connection). In this way, vanilla nodes covered by the label domain will get the long distance dependencies in several steps through the high-quality pathways, the illustration is in the Figure 3. Based on additional anchors and high-quality pathways, the augment graph 𝐆 𝐚𝐮𝐠 can be constructed as fallow: 
+
+𝐆 𝐚𝐮𝐠 = ( 𝐕 𝐚𝐮𝐠 , 𝐄 𝐚𝐮𝐠 ), (7) which 𝐕 𝐚𝐮𝐠 is the corresponding node samples of the 𝐅 𝐚𝐮𝐠 
+
+and 𝐅 𝐚𝐮𝐠 = [ 𝐅 |𝐅 𝐚𝐧𝐜𝐡𝐨𝐫 ], [⋅|⋅] represent the concatenation. Furthermore, we do not take the radical approach of pruning the vanilla graph structure based on semantic consistency, in other words, the augment graph 𝐆 𝐚𝐮𝐠 contains the entire 
+
+: Preprint submitted to Elsevier Page 5 of 12 vanilla graph 𝐆 , so the 𝐄 𝐚𝐮𝐠 = [ 𝐄 |𝐄 𝐩𝐫𝐨𝐣𝐞𝐜𝐭 |𝐄 𝐛𝐢𝐫𝐝𝐠𝐞 ], [⋅| ⋅ |⋅]
+
+represent the concatenation. 
+
+3.3.2. Supervision enhancement 
+
+The supervision enhancement generates a kind of high-reliability pseudo-label which can provide more supervision information beyond the training label. Given one GNNs model 𝐆𝐍𝐍 𝜃 (⋅), there will be predic-tions of the input 𝐆 , i.e., 
+
+𝐏 = 𝐆𝐍𝐍 𝜃 (𝐆 ), 𝐏 ∈ ℝ𝑛 ×𝑐 , (8) and based on the section of GBC semantic consistency esti-mator specifically in equation 3 and 4 we got the predictions 
+
+𝐏 𝐠𝐛𝐜 ∈ ℝ𝑛 ′×𝑐 by the estimator, specially, the number of the predictions of the estimator is 𝑛 ′, less than the predictions of the GNN model due to the uncertainty measure. We finally got two predictions from different paradigms, one is GNN paradigm which usually emphasizes the effect of graph structure, and another is granular-ball computing paradigm which emphasizes the feature semantic and also more robust and explainable. Because these two predictions come from different paradigms, we think they can find different patterns in one same data and then complement each other, so based on 𝐏 and 𝐏 𝐠𝐛𝐜 , we adopt the label consistency checking (LCC) between these two and then get the result 𝐏 𝐥𝐜𝐜 , that is: 
+
+𝐏 𝐥𝐜𝐜 𝑖 =
+
+{
+
+𝐏 𝐢 , 𝐏 𝐢 = 𝐏 𝐠𝐛𝐜 𝐢 ;
+
+𝐍 ∕𝐀 , 𝐏 𝐢 ≠ 𝐏 𝐠𝐛𝐜 𝐢 . (9) 
+
+𝐍 ∕𝐀 means an invalid prediction that will be filtered, so the result of LCC 𝐏 𝐥𝐜𝐜 ∈ ℝ𝑛 ′′ ×𝑐 , the number of 𝐏 𝐥𝐜𝐜 will be less than the number of 𝐏 𝐠𝐛𝐜 , i.e., 𝑛 ′′ ≤ 𝑛 ′ ≤ 𝑛 . But the noise of 𝐏 𝐥𝐜𝐜 can be lower. 
+
+Proposition 1. Consider a 𝑐 -class classification problem. Assume two predictors produce labels with independent symmetric noise rates 𝑅 1 and 𝑅 2. We perform element-wise label consistency checking (LCC) and retain only the samples whose two predicted labels are identical. Let 𝑅 3
+
+denote the noise rate among the retained samples. Then 
+
+𝑅 3 = 
+
+> 1
+> 𝑐 −1
+
+⋅ 𝑅 1𝑅 2
+
+(1 − 𝑅 1)(1 − 𝑅 2) + 1 
+
+> 𝑐 −1
+
+⋅ 𝑅 1𝑅 2
+
+. (10) 
+
+When 𝑅 1, 𝑅 2 ≪ 1, the denominator is dominated by 
+
+(1 − 𝑅 1)(1 − 𝑅 2) ≈ 1 , leading to the approximation. 
+
+𝑅 3 ≈ 𝑅 1𝑅 2
+
+𝑐 − 1 . (11) PROOF OF PROPOSITION 1. Let 𝑉 denote the event that the two predictions agree (i.e., the sample is retained after LCC). Let 𝑁 denote the event that the retained label is noisy (i.e., different from the ground-truth label). By definition, the noise rate among retained samples is 
+
+𝑅 3 = 𝑃 (𝑁 |𝑉 ). (12) 00.1 0.2 0.3 0.4 0.5 0.1 0.2 0.3 0.4 0.5                   
+
+> Proposition (c=7) Approximation True value Noise rate
+> 𝐹 𝑅 ൌ𝑅 ଶ/𝑐 െ 11െ 𝑅 ଶ൅ 𝑅 ଶ/𝑐 െ 1
+> 𝐹 𝑅 ൌ 𝑅 ଶ/𝑐 െ 1
+> 𝐹 𝑅 ൌ 𝑅 𝑅 𝐹 𝑅
+
+Figure 4: Illustration of the noise reduction effect of LCC with 
+
+𝑐 = 7 classes. 
+
+Using conditional probability, 
+
+𝑅 3 = 𝑃 (𝑁 ∩ 𝑉 )
+
+𝑃 (𝑉 ) . (13) A noisy retained label occurs only when both predic-tors produce the same incorrect label. The probability that both predictors are wrong is 𝑅 1𝑅 2. Assuming that incorrect predictions are uniformly distributed over the remaining 
+
+𝑐 − 1 classes, the probability that two incorrect predictions coincide is 1 
+
+> 𝑐 −1
+
+. Thus, 
+
+𝑃 (𝑁 ∩ 𝑉 ) = 𝑅 1𝑅 2
+
+𝑐 − 1 . (14) The retained samples consist of correct agreements and coincident errors: 
+
+𝑃 (𝑉 ) = (1 − 𝑅 1)(1 − 𝑅 2) + 𝑅 1𝑅 2
+
+𝑐 − 1 . (15) Which completes the proof. DISCUSSION OF PROPOSITION 1. This result shows that LCC reduces the noise rate from a linear dependence on indi-vidual error rates to a quadratic dependence. Specifically, as shown in Eq. 14, a noisy retained sample occurs only when both predictors make incorrect predictions and their errors coincide, which is significantly less likely than a single prediction error. Therefore, LCC significantly reduces the proportion of noisy labels while preserving correct predictions. Moreover, the reduction effect becomes more pronounced as the number of classes increases, since the coincidence probability is inversely proportional to 𝑐 − 1 .This behavior is further validated by the numerical results shown in Figure 4. This assumption simplifies analysis, although in practice the predictions may exhibit some correlation. 
+
+3.4. Semantic consistency enhanced graph neural network 
+
+In this section, we rename 𝐏 𝐥𝐜𝐜 to 𝐋 𝐥𝐜𝐜 , because we will treat it as the pseudo label of the samples next. 
+
+: Preprint submitted to Elsevier Page 6 of 12 Based on the augment graph 𝐆 𝐚𝐮𝐠 , anchor label 𝐋 𝐚𝐧𝐜𝐡𝐨𝐫 
+
+, pseudo label 𝐋 𝐥𝐜𝐜 and the origin data, the semantic con-sistency enhancement graph neural network (SCGNN) has been proposed, as illustration in Figure 5. Starting with forward propagation, SCGNN adopts par-allel strategy of vanilla graph 𝐆 and augment graph 𝐆 𝐚𝐮𝐠 ,and share the parameters of neural network, their corre-sponding predictions are computed as fallow: 
+
+{
+
+𝐏 𝐚𝐮𝐠 = 𝐆𝐍𝐍 𝜃 (𝐆 𝐚𝐮𝐠 ); 
+
+𝐏 = 𝐆𝐍𝐍 𝜃 (𝐆 ), (16) After that, an attention based node-wise weighted sum are utilized for fusing these two kinds of predictions, the fused prediction 𝐏 𝐟𝐮𝐬𝐞 is computed as: 
+
+𝐏 𝐟𝐮𝐬𝐞 = 𝑑𝑖𝑎𝑔 (𝛼 ) ⋅ 𝐏 + 𝑑𝑖𝑎𝑔 (1 − 𝛼 ) ⋅ 𝐏 𝐚𝐮𝐠 , (17) 
+
+𝑑𝑖𝑎𝑔 (⋅) means diagonalization, and 𝐏 𝐟𝐮𝐬𝐞 is the final predic-tion of SCGNN, the weights are computed as: 
+
+𝜶 = 𝑒𝑥𝑝 (𝜎 (𝐏 𝑊 1)𝑊 2)
+
+𝑒𝑥𝑝 (𝜎 (𝐏 𝑊 1)𝑊 2
+
+) + 𝑒𝑥𝑝 (𝜎 (𝐏 𝐚𝐮𝐠 𝑊 1)𝑊 2
+
+) . (18) By the way, the 𝐏 used in LCC in equation 9 to generate 
+
+𝐋 𝐥𝐜𝐜 (𝐏 𝐥𝐜𝐜 ) comes from equation 16, which is same as the traditional self-train method Lee (2013). And in order to avoid confusion between the two paradigms of GBC and GNN we do not use the 𝐏 𝐟𝐮𝐬𝐞 to generate the 𝐏 𝐥𝐜𝐜 .In backward propagation, there are three losses that su-pervising the neural network, they are vanilla loss 𝐿𝑜𝑠𝑠 𝑡𝑟𝑎𝑖𝑛 ,anchor loss 𝐿𝑜𝑠𝑠 𝑎𝑛𝑐ℎ𝑜𝑟 and the lcc psuedo label loss 𝐿𝑜𝑠𝑠 𝑠𝑐𝑐 .
+
+⎧⎪⎨⎪⎩
+
+𝑙𝑜𝑠𝑠 𝑙𝑐𝑐 = 𝐶𝑟𝑜𝑠𝑠𝐸𝑛𝑡𝑟𝑜𝑝𝑦 (𝐏 𝐟𝐮𝐬𝐞 , 𝐋 𝐥𝐜𝐜 ); 
+
+𝑙𝑜𝑠𝑠 𝑎𝑛𝑐ℎ𝑜𝑟 = 𝐶𝑟𝑜𝑠𝑠𝐸𝑛𝑡𝑟𝑜𝑝𝑦 (𝐏 𝐚𝐧𝐜𝐡𝐨𝐫 , 𝐋 𝐚𝐧𝐜𝐡𝐨𝐫 ); 
+
+𝑙𝑜𝑠𝑠 𝑡𝑟𝑎𝑖𝑛 = 𝐶𝑟𝑜𝑠𝑠𝐸𝑛𝑡𝑟𝑜𝑝𝑦 (𝐏 , 𝐋 𝐭𝐫𝐚𝐢𝐧 ).
+
+(19) Specially, the 𝐏 𝐚𝐧𝐜𝐡𝐨𝐫 is the subset of 𝐏 𝐚𝐮𝐠 which is the anchor part exclude the vanilla samples, and the 𝐋 𝐥𝐜𝐜 
+
+is additional supervisions beyond vanilla train label i.e., 
+
+𝐋 𝐥𝐜𝐜 ∩ 𝐋 𝐭𝐫𝐚𝐢𝐧 = ∅ .The total loss is weighted sum by these three parts through the hyper-parameter 𝛽 and 𝛾 , it can be formulated as fallow: 
+
+𝑙𝑜𝑠𝑠 = 𝑙𝑜𝑠𝑠 𝑡𝑟𝑎𝑖𝑛 + 𝛽 ⋅ 𝑙𝑜𝑠𝑠 𝑎𝑛𝑐ℎ𝑜𝑟 + 𝛾 ⋅ 𝑙𝑜𝑠𝑠 𝑙𝑐𝑐 . (20) 
+
+3.5. Complexity analysis 
+
+In this section, we analyze the computational complexity of SCGNN from three aspects: (1) time complexity of the preprocessing; (2) time complexity of the model training; (3) space complexity. GNN  
+
+> Augment
+> Graph
+> Vanilla
+> Graph
+> Train Label
+> LCC Label
+> GBC Prediction
+> Prediction LCC
+> BP
+
+GBC Guided  
+
+> Figure 5: The pipeline of the SCGNN. The augment graph and GBC prediction are guided by granular-ball computing.
+
+3.5.1. Preprocessing complexity 
+
+Traditional semantic consistency mining methods, such as 𝑘 -nearest neighbors ( 𝑘 NN) and other full search algo-rithms (FSA), rely on exhaustive pairwise similarity com-putation. Given 𝑛 nodes with feature dimension 𝑑 , the sim-ilarity matrix construction requires: (𝑛 2𝑑 ). In addition, neighbor selection (e.g., top-𝑘 selection) introduces extra sorting or selection overhead, which is typically (𝑛𝑘 log 𝑛 ).Therefore, the overall complexity of FSA-based methods is dominated by: 
+
+(𝑛 2𝑑 ). (21) This quadratic complexity severely limits scalability on large-scale graphs. In contrast, the proposed GBC adopts an iterative parti-tioning strategy instead of global pairwise comparison. Specifically, GBC recursively splits granular balls using local clustering (e.g., 𝑘 -means). For a granular ball of size 
+
+𝑚 , the cost of one split is: (𝑚𝑑𝑘𝑡 ), where 𝑘 is the number of clusters and 𝑡 is the number of iterations. Since GBC partitions the dataset into multiple granu-lar balls, the total cost can be expressed as: ∑𝑖 (𝑚 𝑖 𝑑𝑘𝑡 ),
+
+where ∑𝑖 𝑚 𝑖 = 𝑛. Therefore, the overall complexity can be approximated as: (𝑛𝑑𝑘𝑡 ).
+
+In addition, the complexity of anchor-based augment graph mainly consists of three parts: 
+
+(1) Anchor construction. Each granular ball generates one anchor by averaging node features, which requires a single pass over all nodes: (𝑛𝑑 ); (2) Projection edges. 
+
+Each node is connected to its corresponding anchor, result-ing in: (𝑛 ); (3) Bridging edges. Anchors belonging to the same class are connected, in the worst case (full connection), the number of edges is: (𝐵 2), where 𝐵 is the number of anchors, and 𝐵 = (√𝑛 ), this yields: (𝑛 ). Overall, the structure enhancement complexity is: (𝑛𝑑 ).
+
+Therefore, the overall complexity of GBC method (in-clude the structure enhancement) is: 
+
+(𝑛𝑑𝑘𝑡 ), (22) which is near-linear with respect to the number of nodes.   
+
+> :Preprint submitted to Elsevier Page 7 of 12
+
+Comparison. Compared with FSA-based methods (Eq. 21), GBC reduces the preprocessing complexity from quadratic to near-linear (Eq. 22), providing a significantly more scal-able solution for semantic consistency extraction. 
+
+3.5.2. Training complexity 
+
+During training, SCGNN performs parallel forward propagation on both the vanilla graph 𝐆 and the augment graph 𝐆 𝐚𝐮𝐠 .For standard message-passing GNNs, the computational complexity is: (|𝐸 |𝑑 ). For the augment graph, the cost of one forward pass on 𝐺 𝑎𝑢𝑔 is: (( |𝐸 | + 𝑛 )𝑑 ). Since SCGNN processes both graphs, the total training complexity is: 
+
+(2 |𝐸 |𝑑 + 𝑛𝑑 ), which can be simplified to: 
+
+(|𝐸 |𝑑 ). (23) Additional components, such as label consistency check-ing (LCC) and prediction fusion, introduce only linear over-head (𝑛 ) or (𝑛𝑑 ), which are negligible compared to GNN computation. 
+
+3.5.3. Space complexity. 
+
+In addition to time complexity, SCGNN also exhibits favorable space complexity. Unlike FSA-based methods that require (𝑛 2) memory to store pairwise similarity matrices, GBC operates without constructing such dense structures and only requires (𝑛𝑑 ) memory. This further explains the superior memory efficiency observed in Table 1. The anchor-based augment graph introduces only (𝑛 )
+
+additional nodes and edges, resulting in an overall space complexity comparable to standard GNNs. 
+
+## 4. Experiments 
+
+4.1. Setup 
+
+In this section, we will introduce some basic setup of next experiments, train settings, dataset, backbone and baseline will be introduce in turn. 
+
+Setting. In all experiments, we chose the adam Kingma and Ba (2014) as optimizer, fixed the max train epochs to 
+
+200 , fixed the hidden neuro number of backbone to 64 ,learn rate fixed into 0.01 , weight decay fixed into 5 × 10 −4 ,dropout fixed into 0.5, and in reasoning stage we chose the best performing epoch on the validation set. All experiments were conducted on a machine with 90 GB RAM and an NVIDIA A100 GPU with 40 GB memory. 
+
+Dataset. We take 11 datasets in total, including: Cora, Citeseer, Pubmed Yang, Cohen and Salakhudinov (2016), Wiki Yang, Shi, Xiao, Yang, Bhowmick and Liu (2023a), Physics Shchur, Mumme, Bojchevski and Günnemann (2019), Cornell, Wisconsin, Texas Pei et al. (2020), ogbn-arxiv Mikolov, Sutskever, Chen, Corrado and Dean (2013); Wang, Shen, Huang, Wu, Dong and Kanakia (2020a), Roman-empire and Amazon-ratings Platonov, Kuznedelev, Diskin, Babenko and Prokhorenkova (2024). Cora, CiteSeer, PubMed, Cornell, Wisconsin, Texas, Roman-empire, Amazon-ratings and ogbn-arxiv fallow the default train splits, others without default splits we adopt 20% for train, 40% for validate and 
+
+40% for test. The more detailed dataset descriptions are organized in Table 3. 
+
+Backbone. We take many classic GNN models as the backbone of our SCGNN to validate the efficiency , the GNNs includes: GCN Kipf and Welling (2017), MLP Rumel-hart, Hinton and Williams (1986); Werbos (2002), GAT Veličković et al. (2018), APPNP Gasteiger et al. (2019), GIN Xu et al. (2019), GraphSAGE Hamilton, Ying and Leskovec (2017) and H 2GCN Zhu, Yan, Zhao, Heimann, Akoglu and Koutra (2020). 
+
+Baseline. All evaluations may be concern with three baseline, and all baselines compared with are all plug-in model as same as ours, including: BORF Nguyen, Hieu, Nguyen, Ho, Osher and Nguyen (2023), ComFy Rubio-Madrigal et al. (2025) and AGMixup Lu, Guan, Zhao, Yang, Zhan, Lu and Tao (2025). All of these baseline methods focus on data augmentation. Specifically, BORF Nguyen et al. (2023) introduced a Batch Ollivier-Ricci Flow-based rewiring algorithm that simultaneously mitigates both over-smoothing and over-squashing issues, thereby enhancing the expressive capability of GNNs. ComFy Rubio-Madrigal et al. (2025) proposed a hybrid rewiring strategy that lever-ages both community structure and feature similarity, aiming to strengthen local feature coherence while preserving the global community structure to improve GNN performance. AGMixup Lu et al. (2025) presented an adaptive graph mixup framework that employs data mixing techniques to augment graph representations and further boost the gener-alization ability of GNNs. 
+
+4.2. Accuracy evaluation 
+
+First of all, we give the numerical evaluations about the accuracy of semi-supervised node classification task, concerned with 8 datasets, the results are taken as average of 10 runs. The numerical statistics can be seen in Table 4. Compared with the SOTA models, our model achieves consistent superiority in accuracy. 
+
+4.3. Scalability on large scale datasets 
+
+To evaluate the scalability of SCGNN, we conduct ex-periments on several large-scale datasets, including Amazon-ratings, Physics and ogbn-arxiv. The results are reported in Table 5. As shown in Table 5, SCGNN consistently improves the performance of the GCN backbone across all datasets where results are available, demonstrating its effectiveness on large-scale graphs. 
+
+4.4. Ablation analysis 
+
+To gain a deeper understanding of the contributions of different parts of the SCGNN, the ablation analysis will be focus on the structure enhancement, the supervision enhancement and the parallel strategy. The Abla.1 is W/O the supervision enhancement (LCC labels); the Abla.2 is W/O the structure enhancement (augment graph); the Abla.3 
+
+is W/O the parallel strategy (vanilla graph channel). Results are shown in Table 6.   
+
+> :Preprint submitted to Elsevier Page 8 of 12
+
+Table 3 
+
+The details of datasets used in this paper. Dataset Nodes Edges Features Class label rate Cora 2708 10556 1433 7 5% CiteSeer 3327 9104 3703 6 4% PubMed 19717 88648 500 3 0.3% Wiki 2405 17981 4973 17 20% Physics 34493 495924 8415 5 20% ogbn-arxiv 169343 1166243 128 40 54% Cornell 183 298 1703 5 48% Wisconsin 251 515 1703 5 48% Texas 183 325 1703 5 48% Roman-empire 22662 65854 300 18 50% Amazon-ratings 24492 186100 300 5 50% 
+
+Table 4 
+
+The semi-supervised classification accuracy (%) of SCGNN and other all baselines with all seven GNN backbones across all datasets. Frame is the overall best across all settings, bold is the best in same backbone, underline is the second-best in same backbone, and variance is written at the right bottom corner. Backbone Method Cora CiteSeer PubMed Wiki Cornell Wisconsin Texas Roman-empire MLP BORF 54.9 ±0 .82 52.31 ±0 .44 70.38 ±0 .25 78.48 ±0 .35 76.21 ±1 .30 80.39 ±0 .37 78.38 ±0 .00 64.57 ±0 .14 
+
+ComFy 57.20 ±0 .55 58.96 ±0 .65 72.64 ±0 .20 78.86 ±0 .37 77.84 ±4 .16 81.18 ±1 .40 80.00 ±1 .93 66.03 ±0 .16 
+
+AGMixup 56.67 ±0 .17 53.03 ±0 .66 70.97 ±0 .90 73.63 ±0 .91 73.87 ±4 .59 79.08 ±0 .92 74.77 ±2 .55 65.59 ±0 .05 
+
+SCGNN 67.11 ±4 .69 63.65 ±4 .51 75.66 ±0 .45 79.11 ±0 .41 78.38 ±3 .60 82.35 ±4 .00 83.78 ±4 .09 66.33 ±0 .00 
+
+GCN BORF 79.07 ±0 .20 65.2 ±0 .42 76.89 ±0 .15 73.76 ±0 .36 38.91 ±1 .6 43.92 ±1 .7 39.46 ±1 .4 46.04 ±0 .46 
+
+ComFy 80.16 ±0 .66 69.42 ±0 .51 78.06 ±0 .39 72.87 ±0 .53 48.11 ±4 .93 59.61 ±1 .52 62.70 ±2 .37 49.06 ±1 .76 
+
+AGMixup 81.42 ±0 .60 68.26 ±1 .00 77.80 ±0 .35 66.44 ±1 .30 40.54 ±0 .00 52.55 ±2 .29 60.00 ±4 .32 43.96 ±0 .19 
+
+SCGNN 84.00 ±0 .21 71.23 ±2 .02 79.71 ±0 .12 76.61 ±0 .17 67.57 ±1 .93 66.67 ±1 .77 70.27 ±2 .92 54.43 ±0 .11 
+
+GAT BORF 76.54 ±0 .68 66.46 ±0 .70 75.77 ±0 .43 68.45 ±0 .61 45.95 ±2 .02 43.92 ±2 .43 40.54 ±3 .89 52.12 ±0 .70 
+
+ComFy 73.97 ±1 .89 66.46 ±1 .71 75.60 ±1 .13 56.67 ±5 .40 43.78 ±3 .35 49.41 ±2 .05 52.97 ±3 .28 58.38 ±0 .38 
+
+AGMixup 79.63 ±0 .91 68.70 ±0 .24 77.17 ±1 .10 63.58 ±2 .82 43.78 ±6 .71 52.55 ±7 .27 61.62 ±6 .92 58.23 ±0 .78 
+
+SCGNN 82.61 ±1 .99 70.40 ±3 .77 78.19 ±0 .26 71.83 ±1 .02 64.86 ±2 .21 64.71 ±1 .36 70.27 ±4 .02 65.85 ±0 .02 
+
+GIN BORF 75.91 ±0 .87 63.18 ±1 .16 75.45 ±1 .46 62.33 ±0 .30 41.89 ±1 .15 38.82 ±1 .45 38.65 ±1 .34 51.45 ±0 .25 
+
+ComFy 74.92 ±0 .75 63.94 ±0 .93 76.86 ±0 .63 23.51 ±2 .39 51.89 ±1 .81 58.04 ±4 .52 65.95 ±2 .47 62.94 ±3 .52 
+
+AGMixup 73.40 ±0 .29 60.23 ±1 .07 75.93 ±0 .66 23.70 ±1 .47 48.65 ±2 .21 54.25 ±5 .15 63.06 ±2 .55 58.41 ±0 .71 
+
+SCGNN 78.48 ±3 .64 68.15 ±1 .80 78.91 ±0 .62 63.2 ±8 .42 70.27 ±7 .01 72.55 ±1 .54 72.97 ±2 .26 63.54 ±8 .31 
+
+APPNP BORF 79.57 ±0 .15 66.27 ±0 .27 76.17 ±0 .17 75.81 ±0 .23 38.65 ±0 .78 47.84 ±1 .26 41.08 ±1 .03 58.56 ±0 .53 
+
+ComFy 80.00 ±0 .17 69.62 ±0 .52 78.04 ±0 .38 74.01 ±0 .55 54.05 ±3 .06 63.92 ±1 .79 58.38 ±1 .18 58.95 ±0 .43 
+
+AGMixup 81.87 ±0 .62 69.87 ±1 .14 77.67 ±0 .52 69.89 ±1 .99 39.64 ±1 .27 52.94 ±4 .24 60.36 ±2 .55 54.42 ±0 .05 
+
+SCGNN 83.22 ±1 .72 71.91 ±3 .59 79.74 ±0 .11 76.51 ±0 .24 67.57 ±8 .77 68.63 ±4 .00 70.27 ±4 .21 59.24 ±0 .04 
+
+SAGE BORF 77.35 ±0 .35 65.61 ±0 .72 73.72 ±0 .56 77.48 ±0 .14 69.46 ±1 .72 71.96 ±1 .57 72.97 ±2 .02 74.44 ±0 .28 
+
+ComFy 78.02 ±0 .83 67.12 ±0 .71 76.76 ±0 .67 76.20 ±0 .79 75.14 ±4 .69 77.65 ±2 .38 81.49 ±3 .06 76.41 ±0 .32 
+
+AGMixup 79.03 ±0 .09 68.13 ±0 .93 77.37 ±0 .42 67.81 ±4 .43 65.77 ±5 .55 77.12 ±1 .85 78.38 ±2 .21 76.29 ±0 .29 
+
+SCGNN 79.73 ±2 .53 68.20 ±2 .69 77.62 ±0 .42 78.59 ±0 .28 78.38 ±4 .67 78.43 ±1 .13 83.78 ±7 .60 76.80 ±0 .18 
+
+H2GCN BORF 76.55 ±0 .43 63.72 ±0 .42 77.69 ±0 .58 70.08 ±0 .80 67.57 ±1 .53 69.61 ±0 .62 77.57 ±0 .78 76.04 ±0 .18 
+
+ComFy 76.26 ±0 .77 66.80 ±1 .52 75.86 ±1 .20 48.13 ±1 .97 61.08 ±3 .93 67.84 ±1 .40 77.62 ±2 .82 76.56 ±0 .35 
+
+AGMixup 78.07 ±0 .31 63.23 ±0 .80 76.40 ±0 .29 71.28 ±0 .34 66.67 ±1 .27 64.05 ±4 .03 77.48 ±3 .37 76.51 ±0 .22 
+
+SCGNN 78.10 ±0 .29 67.31 ±0 .68 77.91 ±2 .17 71.41 ±2 .27 72.97 ±2 .92 74.51 ±0 .62 78.38 ±2 .13 76.89 ±5 .68 
+
+Removing either the supervision enhancement (Abla.1) or the structure enhancement (Abla.2) leads to consistent performance degradation across all datasets. This highlights the critical role of the proposed GBC-guided semantic con-sistency enhancement. Specifically, the structure enhance-ment injects group-level semantic consistency into the graph structure, while the supervision enhancement (LCC) pro-vides reliable training signals to effectively exploit such 
+
+: Preprint submitted to Elsevier Page 9 of 12 Table 5                                              
+
+> Performance comparison between vanilla GCN and GCN en-hanced with SCGNN on large-scale datasets. Dataset GCN SCGNN Amazon-ratings 42.93 44.03
+> Physics 95.98 96.34
+> ogbn-arxiv 52.01 53.56 Table 6
+> These ablation experiments are based on GCN backbone, bold
+> is the best and underline is the second best. Dataset SCGNN Abla.1 Abla.2 Abla.3 Cora 84.00 82.81 81.65 82.13 CiteSeer 71.23 70.55 70.12 69.10 PubMed 79.71 79.44 79.40 78.82 Wiki 76.61 76.12 75.05 76.09 Cornell 67.57 54.05 54.05 62.16 Wisconsin 66.67 54.95 54.91 56.86 Texas 70.27 67.57 67.57 70.27
+> Roman-empire 53.38 46.33 48.99 52.92
+
+semantic information. The noticeable performance drops in both cases indicate that semantic consistency must be both properly incorporated into the graph structure and effectively utilized during training. In contrast, removing the parallel prediction strategy (Abla.3) results in relatively minor performance degrada-tion, suggesting that this component mainly contributes to model robustness by balancing the vanilla and augment graph structures. Overall, these results validate that the GBC-guided se-mantic consistency enhancement is the key factor in improv-ing representation learning, while the parallel architecture further stabilizes the model. 
+
+4.5. Label noise evaluation 
+
+In this section, we evaluate the effectiveness of the proposed Label Consistency Check (LCC) from two per-spectives: (1) the quality of pseudo-labels, measured by the noise rate, and (2) the resulting node classification perfor-mance. Specifically, we compare three types of predictions: the model prediction 𝐏 , the granular-ball-based prediction 
+
+𝐏 𝐠𝐛𝐜 , and the LCC-refined prediction 𝐏 𝐥𝐜𝐜 . The noise rate is defined as the ratio of incorrectly predicted labels to the total number of nodes. The results are reported in Table 7. According to the theoretical analysis in Proposition 1, LCC reduces the noise rate from a linear dependence on individual error rates to a quadratic dependence. As shown in Table 7, the noise rate of 𝐏 𝐥𝐜𝐜 is consistently lower than that of both 𝐏 and 𝐏 𝐠𝐛𝐜 across all datasets. This demonstrates that LCC enhances pseudo-label quality by enforcing agreement between predictions and discarding inconsistent ones. Furthermore, using 𝐏 𝐥𝐜𝐜 as additional supervision con-sistently leads to the best classification performance. In con-trast, directly using 𝐏 or 𝐏 𝐠𝐛𝐜 introduces higher noise, which                                                                            
+
+> Table 7
+> These validation experiments are based on GCN backbone. The indicators contains node classification accuracy and the label noise rate, and the 𝑃 𝑙𝑐𝑐 means using 𝐏 𝐥𝐜𝐜 as additional label, the 𝑃 𝑔𝑏𝑐 means using 𝐏 𝐠𝐛𝐜 as additional label, the 𝑃 means using 𝐏 as additional label. Blod is the best. Dataset ACC (%) Noise (%)
+> 𝑃 𝑙𝑐𝑐 𝑃 𝑔𝑏𝑐 𝑃 𝑃 𝑙𝑐𝑐 𝑃 𝑔𝑏𝑐 𝑃
+> Cora 84.00 82.25 83.81 14 49 21 CiteSeer 71.23 70.12 70.88 36 56 40 PubMed 79.71 79.21 79.68 18 31 24 Wiki 76.61 74.74 74.74 817 28 Cornell 67.57 64.86 40.54 21 26 42 Wisconsin 66.67 58.86 56.82 20 29 47 Texas 70.27 67.57 67.57 27 37 42 Roman-empire 53.38 52.43 48.75 19 32 61
+
+negatively affects model training. These results indicate that, although 𝐏 and 𝐏 𝐠𝐛𝐜 may individually contain considerable noise, their agreement subset provides a much more reliable supervision signal. Overall, the experimental results strongly validate the property of LCC and confirm that it serves as an effective mechanism for generating high-quality pseudo-labels and improving model performance. 
+
+4.6. Parameter sensitivity 
+
+Our model involves three hyper parameters they are purity 𝑝 of 𝐆𝐁𝐂 (⋅) and weighted index of two losses 𝛽 and 𝛾 .The purity 𝑝 is be fixed in 0.8, so in this section we mainly discuss the hyper parameter 𝛽 and 𝛾 . Results in shown in Figure 6. 
+
+## 5. Conclusion 
+
+In this paper, we address semantic consistency mining in GNNs by introducing granular-ball computing (GBC) as a scalable alternative to 𝑘 NN-based full search. By modeling group-level semantics, GBC reduces computational cost and improves robustness. We further propose a plug-and-play framework, SCGNN, with a dual enhancement mechanism: structure enhance-ment via anchor-based graph structure construction and supervision enhancement via label consistency checking (LCC). Extensive experiments demonstrate that SCGNN achieves superior performance with high efficiency. Ablation studies further verify the effectiveness of each component. 
+
+## 6. Acknowledgement 
+
+This work was supported by the National Science Foun-dation of China under Grant No.62466063, the Guizhou Provincial Department of Education Colleges and Universi-ties Science and Technology Innovation Team (QJJ[2023]084).   
+
+> :Preprint submitted to Elsevier Page 10 of 12
+
+Figure 6: Top Figure is Wiki dataset and the bottom is the Roman-empire dataset. 
+
+## References 
+
+Barbero, F., Velingker, A., Saberi, A., Bronstein, M.M., Giovanni, F.D., 2024. Locality-aware graph rewiring in gnns, in: The Twelfth Inter-national Conference on Learning Representations, ICLR 2024, Vienna, Austria, May 7-11, 2024, OpenReview.net. Cai, L., Ji, S., 2020. A multi-scale approach for graph link prediction, in: Proceedings of the AAAI conference on artificial intelligence, pp. 3308– 3315. Chen, Y., Wu, L., Zaki, M.J., 2020. Iterative deep graph learning for graph neural networks: Better and robust node embeddings, in: Proceedings of the AAAI Conference on Artificial Intelligence, pp. 3523–3530. Cheng, D., Li, Y., Xia, S., Wang, G., Huang, J., Zhang, S., 2023. A fast granular-ball-based density peaks clustering algorithm for large-scale data. IEEE Transactions on Neural Networks and Learning Systems 35, 17202–17215. Gasteiger, J., Bojchevski, A., Günnemann, S., 2019. Predict then propagate: Graph neural networks meet personalized pagerank, in: International Conference on Learning Representations. Hamilton, W., Ying, Z., Leskovec, J., 2017. Inductive representation learning on large graphs. Han, X., Jiang, Z., Liu, N., Hu, X., 2022. G-mixup: Graph data augmen-tation for graph classification, in: International conference on machine learning, PMLR. pp. 8230–8248. Huang, J., Shen, J., Shi, X., Zhu, X., 2024. On which nodes does gcn fail? enhancing gcn from the node perspective., in: ICML. Kingma, D.P., Ba, J., 2014. Adam: A method for stochastic optimization. arXiv preprint arXiv:1412.6980 . Kipf, T.N., Welling, M., 2017. Semi-supervised classification with graph convolutional networks, in: International Conference on Learning Rep-resentations. Lee, D.H., 2013. Pseudo-label : The simple and efficient semi-supervised learning method for deep neural networks. ICML 2013 Workshop : Challenges in Representation Learning (WREPL) . Li, L., Yang, W., Bai, S., Ma, Z., 2024. Knn-gnn: A powerful graph neural network enhanced by aggregating k-nearest neighbors in common subspace. Expert Systems with Applications 253, 124217. doi: https: //doi.org/10.1016/j.eswa.2024.124217 .Lu, W., Guan, Z., Zhao, W., Yang, Y., Zhan, Y., Lu, Y., Tao, D., 2025. Ag-mixup: Adaptive graph mixup for semi-supervised node classification, in: Proceedings of the AAAI Conference on Artificial Intelligence, pp. 19143–19151. Mikolov, T., Sutskever, I., Chen, K., Corrado, G.S., Dean, J., 2013. Dis-tributed representations of words and phrases and their compositionality. Advances in neural information processing systems 26. Nguyen, K., Hieu, N.M., Nguyen, V.D., Ho, N., Osher, S., Nguyen, T.M., 2023. Revisiting over-smoothing and over-squashing using ollivier-ricci curvature, in: Krause, A., Brunskill, E., Cho, K., Engelhardt, B., Sabato, S., Scarlett, J. (Eds.), Proceedings of the 40th International Conference on Machine Learning, PMLR. pp. 25956–25979. Pei, H., Wei, B., Chang, K.C.C., Lei, Y., Yang, B., 2020. Geom-gcn: Geometric graph convolutional networks, in: International Conference on Learning Representations. Platonov, O., Kuznedelev, D., Diskin, M., Babenko, A., Prokhorenkova, L., 2024. A critical look at the evaluation of gnns under heterophily: Are we really making progress? arXiv:2302.11640 .Rubio-Madrigal, C., Jamadandi, A., Burkholz, R., 2025. Gnns getting comfy: Community and feature similarity guided rewiring, in: The Thirteenth International Conference on Learning Representations. Rumelhart, D.E., Hinton, G.E., Williams, R.J., 1986. Learning representa-tions by back-propagating errors. nature 323, 533–536. Shchur, O., Mumme, M., Bojchevski, A., Günnemann, S., 2019. Pitfalls of graph neural network evaluation. arXiv:1811.05868 .Veličković, P., Cucurull, G., Casanova, A., Romero, A., Liò, P., Bengio, Y., 2018. Graph attention networks, in: International Conference on Learning Representations. Wang, K., Shen, Z., Huang, C., Wu, C.H., Dong, Y., Kanakia, A., 2020a. Microsoft academic graph: When experts are not enough. Quantitative Science Studies 1, 396–413. Wang, W., Yang, X., Zhang, Q., Xia, S., Yang, J., Xu, T., 2026. Capturing local and global information: Multi-view graph convolutional network via granular-ball computing and collaborative matrix. Expert Systems with Applications 296, 129057. doi: https://doi.org/10.1016/j.eswa. 2025.129057 .Wang, X., Zhu, M., Bo, D., Cui, P., Shi, C., Pei, J., 2020b. Am-gcn: Adaptive multi-channel graph convolutional networks, in: Proceedings of the 26th ACM SIGKDD International conference on knowledge discovery & data mining, pp. 1243–1253. Werbos, P.J., 2002. Backpropagation through time: what it does and how to do it. Proceedings of the IEEE 78, 1550–1560. Wu, F., Li, S., Li, S.Z., 2024a. Discovering the Representation Bottleneck of Graph Neural Networks . IEEE Transactions on Knowledge & Data Engineering 36, 7998–8008. doi: 10.1109/TKDE.2024.3446584 .Wu, Z., Chen, Z., Du, S., Huang, S., Wang, S., 2024b. Graph convolu-tional network with elastic topology. Pattern Recognition 151, 110364. doi: https://doi.org/10.1016/j.patcog.2024.110364 .Xia, S., Dai, X., Wang, G., Gao, X., Giem, E., 2022. An efficient and adaptive granular-ball generation method in classification problem. IEEE Transactions on Neural Networks and Learning Systems 35, 5319– 5331. Xia, S., Liu, Y., Ding, X., Wang, G., Yu, H., Luo, Y., 2019. Granular ball computing classifiers for efficient, scalable and robust learning. Information Sciences 483, 136–152. doi: https://doi.org/10.1016/j. ins.2019.01.010 .Xia, S., Shi, B., Wang, Y., Xie, J., Wang, G., Gao, X., 2025. Gbct: efficient and adaptive clustering via granular-ball computing for complex data. IEEE Transactions on Neural Networks and Learning Systems 36, 12159–12172. 
+
+: Preprint submitted to Elsevier Page 11 of 12 Xie, S., Tam, D.S.H., Lau, W.C., 2023. Violin: Virtual overbridge linking for enhancing semi-supervised learning on graphs with limited labels, in: Elkind, E. (Ed.), Proceedings of the Thirty-Second International Joint Conference on Artificial Intelligence, IJCAI-23, International Joint Conferences on Artificial Intelligence Organization. pp. 4451–4459. doi: 10.24963/ijcai.2023/495 . main Track. Xu, K., Hu, W., Leskovec, J., Jegelka, S., 2019. How powerful are graph neural networks?, in: International Conference on Learning Representa-tions. Xu, T., Tian, G., Fan, J., Yang, X., Zhang, Q., Cui, Y., 2026. Layer embedding deep fusion graph neural network. arXiv:2604.23324 .Yang, R., Shi, J., Xiao, X., Yang, Y., Bhowmick, S.S., Liu, J., 2023a. Pane: scalable and effective attributed network embedding. The VLDB Journal 32, 1237–1262. doi: 10.1007/s00778-023-00790-4 .Yang, X., Yan, M., Pan, S., Ye, X., Fan, D., 2023b. Simple and efficient heterogeneous graph neural network, in: Proceedings of the AAAI conference on artificial intelligence, pp. 10816–10824. Yang, Z., Cohen, W., Salakhudinov, R., 2016. Revisiting semi-supervised learning with graph embeddings, in: Balcan, M.F., Weinberger, K.Q. (Eds.), Proceedings of The 33rd International Conference on Machine Learning, PMLR, New York, New York, USA. pp. 40–48. Zhang, M., Chen, Y., 2018. Link prediction based on graph neural networks. Advances in neural information processing systems 31. Zhang, M., Cui, Z., Neumann, M., Chen, Y., 2018. An end-to-end deep learning architecture for graph classification, in: Proceedings of the AAAI conference on artificial intelligence. Zhu, J., Yan, Y., Zhao, L., Heimann, M., Akoglu, L., Koutra, D., 2020. Beyond homophily in graph neural networks: Current limitations and effective designs. 
+
+: Preprint submitted to Elsevier Page 12 of 12
