@@ -1,0 +1,550 @@
+Title: PHAGE: Patent Heterogeneous Attention-Guided Graph Encoder for Representation Learning
+
+URL Source: https://arxiv.org/pdf/2605.10073v1
+
+Published Time: Tue, 12 May 2026 02:12:56 GMT
+
+Number of Pages: 12
+
+Markdown Content:
+# PHAGE: Patent Heterogeneous Attention-Guided Graph Encoder for Representation Learning 
+
+Yongmin Yoo, Qiongkai Xu, Zhangkai Wu, Longbing Cao 
+
+Frontier AI Research Centre, Macquarie University School of Computing, FSE, Macquarie University 
+
+yooyongmin91@gmail.com {qiongkai.xu, zhangkai.wu, longbing.cao}@mq.edu.au 
+
+Abstract 
+
+Patent claims form a directed dependency struc-ture in which dependent claims inherit and re-fine the scope of earlier claims; however, ex-isting patent encoders linearize claims as text and discard this hierarchy. Directly encod-ing this structure into self-attention poses two challenges: claim dependencies mix relation types that differ in semantics and extraction reliability, and the dependency graph is de-fined over claims while Transformers attend over tokens. PHAGE addresses the first chal-lenge through a deterministic graph construc-tion pipeline that separates near-deterministic legal citations from noisier rule-based technical relations, preserving type distinctions as hetero-geneous edges. It addresses the second through a connectivity mask and learnable relation-aware biases that lift claim-level topology into token-level attention, allowing the encoder to differentially weight each relation type. A dual-granularity contrastive objective then aligns representations with both inter-patent taxon-omy and intra-patent topology. PHAGE outper-forms all baselines on classification, retrieval, and clustering, showing that intra-document claim topology is a stronger inductive bias than inter-document structure and that this bias per-sists in the encoder weights after training. 
+
+1 Introduction 
+
+In the legal and technical landscape of intellec-tual property, patent claims are not a flat sequence; rather, they form a complex hierarchy where de-pendent claims inherit and refine earlier claims to define the precise scope of an invention. Through explicit claim references, dependent claims inherit limitations from antecedent claims and add nar-rower technical detail, yielding a directed depen-dency structure (Krestel et al., 2021). This means that claims that are adjacent in text are not neces-sarily the most strongly related, while claims that are distant in the document may be directly con-nected through dependency relations. Ignoring this 
+
+Figure 1: Comparison of patent claim encoding schemes. 
+
+Left: Sequential encoding treats claims as a linear token sequence, discarding inter-claim dependencies. Right: 
+
+PHAGE preserves hierarchical dependencies via a het-erogeneous claim graph 
+
+structure can blur legal scope and technical depen-dencies in the learned representation. As the volume of patent filings continues to grow (WIPO, 2024), accurate patent retrieval and classification become increasingly impor-tant. Existing patent encoders, including BERT-for-Patents (Srebrovic and Yonamine, 2020) and PatentBERT (Lee and Hsiang, 2020), have im-proved downstream performance by capturing the distributional semantics of technical vocabu-lary. However, these models still primarily encode claims as sequential representations, overlooking the hierarchical dependency structure that defines an invention’s legal boundaries. Prior work has enriched patent representations with external signals such as IPC codes and cita-tion networks (Li et al., 2022; Ghosh et al., 2024), and explored graph-based architectures and section-level augmentation (Björkqvist and Kallio, 2023; Zuo et al., 2025). However, these approaches in-corporate structure at the document level or as auxiliary input, rather than injecting claim-level dependencies directly into the encoder’s compu-tational flow. As a result, the fine-grained topo-logical relations among claims remain decoupled from the representation learning process, limit-
+
+> arXiv:2605.10073v1 [cs.CL] 11 May 2026
+
+ing the encoder’s ability to distinguish structurally proximate claims from unrelated ones within the same patent. To this end, we propose the Patent 
+
+Heterogeneous Attention-Guided Graph Encoder (PHAGE), a patent representation model that in-tegrates claim-level dependency structure directly into Transformer self-attention. PHAGE builds a heterogeneous claim graph through a deterministic pipeline that combines ex-plicit claim references with rule-based technical relations, reducing reliance on learned edge pre-diction. It then conditions self-attention on re-lation types via a connectivity mask and learn-able relation-aware biases, and trains the encoder with a dual-granularity contrastive objective that aligns representations using both patent-level su-pervision and claim-level structure. Experiments on CLEF-IP, USPTO-70k, and DAPFAM show that PHAGE consistently outperforms strong domain-adapted and citation-aware baselines on patent clas-sification, retrieval, and clustering under a frozen-encoder evaluation protocol. Our contributions are summarized as follows: • Relation-aware patent encoding. We pro-pose PHAGE, a Transformer encoder that in-corporates a heterogeneous claim dependency graph directly into the self-attention mecha-nism. This allows claim representations to be guided by and conditioned on distinct explicit and implicit relation types. • Deterministic graph construction for claim structure. We introduce a deterministic pipeline for building a heterogeneous claim graph from claims, combining explicit claim references with rule-based technical links to reduce reliance on learned edge prediction. • Dual-granularity structural supervi-sion. We propose a contrastive objective that jointly uses patent-level supervision and claim-level structure to improve representation learning. Beyond these methodological contributions, our experiments reveal that intra-document claim topol-ogy provides a stronger inductive bias than cross-patent citation structure, that heterogeneous edge typing induces depth-wise specialization in the en-coder without layer-level supervision, and that the resulting structural bias is internalized into the model weights and persists at inference without graph construction. 
+
+2 Related Work 
+
+2.1 Transformer-based Patent Representation Architectures 
+
+To address the complex syntax and vocabulary of technical literature, various Pre-trained Language Models (PLMs) tailored for the patent domain have been introduced. A foundational approach involves pre-training from scratch; for instance, BERT-for-Patents (Srebrovic and Yonamine, 2020) leveraged over 100 million patent documents to capture the distributional semantics of technical terms, estab-lishing a strong baseline. Other strategies focus on domain adaptation via fine-tuning. PatentBERT (Lee and Hsiang, 2020) optimized BERT-base specifically on claims for classification, while SciBERT (Beltagy et al., 2019) demonstrated effective transferability from scien-tific text, often enhanced by linguistically informed masking (Althammer et al., 2021). More recently, efficiency-oriented models have emerged: PatentS-BERTa (Bekamiri et al., 2024) improved sentence representations for similarity search using silver labels, and ModernBERT has been adapted to pro-cess long-context technical disclosures more effi-ciently (Yousefiramandi and Cooney, 2025). Despite these advancements, a critical limitation persists: conventional PLMs predominantly treat patent documents as linear text sequences. These models rely on token-level objectives that overlook the intrinsic topological structure of patents, failing to explicitly model the directed acyclic graph of claim citations and neglecting the non-sequential logical dependencies that define legal boundaries. 
+
+2.2 Graph Representation Learning in Patent Analysis 
+
+To incorporate structural information beyond tex-tual statistics, recent research has pivoted towards graph-based methodologies in patent analysis. A dominant stream focuses on modeling the macro-level citation network to refine document embed-dings. For instance, PaECTER (Ghosh et al., 2024) and SearchFormer (Vowinckel and Hähnke, 2023) utilize citation links as supervision signals, train-ing models to pull cited patents closer in the vec-tor space. More recently, PAI-NET (Lee and Bai, 2025) extended this by incorporating prior art re-lationships and technical field hierarchies into a retrieval-augmented generation framework, further enhancing semantic search capabilities. Beyond citation networks, graph-based indices linking claims to descriptions have been proposed for more structured retrieval (Björkqvist and Kallio, 2023). However, these methodologies primarily treat the patent document as a single node within a larger network or focus on external connectivity. They largely overlook the intra-document topology, specifically the hierarchical dependency among claims, which is critical for delineating the precise legal scope of an invention. 
+
+2.3 Structure-Aware Encoding and Data Augmentation 
+
+Recent innovations seek to bridge the semantic gap by exploiting granular intra-document features. A prominent direction involves Data Augmenta-tion (DA) strategies to inject structural priors. No-tably, section-level augmentation has been intro-duced to leverage the distinct discourse roles of abstracts, claims, and descriptions, mitigating the embedding over-dispersion problem inherent in contrastive learning (Zuo et al., 2025). Similarly, PatentMind (Yoo et al., 2025) characterizes patents as multi-aspect reasoning graphs to enhance simi-larity evaluation. Some works have attempted to model claim de-pendencies using specialized graph networks. For example, the FLAN Graph (Gao et al., 2024) cap-tures fine-grained claim dependencies to improve patent approval prediction, while HGM-Net (Song et al., 2025) integrates hierarchical contrastive learning with multimodal graph attention networks for feature fusion. Although general graph-guided architectures like GraphBERT (Zhang et al., 2020) exist in the broader NLP domain, they typically rely on static syntactic graphs and lack the capacity to resolve the latent technical couplings unique to patent claims. Consequently, prior patent-specific works largely operate through input-level augmen-tation, separate graph modules, or post-hoc mod-eling. Crucially, they neglect to inject the fine-grained claim topology directly into the encoder’s computational flow as an inductive bias, a gap that our proposed PHAGE framework aims to bridge by internalizing the legal hierarchy within the at-tention mechanism. 
+
+3 Methodology 
+
+We propose the Patent Heterogeneous Attention-Guided Graph Encoder (PHAGE), a representa-tion learning framework that transforms patent claims from linear text sequences into topologically grounded representations. A complete summary of key notations is provided in Appendix ?? . Our pipeline operates in three stages. First, we con-struct a heterogeneous Claim Dependency Graph (CDG) via a deterministic multi-signal extraction pipeline that captures explicit legal citations, tech-nical term flows, and functional couplings as dis-tinct edge types. Second, we inject this CDG into the self-attention mechanism of a pre-trained en-coder. By applying independently learnable biases conditioned on each edge type, this relation-aware attention mechanism modulates information flow according to dependency semantics. Finally, we refine the representations using a dual-granularity contrastive objective that bridges inter-document technological similarity with intra-document claim topology, where the claim-level alignment signals are weighted by learnable, relation-specific param-eters that allow the model to calibrate the contribu-tion of each relation type during training. 
+
+3.1 Construction of Heterogeneous Claim Dependency Graph 
+
+Patent claims typically form a directed acyclic graph (DAG) through formal antecedent references. The dependencies within this structure, however, are fundamentally heterogeneous: explicit legal ci-tations, term-level anaphoric references, and func-tional couplings each carry distinct semantics and varying extraction reliability. Explicit citation edges ( rcite ) are near-deterministic, as they are de-rived from legally mandated reference patterns, whereas implicit signals are inherently suscepti-ble to extraction noise. To account for this, we define the Claim Dependency Graph (CDG) as a heterogeneous DAG, G = (V, E, ψ ), where 
+
+V = {c1, . . . , c n} is the set of n claims in a patent and the edge type function ψ : E → R
+
+assigns each edge to one of four relation types: 
+
+R = {rcite , r term , r func , r both }. The first three corre-spond to the extraction methods described below; 
+
+rboth is assigned when both signals co-occur for the same claim pair, as detailed in the integration step. By preserving these type distinctions, the CDG allows the encoder to differentially weight each relation type through learned attention biases. 
+
+Explicit Citation Extraction ( rcite ). We extract the edge set Ecite from formal dependency decla-rations in claim preambles. Under standard patent drafting conventions, a dependent claim opens with a reference to one or more antecedent claims us-Figure 2: Overview of the PHAGE Framework Pipeline. The framework consists of three stages: (1) constructing a Claim Dependency Graph (CDG), (2) encoding claims via a relation-guided structure-aware attention mechanism, and (3) refining representations using a contrastive fine-tuning objective. 
+
+ing fixed syntactic templates (e.g., “The device of claim 1, wherein. . . ” ). We compile a set of reg-ular expressions that match the general schema 
+
+⟨prep ⟩ claim N , where ⟨prep ⟩ ranges over the phrases { of , according to , as in , as claimed in , as set forth in } and N denotes the cited claim number. To maintain graph sparsity, we retain only direct citation edges and do not add transitive closures; indirect dependencies (e.g., claim 4 → claim 2 →
+
+claim 1) are left to be resolved through multi-hop attention propagation across encoder layers. To ensure mutual exclusivity among relation types, all implicit edges extracted in subsequent steps are restricted to claim pairs not reachable via the tran-sitive closure E∗
+
+> cite
+
+.
+
+Implicit Edge Extraction ( rterm , rfunc ). We ad-ditionally extract two types of implicit edges through rule-based methods. First, Technical Term Flow Tracking (Eterm ) traces how technical noun phrases are introduced and subsequently referenced across claims. Following patent drafting conven-tions, a term first appears with an indefinite article (“a”/“an”) and is later referenced via definite arti-cles (“the”) or demonstrative determiners (“said”). Because this method relies on article patterns rather than semantic content, it is designed to generalize to unseen technical vocabulary. Second, Domain-Specific Syntactic Parsing (Efunc ) captures func-tional couplings that are not detectable through lex-ical overlap alone. We extract relation triplets (sub-ject, verb, object) from dependency parses using a curated lexicon of 13 functional verbs (e.g., cou-ple, connect, attach ); an edge is introduced when a component in one claim matches a technical term defined in another. 
+
+Heterogeneous Edge Integration. The final edge set E is assembled by merging the three edge sets while preserving their distinct relation types. Explicit citation edges ( rcite ) are unconditionally included due to their near-deterministic extraction. Implicit edges are categorized to reflect their extrac-tion reliability: we assign rboth to claim pairs where both term-flow and functional-coupling signals co-occur, treating the agreement of two independent signals as mutual corroboration, while edges sup-ported by only a single signal are retained as rterm 
+
+or rfunc . For each r ∈ R, we construct a distinct adjacency matrix A(r) ∈ { 0, 1}n×n:
+
+A(r) 
+
+> ij
+
+=
+
+(
+
+1, if (cj , c i, r ) ∈ E or i = j
+
+0, otherwise. (1) Self-loops are included in all relation types for com-putational convenience and are handled separately in the attention bias. This design allows the model to learn the relative reliability of each implicit rela-tion type through its attention parameters. Detailed CDG statistics are provided in Appendix B. 
+
+3.2 Heterogeneous Graph-Guided Encoding 
+
+While standard Transformers apply unconstrained self-attention over all token pairs, patent analysis requires restricting attention to structurally related claims and distinguishing between heterogeneous dependency types. PHAGE addresses these needs through a Relation-Aware Attention Mechanism 
+
+that injects the CDG directly into self-attention. Using the typed adjacency matrices {A(r)}r∈R
+
+from Section 3.1, we define a union adjacency ma-trix ¯Aij = max r∈R A(r) 
+
+> ij
+
+to indicate whether any dependency exists between claims ci and cj . We then modulate the self-attention at layer l by intro-ducing a structural connectivity mask C ∈ RL×L
+
+and a learnable relation-aware bias B(l) ∈ RL×L,where L is the input sequence length. This injection adds only 5L scalar parameters (120 for a 24-layer encoder), a deliberately lightweight parameteriza-tion that ensures observed gains are attributable to the structural inductive bias rather than increased model capacity. For a token pair (u, v ), whose map-ping to claim-level indices is given by a function ϕ
+
+defined below, the attention score is reformulated as: Attn (l)(u, v ) = softmax  suv + Cuv + B(l)
+
+> uv
+
+, (2) where suv = QuK⊤ 
+
+> v
+
+/√dk denotes the scaled dot-product logit. The −∞ entries in C do not cause normalization collapse: since exp( −∞ ) = 0 ,masked positions contribute zero probability mass and the softmax renormalizes over non-masked en-tries only, analogous to standard padding masks. With a mean CDG density of 0.19 (Table 6), each claim token attends to approximately 20% of cross-claim tokens plus all intra-claim tokens, providing a sufficient support set for well-distributed attention weights. The [CLS] token is exempt from masking (Eq. 3), ensuring that document-level aggregation remains unconstrained. Both Cuv and B(l) 
+
+> uv
+
+are added element-wise to the scaled dot-product log-its. 
+
+Connectivity Mask. The mask C acts as a hard structural gate that enforces the topology of the CDG within self-attention. Let ϕ(u) denote the claim index of token u. For cross-claim token pairs, we set Cuv = 0 if ¯Aϕ(u)ϕ(v) = 1 , and −∞ 
+
+otherwise. The [CLS] token is exempt from the structural gate, as it must attend to all claims to serve as a document-level representation. Formally, with the [CLS] condition evaluated first: 
+
+Cuv =
+
+
+
+0, if u = [CLS] or v = [CLS] 
+
+0, if ¯Aϕ(u)ϕ(v) = 1 
+
+−∞ , otherwise .
+
+(3) 
+
+Relation-Aware Bias. While C determines reachability, the bias B(l) adjusts the relative atten-tion strength across relation types. We introduce layer-specific learnable scalars: b(l,r ) for each rela-tion type r ∈ R, and a dedicated intra-claim bias 
+
+b(l, self ), adding only 5L scalar parameters in total (120 for a 24-layer encoder). Since the CDG construction (§3.1) assigns each claim pair to at most one relation type, the four adjacency matrices are mutually exclusive on off-diagonal entries: 
+
+X
+
+> r∈R
+
+A(r) 
+
+> ij
+
+≤ 1, ∀ i̸ = j. (4) This guarantees that exactly one bias term is active per cross-claim token pair. Letting ψuv =
+
+ψ(ϕ(u), ϕ (v)) denote the relation type of the cor-responding claim pair, the full bias is:        
+
+> B(l)
+> uv =
+> 
+> σ+
+>  ˜b(l, self ),ϕ(u) = ϕ(v)
+> σ+
+>  ˜b(l,ψ uv ),¯Aϕ(u)ϕ(v)= 1 0,otherwise .
+> (5)
+
+The third case is effectively masked out by C
+
+and is included for completeness. For the [CLS] 
+
+token, which has no claim index, B(l) defaults to 
+
+0. This formulation allows the model to indepen-dently balance intra-claim and cross-claim aggre-gation. All raw bias parameters ˜b(l,r ) and ˜b(l, self )
+
+are initialized to zero, yielding initial values of 
+
+σ+(0) = ln 2 ≈ 0.693 . This ensures that all rela-tion types begin with equal attention contribution, avoiding premature structural bias, and that the ini-tial magnitude is comparable to typical pre-softmax logits of the pretrained backbone, preventing gradi-ent instability in early training. 
+
+3.3 Dual-Granularity Contrastive Fine-tuning 
+
+While the backbone encoder provides domain-specific priors through Masked Language Model (MLM) pre-training, the MLM objective alone does not capture the intra-patent legal hierarchy or inter-patent technological proximity. We propose a Dual-Granularity Contrastive Objective to refine the embedding space at two levels: inter-document technological similarity and intra-document claim topology. 
+
+Document-Level Objective. We align document-level representations using the International Patent Classification (IPC) taxonomy. Let 
+
+{p1, p 2, . . . , p N } denote a batch of N patents. For each anchor patent pi, we sample a positive p+
+
+> i
+
+from the same IPC subclass and a negative p−
+
+> i
+
+from a different subclass. Let Hpi denote the 
+
+[CLS] representation of patent pi, and define s+ 
+
+> i
+
+=cos( Hpi , Hp+
+
+> i
+
+) and s− 
+
+> i
+
+= cos( Hpi , Hp−
+
+> i
+
+), where 
+
+cos( ·, ·) is cosine similarity. The document-level loss over a batch of N patents with temperature τ
+
+is: Ldoc = − 1
+
+N
+
+> N
+
+X
+
+> i=1
+
+log exp( s+ 
+
+> i
+
+/τ )exp( s+ 
+
+> i
+
+/τ ) + exp( s− 
+
+> i
+
+/τ ) .
+
+(6) 
+
+Relation-Type-Aware Claim Alignment. To en-sure that the intra-document legal structure is ex-plicitly reflected in the representation, we introduce a claim-level loss Lclaim grounded in the CDG. Rec-ognizing that relation types carry varying levels of extraction reliability, we assign a learnable weight 
+
+wr = σ+( ˜ wr) to each relation r ∈ R, where σ+
+
+is the softplus function to ensure positivity. As with the attention biases, all raw weights ˜wr are initialized to zero, yielding wr = ln 2 ≈ 0.693 
+
+and ensuring uniform initial contribution across relation types. For a patent with n claims, let hci be the mean-pooled representation of claim ci and define Sij =cos( hci , hcj )/τ c , where τc is a separate claim-level temperature. The claim-level objective is: 
+
+Lclaim = − 1
+
+|E|
+
+X 
+
+> (cj,c i,r )∈E
+
+wr · log exp( Sji )
+
+Pnk=1  
+
+> k̸=j
+
+exp( Sjk )
+
+(7) Mirroring the relation-aware attention, this ob-jective differentially enforces topological proximity by relation type, allowing the model to calibrate alignment pressure during training. 
+
+Joint Objective. The final training objective combines both levels of supervision: L = Ldoc +
+
+λLclaim , where λ balances the two objectives. We select λ = 1.0 based on validation over 
+
+λ ∈ { 0.1, 0.5, 1.0, 2.0, 5.0}; performance is robust across λ ∈ [0 .5, 2.0] . The two losses operate at comparable scales, as Ldoc averages over N patents and Lclaim averages over |E| edges, both using a temperature of 0.05 . Both losses decrease mono-tonically and stabilize by epoch 3 without oscilla-tion; training curves are provided in Appendix Sec-tion F. Remaining hyperparameters are listed in Ap-pendix Section F. This formulation simultaneously provides taxonomic grounding through IPC-based document supervision and topological coherence through CDG-based claim alignment. 
+
+4 Experiment 
+
+We evaluate PHAGE on patent classification, re-trieval, and clustering. The encoder is trained on 131,653 USPTO full-text patents (2013–2017; Ap-pendix E) with the dual-granularity objective (Sec-tion 3.3) and frozen for all downstream evaluation without CDG injection at inference. 
+
+4.1 Patent Classification Model CLEF-IP USPTO-70k                                                
+
+> Mi-F1 Ma-F1 Mi-F1 Ma-F1
+> Sequence-only
+> BERT-base 0.555 0.427 0.386 0.163 SciBERT 0.417 0.260 0.347 0.133 BERT-for-Patents 0.649 0.538 0.491 0.288
+> Citation-aware
+> PatentSBERTa 0.586 0.476 0.456 0.253 PaECTER 0.629 0.527 0.511 0.333 PatEmbed-Base 0.630 0.549 0.523 0.317 PatEmbed-Large 0.547 0.444 0.415 0.210
+> Graph-based
+> GCN + BERT-for-Pat. 0.567 0.345 0.312 0.205 GAT + BERT-for-Pat. 0.581 0.368 0.327 0.213 GraphSAGE + BERT-for-Pat. 0.565 0.336 0.332 0.230
+> Claim-level graph
+> PHAGE (ours) 0.710 0.635 0.531 0.348
+
+Table 1: Patent classification (linear probing, frozen encoder, 5-run avg.). Graph-based rows: BERT-for-Patents [CLS] with validation-tuned k-NN. 
+
+Table 1 reports classification results on CLEF-IP (Piroi et al., 2011) and USPTO-70k (Pujari et al., 2022). PHAGE outperforms all baselines on both datasets, with gains most pronounced in Macro-F1 (+9.7 over BERT-for-Patents on CLEF-IP), indicating that claim-level structural supervi-sion disproportionately benefits underrepresented IPC subclasses whose inter-claim dependency pat-terns would otherwise be obscured by majority-class dominance in sequential encoding. No-tably, all three GNN variants degrade the back-bone they build upon, suggesting that post-hoc graph convolution over a task-agnostic similarity topology introduces neighbourhood noise that ac-tively harms class boundaries, a failure mode that PHAGE avoids by conditioning attention on lin-guistically grounded claim dependencies rather than embedding-space proximity. 
+
+4.2 Patent Retrieval 
+
+Table 2 reports retrieval on DAPFAM, a cross-domain benchmark with 1,247 query families and 45,336 targets. PHAGE achieves 0.498 NDCG@100, exceeding the best citation-aware baseline (QaECTER, 0.379) by +11.9 points and BERT-for-Patents by +27.0 points. This gap is Model NDCG@100 
+
+Sequence-only 
+
+BERT-base 0.170 SciBERT 0.146 BERT-for-Patents 0.228 
+
+Citation-aware 
+
+PaECTER 0.343 PatEmbed-Base 0.370 PatEmbed-Large 0.377 QaECTER 0.379 
+
+Graph-based 
+
+GCN + BERT-for-Pat. 0.144 GAT + BERT-for-Pat. 0.117 GraphSAGE + BERT-for-Pat. 0.084 
+
+Claim-level graph 
+
+PHAGE (ours) 0.498 
+
+Table 2: Patent retrieval on DAPFAM. Graph-based rows use BERT-for-Patents [CLS] with validation-tuned 
+
+k-NN. †Weights not public; score from Ayaou and Cav-allucci (2025). 
+
+significant because PaECTER and PatEmbed are trained directly on examiner citation triplets target-ing the retrieval objective, whereas PHAGE derives structure solely from intra-document claim depen-dencies without inter-document supervision. The GNN baselines uniformly degrade the backbone (GCN: 0.144, GAT: 0.117, GraphSAGE: 0.084), confirming that cosine-based k-NN graphs propa-gate noise from topically proximate but semanti-cally irrelevant neighbours. PHAGE avoids this by operating on linguistically grounded claim graphs whose edges encode functional dependency rather than surface similarity. 
+
+4.3 Patent Clustering 
+
+Table 3 reports unsupervised clustering on CLEF-IP ( K=488 ). PHAGE achieves the largest base-line margin among all three tasks (+22.2 NMI over BERT-for-Patents), with the gain skewed toward Homogeneity (+23.8) rather than Completeness (+20.8). This asymmetry implies that claim-level topology primarily sharpens intra-cluster purity: patents sharing fine-grained dependency motifs are pulled together before the objective has fully re-solved inter-cluster recall, pointing to a bias toward precision-oriented grouping. As in classification, GNN post-processing degrades the backbone, rein-forcing that embedding-space k-NN connectivity                                                 
+
+> Model NMI ARI Hom. Com.
+> Sequence-only
+> BERT-base 0.304 0.026 0.327 0.284 SciBERT 0.303 0.029 0.325 0.284 BERT-for-Pat. 0.431 0.058 0.466 0.401
+> Citation-aware
+> PatentSBERTa 0.540 0.106 0.579 0.506 PaECTER 0.565 0.099 0.614 0.524 PatEmbed-Base 0.591 0.118 0.641 0.547 PatEmbed-Large 0.229 0.013 0.242 0.217
+> Graph-based
+> GCN + BERT-for-Pat. 0.351 0.035 0.379 0.327 GAT + BERT-for-Pat. 0.365 0.048 0.393 0.341 GraphSAGE + BERT-for-Pat. 0.363 0.042 0.392 0.337
+> Claim-level graph
+> PHAGE (ours) 0.653 0.188 0.704 0.609
+
+Table 3: Patent clustering on CLEF-IP (frozen encoder, 
+
+K=488 ). Graph-based rows: BERT-for-Patents [CLS] 
+
+with validation-tuned k-NN. 
+
+conflates topically distant patents whose surface similarity masks divergent claim hierarchies. 
+
+4.4 Ablation Study                                                      
+
+> Variant Classif. Retrieval Cluster. Ma-F1 NDCG@100 NMI
+> BERT-for-Pat. 0.538 0.228 0.431
+> CDG edge types
+> No Graph 0.582 0.371 0.523
+> rcite only 0.611 0.432 0.587 w/o rterm 0.623 0.479 0.636 w/o rfunc 0.626 0.484 0.641 w/o rboth 0.619 0.473 0.631
+> Attention components
+> w/o mask C0.607 0.441 0.594 w/o bias B0.618 0.462 0.621 w/o both 0.586 0.378 0.530
+> Contrastive objective
+> Ldoc only 0.614 0.412 0.571
+> Lclaim only 0.573 0.449 0.608 Uniform wr0.628 0.487 0.643
+> PHAGE (full) 0.635 0.498 0.653
+
+Table 4: Ablation study (CLEF-IP Ma-F1 / DAPFAM NDCG@100 / CLEF-IP NMI). BERT-for-Patents: un-modified backbone. 
+
+Table 4 isolates the contribution of each PHAGE component across three axes; all variants share the same backbone and training setup. 
+
+CDG edge types. The gap from BERT-for-Patents to No Graph (0.538 → 0.582 Ma-F1) re-flects contrastive training alone; adding citation edges raises this to 0.611, confirming that even min-imal structural injection yields substantial gains. Implicit edges contribute further, but with a notable volume–informativeness inversion: rfunc accounts for 60.3% of all edges yet its removal costs less than removing rterm (7.9%), while rboth (2.6%) car-ries disproportionate ablation impact, indicating that cross-validated co-occurrence serves as a high-precision structural signal despite its sparsity. 
+
+Attention components. Mask removal causes a larger drop than bias removal (0.607 vs. 0.618 Ma-F1), showing that hard topological boundaries matter more than soft relation-type differentiation. 
+
+w/o both removes both components but retains the CDG for contrastive supervision, unlike No Graph which removes the CDG entirely. The near-collapse of w/o both to No Graph levels (0.586 vs. 0.582) confirms that the CDG’s primary value is realized through attention injection, though the residual gap shows the claim-level loss retains a small independent contribution. 
+
+Contrastive objective. Ldoc alone preserves clas-sification (0.614) but degrades retrieval (0.412); 
+
+Lclaim alone shows the mirror pattern (0.573, 0.449) and notably falls below No Graph on classifica-tion (0.573 vs. 0.582), indicating that topological coherence without taxonomic grounding is insuffi-cient for class-discriminative representations. This task-level complementarity confirms that the two objectives operate on orthogonal axes of the em-bedding space. The improvement from No Graph 
+
+to Ldoc only (0.582 → 0.614) isolates the contribu-tion of structural attention independent of the claim loss. Learnable wr provides a small but consistent gain over uniform weighting; converged values are analyzed in Section 5. 
+
+5 Discussion 
+
+The results establish three findings that, to our knowledge, have not been previously demonstrated in patent representation learning. 
+
+Finding 1: Intra-document claim topology provides a stronger inductive bias than inter-document citation structure. PHAGE surpasses citation-aware baselines across all three tasks de-spite using only within-patent claim dependencies, whereas those baselines leverage cross-patent cita-tion graphs spanning millions of examiner-verified links. The ablation controls for the confound of contrastive training: No Graph , which applies the same setup without structural injection, still under-performs citation-aware models (0.582 vs. 0.630 PatEmbed-Base Ma-F1). The gains therefore origi-nate from claim-level topology itself, which legally partitions inventive scope through explicit inher-itance and narrowing at a resolution that whole-patent citation proximity cannot provide. 
+
+Finding 2: Heterogeneous edge typing induces depth-wise specialization without layer-level supervision. The learned attention biases b(l,r )
+
+(Section C) exhibit consistent stratification: layers 0–9 assign higher biases to implicit relations ( rterm ,
+
+rfunc ) than to citations, while layers 18–23 suppress all cross-claim biases and amplify the intra-claim bias. This follows from gradient flow through typed adjacency: lower layers receive stronger gradients from abundant implicit edges, while upper layers, closer to pooling, optimize for within-claim co-herence. The ablation corroborates this: remov-ing B causes larger degradation than uniform wr,confirming that specialization is realized through attention rather than the loss. 
+
+Finding 3: Topology-guided training reshapes encoder weights beyond the training regime. 
+
+PHAGE trains with CDG-guided attention but performs inference without it, yet retains nearly all gains over w/o both (0.635 vs. 0.586 Ma-F1). The connectivity mask, blocking roughly 80% of cross-claim paths, forces the encoder to develop dependency-aligned routing patterns that persist af-ter removal. Any new patent can thus be encoded in a single forward pass without graph construction. 
+
+6 Conclusion 
+
+We presented PHAGE, a patent encoder that in-jects claim-level dependency structure into Trans-former self-attention via a heterogeneous claim graph, relation-aware biases, and a dual-granularity contrastive objective. Under a frozen-encoder pro-tocol, PHAGE consistently outperforms domain-adapted and citation-aware baselines across clas-sification, retrieval, and clustering. Our results demonstrate that the structural bottleneck in patent representation learning lies within patents rather than between them, and that this inductive bias is permanently internalized into encoder weights without requiring graph construction at inference. This principle extends to any domain where docu-ments encode latent hierarchical dependencies that sequential encoding discards. Limitations 
+
+While the term-flow extraction relies on English article conventions (e.g., transitions from "a" to "the" or "said"), its overall impact is quantitatively minor and architecturally isolated. Adapting to lan-guages without articles, such as Chinese, Japanese, and Korean, requires alternative lexical heuristics for identifying definition loci. However, this spe-cific component ( rterm ) constitutes only 7.9% of the CDG edges. The remaining 92.1% depend on structural patterns and verb lexicons that are highly transferable across languages. Crucially, the core PHAGE architecture remains completely language-agnostic. Since the connectivity mask and relation-aware biases operate purely on abstract claim-level adjacency matrices, extending the model to non-English corpora requires updating only the surface-level extraction rules, leaving the entire encoding and training framework intact. PHAGE uses the CDG during training but per-forms inference with a standard forward pass, cre-ating a train-inference asymmetry in the attention mechanism. We deliberately adopt this design for two reasons. First, it preserves compatibility with the frozen-encoder evaluation protocol used throughout our experiments: embeddings can be extracted from any new patent without construct-ing a claim graph, which is critical for scalable deployment. Second, the strong performance un-der this protocol empirically demonstrates that the structural inductive bias from CDG-guided train-ing is successfully internalized into the model pa-rameters; the ablation gap between w/o both and PHAGE full (0.586 vs. 0.635 Ma-F1) confirms that the encoder retains the benefit of structural training even when the graph is absent at inference. Investi-gating whether CDG injection at inference yields additional gains remains an interesting direction for future work. References 
+
+Sophia Althammer, Mark Buckley, Sebastian Hofstätter, and Allan Hanbury. 2021. Linguistically informed masking for representation learning in the patent do-main. arXiv preprint arXiv:2106.05768 .Iliass Ayaou and Denis Cavallucci. 2025. Paten-TEB: A comprehensive benchmark and model fam-ily for patent text embedding. arXiv preprint arXiv:2510.22264 .Hamid Bekamiri, Daniel S Hain, and Roman Jurowet-zki. 2024. Patentsberta: A deep nlp based hybrid model for patent distance and classification using augmented sbert. Technological Forecasting and So-cial Change , 206:123536. Iz Beltagy, Kyle Lo, and Arman Cohan. 2019. Scibert: A pretrained language model for scientific text. In 
+
+Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing and the 9th International Joint Conference on Natural Language Processing (EMNLP-IJCNLP) , pages 3615–3620. Sebastian Björkqvist and Juho Kallio. 2023. Building a graph-based patent search engine. In Proceedings of the 46th International ACM SIGIR Conference on Research and Development in Information Retrieval ,pages 3300–3304. Xiaochen Gao, Feng Yao, Kewen Zhao, Beilei He, Animesh Kumar, Vish Krishnan, and Jingbo Shang. 2024. Beyond scaling: Predicting patent approval with domain-specific fine-grained claim dependency graph. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (ACL) .Mainak Ghosh, Sebastian Erhardt, Michael E Rose, Erik Buunk, and Dietmar Harhoff. 2024. Paecter: Patent-level representation learning using citation-informed transformers. arXiv preprint arXiv:2402.19411 .Ralf Krestel, Rajesh Chikkamath, Christoph Hewel, and Julian Risch. 2021. A survey on deep learn-ing for patent analysis. World Patent Information ,65:102035. Jieh-Sheng Lee and Jieh Hsiang. 2020. Patent classi-fication by fine-tuning bert language model. World Patent Information , 61:101965. Kyung-Yul Lee and Juho Bai. 2025. Pai-net: Retrieval-augmented generation patent network using prior art information. Systems , 13(4):259. Huahang Li, Shuangyin Li, Yuncheng Jiang, and Gansen Zhao. 2022. Copate: A novel contrastive learning framework for patent embeddings. In Pro-ceedings of the 31st ACM International Conference on Information & Knowledge Management (CIKM) ,pages 1104–1113. Florina Piroi, Mihai Lupu, Allan Hanbury, and Veronika Zenz. 2011. CLEF-IP 2011: Retrieval in the intellec-tual property domain. In Working Notes of the CLEF 2011 Evaluation Labs and Workshop , volume 1177 of CEUR Workshop Proceedings .Subhash Chandra Pujari, Fryderyk Mantiuk, Mark Giereth, Jannik Strötgen, and Annemarie Friedrich. 2022. Evaluating neural multi-field document repre-sentations for patent classification. In Proceedings of the 12th International Workshop on Bibliometric-enhanced Information Retrieval (BIR 2022) at ECIR 2022 , volume 3230 of CEUR Workshop Proceedings ,pages 13–26. Zhenzhen Song, Ziwei Liu, and Hongji Li. 2025. Re-search on feature fusion and multimodal patent text based on graph attention network. arXiv preprint arXiv:2505.20188 .Rob Srebrovic and Jay Yonamine. 2020. Leveraging the bert algorithm for patents with tensorflow and bigquery. White paper, Google Cloud. Mirac Suzgun, Luke Melas-Kyriazi, Suproteem K. Sarkar, Scott Duke Kominers, and Stuart M. Shieber. 2022. The harvard uspto patent dataset: A large-scale, well-structured, and multi-purpose corpus of patent applications. arXiv preprint arXiv:2207.04043 .Konrad Vowinckel and Volker D Hähnke. 2023. Search-former: Semantic patent embeddings by siamese transformers for prior art search. World Patent Infor-mation , 73:102192. WIPO. 2024. World intellectual property indicators 2024. Technical report, WIPO. Yongmin Yoo, Qiongkai Xu, and Longbing Cao. 2025. Patentmind: A multi-aspect reasoning graph for patent similarity evaluation. arXiv preprint arXiv:2505.19347 .Amirhossein Yousefiramandi and Ciaran Cooney. 2025. Patent language model pretraining with modernbert. 
+
+arXiv preprint arXiv:2509.14926 .Jiawei Zhang, Haopeng Zhang, Congying Xia, and Li Sun. 2020. Graph-bert: Only attention is needed for learning graph representations. In Proceedings of the 58th Annual Meeting of the Association for Computational Linguistics , pages 1003–1012. You Zuo, Kim Gerdes, Éric de la Clergerie, and Benoît Sagot. 2025. Patent representation learning via self-supervision. arXiv preprint arXiv:2511.10657 .Table 5: Summary of key notations.                                           
+
+> Symbol Domain Meaning
+> G= ( V, E, ψ )Claim Dependency Graph
+> V={c1, . . . , c n}Claims in a patent
+> ψ:E→REdge type function
+> R{rcite , r term , r func , r both }Relation types
+> A(r){0,1}n×nTyped adjacency
+> ¯A{0,1}n×nUnion adjacency
+> ϕ(u)→ { 1, . . . , n }Token-to-claim map
+> CRL×LConnectivity mask
+> B(l)RL×LLayer-lbias matrix
+> b(l,r ), b (l, self )RScalar biases (5/layer)
+> HpiRd[CLS] of patent pi
+> hciRdMean-pooled claim ci
+> wrR+Contrastive weight
+> τ, τ cR+Temperatures
+> λR+Claim loss weight
+
+A Multi-Signal Extraction Details 
+
+Technical Term Flow ( rterm ). We identify defi-nition loci of technical terms via noun phrase ex-traction. A stop-term list S filters ubiquitous ex-pressions (e.g., the method , the system ), and terms in more than ρ=0 .8 of claims are excluded. The definition locus DEF (t) is the first claim where t
+
+appears with an indefinite article. Edges connect this locus to claims referencing t via definite arti-cles or demonstrative determiners, excluding pairs in the transitive closure E∗
+
+> cite
+
+:
+
+Eterm = {(cj , c i, r term ) | ∃ t ∈ T (ci) : DEF (t) = cj ,t has def./dem. ref. in ci,cj̸ = ci, (cj , c i) /∈ E∗
+
+> cite
+
+}
+
+(8) 
+
+Functional Coupling ( rfunc ). A verb lexicon 
+
+Rlex of 13 functional verbs ( couple, connect, at-tach, mount, dispose, position, support, engage, receive, extend, interpose, configure, adapt ) cap-tures predicate–argument relations. We extract subject–object pairs via dependency parsing, re-taining at most K=8 components per claim. An edge is added when a component matches a term defined in another claim: 
+
+Efunc = {(cj , c i, r func ) | ∃ r ∈ R lex , e ∈ COMP (ci) : 
+
+e ∈ T (cj ), c j̸ = ci,
+
+(cj , c i) /∈ E∗
+
+> cite
+
+}
+
+(9) 
+
+B CDG Statistics 
+
+All statistics are computed over 131,653 training patents. 
+
+Table 6: Basic CDG statistics. Path length and diameter from 10K sampled multi-claim patents. 
+
+Mean Std Med. Range 
+
+Claims/patent 16.85 8.60 18 [1, 116] Edges/patent 52.63 71.00 32 [0, 4,907] Density 0.19 0.13 0.20 [0, 1.0] Avg. path length 2.01 0.50 1.93 —Diameter 3.68 1.41 3.00 —
+
+Table 7: Edge distribution by relation type. 
+
+Type Count % Mean/pat. Presence 
+
+rcite 2,025,334 29.2 15.38 97.5% 
+
+rterm 546,225 7.9 4.15 65.8% 
+
+rfunc 4,179,022 60.3 31.74 72.2% 
+
+rboth 178,325 2.6 1.35 37.7% Total 6,928,906 100.0 52.63 —
+
+Boundary cases. Of 131,653 patents, 3,029 (2.3%) have zero edges (2,438 are single-claim). The remaining 591 default to unconstrained atten-tion. An additional 16,252 (12.3%) have only rcite 
+
+edges, so implicit extraction provides complemen-tary signal for 85.3% of the corpus. 
+
+C Learned Parameter Analysis 
+
+Contrastive weights. All converged weights are near-uniform ( wr ≈ 0.673 ), indicating the model does not rely on differential loss weighting. 
+
+Table 8: Learned contrastive weights after convergence. 
+
+Relation ˜wr wr = σ+( ˜ wr )
+
+rcite −0.0415 0.6726 
+
+rboth −0.0413 0.6727 
+
+rterm −0.0411 0.6728 
+
+rfunc −0.0409 0.6729 
+
+Layer-wise attention biases. Table 9 reports 
+
+σ+(b(l,r )) across 24 layers. Layers 0–9 favor implicit relations ( rterm : 0.6964, rfunc : 0.6954) over citations (0.6905). Layers 18–23 suppress cross-claim biases and amplify b(l, self ) (0.6921 →
+
+0.7030), shifting from structural aggregation to within-claim refinement. 
+
+D Detailed DAPFAM Results 
+
+TAC queries (title + abstract + claims) consistently outperform TA queries, confirming that claim-inclusive input strengthens cross-patent matching. Table 9: Attention biases σ+(b(l,r )) per layer. Lower layers favor implicit relations; upper layers shift to intra-claim aggregation. 
+
+Lay. self rcite rterm rfunc rboth 
+
+0 .6907 .6919 .6950 .6956 .6932 1 .6921 .6915 .6946 .6948 .6942 2 .6902 .6890 .6981 .6983 .6944 3 .6930 .6894 .6955 .6952 .6933 4 .6920 .6903 .6952 .6964 .6940 5 .6928 .6908 .6944 .6951 .6936 6 .6902 .6897 .6990 .6983 .6948 7 .6943 .6877 .7001 .6931 .6933 8 .6929 .6912 .6968 .6944 .6929 9 .6929 .6931 .6948 .6927 .6935 10 .6930 .6958 .6925 .6913 .6921 11 .6959 .6916 .6914 .6910 .6923 12 .6914 .6890 .7013 .6963 .6934 13 .6929 .6909 .6957 .6944 .6935 14 .6896 .6923 .6967 .6973 .6948 15 .6940 .6924 .6970 .6923 .6928 16 .6954 .6895 .6930 .6923 .6922 17 .6946 .6925 .6900 .6918 .6939 18 .6991 .6866 .6892 .6898 .6924 19 .7033 .6869 .6873 .6836 .6887 20 .7035 .6874 .6869 .6823 .6890 21 .7052 .6870 .6855 .6792 .6870 22 .7047 .6877 .6850 .6799 .6861 23 .7023 .6894 .6876 .6842 .6871 
+
+Group means 
+
+0–9 .6921 .6905 .6964 .6954 .6937 18–23 .7030 .6875 .6869 .6832 .6884 
+
+E Training Corpus 
+
+PHAGE is trained on 131,653 USPTO patents (2013–2017) from the Harvard USPTO Patent Dataset (Suzgun et al., 2022). 
+
+F Training Hyperparameters 
+
+Table 10: PHAGE on DAPFAM across query–corpus configurations. IN/OUT: in-domain and out-of-domain NDCG@100.                                                       
+
+> Query Corpus NDCG R@100 MRR IN OUT
+> TA TA .495 .336 .435 .497 .062 TA TAC .494 .343 .429 .496 .061 TA FullText .495 .344 .431 .497 .061 TAC TA .496 .341 .437 .499 .061 TAC TAC .505 .348 .448 .508 .063 TAC FullText .505 .348 .447 .508 .063 Claims →Claims .475 .321 .418 .477 .060
+> Average (6 configs) .498 .343 .438 .501 .062
+
+Table 11: Training corpus statistics. 
+
+Statistic Value 
+
+Total patents 131,653 Filing years 2013–2017 IPC sections 8 (A–H) Unique IPC subclasses 610 Unique IPC codes 36,094 IPC codes/patent 2.6 (med. 2) 
+
+Text length (chars, mean/med.) 
+
+Title 56 / 51 Abstract 679 / 697 Claims 5,937 / 5,101 
+
+Table 12: IPC section distribution. 
+
+Section Count %
+
+A – Human Necessities 19,276 14.6 B – Operations; Transport 18,668 14.2 C – Chemistry; Metallurgy 18,226 13.8 D – Textiles; Paper 3,427 2.6 E – Fixed Constructions 15,008 11.4 F – Mech. Engineering 17,063 13.0 G – Physics 19,992 15.2 H – Electricity 19,993 15.2 
+
+Table 13: Training hyperparameters for PHAGE. 
+
+Parameter Value 
+
+Backbone BERT-for-Patents (Large) Hidden size 1,024 Layers / Heads 24 / 16 Max seq. length 512 Optimizer AdamW Learning rate 2e-5 Weight decay 0.01 Gradient clipping max norm 1.0 Batch size 4 triplets Grad. accum. 128 steps Effective batch 512 Epochs 5
+
+τ (doc.) 0.05 
+
+τc (claim) 0.05 
+
+λ 1.0 Bias params 120 (5/layer)
