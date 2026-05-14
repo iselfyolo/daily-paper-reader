@@ -1,0 +1,962 @@
+Title: Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders
+
+URL Source: https://arxiv.org/pdf/2605.07922v2
+
+Published Time: Tue, 12 May 2026 02:31:06 GMT
+
+Number of Pages: 21
+
+Markdown Content:
+# Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+Tue M. Cao 1 2 Hoang X. Nhat 2 Raed Alharbi 3 Phi Le Nguyen 1 My T. Thai 2
+
+# Abstract 
+
+Learning hierarchical features in Sparse Autoen-coders (SAEs) is essential for capturing the struc-tured nature of real-world data and mitigating is-sues like feature absorption or splitting. Existing works attempt to identify hierarchical relation-ships within independent feature sets by relying on activation coverage , the assumption that child feature should only activate when its parent fea-ture activates. However, we demonstrate that this condition alone is insufficient; that is, it often produces false positives where parent and child concepts are semantically unrelated. To address this, we introduce a novel reconstruction condi-tion that enforces a deeper functional link between hierarchical levels. By combining both activation and reconstruction constraints, we propose the Tree SAE, a model designed to learn hierarchical structures directly from within the feature set. Our results demonstrate that Tree SAEs significantly surpass the existing SAEs at learning hierarchical pairs while maintaining competitive performance to the state-of-the-art on several key benchmarks. Finally, we demonstrate the practical utility of our Tree SAE in mapping the geometry of child feature subspaces and uncovering the complex hi-erarchical concept structures encoded within large language models. 
+
+# 1. Introduction 
+
+Sparse autoencoders (SAEs) have shown great promise in extracting human-interpretable features from opaque lan-guage models, providing valuable insight in understanding the thought process (Bricken et al., 2023; Cunningham et al., 2023; Lieberum et al., 2024). Applications include model steering (Cho & Hockenmaier, 2025), tracing thoughts (Marks et al., 2024; Dunefsky et al., 2024), or studying 
+
+> 1
+
+Hanoi University of Science and Technology, Hanoi, Vietnam 
+
+> 2
+
+University of Florida, Florida, USA 3Computer Science Depart-ment, Saudi Electronic University. Correspondence to: My T. Thai 
+
+<mythai@cise.ufl.edu >.
+
+Preprint. May 12, 2026. 
+
+the representation space (Park et al., 2023; 2024; Engels et al., 2024). However, standard SAEs often struggle with imperfect fea-ture recovery because they treat features as an independent set, neglecting the inherent hierarchical structure of real-world concepts (Chanin et al., 2024; Ayonrinde et al., 2024; Bussmann et al., 2025). This oversight is particularly prob-lematic given that language models appear to organize con-cepts hierarchically (Park et al., 2024). When SAEs ignore this structure, they fall prey to feature absorption (where fine-grained features inhibit coarse ones), feature splitting (Bricken et al., 2023), and feature composition (where the model learns fragmented or overly complex “polyseman-tic” amalgams) (Leask et al., 2025; Bussmann et al., 2025). More discussion of these undesirable phenomena is pro-vided in Appendix B. Recent architectures like Matryoshka SAEs (Bussmann et al., 2025) and Matching Pursuit SAEs (MP-SAE) (Costa et al., 2025) have introduced multi-level reconstruction and conditional orthogonality, partially addressing feature split-ting, absorption and learning hierarchical feature structure. While these works claim to capture hierarchical pairs, their method of identifying the pairs rely on Masked Cosine Sim-ilarity (MCS) (Bricken et al., 2023), which is based on 
+
+activation coverage , the requirement that a child feature activates only when its parent is active. In this work, we demonstrate that activation coverage alone is insufficient to identify the true hierarchy. In particular, we provide evidence that the parent and child features can sat-isfy this condition while remaining semantically unrelated. We further show that, indeed, previous SAEs (Bussmann et al., 2025; Costa et al., 2025; Gao et al., 2024) using the MCS algorithm also suffer from this phenomenon. To solve this, we propose reconstruction condition , which requires parent and child decoder vectors to align with the representation of child feature’s concept (the concept repre-sented by the child feature), ensuring both features to share the same general meaning. Furthermore, to identify hierar-chical pairs, we introduce a novel Tree SAE that contains tree-like structure directly within feature set. In particular, we divide the feature set into multiple sets with different privilege layers, each layer is incorporated with an alloca-tion vector that assigns child features from higher privilege 1
+
+> arXiv:2605.07922v2 [cs.LG] 11 May 2026 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders
+
+layers to features in the current layer. The parent and child pairs in our tree are designed to obey both activation cover-age and reconstruction condition, ensuring their hierarchi-cal relationship. We further pair the tree structure with a dynamic allocation mechanism, which allows Tree SAE to assign parent-child pairs during training, fostering the explo-ration of hierarchical concept structure. Our contributions are summarized as follows: • We provide concrete evidence showing that activation coverage, the current definition of parent and child rela-tion, finds semantically incoherent hierarchical feature pairs. We then suggest a new definition, that includes both activation coverage and our new reconstruction condition; and a new metric to benchmark the ability of the SAEs to learn hierarchical concepts. • We propose a novel Tree SAE that encodes, instead of independent features, a hierarchical structure within the feature set that is dynamically learned during training. • The results indicate that Tree SAEs do not suffer from the shortcoming of activation coverage and are able to learn significantly more coherent parent and child pairs than existing SAEs. Furthermore, our SAEs match or exceed current state-of-the-art (SOTA) SAE on hierarchical-related metrics (absorption, splitting, composition) as well as reconstruction loss and scaling, while maintaining high interpretability. • We further show the usefulness of explicit hierarchical structure in learning the geometry of the child con-cept subspace, and in exploring how language models decompose concepts into multiple granular levels. 
+
+# 2. Motivation 
+
+To identify hierarchical features in existing SAEs, a com-mon approach is MCS (Bricken et al., 2023; Bussmann et al., 2025) where the parent activation covers the child feature activation, termed as activation coverage condition (formal definition in Section 2.1). However, we show evi-dence that this condition is not sufficient to find hierarchical feature pairs (Section 2.2) and provide a stronger condition to address this shortcoming (Section 3). 
+
+2.1. Preliminary Sparse Autoencoder: The standard SAE architecture con-sists of a linear encoder and decoder with a sparse activation to ensure the sparsity and interpretability (Bricken et al., 2023; Cunningham et al., 2023). Specifically, the encoder weights We ∈ Rdf ×dm and the non-linear sparse activation function σ maps the hidden latent of the model x ∈ Rdm
+
+from the original Rdm latent space into a higher-dimensional overcomplete feature space (Bricken et al., 2023) Rdf :
+
+f (x) = σ(We(x − b)) , (1) where b ∈ Rdm is the autoencoder bias. The activation func-tion enforces sparse non-negative activation where element 
+
+fi in f (x) is the activation of feature i and fi(x) ≥ 0 ∀i
+
+and we define L0 of a SAE as the average number of ac-tive features over a dataset of model hidden latent. The decoder maps the sparse features back to the original space, providing a reconstruction of the original latent: 
+
+ˆx = Wdf (x) + b, (2) where Wd ∈ Rdm×df is the decoder weights. The SAE is trained with Mean Squared Error (MSE) loss in addition to an auxiliary loss (Gao et al., 2024) scaled with parameter α
+
+to avoid inactive features: 
+
+L(x) = || ˆx − x|| 22 + αLaux (x). (3) This setup allows the SAE to learn in an unsupervised man-ner while extracting a sparse set of interpretable features from the original latent x.
+
+Activation coverage for hierarchical feature pair: Under the activation coverage condition, a feature fp is consid-ered a potential parent of a child feature fc if fp activates on a large proportion of the instances where fc is active. Formally, the activation coverage score Scov is defined as: 
+
+Scov (fp, f c) = 
+
+P 
+
+> x
+
+1(fp(x) > 0 ∩ fc(x) > 0) 
+
+P 
+
+> x
+
+1(fc(x) > 0) (4) where 1(·) is the function that returns 1 if the input value is true, otherwise returns 0. A hierarchical relationship is inferred when Scov > τ cov , where τcov is a pre-defined threshold (Bussmann et al., 2025; Bricken et al., 2023). Intuitively, this condition requires the parent to represent a broad concept that encompasses the more specific semantic scope of the child. However, we argue that this definition is prone to identify-ing overly-broad parent concepts, leading to semantically incoherent pairs. A densely activated or highly polyseman-tic parent feature may achieve a high coverage score across many children without sharing any underlying functional or semantic relationship with them. More critically, we demonstrate cases where a child feature activates only on “spurious” instances which characterized by low parent acti-vation that bear no meaningful connection to the supposed parent concept (see Figure 1 in Section 2.2). This suggests that activation overlap is a necessary but insufficient condi-tion for establishing a true hierarchy. 
+
+2.2. Cases Where Activation Coverage Fails 
+
+We observe that activation coverage identifies spurious hi-erarchical pairs across many SAEs (more evidence in Ap-pendix E). We first investigate a common dense feature 2Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders    
+
+> Figure 1. The correlation between non-dense parent feature vector (feature 1343 - Tree SAE 2 layers L0= 32 ) and 3 probe weights trained to detect the activation of 3 child features (found by activation coverage condition). Child feature 15275, representing a different concept from the rest, corresponding to a spurious low activation value of the parent feature. It has significantly lower parent correlation while having perfect activation coverage. In contrast, our reconstruction condition scores correctly identify the unrelated child feature.
+
+called “PCA feature” found by (Sun et al., 2025), of which the decoder vector has high correlation with the top-1 PCA vector of the activation space. The PCA feature we study, feature 3098 of the 4-layer Tree SAE L0 = 32 , which acti-vates on a large proportion of tokens (20% of the test tokens in our example), does not appear to encode any interpretable meaning when analyzed at the token level, similar to the observation in (Sun et al., 2025). As a result of dense activa-tion, most non-dense child features that can be interpreted through token activations have a perfect activation coverage score with the dense parent PCA feature. However, the par-ent and child concepts have no shared meaning due to the uninterpretability of the parent feature. An additional example demonstrating the failure of activa-tion coverage to identify semantically meaningful hierarchi-cal relationships, even in the presence of non-dense parent features, is illustrated in Figure 1. We examine parent fea-ture 1343 from the Tree SAE (2 layers, L0 = 32 ), which primarily activates on “time” contexts such as “weekdays” ,
+
+“today” , and “morning” . Although the activation coverage metric identifies features 7487, 12625, and 15275 as chil-dren (shown in Figure 1), a qualitative inspection reveals significant semantic divergence. While features 7487 and 12625 activate in a similar context as the parent feature but are decomposed into specialised sub-cases; feature 15275 activates on political tokens, such as “Republican” and 
+
+“Democrat” , that are entirely unrelated to the concept of the parent feature. As further evidenced by the broader analysis across all SAEs provided in Appendix E, these results sug-gest that relying exclusively on activation coverage often yields parent-child pairings that lack conceptual coherence. 
+
+# 3. Our Proposed Reconstruction Condition 
+
+We introduce a reconstruction condition designed to enforce stricter semantic alignment within hierarchical feature pairs. Formally, for a parent feature fp and a potential child feature 
+
+fc, the reconstruction score Sres (fp, f c) is defined as: 
+
+Sres (fp, f c) = min(( d∗ 
+
+> c
+
+)T dc, (d∗ 
+
+> c
+
+)T dp), (5) where dc, dp ∈ Rdm denote the decoder vectors correspond-ing to fc and fp, respectively; and d∗ 
+
+> c
+
+represents the true concept vectors in activation space associated with the of 
+
+fc. Intuitively, a valid hierarchical relationship requires that both parent and child features contribute constructively to the reconstruction of the child concept. This ensures that the feature vector of the parent captures broad conceptual direction, which the child’s vector then further refines to-ward a more specialized sub-concept. Consequently, we argue that robust identification of hierarchical pairs requires the simultaneous satisfaction of two criteria: activation cov-erage and the reconstruction condition. While activation coverage ensures the parent concept is sufficiently broad to encompass the child’s occurrences, the reconstruction condition enforces semantic alignment. Revisiting the failure cases of activation coverage identified in the previous section, we now demonstrate that our pro-posed reconstruction condition effectively eliminates these spurious associations. To evaluate the “PCA feature” case, we adopt the methodology of (Chanin et al., 2024), training a linear probe to distinguish the activations of a child feature from all other tokens. The resulting weight vector of the linear probe is utilized as the ground-truth concept direc-tion, d∗ 
+
+> c
+
+(we provide further discussion on why we need to train probe following previous works to find d∗ 
+
+> c
+
+in Appendix H). For the initial “PCA feature” example, we identify the top 10 features with the highest activation coverage scores and calculate the cosine similarity between both parent and child features relative to this true direction. As illustrated in Figure 10, all identified child features exhibit a notably low correlation with the “PCA feature” , ranking only within the top 20k features by correlation. This confirms that the recon-struction condition correctly reflects the semantic vacancy of the parent feature relative to its putative children. 3Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+The efficacy of the reconstruction score is further validated by the case of feature 1343 in Figure 1. While features 7487 and 12625 exhibit high reconstruction scores relative to the parent, feature 15275 yields a significantly lower value. This discrepancy demonstrates that the reconstruction con-dition effectively filters out spurious pairings where parent activations are either incidental or semantically divergent from the core concept. Specifically, for feature 15275, the diminished score captures a fundamental lack of conceptual correlation, correctly identifying it as unrelated to the par-ent’s temporal domain. In contrast, features 7487 and 12625 maintain some of the highest parent-child correlations in the dataset, resulting in robust reconstruction scores. This confirms that our metric successfully isolates features that serve as specialized refinements of a broader parent concept. Beyond a few examples, we show that, in general, strong hierarchical pairs have a higher reconstruction score than weaker pairs in Appendix E, suggesting that it is natural for hierarchical pairs to follow this condition. We also show why both conditions are needed in Appendix F. 
+
+# 4. Tree Sparse Autoencoder 
+
+In this section, we propose our Tree SAE, which is the first SAE to incorporate hierarchical tree structure within the feature set, allowing direct exploration of real-world concept structure. Suppose that the Tree SAE has L layers, we define our proposed tree structure as follows: 
+
+Tree Structure. We design the Tree SAE architecture to incorporate multiple privilege layers, organized such that a feature at a higher layer are eligible to be assigned as a descendant of a feature at any lower layer (see Figure 2). We define an allocation vector al ∈ Nsl , which contains the indices of the parent features of the features at layer l:
+
+al := {al, 1, . . . , a l,s l }T , where sl is the number of features at layer l, and al,i denotes the parent feature of the i-th feature. To provide a consistent baseline for features without an explicit parent, we introduce an imaginary root node at layer 0 ( s0 = 1 ). This formulation allows Tree SAE to directly encode tree structure to find parent and child pairs, unlike existing SAEs (Bussmann et al., 2025; Costa et al., 2025; Gao et al., 2024) that have no structure within the feature set. In the following, we detail our approach in incorporating both activation coverage and reconstruction condition and determining the optimal allocation vector. 
+
+Combining Activation Coverage with Tree Structure. To foster the parent and child relationship between the pair, we enforce the activation coverage condition on the activation of the features. In particular, it is required that the child feature activates only if the parent feature activates, strictly follows the allocation vectors {al}Ll=1 . For a feature fi at layer l with a corresponding parent index al,i , we define the regularized activation f ∗ 
+
+> i
+
+(x) as follows: 
+
+f ∗ 
+
+> i
+
+(x) = 
+
+(
+
+fi(x) if al,i ∈ layer 0 
+
+fi(x) · 1(f ∗ 
+
+> al,i
+
+(x) > 0) otherwise ,
+
+(6) where 1(.) is is the function that returns 1 if the input value is true, otherwise returns 0. The term f ∗ 
+
+> i
+
+(x) is subsequently utilized as the final activation for feature fi given input x.
+
+Ensuring Reconstruction Condition via Training Loss. 
+
+The reconstruction condition requires that both parent and child features contribute simultaneously to the formation of the child concept vector. To operationalize the criteria estab-lished in Equation (7), we utilize a multi-level reconstruction loss objective. Specifically, let ˆxl be the reconstruction of features in layer l, this loss constrains the cumulative recon-struction of all preceding layers, including l: Plt=1 ˆxt to accurately recover the input x. This approach ensures that parent feature vectors capture general-level concepts in the input and child vectors subsequently refine these representa-tions into specialized concepts, following the reconstruction condition. Concretely, we define the reconstruction loss as: 
+
+Lrecons (x) = 
+
+> L
+
+X
+
+> l=1
+
+|| 
+
+> l
+
+X
+
+> t=1
+
+ˆxt − x|| 22. (7) Notably, we prove that this loss when pairs with our tree structure (Equation 6) leads to reconstruction score increase in Appendix H. Besides the reconstruction condition, we also adopt the auxiliary loss that reduce the dead feature rate. Different from existing approaches in the literature, instead of applying the auxiliary loss over all of the features, we apply the auxiliary loss on each privilege layer, ensuring that the dead child feature reconstructs the error of their parents, obeying the reconstruction condition. We use the auxiliary loss proposed by (Gao et al., 2024), which selects the top-k dead features with the highest pre-activation value to reconstruct the residual error of the SAE. Let ˆel be the reconstruction of the residual error at privilege layer l. The auxiliary loss at layer l is defined as: 
+
+Llaux (x) = || ˆel +
+
+> l
+
+X
+
+> t=1
+
+ˆxt − x|| 22. (8) Let αl be the scaling factor of Llaux . The full training loss of our Tree SAE can then be defined as follows: 
+
+Ltree (x) = Lrecons (x) + 
+
+> L
+
+X
+
+> l=1
+
+αlLlaux (x). (9) 
+
+Obtaining Optimal Feature Allocation. Although a fixed tree structure provides hierarchy in our SAE, it can have suboptimal allocation where child features are assigned to 4Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders        
+
+> Figure 2. (a) and (b) Figure illustrates the difference between other SAE architectures and our Tree SAE. The Tree SAE learns parent and child feature pairs over multiple layers, while other SAEs learn an independent feature set. (c) The results of the baseline Top-k, 4 layers Matryoshka, 4 layers Tree SAE at L0= 80 on feature splitting, absorption, downstream cross entropy loss, and hierarchical pair error rate (Section 5.2) respectively. Tree SAEs perform equally well or outperform other SAEs at reconstruction and hierarchical-related metrics.
+
+inactive parent features, leading to a high dead feature ratio. While existing methods employ auxiliary loss (Gao et al., 2024) to mitigate the dead feature problem, there are no mechanisms to reallocate the child features; therefore only partially address this problem in Tree SAE. We propose a dynamic allocation method that allow features realloca-tion, which can be paired with existing auxiliary loss to enhance the reduction of the dead feature rate, details of this experiment are in Appendix G. The flow of our algorithm is in Algorithm 2, where for each layer, we first find the optimal number of child features (at the current layer) assigned for parent features (at lower layers), then we reallocate dead child features at the current layer to best match optimal numbers of children. Specifi-cally, let ml = Pl−1 
+
+> t=0
+
+st be the number of candidate parent features (at layer t ≤ l), and kl ∈ Nml be the vector con-taining the numbers of children feature (at layer l) assigned for the parent features. Consider a parent feature fp, we define its capacity Cp, where a higher capacity means it can be assigned to more children. We assume that assigning kl,p 
+
+children to feature fp means that each child’s feature of fp
+
+has the payoff of Pp = Cp/k l,p . We consider the payoff as the potential to activate (receive a gradient) of the child feature. Thus, to avoid dead features, we determine the 
+
+“optimal” value k∗ 
+
+> l
+
+of kl, which maximizes the minimum payoff for all parent features: 
+
+k∗ 
+
+> l
+
+= arg max 
+
+> kl
+
+
+
+min 
+
+> p|kl,p >0
+
+ Cp
+
+kl,p 
+
+ 
+
+, s.t. 
+
+> ml
+
+X
+
+> p=1
+
+kl,p = sl.
+
+(10) Our algorithm for determining k∗ 
+
+> l
+
+is designed based on the following theorem. 
+
+Theorem 4.1. For any τ > 0, there exists an allocation 
+
+al with kl, 1, . . . , k l,m l ∈ Z≥0, P 
+
+> p
+
+kl,p = sl, such that 
+
+min p|kl,p >0(Cp/k l,p ) ≥ τ if and only if Pml
+
+> p=1
+
+j Cp
+
+> τ
+
+k
+
+≥ sl.
+
+This theorem establishes that an allocation al with a minimum payoff exceeding τ exists if and only if: 
+
+Pml
+
+> p=1
+
+j Cp
+
+> τ
+
+k
+
+≥ sl. Building on this theorem, we propose a greedy algorithm (Algorithm 1) to determine the supre-mum of τ , which allows us to derive the optimal k∗ 
+
+> l
+
+. Our algorithm achieves an efficient computational complexity of 
+
+O(sl log ml). All proofs are detailed in Appendix G. In our experiment, we chose the capacity as the accumulated training loss. The intuition is that having higher accumu-lated loss means either the features activate more often, allowing the child features to have more chance to receive gradient updates, or having a poor reconstruction quality, indicating that they may need child features to learn the remaining error. For each of the parent features during the training, we add the batch loss to the running sum of the parent feature for each instance in the batch that it activates on. After a predefined number of batches T , we solve the problem of Equation (10) for all of the layers. We then sam-ple the dead features at each privilege layer (usually defined as a feature without any activation in the most recent 10M tokens (Gao et al., 2024; Cunningham et al., 2023)), then dy-namically reallocate the dead child features to maximise the payoff. Details about the allocation algorithm are provided in Appendix G. 
+
+# 5. Experiments 
+
+We evaluate Tree SAEs on hierarchical metrics, feature split-ting, absorption, and composition (Section 5.1), showing they avoid known hierarchical feature pathologies. We then assess their ability to learn and identify hierarchical struc-ture using activation coverage and reconstruction condition, where Tree SAEs discover substantially more hierarchical pairs than existing SAEs (Section 5.2). Next, we evalu-ate reconstruction quality via cross-entropy explained and perform interpretability analyses in Section 5.3. Finally, following prior state-of-the-art (Bussmann et al., 2025), we study scaling behavior on all metrics (Section 5.4), find-ing that Tree SAEs achieve lower reconstruction loss than Top-k SAEs and maintain strong performance across scales, 5Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+comparable to Matryoshka SAEs. In our experiments, we implement four main SAEs, namely: our Tree SAE, Matryoshka SAE (Bussmann et al., 2025), Matching Pursuit SAE (Costa et al., 2025), and the baseline Top-k SAE (Gao et al., 2024). If not mentioned otherwise, all of the SAEs have 24k features on GPT2-small (Radford et al., 2019) at layer 5. We use the same Top-k activation function for Tree SAE and Matryoshka to be consistent with Top-k SAE, with four different L0 levels ranging from 32 to 80. While for MP-SAE, we follow (Costa et al., 2025) to only fix the maximum number of active features at each instance, allowing MP-SAE to learn an adaptive sparsity level. We therefore report the average L0 level of MP-SAE across 1280k tokens in our experiments. To compare the quality of Tree SAEs at different depths, we implement two layers and four layers Tree (two or four privilege layers) and Matryoshka SAEs (two or four prefixes (Bussmann et al., 2025)), where the average sparsity for each layer in Tree SAE and Matryoshka are kept the same to ensure fairness. The hyperparameter details for each privilege layer, and other Tree SAE-specific hyperparameters, are presented in Appendix C. 
+
+5.1. Feature Absorption, Splitting, and Composition 
+
+We benchmark on feature absorption, splitting, and compo-sition metrics from (Chanin et al., 2024; Karvonen et al., 2025; Bussmann et al., 2025), specific setups are provided in Appendix D.1. 
+
+Feature Absorption and Splitting. The results are shown in Figure 3, show that Tree SAEs remain competitive with the previous SOTA Matryoshka SAEs. Specifically, we find that both Tree SAEs and Matryoshka SAEs reach strong performance on both Feature Splitting and Absorption com-pared to Top-k SAE, consistent across the sparsity level and number of layers. On the other hand, MP-SAEs perform significantly worse than Top-k SAE on both metrics. 
+
+Feature Composition. The results in Figure 3 indicate that Tree SAEs are comparable to the SOTA Matryoshka SAEs. In particular, we observe that, while Tree SAEs perform slightly worse, the Tree and Matryoshka SAEs substantially have a lower Feature Composition rate compared to other SAEs. Furthermore, the MP-SAE features are noticeably more similar to each other in the encoded information than Top-k SAE. 
+
+5.2. Learning Hierarchical Feature 
+
+Given the activation coverage and reconstruction condition, we conduct a quantitative experiment to find which SAE is able to learn more hierarchical feature pairs, and which pro-cedure (our Tree SAE structure or MCS 1 (Bussmann et al., 2025; Bricken et al., 2023)) is more effective at searching for hierarchical structure. Our observations indicate that Tree SAEs strongly follow both conditions on both procedures, posing a significant gap with the rest of the SAEs. For each SAE, we sample 100 random parent features that are above the 50% most dense feature (we sample denser features as they are more likely to have children). We use MCS or Tree Structure to identify the top-5 child features for each parent. For Tree SAE, which can run both pro-cedures, we sample an equal number of children for each procedure (for example, if a parent has 7 children based on our Tree Structure, we also sample the top 7 children using MCS). Then, we train a linear probe to obtain the true direc-tion for each child feature. We report the number of cases where both parent and child features are among the top-5 features with the highest correlation with the true direction, normalised by the total number of child features. Reaching a higher rate means that the parent and child features are more related and follow the reconstruction condition. The results in Figure 4 show that Tree SAEs discover sub-stantially more hierarchical pairs than others, for both tree structure and MCS. Notably, tree structure is slightly more effective at identifying hierarchical pairs than MCS. On the other hand, the feature pairs identified by MCS are often less coherent, representing unrelated concepts. 
+
+5.3. Reconstruction Loss and Interpretability Reconstruction Loss. We evaluate the quality of the re-construction of the SAEs by quantifying the downstream reconstruction loss and variance explained. Experiment details and results are in Appendix D.2 and Figure 6, re-spectively. The result indicates that Tree SAE is not only competitive in hierarchical-related metrics, but also closely reconstructs the original latents, showing a substantial gap in reconstruction quality compared to both Matryoshka and Top-k SAE. Furthermore, in contrast to other metrics, MP-SAE provides the best reconstruction quality, significantly outperforming other SAEs. 
+
+Interpretability. We follow the procedure of AutoInterp (Bills et al., 2023; Paulo et al., 2024) in measuring inter-pretability of the features, with more details in Appendix D.3. Our results in Figure 3 show that the Tree SAEs are highly interpretable, matching the performance of Ma-tryoshka for both 2 and 4 layers version. Top-k SAE remains competitive scores, it has a slightly worse AutoInterp score at L0 = 80 . In contrast, MP SAE has less interpretable features than others; its score lowers as the density increase. 
+
+> 1We discuss the best variant of MCS in Appendix I.
+
+6Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders       
+
+> Figure 3. The results of Feature Splitting, Absorption, AutoInterp, and Composition, respectively. The averages across all L0levels are marked on the right of the plots.
+> Figure 4. The result of the Hierarchy metric of the SAEs across all
+> L0levels. The averages are marked on the right of the plot.
+> Figure 5. The result of the Hierarchy metric of the SAEs across all sizes. The averages are marked on the right of the plot.
+
+5.4. Scaling of Tree SAEs 
+
+We compare the scaling of our Tree SAE with the previous state-of-the-art Matryoshka SAE on the hierarchy-related metrics. We scale the dictionary size to 6k and 49k for both of the SAEs with the same training hyperparameters. We test the SAEs on the smallest L0 setup and scale proportionally to the dictionary size, as it is the hardest setup for Feature Splitting, Absorption, and Composition. The training setup are provided in Appendix C. We find that Tree SAE scales well with different dictio-nary sizes compared to Matryoshka SAE (Figure 8 and 5). Specifically, the Tree SAEs outperform previous state-of-the-art SAEs at Feature Splitting and Feature Absorption at small dictionary size, while having relatively the same performance on large sizes, resulting in better scores on av-erage. Surprisingly, we observe the same trend for Feature Composition, where the Tree SAE significantly outperforms Matryoshka SAE at lower dictionary size and has a com-parable Composition rate for the remaining setups. For the AutoInterp metric, we find that Tree SAE is again hav-ing a stronger score at 6k; however, as the size increases, both SAEs have roughly the same performance, with the   
+
+> Figure 6. Variance explained and Downstream loss of the evaluated SAE in four levels of sparsity.
+> Figure 7. Variance explained and Downstream loss of Tree SAE and Matryoshka at different scaling.
+
+4-layer Tree SAE at 49k slightly degrading. On the Hier-archy metric, we find a similar trend as in Section 5.2 that Tree SAE consistently identifies more hierarchical pairs than the counterpart, and our tree structure is more accurate at finding hierarchical features than MCS. Our results suggest that Tree SAE can scale well compared to the SOTA on hierarchy-related metrics. 
+
+# 6. Usefulness of Tree Structure 
+
+In this section, we provide qualitative and quantitative exper-iments to show the usefulness of leveraging an explicit tree structure that accurately identifies hierarchical pairs. We first show that using Tree SAE allows the analysis of hier-archical concept geometry in Section 6.1. Furthermore, we show that having a tree structure can help understand how a language model breaks down features’ concepts into coarse-and fine-grained levels in Section 6.2. We then evaluate the diversity of the child features in Section 6.3 to validate that the child features learn to represent different aspects of the parent features. 7Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders          
+
+> Figure 8. Comparison between Matryoshka and Tree SAE at different dictionary sizes on Feature Splitting, Absorption, AutoInterp, and Composition. The averages across all L0levels are marked on the left of the plots.
+> Figure 9. Visualisation of the activation child features of the parent feature 5 in 4 layers Tree SAE L0= 32 , 423 in 2 layers Tree SAE
+> L0= 48 , 1190 in 4 layers Tree SAE L0= 80 , using PCA projection. The corresponding feature encoder vectors are projected onto the same space. The figure indicates that the learned feature vectors of Tree SAE can correctly identify the child feature subspace, allowing hierarchical concept geometry analysis.
+
+6.1. Geometry of Child Feature Space 
+
+We provide evidence that Tree SAE can be used to study the geometry of hierarchical concepts. Specifically, we study the geometry of the child concept subspace given a parent. For a parent feature, we first sample the hidden activation of GPT2-small, where all of the child features activate, then we use PCA to visualize on the top-2 PCA components. On the same subspace, we also project the feature encoder vectors of the corresponding child features. The results in Figure 9 show that the feature vectors correctly point toward the child concepts on the subspace, suggesting that the Tree SAE encoder correctly learns the subspace that separates the child concepts, allowing geometric analysis of hierarchical concepts. Note that, although the first two examples’ features (sub-figures a and b) correctly point toward the child activation clusters, we do find that in some cases, such as sub-figure c, the feature vector of 19497 points toward the opposite direction. However, in such cases, we find that this is often due to either the inability to separate the child concepts of PCA or the overlapping activation between the child features, and therefore projecting on a noisy subspace leads to poor results. 
+
+6.2. Interpret Features Using Tree Structure 
+
+We demonstrate some qualitative observations on the tree structure of our Tree SAE, showing that it can be used to explore the decomposition of general concepts to finer-grained concepts in a language model. Figure 17 and 18 show the learned features on two random features, activating on “Adjective that is followed by a noun” and “Entity and Corporation names and context” respectively. We find that while the parent features have more general meanings, the child features break down the activations into interpretable and more specialized cases. For example, the tree structure in Figure 17 decomposes the general adjective into a range of categories such as “subsequent”, “various”, “wanted”, etc. Moreover, in Figure 18, the tree structure correctly classifies related concepts as it separates company names from the general feature and further breaks down concepts across coarse - and fine - grained scales. This, qualitatively, shows the interpretability of our tree structure; more examples are shown in Appendix J. 
+
+6.3. Child Features Diversity 
+
+For Tree SAEs to be useful in exploring hierarchical struc-ture, we also want the child features to have non-overlap activation. If the child features from the same parent have a high co-activation rate, then they represent the same con-cept, suggesting a poor diversity in the feature hierarchy. We therefore measure the average co-activation rate for all of the features from the same parent. The results are shown in table 3. We find that both two-layer and four-layer Tree SAEs have a low co-occurrence rate, only less than 3.0%. This shows that the learned child features activate on differ-ent cases of the parent feature, suggesting a high diversity in the feature set. 8Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+# 7. Conclusion 
+
+In this paper, we showed that prior work has important limi-tations in defining and detecting hierarchical features. We proposed a stronger definition of hierarchical feature pairs and introduced a novel SAE that better captures hierarchical structure and mitigates hierarchy-related pathologies. Our SAE learned substantially more parent–child pairs while re-maining competitive on other benchmarks. We believed that Tree SAE is a promising step toward uncovering underlying hierarchical structure and enabling geometric analysis and interpretation of how models encode concepts. 
+
+# References 
+
+Anders, E., Neo, C., Hoelscher-Obermaier, J., and Howard, J. N. Sparse autoencoders find composed features in small toy models, 2024. URL https://www.lesswrong. com/posts/a5wwqza2cY3W7L9cj/sparse-a utoencoders-find-composed-features-i n-small-toy .Ayonrinde, K., Pearce, M. T., and Sharkey, L. Inter-pretability as compression: Reconsidering sae explana-tions of neural activations with mdl-saes, 2024. URL 
+
+https://arxiv.org/abs/2410.11179 .Bills, S., Cammarata, N., Mossing, D., Tillman, H., Gao, L., Goh, G., Sutskever, I., Leike, J., Wu, J., and Saunders, W. Language models can explain neurons in language models. https://openaipublic.blob.core .windows.net/neuron-explainer/paper/i ndex.html , 2023. Bricken, T., Templeton, A., Batson, J., Chen, B., Jermyn, A., Conerly, T., Turner, N., Anil, C., Denison, C., Askell, A., Lasenby, R., Wu, Y., Kravec, S., Schiefer, N., Maxwell, T., Joseph, N., Hatfield-Dodds, Z., Tamkin, A., Nguyen, K., McLean, B., Burke, J. E., Hume, T., Carter, S., Henighan, T., and Olah, C. Towards monosemanticity: Decomposing language models with dictionary learning. 
+
+Transformer Circuits Thread , 2023. https://transformer-circuits.pub/2023/monosemantic-features/index.html. Bussmann, B., Leask, P., and Nanda, N. Batchtopk sparse autoencoders. arXiv preprint arXiv:2412.06410 , 2024. Bussmann, B., Nabeshima, N., Karvonen, A., and Nanda, N. Learning multi-level features with matryoshka sparse autoencoders. arXiv preprint arXiv:2503.17547 , 2025. Chanin, D., Wilken-Smith, J., Dulka, T., Bhatnagar, H., Golechha, S., and Bloom, J. A is for absorption: Studying feature splitting and absorption in sparse autoencoders. 
+
+arXiv preprint arXiv:2409.14507 , 2024. Cho, I. and Hockenmaier, J. Toward efficient sparse autoencoder-guided steering for improved in-context learning in large language models. In Christodoulopou-los, C., Chakraborty, T., Rose, C., and Peng, V. (eds.), 
+
+Proceedings of the 2025 Conference on Empirical Meth-ods in Natural Language Processing , pp. 28961–28973, Suzhou, China, November 2025. Association for Com-putational Linguistics. ISBN 979-8-89176-332-6. doi: 10.18653/v1/2025.emnlp-main.1474. URL https: //aclanthology.org/2025.emnlp-main.14 74/ .Costa, V., Fel, T., Lubana, E. S., Tolooshams, B., and Ba, D. From flat to hierarchical: Extracting sparse representations with matching pursuit. arXiv preprint arXiv:2506.03093 , 2025. Cunningham, H., Ewart, A., Riggs, L., Huben, R., and Sharkey, L. Sparse autoencoders find highly inter-pretable features in language models. arXiv preprint arXiv:2309.08600 , 2023. Dunefsky, J., Chlenski, P., and Nanda, N. Transcoders find interpretable llm feature circuits. Advances in Neural Information Processing Systems , 37:24375–24410, 2024. Engels, J., Liao, I., Michaud, E. J., Gurnee, W., and Tegmark, M. Not all language model features are lin-ear, 2024. URL https://arxiv. org/abs/2405.14860 , 2024. Gao, L., Biderman, S., Black, S., Golding, L., Hoppe, T., Foster, C., Phang, J., He, H., Thite, A., Nabeshima, N., et al. The pile: An 800gb dataset of diverse text for language modeling. arXiv preprint arXiv:2101.00027 ,2020. Gao, L., la Tour, T. D., Tillman, H., Goh, G., Troll, R., Radford, A., Sutskever, I., Leike, J., and Wu, J. Scal-ing and evaluating sparse autoencoders. arXiv preprint arXiv:2406.04093 , 2024. Gurnee, W., Nanda, N., Pauly, M., Harvey, K., Troit-skii, D., and Bertsimas, D. Finding neurons in a haystack: Case studies with sparse probing. arXiv preprint arXiv:2305.01610 , 2023. Karvonen, A., Rager, C., Lin, J., Tigges, C., Bloom, J., Chanin, D., Lau, Y.-T., Farrell, E., McDougall, C., Ayon-rinde, K., et al. Saebench: A comprehensive benchmark for sparse autoencoders in language model interpretabil-ity. arXiv preprint arXiv:2503.09532 , 2025. Kusupati, A., Bhatt, G., Rege, A., Wallingford, M., Sinha, A., Ramanujan, V., Howard-Snyder, W., Chen, K., Kakade, S., Jain, P., and Farhadi, A. Matryoshka repre-sentation learning. In Koyejo, S., Mohamed, S., Agarwal, A., Belgrave, D., Cho, K., and Oh, A. (eds.), Advances 
+
+9Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+in Neural Information Processing Systems , volume 35, pp. 30233–30249. Curran Associates, Inc., 2022. URL 
+
+https://proceedings.neurips.cc/paper _files/paper/2022/file/c32319f4868da 7613d78af9993100e42-Paper-Conference. pdf .Leask, P., Bussmann, B., Pearce, M., Bloom, J., Tigges, C., Moubayed, N. A., Sharkey, L., and Nanda, N. Sparse au-toencoders do not find canonical units of analysis. arXiv preprint arXiv:2502.04878 , 2025. Lieberum, T., Rajamanoharan, S., Conmy, A., Smith, L., Sonnerat, N., Varma, V., Kram ´ar, J., Dragan, A., Shah, R., and Nanda, N. Gemma scope: Open sparse autoen-coders everywhere all at once on gemma 2. arXiv preprint arXiv:2408.05147 , 2024. Marks, S., Rager, C., Michaud, E. J., Belinkov, Y., Bau, D., and Mueller, A. Sparse feature circuits: Discovering and editing interpretable causal graphs in language models. 
+
+arXiv preprint arXiv:2403.19647 , 2024. Minder, J., Dumas, C., Juang, C., Chugtai, B., and Nanda, N. Robustly identifying concepts introduced during chat fine-tuning using crosscoders. arXiv preprint arXiv:2504.02922 , 2025. Park, K., Choe, Y. J., and Veitch, V. The linear represen-tation hypothesis and the geometry of large language models. arXiv preprint arXiv:2311.03658 , 2023. Park, K., Choe, Y. J., Jiang, Y., and Veitch, V. The geometry of categorical and hierarchical concepts in large language models. arXiv preprint arXiv:2406.01506 , 2024. Paulo, G., Mallen, A., Juang, C., and Belrose, N. Automati-cally interpreting millions of features in large language models. arXiv preprint arXiv:2410.13928 , 2024. Radford, A., Wu, J., Child, R., Luan, D., Amodei, D., Sutskever, I., et al. Language models are unsupervised multitask learners. OpenAI blog , 1(8):9, 2019. Rajamanoharan, S., Lieberum, T., Sonnerat, N., Conmy, A., Varma, V., Kram ´ar, J., and Nanda, N. Jumping ahead: Improving reconstruction fidelity with jumprelu sparse autoencoders. arXiv preprint arXiv:2407.14435 , 2024. Sun, X., Stolfo, A., Engels, J., Wu, B., Rajamanoharan, S., Sachan, M., and Tegmark, M. Dense sae latents are features, not bugs. arXiv preprint arXiv:2506.15679 ,2025. Team, G. Gemma. 2024. doi: 10.34740/KAGGLE/M/3301. URL https://www.kaggle.com/m/3301 .10 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+# A. Limitations 
+
+Although attaining promising results, our SAE contains a high number of dead features compared to other SAEs due to the rigid structure. While dynamic allocation helps, we believe that this problem can not be solved by proposing stronger allocation optimisation, but instead, employing soft-gating on the tree structure might be a promising direction. Furthermore, although learning more hierarchical pairs, Tree SAEs’ structure still contains pairs that violate the reconstruction condition. Further improvement might incorporate the condition more gracefully during the training of the SAE to avoid this problem. We leave these directions for future work. 
+
+# B. Related Works 
+
+B.1. Sparse Autoencoder 
+
+Sparse Autoencoder (SAE) has been considered as the standard way to understand the hidden latent of language model (Bricken et al., 2023; Rajamanoharan et al., 2024; Cunningham et al., 2023; Lieberum et al., 2024; Bussmann et al., 2024). It breaks down the latent into a sparse set of interpretable features where each feature selectively activates on a specific context or idea. Inspecting the extracted features from SAEs has led to various applications, including model steering (Cho & Hockenmaier, 2025), model diffing (Minder et al., 2025), or even tracing the “thought” of LLM by finding the “circuit” inside the model (Marks et al., 2024; Dunefsky et al., 2024). The formalisation of the standard SAE architecture, as well as the training objective, is provided in Section 2.1. 
+
+B.2. Challenges in Sparsity Training and Learning Hierarchical Features 
+
+The key to the success of SAE is extracting a sparse set of features from an overcomplete dictionary (Bricken et al., 2023), where the features are often human-interpretable and useful in understanding the model (Cunningham et al., 2023). However, optimising for reconstruction and sparsity often leads to undesirable phenomena: 
+
+Feature Splitting and Absorption: Feature Splitting occurs when a set of features detects the specialised and fragmented concepts, such as ”punctuation mark and comma” and ”punctuation mark and question”, without learning a generalised ”punctuation marks” concept (Bricken et al., 2023; Chanin et al., 2024). More problematically, providing more capability for the SAE (scaling the SAE) will make the splitting issue worse (Bricken et al., 2023). This pathology leads to a set of incomplete features that simultaneously represent fragmented and not generalised concepts. On the other hand, Feature Absorption (Chanin et al., 2024) happens when the feature representing a concept developed systematic “blind spots” because of more specialised features. For example, consider a general feature that activates on female names like “Mary”, “Lily”, “Jane”, etc. If another feature specialises in detecting only “Lily”, the sparsity optimisation will likely push the general feature to activate on “female name except for Lily”, leaving a “hole” in the activation of the general feature (Bussmann et al., 2025). 
+
+Feature Composition: Feature Composition is a problem where the feature represents a composition concept rather than representing using underlying independent features (i.e. “red triangle” feature instead of “red” and “triangle” features) (Anders et al., 2024; Leask et al., 2025). While combining independent features into a specialised and compositional feature can have the same reconstruction loss and lower L0, this prevents SAE to learn an atomic and unique feature set, posing an urge to learn hierarchical features that correctly decompose, generalise and specialise concepts. 
+
+B.3. Hierarchy SAE 
+
+In the attempt of learning hierarchical features, several ideas have been proposed. (Bussmann et al., 2025) propose Matryoshka SAE that learns multi-level features using Matryoshka representation (Kusupati et al., 2022). Specifically, they encourage the features to reconstruct the input at multiple layers, fostering the learning of both generalised and specialised features. This has been shown (Bussmann et al., 2025) to mitigate all three mentioned pathologies, namely Feature Splitting, Absorption, and Composition. Furthermore, (Bussmann et al., 2025) outperforms standard SAE (Bussmann et al., 2024) in a toy dataset experiment with known hierarchical features; Matryoshka correctly learns the parent and child features without suffering from absorption. (Costa et al., 2025) proposes Matching Pursuit SAE that applies the well-known Matching Pursuit algorithm to learn hierarchical features. The features set is “conditional orthogonal” (Costa et al., 2025; Park et al., 2024) where parent and child features span in orthogonal subspace. This SAE is shown to faithfully learn hierarchical structure on a toy dataset with both inter- and intra-level feature correlation, while baseline SAE (Bussmann et al., 2024) and Matryoshka 11 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders    
+
+> Table 1. Average L0of each layer in Matryoshka and Tree SAEs main result.
+
+Sparsity level Matryoshka 2 layers Tree SAE 2 layers Matryoshka 4 layers Tree SAE 4 layers 
+
+L0 = 32 [26.11, 5.89] [26, 6] [20.68, 4.71, 3.79, 2.82] [21, 5, 4, 2] 
+
+L0 = 48 [39.70, 8.30] [40, 8] [32.22, 6.87, 5.20, 3.71] [32, 7, 5, 4] 
+
+L0 = 64 [53.01, 10.99] [53, 11] [43.41, 9.02, 6.33, 5.24] [44, 9, 6, 5] 
+
+L0 = 80 [68.51, 10.49] [69, 11] [55.94, 10.79, 7.51, 5.76] [56, 11, 7, 6]    
+
+> Table 2. Average L0of each layer in Matryoshka and Tree SAEs in scaling comparison result.
+
+Dictionary size Matryoshka 2 layers Tree SAE 2 layers Matryoshka 4 layers Tree SAE 4 layers 6k [5.80, 2.20] [6, 2] [5.25, 0.41, 0.89, 1.45] [5, 1, 1, 1] 49k [55.94, 8.06] [55, 9] [51.30, 3.37, 5.22, 4.11] [51, 4, 5, 4] SAE (Bussmann et al., 2025) cannot fully reconstruct. However, despite the initial success, all of the previous hierarchical SAEs learn independent features and can not point out the relations between the feature pairs. Furthermore, even when an algorithm such as MCS (Bricken et al., 2023; Bussmann et al., 2025) is used to detect the structure, the identified pairs are not guaranteed to be hierarchical, as we show in our experiments and evidence. 
+
+# C. SAE Training 
+
+In this section, we provide the training details of Tree SAE. We train our SAE on layer 5 of GPT2-small (Radford et al., 2019) with dictionary sizes of 24576 in our main result, and 6144 and 49152 in the scaling experiment. We train with a batch size of 5120, learning rate 1e-4 on 500M tokens of The Pile (Gao et al., 2020). We employ the Adam optimiser and normalise the gradient as well as the decoder vector at each backward step. These hyperparameters are shared across all SAEs. 
+
+Hyperparameters each privilege layer: We implement two layers and four layers Tree (two or four privilege layers) and Matryoshka SAEs (two or four prefixes (Bussmann et al., 2025)), where the number of feature per layer is [6144 , 18432] and 
+
+[1536 , 3072 , 9216 , 10752] respectively. These numbers were not cherry-picked and are the multiplications of the number of dimensions of the hidden latent in GPT2-small. To ensure fairness in the evaluation, we compute the average L0 of each layer (prefix) in Matryoshka SAEs, then round the number to an integer and set the sparsity level at each Tree SAE layer with the corresponding value. The sparsity levels for all of the SAEs are provided in table 1 and 2 for our main and scaling experiments, respectively. 
+
+Hyperparameters in scaling experiment: We evaluate the scaling of our SAE on the smallest L0 setup scaled proportionally to dictionary size ( L0 = 8 for dictionary size of 6k and L0 = 64 for dictionary size of 49k). We also scale the number of features per layer proportionally to the main experiment. 
+
+Dynamical allocation: We reallocate the child features of each privilege layer after every 3000 training steps, and increase the interval by two after each allocation, capping the maximum at 10,000 steps. At half of the training (around 50,000 steps), we move all of the remaining dead features to the root node (privilege layer of 0) to allow them to activate freely. We find that this improves the reconstruction and lowers the dead feature rate. The allocation algorithm is shown in Algorithm 1. 
+
+Auxiliary loss: For TopK, Matryoshka, and Tree SAE, we use auxiliary loss. We set the number of auxiliary top-k as 256, and the coefficient is 1/32 as in the original implementation for both Matryoshka and TopK (Gao et al., 2024; Bussmann et al., 2025). We set the same hyperparameter for Tree SAE; however, we only use auxiliary loss for features at the first privilege layer ( α1 = 1 /32; α2,3,4 = 0 ). Our results show that this allows stronger reconstruction quality with a trade-off for dead feature rate; nevertheless, we find that setting auxiliary coefficient as α1,2,3,4 = 1 /128 for other layers can be beneficial on other models such as Gemma-2-2b (Team, 2024). 
+
+# D. Experiment setups 
+
+In this section, we summarise the experiment setups in Section 5 for existing metrics (Chanin et al., 2024; Bills et al., 2023). 12 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders  
+
+> Table 3. Average co-occurrence rate of child features in Tree SAE tree structure.
+
+Sparsity level ( L0)SAE 32 48 64 80 Tree SAE 2 layers 0.013 0.017 0.025 0.027 Tree SAE 4 layers 0.010 0.019 0.024 0.028 
+
+D.1. Feature Absorption, Splitting, and Composiion Feature Absorption and Splitting. We follow the same setup proposed by (Chanin et al., 2024) to measure the absorption and splitting rate using first-letter classification tasks. For feature absorption, (Chanin et al., 2024) trains a linear regression to find which direction is responsible for the first letter, then trains a k-sparse probe (Gurnee et al., 2023) to select the top features that activate the first letter and calculate the cases where the top features fail to detect the letter. For feature splitting, (Chanin et al., 2024) again selects the top features for the first letter task using a k-sparse probe, and measures whether adding additional features leads to a significant improvement ( F1 score increase of more than 0.03 (Chanin et al., 2024)) in detecting the first letter. We consider a feature that represents a first-letter concept as having F1 > 0.4 on the task. The remaining setups are similar to those in (Karvonen et al., 2025). 
+
+Feature Composition. We find the average maximum cosine similarity between the feature direction for all of the features. An SAE has high average cosine similarity indicates that multiple features represent the same information, suggesting feature composition (Bussmann et al., 2025). 
+
+D.2. Reconstruction Loss 
+
+Firstly, we compute the downstream reconstruction loss measured cross entropy loss of the substituting the original hidden latent of language model with the reconstruction of the SAEs. Secondly, we compute the variance explained of each token. The lower the cross entropy loss the more information encoded, while the higher the variance explained the better the reconstruction. The results are averaged across 128K tokens, shown in Figure 6. 
+
+D.3. AutoInterp 
+
+We follow the procedure of AutoInterp (Bills et al., 2023; Paulo et al., 2024) in measuring the interpretability of the features. Specifically, a large language model is presented with a number of activation examples of a feature, then is asked to predict the rank of different examples by feature activation. We randomly select 200 features to evaluate; the remaining setup is the same as in (Karvonen et al., 2025). 
+
+# E. Cases Where Activation Coverage Fails 
+
+We illustrate more examples of activation coverage that lead to unrelated parent and child features, and the reconstruction condition allows coherent hierarchical pairs. Figure 12 shows that feature 16758 of Matryoshka 4 layers L0 = 80 shares the same meaning with the parent feature 1605, indeed has high correlation, while feature 23918 represents a completely different concept and has low probe correlation despite having 0.98 activation coverage score. Moreover, in Figure 11 with TopK SAE L0 = 32 , we find that all of the features represent specialised cases of the parent feature have high probe correlation, verifying that the reconstruction condition allows intuitive hierarchical feature pairs. We further show that, in general, the more strongly hierarchical the feature pair, the more they follow the reconstruction condition. We conduct additional experiment on the baseline SAE across all sparsity level. We follow the procedure presented in Section 5.2 to measure the rate of both parent and child feature are among the top-5 correlation with the probe weight trained on the child concepts. We randomly sample 100 parents, each with the top-20 child features with the highest activation coverage score. Our intuition is that, the higher the coverage, the higher chance for the pair to be parent and child. Therefore, we want to show that, the higher coverage score, the higher the reconstruction score. We average the score from top-1 to top-20, shown in Figure 13. The results are consistence across all sparsity level, suggesting that generally, hierarchical pairs follow the reconstruction condition. 13 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+Figure 10. The correlation between the dense “PCA feature” (feature 3098 - Tree SAE 4 layers L0 = 32 ) and 10 probe weights trained on 10 child features activation. In all of the cases, parent features have low correlation, indicating that the parent feature represents a different meaning from all of the child features while having perfect coverage. 
+
+Figure 11. The correlation between non-dense feature (feature 1605 - Matryoshka 4 layers L0 = 80 ) and 2 probe weights trained on 2 child features activation with activation coverage scores above 0.98. Child feature 16758, representing a different concept from the rest, corresponding to a spurious low activation value of the parent feature, has significantly lower parent correlation. 
+
+Figure 12. The correlation between the non-dense (feature 451 - TopK L0 = 32 ) and 5 probe weights trained on 5 child features activation with activation coverage scores above 0.98. In all of the cases, the parent feature has a high correlation as the meaning of the feature pairs is related. However, feature 16823’s probe has slightly lower correlation compared to the rest because it represents a slightly different context from the parent feature. 
+
+14 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+Figure 13. The average of 100 parent features’ correlation with probe weight for the top-1 to top-20 child features with the highest activation coverage of TopK SAEs. In general, the higher the coverage score, the higher the probe correlation, suggesting that it is natural for a hierarchical pair to follow the reconstruction condition. 
+
+# F. Necessity of Both Conditions 
+
+As we have shown in Appendix E, the activation coverage alone is not enough to find hierarchical pairs, and reconstruction condition correlates well with activation coverage. It can be argued that reconstruction condition is a stricter version of activation coverage and we could use only the reconstruction criterion to search for hierarchical pairs. However, we provide another example based on the non-dense feature (feature 1343 - Tree SAE 2 layers L0 = 32 ) shown in Appendix E that we do need activation coverage. Specifically, we find that feature 4002 has top-2 correlation with the probe weight of feature 7487, compared to the parent feature with top-3 correlation. If we follow the reconstruction condition only, feature 4002 would be more likely to parent feature of 7487. However, feature 4002 activates on “ Mon” or “ Poly” tokens, suggesting that its concept is “ numerical prefixes” instead of representing “Monday” as in feature 7487 while activating on similar tokens. This hint the insight for the role of each condition, we believe the activation coverage ensures the parent concepts general enough to covers the child concept, while the reconstruction forces the parent concept to specific enough that the meaning of both features are related. 
+
+# G. Dynamic Allocation Details 
+
+We provide proof that solving Equation (10) has the complexity of O(sl log( ml)) using a greedy algorithm where sl and 
+
+ml = Pl−1 
+
+> t=0
+
+st are the number of features and parents at privilege layer l. For each parent, let kl,p ≥ 0 , p ∈ { 1, . . . m l} be the number child features from the allocation al:
+
+Theorem 4.1: For any τ > 0, there exists an allocation al with kl, 1, . . . , k l,m l ∈ Z≥0, P 
+
+> p
+
+kl,p = sl, such that 
+
+min p|kl,p >0(Cp/k l,p ) ≥ τ if and only if mlX
+
+> p=1
+
+ Cp
+
+τ
+
+
+
+≥ sl.
+
+Proof: Only if. Assume an allocation with Pml 
+
+> p=1
+
+kl,p = sl achieves min p|kl,p >0(Cp/k l,p ) ≥ τ . Then for every p with kl,p > 0,
+
+Cp
+
+kl,p 
+
+≥ τ ⇒ kl,p ≤ Cp
+
+τ ⇒ kl,p ≤
+
+ Cp
+
+τ
+
+
+
+.
+
+For p with kl,p = 0 , the inequality also holds. Summing over p:
+
+sl =
+
+> ml
+
+X
+
+> p=1
+
+kl,p ≤ X  Cp
+
+τ
+
+
+
+.
+
+Hence P j Cp
+
+> τ
+
+k
+
+≥ sl.
+
+If. Assume P j Cp
+
+> τ
+
+k
+
+≥ sl. Pick any integers kl,p with 0 ≤ kl,p ≤
+
+j Cp
+
+> τ
+
+k
+
+and Pml 
+
+> p=1
+
+kl,p = sl (e.g., greedily fill parents up to their caps 
+
+j Cp
+
+> τ
+
+k
+
+until we place sl children; this is always possible because the sum of caps is at least sl). For any p with 15 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+kl,p > 0,
+
+kl,p ≤
+
+ Cp
+
+τ
+
+
+
+≤ Cp
+
+τ ⇒ Cp
+
+kl,p 
+
+≥ τ. 
+
+Therefore min p|kl,p >0(Cp/k l,p ) ≥ τ . This completes the proof for the theorem. 
+
+Optimality of Greedy: 
+
+Define the optimal value: 
+
+τ ∗ = sup 
+
+
+
+τ > 0 : X  Cp
+
+τ
+
+
+
+≥ sl
+
+
+
+.
+
+Equivalently, let S be the multi-set: 
+
+Ssl =
+
+ Cp
+
+k : p = 1 , . . . , m l; k = 1 , 2, 3, . . . 
+
+
+
+.
+
+Then τ ∗ equals the sl-th largest element of S (ties allowed). This is because: assuming that the sl largest elements are 
+
+Ssl = { Cp 
+
+> 1
+
+, . . . , Cp
+
+> k′
+> p
+
+: p = 1 , . . . , m l; k′ 
+
+> p
+
+≥ 1} (since the larger k′
+
+> p
+
+, the smaller the element), then P  
+
+> p|k′
+> p≥1
+
+k′ 
+
+> p
+
+= sl. Let τ ∗
+
+be the smallest element in Ssl , then P j Cp 
+
+> τ∗
+
+k
+
+≥ sl. As stated in theorem 4.1, there exist an allocation satisfy the problem in Equation (10) for optimal value τ ∗.Therefore, at each step, we can greedily allocate one child to the parent with the highest payoff; we can implement this efficiently using a heap with the complexity of O(log( ml)) . The full greedy algorithm is provided in Algorithm 1. We allow additional eligible conditions for a feature to be a parent, avoiding too sparsely activated parent features. Specifically, we require that the parent features have an activation rate of 1 every 50,000 tokens or higher. This activation rate is based on our observation that sparser features should not be decomposed further. 
+
+Algorithm 1 Greedy allocation algorithm. 
+
+Input : Capacity set Cl = {Cp, p ∈ { 1, 2, . . . , m l}} ; Number of child features sl at layer l.Initialize the (optimal) number of child per parent k∗
+
+> l,p
+
+H ← ∅ 
+
+ml ← | C|
+
+for parent p in {1, . . . , m l} do 
+
+{See Section G for eligibility condition }
+
+if parent is eligible () then 
+
+H ← H ∪ (Cp/1, p )
+
+end if end for 
+
+Heapify Hassigned ← 0
+
+while H̸ = ∅ and assigned < s l do 
+
+c, p ← H.heap pop () 
+
+k∗ 
+
+> l,p
+
+← k∗ 
+
+> l,p
+
++ 1 
+
+c ← Cp/(k∗ 
+
+> l,p
+
++ 1) 
+
+H.heap push (( c, p ))
+
+assigned ← assigned + 1 
+
+end while Return : k∗
+
+> l
+
+We provide the full reallocation algorithm in algorithm 2. In particular, we compute the best numbers of children k∗ 
+
+> l
+
+,then sample the pool of dead child features, usually defined as features that are inactive for 10M tokens (Gao et al., 2024; Cunningham et al., 2023). In the step of assigning child features to match the optimal allocation, we employ first fit strategy for all of the parents that have less than the optimal number of non-dead child features. Optionally, we can enforce a 16 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders    
+
+> Figure 14. The comparison of the dead feature rate with and without the dynamic allocation method on a 4-layer Tree SAE with L0= 32 .
+
+prerequisited number of child features for the root node at l = 0 . We find this can helps reducing number of dead features in Gemma-2-2b (Team, 2024). 
+
+Algorithm 2 Full dynamical feature reallocation algorithm. 
+
+Input : Current assignment vectors {al ∀l ∈ {1, . . . , L }} ; Number of child features sl at layer 
+
+l.
+
+for layer l in {1, . . . , L } do 
+
+Compute capacity set Cl = {Cp, p ∈ { 1, 2, . . . , m l}} 
+
+Compute the number of children for each parent with the current assignment al: kl
+
+k∗ 
+
+> l
+
+← Greedy allocation algorithm (Cl, s l) {algorithm 1 }
+
+Sample dead child features pool at layer l
+
+al ← Assigning child features to match k∗
+
+> l
+
+end for Return : {al ∀l ∈ { 1, . . . , L }} 
+
+We compare the Tree SAE setup with and without dynamic dead-feature allocation. We run the experiment on a 4-layer Tree SAE with L0 = 32 (the hardest setup to avoid dead features). To see the effect of auxiliary loss and dynamic allocation, we use auxiliary loss for all layers in both runs, while allowing dynamic allocation only in one run. Figure 14 shows that by allocating child features to more needed parents, the Tree SAE with dynamic allocation achieves an almost zero dead-feature rate at all layers starting at 40k steps, indicating that the learned features receive many gradient updates throughout training. On the other hand, the Tree SAE without dynamic allocation has an 8% dead-feature rate at layer 3, whereas at layer 2 the dead-feature rate reaches zero at the end of training, indicating that features receive fewer gradient updates and are poorly learned. Furthermore, as shown in Figure 14, relocating the features significantly reduces the number of dead features (indicated by the steep drop), demonstrating the effectiveness of our feature allocation method on multi-layer Tree SAE. 
+
+# H. Multi-level Reconstruction Loss Combine with Activation Coverage Improve Reconstruction Score 
+
+In this section, we give answers to two key questions: • One might ask the multi-level reconstruction loss (Equation 7) and tree structure (Equation 6) are necessary. We will show that these two components are crucial for the reconstruction score increase (Equation 5). We there for answer 17 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+the following question: “How do multi-level reconstruction loss and tree Structure enforce the feature pairs to follow reconstruction condition?” .• One could argue to use child encoder as the approximation of “true direction of child concept d∗ 
+
+> c
+
+” instead of training a separated probe as we do in Section 2.2. The answer is that the child features encoder and parent decoder vector have low cosine similarity, and thus, cannot differentiate between the correct and incorrect pairs. Consequently, we answer the following question: “Why child encoder has low cosine similarity with parent feature decoder?” .
+
+Notations: We consider the learning of two feature in our Tree SAE: parent feature fp ≥ 0 and child feature fc ≥ 0 to represent true concept vector be d∗ 
+
+> c
+
+with positive true activation f ∗ 
+
+> c
+
+> 0. We assume fp and fc are parent and child pair defined by our tree SAE structure (Equation 6), which strictly follow the activation coverage condition: Scov = 1 (Equation 4). And let Sp = dTp d∗ 
+
+> c
+
+, Sc = dTc d∗ 
+
+> c
+
+, and k = dTp dc. Without loss of generality, we: • constrain all vectors to the unit sphere: || dp|| 2 = || dc|| 2 = || d∗ 
+
+> c
+
+|| 2 = 1 , where we normalize the decoder vectors at after each gradient update. • rescale the activation: fp/f ∗ 
+
+> c
+
+= α, f c/f ∗ 
+
+> c
+
+= β
+
+• consider a standard ReLU activation SAE: fp = ( eTp d∗ 
+
+> c
+
+)f ∗ 
+
+> c
+
+and fc = ( eTc d∗ 
+
+> c
+
+)f ∗ 
+
+> c
+
+, where ep, ec are the encoder vector of fp, f c respectively. We have α, β, dp, dc are independent. We analyze two loss functions, our loss (Equation 7): L1 = || αdp − d∗ 
+
+> c
+
+|| 22 + || αdp + βdc − d∗ 
+
+> c
+
+|| 22, and standard SAE loss: 
+
+L2 = || αdp + βdc − d∗ 
+
+> c
+
+|| 22.
+
+Q1: How do multi-level reconstruction loss and tree Structure enforce the feature pairs to follow reconstruction condition?: Proporsition 1: We will prove that optimize using L1 will either yield high reconstruction score Sres = min( Sp, S c) or fp
+
+learns the concept directly ( Sp = 1 , S c = 0 ), while using L2 can suffer from Sc = 1 , S p = 0 where the parent feature are unrelated to the child concept (similar to example in Figure 1). 
+
+Proof: We rewrite L1 as: 
+
+L1(α, β, dp, dc) = 2 α2dTp dp + β2dTc dc + 2 − 4αS p − 2βS c + 2 αβk (11) The gradients w.r.t each feature vector are: 
+
+∂L 1/∂ dp = −4αd∗ 
+
+> c
+
++ 2 αβ dc + 4 α2dp,∂L 1/∂ dc = −2βd∗ 
+
+> c
+
++ 2 αβ dp + β2dc.
+
+Because of the term 2αβ dc in ∂L 1/∂ dp, and 2αβ dp in ∂L 1/∂ dc; the decoder vector of the two features will be pushed near orthogonal to each other, i.e. |k| = |dTp dc| ≪ 1 (we also empirically justify that |k| ≪ 1 with an experiment below Table 4). Similar argument, both dp and dc will be pushed toward d∗ 
+
+> c
+
+, hence, we expect Sp, S c ∈ [0 , 1] at convergence. At convergence, ∂L 1/∂α = 4 α − 4Sp + 2 βk = 0 and ∂L 1/∂β = 2 β − 2Sc + 2 αk = 0 . Solving these two equations yields the value of α and β at convergence (here, we simplify k2 ≃ 0 because |k| ≪ 1): 
+
+α∗ = 2Sp − kS c
+
+2 − k2 ≃ Sp − kS c/2,β∗ ≃ Sc − kS p.
+
+We rewrite Equation 11 during convergence with α∗ and β∗ and remove the term k2:
+
+L1(α∗, β ∗, dp, dc) ≃ 2 − 2S2 
+
+> p
+
+− S2 
+
+> c
+
++ 2 SpSck. (12) 18 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+Figure 15. This figure plot the landscape of L1, L 2 when Sp, S c ∈ [0 , 1] . Left: L1 leads to either high reconstruction score, or the parent feature learns the child concept directly. Right: L2 can lead to high Sc and low Sp (similar to examples in Figure 1), the parent feature does not reconstruct the child concept. Note that Sp, S c cannot be 1 at the same time (and the loss will be negative), because this means 
+
+dc = dp = d∗ 
+
+> c
+
+→ dTp dc = 1 , which is impossible due to our loss. 
+
+With similar derivation, we also obtain the form for L2:
+
+L2(α∗, β ∗, dp, dc) ≃ 1 − S2 
+
+> p
+
+− S2 
+
+> c
+
++ 2 SpSck. (13) We now compare the landscape of L1 (Equation 12) and L2 (Equation 13) when Sp, S c ∈ [0 , 1] when k is small ( k = 0 .05 ): Figure 15. The results show that optimize using L1 can avoid case where the parent feature does not reconstruct the child concept (examples in Figure 1), while the L2 cannot. This directly support our proposition. 
+
+Interpretation: This result means that enforcing multi-level reconstruction loss for feature pairs that strictly follow activation coverage (enforced via our tree structure) directly leads to high reconstruction score. 
+
+Q2: Why child encoder has low cosine similarity with parent feature decoder?: Propostion 2: eTc dp ≃ 0. This also shows that we should not use ec in our reconstruction score because it cannot separate correct and incorrect pairs. 
+
+Proof: We provide proof for L1, proof for L2 is then straightforward. At convergence, 
+
+∂L 1/∂ ep = (4 eTp d∗ 
+
+> c
+
+− 4dTp d∗ 
+
+> c
+
++ 2 keTc d∗ 
+
+> c
+
+)d∗ 
+
+> c
+
+= 0 ,
+
+and 
+
+∂L 1/∂ ec = (2 eTc d∗ 
+
+> c
+
+− 2dTc d∗ 
+
+> c
+
++ 2 keTp d∗ 
+
+> c
+
+)d∗ 
+
+> c
+
+= 0 .
+
+Solving these and remove k2, we have ep ≃ dp − kdc/2 and ec ≃ dc − kdp. Therefore eTc dp ≃ 0. This completes the proof. 
+
+Interpretation: The child encoder is not a good approximation of the true concept vector d∗ 
+
+> c
+
+as it avoids aligning with parent feature caused by the default reconstruction loss optimization. This leads to the low cosine similarity between parent encoder the parent feature decoder vector, and we can not use the child encoder as the true direction of the child concept to differentiate between correct and incorrect hierarchical pairs. 
+
+Q: Additional Experiment showing that |k| = |dTp dc| is small: 
+
+We collect every parent and child pairs that strictly follow activation coverage Scov = 1 and measure |dTp dc|. We conduct on Tree SAE L0 = 32 -2 layers and TopK SAE L0 = 32 in Table 4: This supports our claim that |k| = |dTp dc| ≪ 1.19 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders        
+
+> Table 4. Table shows the value |k|=|dTpdc| ≪ 1is small.
+
+SAE Tree SAE L0 = 32 -2 layers TopK SAE 
+
+|k| 0.044 0.060  
+
+> Figure 16. Hierarchy results for Tree SAE on 4 different setups of MCS. The non-scaling-binary consistently outperforms other setups, while scaling-correlation has the worst performance.
+
+# I. Choice of MCS 
+
+Since MCS can have multiple setups, in this section, we toggle the setup to find the best version to benchmark on our main experiment Section 5.2. As described in (Bussmann et al., 2025), the MCS measure the correlation between the activation of the candidate parent and child feature, specifically in cases where the child feature activates. We can either scale the score by maximum activation of the parent and child to remove spurious activation (Bussmann et al., 2025) or compute the correlation only (Bricken et al., 2023). We propose another setup that, instead of measuring the correlation, we treat the activation of a feature as binary (1 for non-zero activation and 0 for no activation) and measure the correlation on the binary vectors. Thus, we test 4 possible versions (whether to use binary and whether to use scaling) to test the score on our hierarchical metric (Section 5.2. We run the hierarchy experiment on Tree SAEs for all specificity levels. The result in Figure 16 shows that the best setup is non-scaling-binary, while scaling-correlation yields the worst performance consistently across all sparsity. Therefore, we use the non-scaling-binary for all of the MCS algorithms in our main experiment. Note that the best version is also similar to the definition of activation coverage condition in Section 5.2. 
+
+# J. Additional Qualitative Observations 
+
+We show additional tree structure from our Tree SAEs in Figure 19 and 20. Our results show that Tree SAE structures break down general concepts into interpretable subcases, showing that it can learn both generalised and specialised features, avoiding feature pathologies such as feature splitting or absorption. 20 Tree SAE: Learning Hierarchical Feature Structures in Sparse Autoencoders 
+
+Figure 17. Qualitative observation on the tree structure of root feature 3410 of 2-layer Tree SAE at L0 = 48 .
+
+Figure 18. Qualitative observation on the tree structure of root feature 135 of 4 layers Tree SAE at L0 = 80 .
+
+Figure 19. Qualitative observation on the tree structure of root feature 200 of 4 layers Tree SAE at L0 = 64 . Figure 20. Qualitative observation on the tree structure of root feature 2308 of 2 layers Tree SAE at L0 = 32 .
+
+21
