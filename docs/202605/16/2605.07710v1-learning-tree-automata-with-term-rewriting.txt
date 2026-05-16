@@ -1,0 +1,334 @@
+Title: Learning Tree Automata with Term Rewriting
+
+URL Source: https://arxiv.org/pdf/2605.07710v1
+
+Published Time: Mon, 11 May 2026 01:12:37 GMT
+
+Number of Pages: 14
+
+Markdown Content:
+# Learning Tree Automata with Term Rewriting 
+
+# Jakub Kopystia´ nski and Jan Otop University of Wrocław 
+
+Abstract 
+
+We present an extension of the Angluin-style learning algorithm for tree automata that incorporates deductive inference. The learning algorithm is provided with a term rewriting system that specifies properties of the target tree language (e.g., the order of subtrees under a symbol f is irrelevant). This term rewriting system is used to infer answers to some queries, which reduces the query complexity of the learning algorithm. We present examples of rewrite systems that express natural properties of tree-structured data, which yield a significant reduction in the number of queries. 
+
+# 1 Introduction 
+
+Active automata learning. The aim of active automata learning is to generate a deterministic finite automaton (DFA) recognizing an unknown regular language L (target language) having access to an oracle answering queries about L, i.e., the algorithm is allowed to actively query about the language in contrast to passive learning where the input dataset does not change. There are two types of queries: membership of a given word in L, and equivalence of the language of a given DFA A with the target language L, where the answer to an equivalence query is either YES, or a counterexample word distinguishing L and L(A). This framework was proposed in the seminal paper [3] along with the L ∗-algorithm, which enables learning in polynomial time. Active automata learning has been intensively studied for both efficiency [22, 36] as well as extensions to other automata-based models. In particular, the L ∗-algorithm has been adapted to tree automata [15] and multiplicity tree automata [21, 29]. 
+
+Applications of active tree-automata learning. Trees are a natural model for structured data and hence tree au-tomata are often used in knowledge representation, including processing of XML, JSON, and unification in Descrip-tion Logics [4]. Motivated by these applications, active learning of tree languages and related formalisms has been extensively studied and applied to information extraction [26], the synthesis of node specifications [20], structured data transformations [39], and Description Logic EL terminologies [28]. Due to the close link between regular tree and context-free languages, active learning of tree languages has been applied to context-free grammar repair [32], learning probabilistic grammars [31], and verification and explainability of RNNs [6]. 
+
+Query complexity. The number of queries required by the L ∗-algorithm is polynomial in the size of the target au-tomaton. While it is feasible to answer that many queries automatically, the number remains too high for manual intervention. Consequently, there is a large body of work on improving query complexity of active automata learn-ing [22, 19, 36, 27, 14] as well as implementing the teacher using Large Language Models [28, 8, 38]. However, LLMs only answer membership queries, and their equivalence query answers are merely approximations with a large number of membership queries. This approximation approach is similar to prior work on automating query answering [35]. Therefore, in this work, we follow an alternative route, proposed in [18], which is to restrict the search space of au-tomata by providing the learning algorithm with additional information (called advice) regarding the target language. Furthermore, we focus on inferring the answers to equivalence queries as it yields the greatest reduction in complexity and increases reliability of learning (answers to these queries are often approximated). We briefly discuss inference of answers to membership queries. 1
+
+> arXiv:2605.07710v1 [cs.FL] 8 May 2026
+
+Learning with advice. We consider an extended learning framework, in which the learning algorithm is given advice 
+
+about the target language [18]. This advice constrains the search space and allows the algorithm to infer answers to certain queries. This approach bridges two synthesis paradigms: deductive synthesis from specifications and inductive synthesis based on queries. Furthermore, it allows for flexibility to express the learned language partially with queries and partially with a term rewriting system (TRS) , which substantially differs from automata, and hence some properties can be succinctly expressed with a TRS instead of multiple queries. 
+
+Term rewriting as advice. A Term Rewriting System (TRS) consists of rewrite rules l → r, where l, r are terms (or equivalently trees with variables). Rewriting is the process of iteratively transforming a tree by replacing an instance of a left-hand side l with its corresponding right-hand side r. For example: • Commutativity: The rule f (X, Y ) → f (Y, X ) allows for the swapping of subtrees at node f .• Associativity: With f (f (X, Y ), Z ) → f (X, f (Y, Z )) any tree with f symbols and constants can be transformed into a right skewed tree. These rules serve as natural advice when the target language is known to satisfy such structural properties. In our approach, an advice TRS defines an equivalence relation relative to the target language L. Specifically, if a tree t is in L, then all trees obtained by rewriting t must be in L. Similarly rewriting is compatible with the complement of 
+
+L. We also consider one-sided relations stating that (1) trees from L are rewritten to trees from L only, while there are no restrictions for trees not in L, or (2) trees not in L are rewritten to trees not in L only. This allows the TRS to capture high-level structural properties, such as symmetry or associativity of a given symbol, while it is not expected to characterize the learned language completely. 
+
+Contributions. Active automata learning with advice has been already introduced for finite automata on words [18]. In this paper we study automata over trees and present the following substantial contributions: 1. We develop an algorithm that infers answers to equivalence queries for tree automata (Section 3). The transition to trees introduces distinct technical challenges absent in the word case. In particular, general inference is computationally difficult. We therefore identify subclasses of TRSs that admit tractable inference. 2. To illustrate the efficacy of the advice mechanism, we provide TRSs expressing natural tree language properties and show, through experimental evaluation, a significant reduction in query complexity (Section 4). 3. Finally, we introduce the synthesis problem for TRS for a given regular tree language, which is the converse of active learning with advice: given a regular tree language, find a TRS consistent with it. We establish a connec-tion between synthesis of TRS and the classical problem of finding synchronizing words in DFA (Section 5). This is an extended version of the paper [24]. Whe code and experiments data are available at [25]. 
+
+Related work. There is a large body of work on optimizing the computational and query complexity of the L ∗-algorithm for word automata [22, 19, 36, 14] and tree automata [16, 23]. These works are orthogonal to our approach, as our algorithm is compatible with any active learning algorithm using equivalence queries. Our work directly ex-tends [18] to the tree setting. Independently, enhancing the performance of active tree automaton learning by restricting focus to specific subclasses of tree languages remains an active area of research [37, 9]. Furthermore, extending the types of queries to improve the efficiency of active learning has also been investigated [33]. 
+
+# 2 Preliminaries 
+
+A signature (or ranked alphabet) F is a pair (F, Ar ) consisting of the set of symbols F and a function Ar : F → N
+
+assigning a unique arity to each symbol. To ease the notation, we will write f ∈ F meaning f ∈ F .22.1 Terms 
+
+For a signature F and a set of variables X , the set of terms over F and X , denoted by T (F, X ), is the least set containing X such that for all f ∈ F , if k = Ar (f ) and t1, . . . , t k ∈ T (F, X ), then f (t1, . . . , t k) ∈ T (F, X ). In particular, if a ∈ F and Ar (a) = 0 , then a ∈ T (F, X ). The set of ground terms T (F) over the signature F is the set T (F, ∅), i.e., terms containing no variables. We consider signatures F that contain at least one constant symbol, as otherwise T (F) is empty. A term t is linear if every variable occurs at most once in t.A substitution σ is a function from variables to terms with a finite domain. Each substitution σ can be uniquely extended to bσ over all terms T (F, X ) as follows: for X ∈ X we have bσ(X) = σ(X) if X ∈ dom (σ) and otherwise 
+
+bσ(X) = X. For a term t, which is not a variable, we have t = f (t1, . . . , t k), and bσ(t) = f (bσ(t1), . . . , bσ(tk)) . Since the extension from σ to bσ is unique, we refer to bσ as σ. For a variable X and terms t, s , we denote by t[X → s] the term σs(t) resulting from the substitution σs(X) = s.
+
+# 2.2 Trees as terms 
+
+A (ranked) tree over F is a ground term over F and we refer to T (F) as the set of trees over F. Referring to ranked trees as ground terms is common in the literature [13]. In the unranked case, when symbols do not have unique arities, the order-based definition of trees is required, but in this paper we consider only ranked trees. A context c is a term with a single occurrence of a variable X. For a context c and a tree (ground term) t, we define c(t) = c[X → t], i.e., the substitution σ(X) = t applied to c.
+
+# 2.3 Tree automata 
+
+A bottom-up deterministic finite tree automaton (DFTA) is a tuple (F, Q, Q acc , δ ) consisting of the signature F, a finite set of states Q, a set of accepting states Qacc , and a transition function δ : Q∗ × F → Q. The transition function 
+
+δ is a partial function such that δ(u, f ) is defined if and only if |u| is equal to Ar (f ). We extend δ to a function 
+
+bδ : T (F) → Q inductively: 1. If t is a constant c ∈ F , then bδ(c) is the unique state q such that δ(c) = q.2. If t = f (t1, . . . , t k), then bδ(t) = δ(bδ(t1), . . . , bδ(tk), f ).The tree language recognized by A, denoted by L(A), is the set of all trees such that bδ(t) is an accepting state, i.e., 
+
+L(A) = {t | bδ(t) ∈ Qacc }.
+
+# 2.4 Myhill-Nerode theorem for tree languages 
+
+For a tree language L over F we define ∼L on trees over F as follows: for all trees t1, t 2 over F we have t1 ∼L t2 if and only if for every context c over F we have c(t1) ∈ L ↔ c(t2) ∈ L .
+
+Lemma 1. A tree language L is regular if and only if ∼L has finitely many equivalence classes. 
+
+Furthermore, for every regular tree language L a minimal DFTA recognizing L exists and it is unique (up to an isomorphism). The states of the minimal DFTA for L correspond to equivalence classes of ∼L. Note that all states in the minimal DFTA are reachable. 
+
+# 2.5 Learning tree automata 
+
+The framework of active tree-automata learning assumes an oracle, called minimally adequate teacher , which answers two types of queries about the target tree language L:• membership queries : given a tree t ∈ T (F), is t ∈ L ?, and • equivalence queries : given a DFTA A, is L(A) = L? If not the teacher returns a counterexample, which is a tree from exactly one of the sets L(A) and L.3The tree-automata variant of the L ∗-algorithm [15] having access to the oracle for a tree language L returns the minimal DFTA AL recognizing L. It works in polynomial time in |A L| and the total size of counterexamples supplied by the oracle. Unlike the word-automaton case, where the shortest counterexample is linear in the size of the minimal DFA, a minimal-size counterexample tree can be of exponential size. However, if counterexamples are presented as directed acyclic graphs (DAGs), their size remains polynomially bounded in |A L| [12, 2]. 
+
+# 2.6 Term rewriting systems 
+
+A term rewriting system (TRS) R over a signature F is a finite set of pairs of terms (l, r ) over F. A pair of terms 
+
+(l, r ) from R is called a rewrite rule and denoted by l → r. For a TRS R, we define a single-step rewrite relation 
+
+→R over terms from T (F, X ) as the least relation such that (i) for all substitutions σ and all rules (l, r ) from R we have σ(l) →R σ(r), and (ii) for all f ∈ F , if k is the arity of f and s →R t, then for all terms s1, . . . , s k−1 and all i we have f (s1, . . . , s i−1, s, s i+1 , . . . , s k) →R f (s1, . . . , s i−1, t, s i+1 , . . . , s k). The rewriting relation →∗R is the transitive and reflexive closure of →R. We will omit the R subscript if the TRS is clear from the context. 
+
+Normal forms. A term t is in a normal form if there is no t′ such that t →R t′. If for a term s there is a unique t in a normal form such that s →∗R t, we say that t is the normal form of s (w.r.t. R) and denote it by NF R(s).
+
+Computing normal forms. A (finite) TRS R is terminating if every sequence of terms s0, s 1, . . . such that si → si+1 
+
+is finite, confluent if for all terms s, s 1, s 2, if s →∗ s1 and s →∗ s2, then there is t such that s1 →∗ t and s2 →∗ t,and convergent if it is terminating and confluent. In a convergent TRS, every term s has the (unique) normal form, which can be computed by applying reductions in an arbitrary order as long as the term can be reduced. Termination guarantees that this process takes finitely many steps and confluence entails the uniqueness of the result. Therefore, for a convergent TRS R, one can effectively compute NF R(s). However, showing that a TRS is convergent is generally difficult [5]. 
+
+# 3 Learning tree automata with advice 
+
+In this section, we adapt the framework of active learning with advice [18] to tree automata. We first formally define the active learning problem with advice, then discuss how to resolve queries using that advice. In our framework, advice for the learning algorithm is given via TRSs, which relate to tree languages through the following notions of consistency: 
+
+Definition 2 ([18]) . Let F be a signature, R be a TRS over F and L be a (regular) tree language over F. We say that 
+
+• R is (fully) consistent with L if and only if for all trees s, t , if s →∗R t, then s ∈ L ⇐⇒ t ∈ L .
+
+• R is positively consistent with L if and only if for all trees s, t , if s →∗R t, then s ∈ L =⇒ t ∈ L .
+
+• R is negatively consistent with L if and only if for all trees s, t , if s →∗R t, then s / ∈ L =⇒ t / ∈ L .
+
+Note that a TRS R is fully consistent with L if and only if it is both positively and negatively consistent. While more granular than standard consistency, positive and negative consistency are harder to infer. Having the notions of consistency, we can formally state the active learning with advice problem. 
+
+Definition 3. The active tree-automata learning with advice problem for an unknown regular tree language U is as follows: 
+
+• Input : (1) an oracle answering membership and equivalence queries about the target regular tree language U,and (2) three advice TRSs: R=, which is consistent with U, and R+, R−, which are respectively positively and negatively consistent with U.
+
+• Output: the minimal DFTA that recognizes U.
+
+4Reducing equivalence queries with advice. To reduce the number of equivalence queries, the algorithm first checks whether an advice TRS R is consistent (resp., positively or negatively consistent) with the language of a candidate automaton A before querying the oracle. If it is not consistent, an equivalence query is unnecessary because L(A)
+
+must differ from the target language with which R is known to be consistent (resp., positively or negatively consistent). In such cases, the algorithm computes a pair of trees violating consistency (resp., positive or negative consistency). For example, for positive consistency, violating trees s, t are such that s →∗R t but s ∈ L (A) = ⇒ t ∈ L (A) does not hold. One of the trees s or t has to be the counterexample to L(A) being equal to the target language. The algorithm decides which one with a single membership query. 
+
+Remark 4 (Rewrite rules vs. regular languages) . Rewrite rules can express non-regular properties. For example, 
+
+f (X, X ) → a expresses that the value of a tree with identical immediate subtrees the same as the value of a with respect to L. Tree automata cannot express equality of subtrees. Similarly, while associativity f (X, f (Y, Z )) →
+
+f (f (X, Y ), Z ) does not compare subtrees, applying it iteratively can reshape trees, destroying information encoded in the tree structure. For instance, consider a regular tree language over constants a, b and binary f such that the string of leaf labels forms a palindrome and every palindrome appears in some tree. This language is defined to contain constants a, b and be closed under the contexts f (a, f (X, a )) and f (b, f (X, b )) . A DFTA can detect whether a tree is built from these two contexts and constants. However, if such tree is reshaped to a skewed tree, no DFTA can recognize whether the leaves form a palindrome. Consequently, this language cannot be extended to satisfy associativity while retaining its key properties. Despite this, we only ask whether a language known to be regular satisfies rewrite rules. 
+
+# 3.1 Deciding consistency 
+
+We discuss how to efficiently decide consistency. First, we establish a condition that reduces checking consistency of a TRS with a tree language to checking combinatorial properties of the minimal DFTA recognizing that lan-guage (Lemma 6). Next, we discuss the complexity of deciding this combinatorial condition. To conveniently define the combinatorial condition, we extend the function bδ from trees (i.e., ground terms) to all terms, where terms with variables define state transformations :
+
+Definition 5. Let A be a minimal DFTA and t be a term over variables X1, . . . , X k. We define ⃗ δA(t) as a function from Qk to Q such that ⃗ δA(t)( q1, . . . , q k) is the state assigned to t if in leaves labelled by Xi the DFTA A starts in state qi. Formally, let s1, . . . , s k be trees over F such that bδ(si) = qi. Then, ⃗ δA(t)( q1, . . . , q k) = bδ(t[X1 →
+
+s1, . . . , X k → sk]) .
+
+Note that in a minimal DFTA every state is reachable, and hence trees s1, . . . , s k as in the above definition exist. 
+
+Lemma 6. Let R be a TRS over F and A be a minimal DFTA over F. The TRS R is consistent with L(A) if and only if the functions ⃗ δA(l) and ⃗ δA(r) coincide, for each rule l → r ∈ R .Proof. We show the implication from right to left. Assume that R is not consistent with L(A). Then, there are trees 
+
+s, t such that s →∗R t and either s ∈ L (A) and t / ∈ L (A), or s / ∈ L (A) and t ∈ L (A). Without loss of generality, assume that s ∈ L (A) and t / ∈ L (A). Then, there is a rewriting sequence s = t0 → t1 . . . → tn = t. Consider the first position i such that ti ∈ L (A), but ti+1 /∈ L (A). Since ti → ti+1 , there is a context c and the grounding substitution 
+
+σ such that ti = c[σ(l)] and ti+1 = c[σ(r)] . Let q1 = bδ(σ(l)) and q2 = bδ(σ(r)) . These states have to be different as otherwise both ti and ti+1 would have the same value in L(A). It follows that on the states that correspond to the grounding substitution σ the function ⃗ δA(σ(l)) and ⃗ δA(σ(r)) differ as one returns q1 and the other q2.For the implication from left to right. Let l → r ∈ R be the rule such that the functions ⃗ δA(l) and ⃗ δA(r) are different. Consider ⃗q that witnesses that ⃗ δA(l) and ⃗ δA(r) are different. Based on ⃗q we define the substitution σ such that σ(Xi) is the tree si satisfying bδ(si) = ⃗q[i]. Then, bδ(σ(l)) ̸ = bδ(σ(r)) . As A is minimal, different states are distinguished with contexts and hence there exists c such that c[σ(l)] ∈ L (A) and c[σ(r)] /∈ L (A) or vice versa. In any case, l → r ∈ R is not consistent with L(A).It is essential that the TRS and the DFTA are over the same signature F, as otherwise checking consistency is undecidable [18]. 5Remark 7. Consider a rule f (X, X ) → a, for which the left-hand side defines a non-regular language. Observe that Lemma 6 implies that if f (X, X ) → a is consistent with the language of a minimal DFTA A, then for all trees 
+
+s1, s 2 labelled with the same state by A (bδ(s1) = bδ(s2)), the tree f (s1, s 2) is labeled with the state bδ(a), which is a substantially stronger condition than just f (X, X ) → a.
+
+Now, in the remaining part of this section, we discuss the complexity of evaluating the condition from Lemma 6. For any tuple of states ⃗q ∈ Q k, the value ⃗ δA(l)( ⃗q) (resp., ⃗ δA(r)( ⃗q)) can be computed in polynomial time in |l|
+
+(resp., |r|). However, the number of arguments is equal to the number of variables in terms l, r and hence there may be exponentially many tuples of states to check. Still, Lemma 6 implies that consistency can be checked in coNP :
+
+Proposition 8. Checking consistency of a TRS with a tree language given by a DFTA is in coNP . For every N > 0,consistency is decidable in polynomial time over TRSs with at most N variables, i.e., in every rule l → r, both terms 
+
+l, r are over {X1, . . . , X N }.
+
+In particular, the consistency problem is decidable in polynomial time if the TRS is fixed and only the DFTA is the input. 
+
+Computing counterexamples. Given a rule l → r ∈ R such that ⃗ δA(l)̸ =⃗ δA(r) and q1, . . . , q k witnessing this, i.e., ⃗ δA(l)( q1, . . . , q k)̸ =⃗ δA(r)( q1, . . . , q k), we can compute two trees witnessing consistency being violated. Let 
+
+s1, . . . , s k be trees such that bδ(si) = qi. Consider trees: • ˆl = l[X1 → s1, . . . , X k → sk], and • ˆr = r[X1 → s1, . . . , X k → sk].Let ql = bδ(ˆl) and qr = bδ(ˆ r). Then, ql ≤ qr . Since A is minimal, there is a context c distinguishing states ql and 
+
+qr . Thus, for s = c(ˆl) and t = c(ˆ r), exactly one of s, t belongs to L(A). In summary, while s →∗ t in one step, 
+
+s ∈ L (A) ↔ t ∈ L (A) does not hold. Since we know that s ∈ U ↔ t ∈ U , one of s, t is a counterexample. In general, the coNP upper bound cannot be improved: 
+
+Lemma 9. Checking consistency of a rule l → r, where l is a (non-linear) term and r is a ground term with the language of a given DFTA is coNP -hard. Proof. We reduce the tautology problem for DNF formulas problem to our problem. Let F consists of binary ∧, ∨,unary ¬ and constants ⊤, ⊥. We define a DFTA Aeval having two states {q0, q 1}, which evaluates a given tree over F
+
+to q1 if the corresponding logical expression is true and q0 otherwise. The state q1 is accepting. Now, the tree ⊤ is accepted by Aeval . We transform a given DNF formula φ into the corresponding term tφ over F. Then, the formula φ
+
+is a tautology if and only if for every substitution σ we have bδ(σ(l)) = q1. The latter is equivalent to the rule tφ → ⊤ 
+
+being consistent with the language of Aeval .The above lemma holds even for a fixed DFTA. Still, the hardness argument relies on variables occurring multiple times. Therefore, a natural question is what is the complexity of checking consistency of rules l → r, in which both terms are linear. We leave this as an open problem and propose a simple heuristic. 
+
+Heuristics for linear rules. We propose a heuristic for linear terms based on the state-counting function , which counts the cardinality of the preimage ⃗ δA(l) and ⃗ δA(r) with multiplicities. This heuristic does not confirm consistency, but it can identify some rules that violate consistency. This is not a problem as consistency itself overapproximates equivalence. Consequently, any heuristic that overapproximates consistency also overapproximates equivalence, i.e., the heuristic does not err on the negative answers. 
+
+Definition 10. For a term t and a DFTA A, we define the state-counting function #A[t] : Q → N as the cardinality of the preimage ⃗ δ−1 
+
+> A
+
+[{q}], i.e., #A[t]( q) = |{ (q1, . . . , q k) |⃗ δA(t)( q1, . . . , q k) = q}| .
+
+6Observe that if ⃗ δA(l) = ⃗ δA(r), then #A[l] = # A[r]. Consequently, checking #A[l] = # A[r] serves as a necessary (but not sufficient) condition for consistency of l → r with L(A) (i.e., it is an underapproximation). This provides a computationally efficient heuristic to filter out inconsistent rules before performing more expensive checks. Furthermore, #A[t] can be efficiently computed for linear terms t, and hence it can be used as a preliminary test even if consistency could be decidable in polynomial but superlinear time. 
+
+Lemma 11. The function #A[t] can be computed in time O(|A| · | t|) over linear terms t.Proof. We simply compute the function bottom-up. For t = f (t1, . . . , t k), having #A[t1], . . . , #A[tk] it suffices to iterate over all tuples (q1, . . . , q k) ∈ Qk, where k = Ar (f ), and sum #A[t1][ q1] · #A[t2][ q2] · . . . · #A[tk][ qk] over all tuples. For each node in the tree t the computation takes O(|A| ) operations, which gives us our bound. Observe that if one of the functions #A[l] or #A[r] is constant, then #A[l] = # A[r] implies ⃗ δA(l) = ⃗ δA(r). In particular, for rules l → r such that l is a linear term and r is a ground term, we can decide consistency in linear time. 
+
+Corollary 12. The consistency of a rule l → r with L(A) can be performed in time O(( |l| + |r|) · |A| ) for rules l → r
+
+such that l is a linear term and r is a ground term. 
+
+# 3.2 Deciding positive and negative consistency 
+
+The notions of positive and negative consistency are dual. Observe that R is positively consistent with L if and only if 
+
+R is negatively consistent with the complement of L. Therefore, we will focus on positive consistency as the results carry over to negative consistency straightforwardly (note that DFTA can be complemented via swapping accepting and non-accepting states). First, we present a counterpart of Lemma 6 for positive consistency. For that, we need to define two order relations: one on states and another on states transformations that rank states from the least accepting to the most accepting. 
+
+Definition 13. Let A be a DFTA. We define an order relation ≤A on states of A such that q1 ≤A q2 if for all trees 
+
+t1, t 2 such that bδ(t1) = q1 and bδ(t2) = q2, for every context c we have c(t1) ∈ L (A) = ⇒ c(t2) ∈ L (A).
+
+Given a DFTA A, the relation ≤A can be computed in O(|A| 3) by the greatest fixed-point iteration. The algorithm starts with the relation R = Q × Q. It removes pairs (q1, q 2) such that q1 ∈ Qacc and q2 /∈ Qacc . Then, iteratively, for every context c of height 1 (which corresponds to a transition), if (c(q1), c (q2)) /∈ R, the pair (q1, q 2) is removed from R. The greatest fixed-point is reached after |Q|2 iterations, while each iteration can be performed in O(|A| ) by checking all contexts of height 1.We extend ≤A from states to state transformations: 
+
+Definition 14. Let A be a DFTA and k > 0. We define an order relation ≼A on functions from Qk to Q as follows. For all h1, h 2 : Qk → Q we have h1 ≼A h2 if and only if h1(⃗q) ≤ A h2(⃗q), for all ⃗q ∈ Q k.
+
+Finally, we present the counterpart of Lemma 6 for positive consistency: 
+
+Lemma 15. Let R be a TRS over F and A be a minimal DFTA over F. The TRS R is positively consistent with L(A)
+
+if and only if ⃗ δA(l) ≼A⃗ δA(r), for each rule l → r ∈ R .Proof. The proof is virtually the same as for Lemma 6. Assume that R is not positively consistent with L(A). Then, as in Lemma 6 there are s, t such that s ∈ L (A), t / ∈ L (A), and s → t in one step. Therefore, there is a context c and the grounding substitution σ such that ti = c[σ(l)] and ti+1 = c[σ(r)] . Let q1 = bδ(σ(l)) and q2 = bδ(σ(r)) . It follows that on the states that correspond to the grounding substitution σ the relation ⃗ δA(σ(l)) ≼A⃗ δA(σ(r)) does not hold. Conversely, let l → r ∈ R be the rule such that the functions ⃗ δA(l) ≼A⃗ δA(r) does not hold. Consider ⃗q such that ⃗ δA(l)( ⃗q) ≤ A⃗ δA(r)( ⃗q) does not hold. Based on ⃗q we define the substitution σ such that σ(X i) is the tree si
+
+satisfying bδ(si) = ⃗q[i]. Then, bδ(σ(l)) ≤A bδ(σ(r)) does not hold. Therefore, there is a context c such that such that 
+
+c[σ(l)] ∈ L (A) and c[σ(r)] /∈ L (A). It follows that l → r ∈ R is not positively consistent with L(A).7Since ≤A can be computed in polynomial time, the condition ⃗ δA(l) ≼A⃗ δA(r) can be falsified by finding an appropriate ⃗q and computing q 1 =⃗ δA(l)( ⃗q), q 2 =⃗ δA(r)( ⃗q) and finally checking that q 1 ≤A q2 does not hold. In consequence, checking positive consistency is in coNP .Observe that for rules l → r with a ground term r ∈ L , positive consistency and consistency coincide, i.e., l → r
+
+is consistent with L if and only if it is positively consistent. If r / ∈ L , we can instead take the complement of L and reduce to the previous case. Therefore, for such rules the complexity of checking positive consistency is the same as checking (full) consistency: if r is a ground term, checking consistency of l → r with a regular tree language L is 
+
+coNP -complete in general, and it is decidable in polynomial time for rules l → r with l being a linear term. When l, r 
+
+are both linear terms, the complexity of checking consistency of l → r is left open. For positive consistency, we can show that it is coNP -complete. It suffices to show hardness: 
+
+Lemma 16. Checking positive consistency of a rule l → r with the language of a given DFTA is coNP -hard for rules 
+
+l → r such that l, r are linear terms. Proof. As in the proof of Lemma 9, we show a reduction from the tautology problem. We use a slight modification of the tautology problem. We say that a formula is in 3-CNF-3 if it is in a CNF, all clauses have at most 3 literals and each variable has at most 3 occurrences. Analogously, a formula is in 3-DNF-3, if it is in a DNF, all disjuncts have at most 3 literals and each variable has at most 3 occurrences. The negation of a 3-CNF-3 formula is a 3-DNF-3 formula. The satisfiability problem for 3-CNF-3 formulas is NP -complete [34]. It follows that its complement, the tautology problem over 3-DNF-3 formulas is coNP -complete. Our reduction is from the tautology problem over 3-DNF-3 formulas. Let F consists of a ternary all-eq , binary ∧, ∨, unary ¬ and constants ⊤, ⊥. Let Aeval be a DFTA that evaluates logical expressions, where all-eq is evaluated to true all of its 3 arguments have the same truth value. Given a propositional formula φ in 3-DNF-3, we translate it to ψ, in which variable in occurrences are distinct, i.e., a variable 
+
+x that occurs three times is substituted with x1, x 2, x 3 in subsequent occurrences. Then, let tψ be a term over F
+
+corresponding to ψ.Let X be the set of variables from φ and Y be the set of variables from ψ. We build a formula ξ over F, which is true if all variables from Y , which correspond to the same variable from X have the same logical value. This formula is a conjunction of expression all-eq (x1, x 2, x 3), where every variable from Y occurs exactly once. Finally, observe that tξ → tψ is positively consistent with L(Aeval ) if and only if tξ ∈ L (Aeval ) implies ψ ∈ L (Aeval ), if for every substitution σ. This, in turn, holds exactly when for every variable assignment on Y , if this assignment comes from an assignment on X, then ψ is true. The latter holds if and only if φ is a tautology. Still, we can utilize the heuristic based on #A[t], which was proposed above for consistency. We need to adapt the condition to positive consistency in the following way. We define the cumulative state-counting function Σ# A[t]
+
+as Σ# A[t]( q) = P 
+
+> q≤Aq′
+
+#A[t]( q′), i.e., it sums the multiplicity of each state q′ that is greater in the ≤A order. 
+
+Lemma 17. For terms l, r , if ⃗ δA(l) ≼A⃗ δA(r), then #A[l]( q) ≤ Σ# A[r]( q), for every state q.
+
+Note that having the function #A[r]( q2) and the relation ≤A, we can compute Σ# A[t]( q) in time O(|Q|2) from definition or in O(| <A | · | Q|), where <A is the strict variant of the order ≤A and | <A | is the number of tuples in 
+
+<A. The latter complexity is achieved by computing the transitive reduction succ A [1] of <A in O(| <A | · | Q|), i.e., the transitive closure of succ A is <A. Then the graph (Q, succ A) is sorted topologically in O(|succ A| · | Q|) and the summation is performed iteratively over the immediate successors only in O(|succ A| · | Q|). Since succ A ⊆<A, the whole computation is in O(| <A | · | Q|).
+
+# 3.3 Membership queries 
+
+Typical implementations of the L ∗-algorithm store answers to membership queries in a cache to ensure that each query is unique. We extend this idea to membership queries modulo term rewriting. First, for the advice TRS R= (which is fully consistent with the target language), we select a convergent subset 
+
+Rmem . Since the TRS Rmem is convergent, every term has a unique normal form. 8The algorithm maintains a cache, which is a dictionary mapping each tree’s normal form NF Rmem (t) to its member-ship result. Before asking a query for a tree s, the algorithm computes the normal form of s and checks the cache. If present, it fetches the stored answer without querying the oracle. Consistency of R with the target language L implies that if NF Rmem (s) = NF Rmem (t), then s ∈ L ↔ t ∈ L .Otherwise, if NF Rmem (s) is not in the cache, it asks the oracle the membership query and stores NF Rmem (s) along with the answer in the cache. The TRSs R+, R− can be used to infer answers to membership queries as well, but the complexity of inference makes this infeasible [18]. 
+
+# 4 Examples of advice rewrite rules 
+
+We present examples of TRS that express interesting properties of tree languages. While these properties originate in algebra, we discuss their relevance to knowledge representation, structured data, and Description Logic (DL) [30]. 
+
+# 4.1 Families of TRS 
+
+We consider the following types of TRSs: associativity , commutativity , variants of distributivity , and cancellation 
+
+rules. The applications of these rules are discussed in the context of full consistency. We elaborate on these TRSs below. 
+
+Associativity. While we have considered ranked trees, unranked trees with symbols of variable arities are prevalent in structured data. For example, the HTML <body> tag has an arbitrary number of immediate successors, and dictio-naries in JSON have arbitrarily many entries. Unranked symbols can be encoded with associative binary symbols; the associativity rule for f , f (X, f (Y, Z )) → f (f (X, Y ), Z ) implies that the shape of a tree labelled with f is irrelevant and hence all f symbols can be contracted into a single high-arity symbol. Furthermore, the basic DL operators ⊓ and 
+
+⊔ are associative. 
+
+Commutativity of f . Commutativity of f is expressed with the rule f (X, Y ) → f (Y, X ). This can be more precisely described as horizontal commutativity , indicating that sibling subtrees can be swapped without changing the tree’s value. JSON dictionaries and DL operators ⊓ and ⊔ are (horizontally) commutative. Furthermore, unranked and unordered trees [10] can be modeled with binary operators that are associative and (horizontally) commutative. 
+
+Distributivity. The standard distributive properties for binary symbols f, g are: • f is left-distributive over g: f (X, g (Y, Z )) → g(f (X, Y ), f (X, Z )) 
+
+• f is right-distributive over g: f (g(X, Y ), Z ) → g(f (X, Z ), f (Y, Z )) 
+
+DL operators ⊓ and ⊔ are left- and right-distributive one over another, i.e., both ⊓ over ⊔ and ⊔ over ⊓.
+
+Variants of distributivity. Distributivity can be generalized beyond binary symbols. For a binary symbol f and an unary symbol g the rule g(f (X, Y )) → f (g(X), g (Y )) is a variant of distributivity. Similarly, for unary f, g the rule 
+
+g(f (X)) → f (g(X)) can be considered as a variant of distributivity. This rule states that the relative order of f and g
+
+along any root-to-leaf path is irrelevant, i.e., f and g commute along any path. Consequently, variants of distributivity can be regarded as vertical commutativity . Typical examples of vertical commutativity are independent operations such as bold and italic text tags in HTML, which can be applied in any order, or more generally an operator g that is applied to all leaves of the subtree and hence g(f (X, Y )) → f (g(X), g (Y )) holds. 
+
+Context cancellation rules. The general form of a context cancellation rule is c(t) → c(X), where c is a context and 
+
+t is a term. The idempotency property of f expressed with f (f (X)) → f (X) is a context cancellation rule. Similarly, there are various cancellation rules in DL: X ⊓ X → X, X ⊔ X → X and (X ⊓ Y ) ⊔ X → X.
+
+# 4.2 Experiments 
+
+Implementation. We have implemented the L ∗-algorithm adapted to bottom-up DFTA. Subsequently, we extended this implementation to handle advice for equivalence queries using our proposed mechanism. Our implementation accepts any set of rewrite rules as input, though our evaluation focuses on the TRS classes mentioned above. 9Associativity. We have evaluated the impact of the associativity advice f (X, f (Y, Z )) → f (f (X, Y ), Z ) on the number of equivalence queries on randomly generated automata. To ensure that language of a randomly generated DFTA satisfies associativity, we use the following observation. Let F be a signature consisting of a binary symbol f and constant symbols Σ. The yield of a tree t over F is the sequence of constants Σ in leaves read from left to right. For a regular language K over Σ, we define T K as the tree language consisting of all trees with the yield from K. The membership of a tree in T K does not depend on its shape, which can be expressed by stating that f is associative. Intuitively, a tree t over F can be considered as a tree of height one with a single variable-arity symbol f in the head and constants from Σ as arguments, which is effectively an encoding of a sequence over constant symbols Σ.
+
+Lemma 18. Let L be a regular tree language over a binary symbol f and constants Σ. The rule f (X, f (Y, Z )) →
+
+f (f (X, Y ), Z ) is consistent with L if and only if L = T K for some regular language K over Σ.Proof. Observe that if L = T K for some regular language K over Σ then it is consistent with f (X, f (Y, Z )) →
+
+f (f (X, Y ), Z ). Indeed, for any trees t1, t 2, t 3 the trees f (t1, f (t2, t 3)) and f (f (t1, t 2), t 3)) have the same yield and hence applying this rule does not change the membership status to T K.Now, assume that the rule f (X, f (Y, Z )) → f (f (X, Y ), Z ) is consistent with L over F. We can show by induction on the size of the tree, that for any two trees t1, t 2 with the same yield, there exists a tree t3 with the same yield as t1, t 2 such that t1 →∗ t3 and t1 →∗ t2. Therefore, for every word w ∈ Σ∗, the language L either contains all trees with the yield w or none of such trees. In general, the word language of yields of trees from a given regular tree language is context-free, and any context free language can be presented as a set of yields of some regular tree language. However, for a regular tree language satisfying associativity, the language of yields has to be regular. To see this, observe that if the language L contains a tree with a yield w ∈ Σ∗, then it also contains a right skewed tree 
+
+f (w[1] , f (w[2] , . . . f (w[n − 1] , w [n]) . . . )) 
+
+We can intersect L with the regular tree language of right skewed trees a obtain a regular tree language LR with the same set of yields as L. Then, on right skewed trees, a (buttom-up) DFTA works as a DFA that processes the word from right to left. More precisely, we can transform a DFTA for LR to a DFA recognizing the word language of yields of L. Let qa1 , . . . , q ak be states assigned to constants from Σ by the DFTA AR recognizing LR. The DFA has the same states as AR, the transition δ(q, a i) of the DFA is defined as δ(q, a i) = δR(qai , q, f ). Such a DFA recognizes the language of (reversed) yields of LR and hence L showing that the language of yields is regular. Based on Lemma 18, we have generated random DFA over the alphabets with 2–5 letters, with 3–7 states and converted each of them to a DFTA. These DFTA are guaranteed to satisfy associativity and their size ranged between 23 and 114 states. Note that the size of the DFTA can be exponential relative to the DFA in the worst case, as the DFTA must be able to process the word yield regardless of how the tree is branched (e.g., left-leaning vs. right-leaning). For instance, for w = aabb , a DFTA, which works bottom-up on the tree f (f (f (a, a ), b ), b ), processes leaves left-to-right, while a DFTA on the tree f (a, f (a, f (b, b ))) processes leaves right-to-left. We have observed reduction of equivalence queries between 13% (from 8 to 7 equivalence queries) to 87% (from 15 to 2 equivalence queries) with an average reduction of 52%. On average, this corresponds to a reduction from 11 .3
+
+to 5.3 equivalence queries. 
+
+Commutativity. We also evaluated the commutativity advice; however, it did not yield a reduction in the number of equivalence queries. Note that if f (t1, t 2) belongs to the language if and only if f (t2, t 1) does, then in any candidate automaton computed based on membership queries, the transition function for f is commutative. Commutativity could have been used to reduce the number of membership queries, but not in our framework as f (X, Y ) → f (Y, X )
+
+is non-terminating, whereas termination is necessary to compute the normal form. 
+
+# 5 Generating advice 
+
+While we have discussed how advice provided via a TRS can facilitate the learning of an unknown tree language, this section addresses the converse: synthesis of rewrite rules consistent with a given regular tree language. Given a tree 10 automaton recognizing a tree language, the goal is to find a TRS consistent with that language. A synthesized TRS can serve as an explanation of the regular tree language, capturing its key properties through concise rewrite rules. We consider the automaton to be given rather than learned, as we show that even this easier variant of the problem is already difficult. We begin by observing that the transition function of a DFTA A can be viewed as a ground term rewriting system. The resulting TRS RA completely characterizes the target language, i.e., if RA is used as the advice TRS, the language of A can be learned with a single equivalence query. 
+
+Fact 19. Given a DFTA A we can compute a ground TRS RA that completely characterizes L(A).
+
+While RA demonstrates that the number of equivalence queries can be reduced to one, it is not practically relevant, as it is derived directly from the automaton being learned. Such detailed advice essentially describes the automaton itself, rendering the learning process redundant. Furthermore, this TRS is not structurally insightful as it does not explain the tree language any better than the automaton itself. Therefore, we are interested in synthesizing non-ground rewrite rules, where the left-hand side is a non-ground term, that are consistent with a given tree language and possibly small. Formally, we study the following problem: 
+
+Definition 20 (Synthesis of TRS) . Given a DFTA A over a signature F, the Rule Synthesis problem is to find a non-ground rewrite rule l → r, where l, r ∈ T (F, X ), such that (1) l → r is consistent with L(A), (2) the value |l| + |r|
+
+is minimal among rules satisfying (1). 
+
+However, the hardness of the Rule Synthesis problem emerges already in the case of unary and constant symbols. 
+
+The unary case. Consider a signature Funary consisting of unary symbols a, b, c and a constant #. Let A be a DFTA over Funary . Observe that a ground term t over Funary corresponds to a state of A with ⃗ δA(t) = bδ(t), while a non-ground term s corresponds to a unary state transformation, i.e., ⃗ δA(s) is a function from Q to Q.The rule l → r is consistent with L(A) if and only if the transformation induced by l is a constant function equal to bδ(r). If we view the unary symbols in l (read from bottom to top) as a word wl over {a, b, c }, then wl is a 
+
+synchronizing word in A regarded as a DFA. While it can be decided in polynomial time whether a DFA has a synchronizing word [11], finding the shortest synchronizing words in DFA is NP -complete [17] and it is even NP -hard to approximate it within a constant factor [7]. The hardness of approximation carries directly from DFA to DFTA. 
+
+Lemma 21. If P̸ = NP , there is no polynomial-time algorithm that, given a DFTA A over Funary , approximates within a constant ratio the size of the shortest rewrite rule l → r such that r is a ground term and l is a non-ground term, and l → r is consistent with L(A).Proof. Consider a DFA B. Let A be the associated DFTA. Consider a rewrite rule l → r such that r is a ground term and l is a non-ground term. If l → r is consistent with L(A), then ⃗ δA(l) is a constant function. The symbols along 
+
+l form a synchronizing word wS in B, and hence |wS | ≤ | l| + |r|. Conversely, if wS is a synchronizing word in B,then the context cS corresponding to wS satisfies |cS | = |wS | + 1 . Now, cS (X) → cS (#) is a rewrite rule that is (1) consistent with L(A), (2) cS (X) is non-ground and cS (#) is ground, and (3) |cS (X)| + |cS (#) | = 2 |wS | + 2 . It follows that for the shortest rewrite rule l → r consistent with L(A) and the shortest synchronizing word wS for B
+
+we have |wS | ≤ | l| + |r| ≤ 2|wS | + 2 . Finally, since approximation of the shortest synchronizing word within any constant factor is impossible unless P = NP , the result follows. On the positive side, if we drop the minimality condition and restrict to contexts, the existence of such a rule is decidable in polynomial time similarly to [11]: 
+
+Lemma 22. It is decidable in polynomial time, given a DFTA A over F, whether there exists a rule l → r such that (1) l is a context and r is a ground term, and (2) l → r is consistent with L(A).Proof. We show this by the reduction to finding a synchronizing word for DFA. Let Q be the set of states of A and 
+
+n = |Q|. We define Σ obtained from F as follows: for any symbol f ∈ F of arity k > 1 we generate k · nk−1 letters: for every position i in f and every sequence of states ⃗q ∈ Q k−1 we define a letter a[f, i,⃗ q].11 Now, we define a DFA B such that its set of states is Q, q0 is any state and the set of accepting states F is empty (q0 and F are irrelevant for synchronization). The transition relation is defined as follows: for q ∈ Q and a[f, i,⃗ q] ∈ Σ
+
+we have δB(p, a [f, i,⃗ q]) = δ A(⃗q ′, f ), where ⃗q ′ is obtained from ⃗q by inserting state p at the position i and shifting all subsequent states, i.e., a[f, i,⃗ q] behaves as a context with the hole at position i and states from ⃗q at the remaining positions. Observe that words over Σ correspond to reduced contexts, i.e., context where ground terms are pruned to the shortest trees. If there is a rule l → r is consistent with L(A), where l is a context and r is a ground term, then l can be transformed to the corresponding synchronizing word by traversing the path from the root to the hole and transforming each context to the corresponding letter. Conversely, any synchronizing word can be transformed back into a context 
+
+c such that ⃗ δA(c) is a constant function returning state qc for every argument. Let tc be any tree to which A assigns the state qc satisfies (1) and (2). Not only is the complexity of rule synthesis challenging, but there is also no single clear objective. 
+
+Synthesis objectives. While non-ground rules l → r are more meaningful than ground rules, several questions remain regarding the objectives for synthesis: • Should both terms l and r be non-ground, or only l?• Should l be permitted to contain constants, or only variables? • Should l be restricted to linear terms, or allowed to contain repeated variables (non-linear terms)? Investigating these variations is essential for the design of future synthesis algorithms. Consequently, we leave the comprehensive synthesis of rewrite rules as an open problem for future work. 
+
+# 6 Conclusions 
+
+We have presented a method that leverages structural knowledge of a target tree language to significantly reduce the number of equivalence queries required during active learning. In contrast to the word-automata setting, the branching structure of trees means that checking consistency of a TRS with a tree automaton, which is the backbone of our inference algorithm, entails a higher computational complexity. Thus, a key direction for our future work involves developing further heuristics and investigating specific sub-classes of TRSs to reduce the computational cost of consistency checking. While we have established several com-plexity bounds, the complexity of checking consistency of linear rules remains an open problem. Beyond theoretical refinements, we aim to explore broader applications of this framework. Building on successful experiments with the associativity rewrite rule on synthetic data, we believe the framework is well-suited for more complex domains. Specifically, since our advice mechanism can express various properties of Description Logics (DL), applying active tree automaton learning with advice to learn DL terminologies represents a promising research path. Finally, while we have only briefly explored the synthesis of consistent TRSs, we consider this a promising frontier for future research. Identifying the right objectives for such synthesis will be a prerequisite for developing robust automated advice-generation tools. 
+
+# Acknowledgments 
+
+This work was supported by the National Science Centre (NCN), Poland under grant 2024/53/B/ST6/01620. We thank the anonymous reviewers at ICJAI 2026 for their valuable feedback. 
+
+# References 
+
+[1] A. V. Aho, M. R. Garey, and J. D. Ullman. The transitive reduction of a directed graph. SIAM Journal on Computing , 1(2):131–137, 1972. 12 [2] Siva Anantharaman, Paliath Narendran, and Micha¨ el Rusinowitch. Closure properties and decision problems of dag automata. Inf. Process. Lett. , 94(5):231–240, 2005. [3] Dana Angluin. Learning regular sets from queries and counterexamples. Information and computation , 75(2):87– 106, 1987. [4] Franz Baader and Paliath Narendran. Unification of concept terms in description logics. In Henri Prade, editor, 
+
+ECAI 1998 , pages 331–335. John Wiley and Sons, 1998. [5] Franz Baader and Tobias Nipkow. Term rewriting and all that . Cambridge University Press, 1998. [6] Benoˆ ıt Barbot, Benedikt Bollig, Alain Finkel, Serge Haddad, Igor Khmelnitsky, Martin Leucker, Daniel Neider, Rajarshi Roy, and Lina Ye. Extracting context-free grammars from recurrent neural networks using tree-automata learning and a* search. In ICGI 2021 , pages 113–129. PMLR, 2021. [7] Mikhail V. Berlinkov. Approximating the minimum length of synchronizing words is hard. Theory Comput. Syst. , 54(2):211–223, 2014. [8] Satwik Bhattamishra, Michael Hahn, and Varun Kanade. Automata learning and identification of the support of language models. [9] Henrik Bj¨ orklund, Johanna Bj¨ orklund, and Petter Ericson. On the regularity and learnability of ordered DAG lan-guages. In Arnaud Carayol and Cyril Nicaud, editors, CIAA 2017 , volume 10329 of Lecture Notes in Computer Science , pages 27–39. Springer, 2017. [10] Iovka Boneva and Jean-Marc Talbot. Automata and logics for unranked and unordered trees. In J¨ urgen Giesl, editor, RTA 2005 , volume 3467 of Lecture Notes in Computer Science , pages 500–515. Springer, 2005. [11] J´ an ˇ Cern` y. Pozn´ amka k homog´ ennym experimentom s koneˇ cn` ymi automatmi. Matematicko-fyzik´ alny ˇ casopis ,14(3):208–216, 1964. [12] Witold Charatonik. Automata on dag representations of finite trees. 1999. [13] Hubert Comon, Max Dauchet, R´ emi Gilleron, Florent Jacquemard, Denis Lugiez, Christof L¨ oding, Sophie Tison, and Marc Tommasi. Tree Automata Techniques and Applications . 2008. [14] Simon Dierl, Paul Fiterau-Brostean, Falk Howar, Bengt Jonsson, Konstantinos Sagonas, and Fredrik T˚ aquist. Scalable tree-based register automata learning. In TACAS 2024 , pages 87–108, 2024. [15] Frank Drewes and Johanna H¨ ogberg. Learning a regular tree language from a teacher. In Zolt´ an ´ Esik and Zolt´ an F¨ ul¨ op, editors, DLT 2003 , volume 2710 of Lecture Notes in Computer Science , pages 279–291. Springer, 2003. [16] Frank Drewes and Johanna H¨ ogberg. Query learning of regular tree languages: How to avoid dead states. Theory Comput. Syst. , 40(2):163–185, 2007. [17] David Eppstein. Reset sequences for monotonic automata. SIAM J. Comput. , 19(3):500–510, 1990. [18] Michal Fica and Jan Otop. Active automata learning with advice. In ECAI 2025 , volume 413 of Frontiers in Artificial Intelligence and Applications , pages 1655–1662. IOS Press, 2025. [19] Markus Theo Frohme. Active automata learning with adaptive distinguishing sequences. CoRR , abs/1902.01139, 2019. [20] ´Emilie Grienenberger and Martin Ritzert. Learning definable hypotheses on trees. In Pablo Barcel´ o and Marco Calautti, editors, ICDT 2019 , volume 127 of LIPIcs , pages 24:1–24:18. Schloss Dagstuhl - Leibniz-Zentrum f¨ ur Informatik, 2019. 13 [21] Amaury Habrard and Jos´ e Oncina. Learning multiplicity tree automata. In Yasubumi Sakakibara, Satoshi Kobayashi, Kengo Sato, Tetsuro Nishino, and Etsuji Tomita, editors, ICGI 2006 , volume 4201 of Lecture Notes in Computer Science , pages 268–280. Springer, 2006. [22] Malte Isberner, Falk Howar, and Bernhard Steffen. The TTT algorithm: A redundancy-free approach to active automata learning. In RV 2014 , pages 307–322, 2014. [23] Anna Kasprzik. Four one-shot learners for regular tree languages and their polynomial characterizability. Theor. Comput. Sci. , 485:85–106, 2013. [24] Jakub Kopystia´ nski and Jan Otop. Learning tree automata with term rewriting. In to appear in IJCAI 2026 .ijcai.org, 2026. [25] Jakub Kopystia´ nski and Jan Otop. Learning tree automata with term rewriting: code and data. https://github. com/jotop/LearnDFTAwithTRS, 2026. [26] Raymond Kosala, Maurice Bruynooghe, Jan Van den Bussche, and Hendrik Blockeel. Information extraction from web documents based on local unranked tree automaton inference. In IJCAI 2003 , pages 403–408. Morgan Kaufmann, 2003. [27] Loes Kruger, Sebastian Junges, and Jurriaan Rot. Small test suites for active automata learning. In TACAS 2024 ,pages 109–129, 2024. [28] Matteo Magnini, Riccardo Squarcialupi, Martin Tunge Sterri, Ana Ozaki, and Rivera Castillo. Actively learning el terminologies from large language models. In ECAI 2025 , volume 413 of Frontiers in Artificial Intelligence and Applications , pages 1792–1799. IOS Press, 2025. [29] Ines Marusic and James Worrell. Complexity of equivalence and learning for multiplicity tree automata. Journal of Machine Learning Research , 16:2465–2500, 2015. [30] Daniele Nardi, Ronald J Brachman, et al. An introduction to description logics. Description logic handbook ,1:40, 2003. [31] Dolav Nitay, Dana Fisman, and Michal Ziv-Ukelson. Learning of structurally unambiguous probabilistic gram-mars. In AAAI 2021 , pages 9170–9178. AAAI Press, 2021. [32] Moeketsi Raselimo and Bernd Fischer. Automatic grammar repair. In Eelco Visser, Dimitris S. Kolovos, and Emma S¨ oderberg, editors, SLE 2021 , pages 126–142. ACM, 2021. [33] Catalin Ionut Tirn˘ auc˘ a and Cristina Tirn˘ auc˘ a. Learning regular tree languages from correction and equivalence queries. J. Autom. Lang. Comb. , 12(4):501–524, 2007. [34] Craig A. Tovey. A simplified np-complete satisfiability problem. Discret. Appl. Math. , 8(1):85–89, 1984. [35] Frits Vaandrager. Model learning. Communications of the ACM , 60(2):86–95, 2017. [36] Frits W. Vaandrager, Bharat Garhewal, Jurriaan Rot, and Thorsten Wißmann. A new approach for active automata learning based on apartness. In TACAS 2022 , pages 223–243, 2022. [37] Gerco van Heerdt, Tobias Kapp´ e, Jurriaan Rot, and Alexandra Silva. Learning pomset automata. In Stefan Kiefer and Christine Tasson, editors, ETAPS 2021 , volume 12650, pages 510–530. Springer, 2021. [38] Marcell Vazquez-Chanlatte, Karim Elmaaroufi, Stefan J. Witwicki, Matei Zaharia, and Sanjit A. Seshia. l∗lm :Learning automata from examples using natural language oracles, 2025. [39] Navid Yaghmazadeh, Christian Klinger, Isil Dillig, and Swarat Chaudhuri. Synthesizing transformations on hierarchically structured data. In Chandra Krintz and Emery D. Berger, editors, PLDI 2016 , pages 508–521. ACM, 2016. 14

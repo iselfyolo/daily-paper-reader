@@ -1,0 +1,859 @@
+Title: Structural Rationale Distillation via Reasoning Space Compression
+
+URL Source: https://arxiv.org/pdf/2605.07139v1
+
+Published Time: Mon, 11 May 2026 00:33:23 GMT
+
+Number of Pages: 25
+
+Markdown Content:
+# Structural Rationale Distillation via Reasoning Space Compression 
+
+Jialin Yang ∗
+
+University of Calgary Calgary, Canada 
+
+Jiankun Wang ∗
+
+University of Michigan Ann Arbor, MI, USA 
+
+Jiajun Wu 
+
+University of Calgary Calgary, Canada 
+
+Henry Leung 
+
+University of Calgary Calgary, Canada 
+
+Jiayu Zhou 
+
+University of Michigan Ann Arbor, MI, USA 
+
+Steve Drew †
+
+University of Calgary Calgary, Canada 
+
+# Abstract 
+
+When distilling reasoning from large language models (LLMs) into smaller ones, teacher rationales for similar problems often vary wildly in structure and strategy. Like a chef who makes the same dish differently each time, this inconsistency burdens the student with noisy supervision that is hard to internalize. We propose Distillation through Reasoning Path Compression (D-RPC), which constrains the teacher to follow a compact, dynamically maintained bank of reusable high-level reasoning paths. For each training question, D-RPC retrieves the most relevant path and conditions the teacher to follow it, producing rationales that are consistent across similar problems yet diverse enough to cover different problem types. A PAC-Bayes analysis formalizes the resulting trade-off between bank size and cov-erage: smaller banks reduce supervision entropy but risk coverage gaps, and the generalization bound identifies an optimal intermediate size confirmed by our abla-tions. Across five math and commonsense reasoning benchmarks with two student models, D-RPC consistently outperforms chain-of-thought distillation, freeform rationale generation, direct distillation, and structured-supervision baselines, while using fewer tokens than template-heavy alternatives. 
+
+# 1 Introduction 
+
+Knowledge distillation trains a small language model (SLM) to reason by imitating a large language model (LLM) teacher [Shridhar et al., 2023, Magister et al., 2023]. However, the teacher’s rationales for similar problems often vary substantially in structure and strategy. An apprentice chef shown a different recipe for the same dish each day learns more slowly, even when every recipe is valid. Distillation faces the same dynamic. Asked the same type of math problem repeatedly, the teacher may generate a “compute rate, then combine quantities” solution once and an “estimate total, then subtract difference” solution the next [Madaan et al., 2023, Arcuschin et al., 2025]. This rationale divergence has three costs. First, the student sees many one-off patterns instead of reusable strategies, making internalization harder [Chen et al., 2025b]. Second, covering all valid solution paths requires many teacher generations, inflating cost [Zelikman et al., 2022]. Third, highly variable supervision can amplify hallucination during fine-tuning [Shridhar et al., 2023]. Prior work has tried to mitigate this variance through structured reasoning. Approaches like Buffer-of-Thought [Yang et al., 2024] and ReasonFlux [Yang et al., 2025a] reuse hierarchical thought templates to improve LLM reasoning at inference time. However, these verbose templates impose heavy context loads that SLMs, with their limited capacity and context windows, struggle to exploit [Magister et al.,  
+
+> ∗Equal contribution.
+> †Corresponding author: steve.drew@ucalgary.ca
+> arXiv:2605.07139v1 [cs.CL] 8 May 2026
+
+2023, Zou et al., 2025b]. The core question remains open: can we compress the teacher’s reasoning space into a compact, consistency-preserving structure before distilling it to a student? 
+
+We propose Distillation through Reasoning Path Compression (D-RPC), which addresses this question by giving the teacher a “cookbook”, that is, a compact bank of canonical, high-level reasoning paths, and asking it to follow these paths when generating rationales. Just as a chef who consults a cookbook produces more consistent dishes than one who improvises freely, a teacher conditioned on a shared set of reasoning paths produces more consistent supervision. D-RPC works in two stages. First, it builds the cookbook: a seed set of teacher-solved problems is clustered by intent to identify canonical solution strategies, forming the reasoning path bank . Second, it teaches from the cookbook: for each new training question, the most relevant paths are retrieved from the bank, and the teacher generates a detailed rationale conditioned on the retrieved path. If the teacher discovers a novel valid solution not in the bank, it is buffered and periodically merged back so that the cookbook grows over time. The student SLM is then fine-tuned via LoRA on the resulting consistent supervision. Our main contributions are as follows. 1. We propose D-RPC, which compresses the teacher’s reasoning space into a compact, dynamically maintained reasoning path bank. By routing similar questions to shared canonical paths, D-RPC reduces rationale divergence and provides more consistent supervision for SLMs. 2. We formalize a trade-off between bank size and coverage via a PAC-Bayes generalization bound whose deviation term contains an explicit log Kbank factor: smaller banks lower supervision entropy but increase coverage slack, and vice versa. The bound predicts an optimal intermediate bank size, which we confirm through ablations and empirical study of the bound’s key quantities. 3. Across five benchmarks and two student models (Llama 3.1 8B Instruct, Qwen 3 1.7B), D-RPC consistently improves over CoT, freeform, direct-distillation, and structured-supervision baselines, while using fewer tokens than template-heavy alternatives. 
+
+# 2 Related Work 
+
+Distilling reasoning from teachers to students. UNICOTT iteratively constructs structured explana-tions to reduce supervision noise [Zhuang et al., 2025]. COTCD introduces difficulty-aware curricula for stable student learning [Yu et al., 2025], and RLKD captures implicit multi-branch structures instead of mimicking a single trajectory [Xu et al., 2025]. ReasonFlux-PRM scores intermediate steps to filter distillation data and provide dense rewards [Zou et al., 2025a]. MCC-KD generates multiple rationales per question and minimizes a bidirectional KL divergence across their answer distributions to enforce intra-question consistency [Chen et al., 2023], and MIND addresses misalignment between a teacher’s “optimal” rationale and the student’s evolving capacity by synthesizing capability-adaptive multi-perspective supervision through a teaching-assistant network [Cui et al., 2026]. Nevertheless, these frameworks either pass through whatever rationales the teacher generates or operate on the student-side loss, so the high variance of similar problems receiving structurally different rationales propagates into supervision [Madaan et al., 2023, Arcuschin et al., 2025]. D-RPC addresses this upstream by compressing the teacher’s reasoning space across questions before rationale generation. 
+
+Reusing reasoning processes at inference time. A parallel line of work treats reasoning as a reusable process rather than a one-off generation. Buffer of Thought and ReasonFlux reuse thought templates [Yang et al., 2024, 2025a]. RoT retrieves thought steps from similar problems [Ahmed et al., 2025], and Thought Propagation reuses solutions through analogical propagation [Yu et al., 2024]. In the agent setting, ReasoningBank [Ouyang et al., 2026] accumulates a memory of natural-language strategies extracted from past successful and failed trajectories and merges them into the agent’s prompt, with no weight updates. All of these methods improve LLM or agent performance at inference time by strengthening prompts. However, they do not address the variance of the supervision signal used to train smaller students. D-RPC instead operates at distillation time , compressing the teacher’s supervision distribution so that consistent reasoning structure is internalized into the student’s weights and no retrieval is required at deployment. 
+
+Reasoning-path supervision for SFT. Skip-Thinking refines CoTs through block training, allowing non-inference blocks to be skipped [Chen et al., 2025a]. EDIT identifies key decision-making steps by comparing paired CoTs and upweights them [Dai et al., 2025]. QR-Distill improves multi-path refinement through quality filtering and peer model teaching [Lei et al., 2025]. Reasoning Scaffolding abstracts teacher rationales into sequences of discrete semantic signals and trains the student to predict 2Figure 1: D-RPC pipeline. Stage 1, Reasoning bank initialization. A seed subset of questions is solved by the teacher; the resulting reasoning paths are clustered by intent to form the initial reasoning path bank. Stage 2, Bank-guided supervision. For each training question, retrieve the top-Kret candidate paths, condition the teacher to follow one, and collect the supervision tuple. Novel correct paths are buffered and periodically merged back into the bank via re-clustering. Stage 3, Student model training. The student SLM is fine-tuned with LoRA on the collected supervision tuples. them alongside each step [Wen et al., 2025], enforcing structure within each trace rather than across related questions. Together, these methods restructure or rescaffold rationales on the student side, but do not reduce the variance of the rationales themselves. D-RPC is complementary: it constrains the teacher to generate lower-variance rationales in the first place, so that any downstream reweighting, filtering, or scaffolding operates on a cleaner signal. 
+
+# 3 Methodology 
+
+Returning to our cooking analogy, D-RPC builds a cookbook, teaches from it, and trains the student. In the first stage, it assembles a compact bank of canonical, high-level reasoning paths by having the teacher solve a small seed set and clustering the resulting solution strategies. In the second stage, it retrieves the best-matching path for each new training question, conditions the teacher on that path, and collects the resulting supervision tuples. In the third stage, the student SLM is fine-tuned on the collected supervision via LoRA. Figure 1 illustrates the full pipeline; Algorithm 1 gives the pseudocode. In short, D-RPC takes a teacher LLM and a question set and produces two outputs: a reasoning path bank and a LoRA-trained student. Everything in between is bank construction (Stage 1), bank-guided supervision (Stage 2), and student training (Stage 3). 
+
+3.1 Notation and setup 
+
+Let {Xi}Ni=1 be a dataset of training questions. The teacher LLM labels each question with a category 
+
+Ci such as “Arithmetic” and a finer-grained intent Ti such as “compute unit rate”. For distillation, the teacher produces a supervision tuple Yi = (Π i, R i, A i) where Πi is a reasoning path , meaning a short ordered sequence of abstract steps such as “compute the unit rate, then combine quantities”; 
+
+Ri is a detailed rationale that instantiates the path with concrete computations; and Ai is the final answer. We write P for the universe of high-level reasoning paths (ordered sequences of abstract steps) and C for the set of all categories. The student is trained on (Xi, Y i) only; category and intent labels are used only to build and query the bank. 
+
+3.2 Reasoning bank initialization Categorize all questions. The teacher assigns a category–intent pair to every question: (Ci, T i) = 
+
+fcat (Xi). We then draw a category-balanced seed set Sseed (5% of training data in our experiments), sampling proportional to ˆp(C) so that every problem type is represented. 3Elicit reasoning paths from the seed set. For each seed question Xi ∈ S seed , the teacher generates a high-level reasoning path and answer: (Π i, A i) = fpath (Xi, C i, T i).
+
+Cluster intents to form the bank. Within each category c, we embed the teacher-generated intent strings via e(t) = Embed( t) and cluster them with DBSCAN [Ester et al., 1996]. Each cluster yields a canonical intent ˜t—a representative label for a group of semantically similar intents; for example, “unit-rate computation,” “compute unit rate,” and “rate-times-quantity” may collapse into the single canonical intent “unit-rate computation.” We denote the set of canonical intents for category c by 
+
+˜T (c). The resulting reasoning path bank B maps each (category, canonical intent) pair to its set of observed reasoning paths: B(c, ˜t) ⊆ P . The total number of distinct paths stored across all bank entries is Kbank := S
+
+> c∈C
+
+S˜t∈ ˜T (c) B(c, ˜t) .
+
+3.3 Bank-guided supervision Routing and retrieval. For a new training question Xj , the teacher predicts (Cj , T j ) = fcat (Xj ).Because the predicted intent string Tj can be noisy [Madaan et al., 2023], we match Xj to a canonical intent via the question embedding rather than the surface form of Tj : ˜Tj =arg max ˜t∈ ˜T (Cj ) cos  e(Xj ), e (˜ t). We then retrieve the top-Kret candidate paths from the matched bank entry: P(Kret )(Xj ) = TopK Π∈B (Cj , ˜Tj ) cos  e(Xj ), e (Π) .
+
+Path-guided rationale generation. The teacher receives the question and the retrieved candidate paths, picks the best-fitting one (or conservatively refines one if none fits directly), and generates a de-tailed rationale following it: (Π j , R j , A j ) = fteach 
+
+ Xj , P(Kret )(Xj ), where Πj is the path actually used. Details of the teacher prompt are in Appendix B.1. Every resulting tuple (Xj , (Π j , R j , A j )) is added to the supervision dataset DSFT regardless of answer correctness. 
+
+Dynamic bank refinement. If the teacher produces a path Πj /∈ S 
+
+> c, ˜t
+
+B(c, ˜t) and the answer is correct, we buffer the record (Cj , T j , Πj ) into a set M. Once |M| ≥ τbuf , we re-cluster: the raw intents Tj are merged into the canonical intent clusters ˜T (c), and the new paths are added to the corresponding bank entries B(c, ˜t). This allows the bank to grow beyond its initial coverage. 
+
+3.4 Student fine-tuning 
+
+With DSFT collected, we fine-tune the student SLM using LoRA [Hu et al., 2021]: the backbone is frozen and only low-rank adapters θ are trained. The objective is the standard supervised NLL: 
+
+LSFT = E(X,Y )∼D SFT [− log pθ (Y | X)] , Y = (Π , R, A ).
+
+Because related questions share reasoning paths, the supervision signal has lower variance than unconstrained teacher generation, making it easier for the student to internalize reusable solution strategies. The full D-RPC algorithm is given in Algorithm 1. 
+
+# 4 Theoretical Analysis 
+
+Why does a moderate-sized bank work best? In learning terms, an overly small bank induces high approximation bias because many examples are assigned to mismatched path supports, whereas an overly large bank increases supervision entropy and reduces parameter sharing across examples. The best regime balances coverage against compression. This section formalizes that intuition. We first state the main result, then unpack the machinery behind it. 
+
+Scope. The analysis below applies specifically to the LoRA-based SFT instantiation described in Section 3. Proposition 1, which controls entropy via banking, is general, but the KL-control argument in Propositions 2–3 relies on the LoRA parameterization. Convergence and information-theoretic guarantees for low-rank distillation more broadly have been studied in [Soarez et al., 2026]; our result is complementary in that the supervision-entropy floor is controlled explicitly through the bank-size term log Kbank , which their analysis does not consider. Extending to other fine-tuning regimes would require a different complexity argument. 
+
+4.1 Main result: the trade-off between bank size and coverage Theorem 1 (Banked LoRA distillation bound) . Under Assumptions 1–4 (stated below), let ˆθS be the regularized LoRA minimizer and define a Gaussian posterior QS = N (ˆθS , σ 2post Im) with prior 
+
+4Algorithm 1 Distillation through Reasoning Path Compression (D-RPC) 
+
+Require: Questions {Xi}Ni=1 ; teacher function fcat ,f path ,f teach ; encoder e(·); retrieval size Kret ; buffer size τbuf .
+
+Ensure: Bank B; supervision DSFT ; LoRA params θ. 
+
+> 1:
+
+for i = 1 to N do  
+
+> 2:
+
+(Ci, T i) ← fcat (Xi) 
+
+> 3:
+
+end for  
+
+> 4:
+
+Sseed ← CATEGORY BALANCED SAMPLE ({Xi}, {Ci}) 
+
+> 5:
+
+for Xi ∈ S seed do  
+
+> 6:
+
+(Π i, A i) ← fpath (Xi, C i, T i) 
+
+> 7:
+
+end for  
+
+> 8:
+
+(B, { ˜T (c)}) ← INIT BANK (Sseed , {(Ci, T i, Πi)}) 
+
+> 9:
+
+DSFT ← ∅ ; M ← ∅  
+
+> 10:
+
+for j = 1 to N do  
+
+> 11:
+
+(Cj , T j ) ← fcat (Xj ) 
+
+> 12:
+
+˜Tj ← arg max ˜t∈ ˜T (Cj ) cos( e(Xj ), e (˜ t))  
+
+> 13:
+
+P(Kret ) ← TopK Π∈B (Cj , ˜Tj ) cos( e(Xj ), e (Π))  
+
+> 14:
+
+(Π j , R j , A j ) ← fteach (Xj , P(Kret )) 
+
+> 15:
+
+DSFT ← D SFT ∪ { (Xj , (Π j , R j , A j )) } 
+
+> 16:
+
+if ISCORRECT (Aj ) and Πj /∈ S 
+
+> c, ˜t
+
+B(c, ˜t) then  
+
+> 17:
+
+M ← M ∪ { (Cj , T j , Πj )} 
+
+> 18:
+
+end if  
+
+> 19:
+
+if |M| ≥ τbuf then  
+
+> 20:
+
+B ← RECLUSTER (B, M); M ← ∅  
+
+> 21:
+
+end if  
+
+> 22:
+
+end for  
+
+> 23:
+
+θ ← arg min θ E(X,Y )∼D SFT 
+
+ − log pθ (Y | X) 
+
+> 24:
+
+return B, θ 
+
+P = N (0 , σ 20 Im). Then for any δ ∈ (0 , 1) , with probability at least 1 − δ over the training set S,
+
+L(QS ) ≤ bLS (QS )
+
+| {z }
+
+> training loss
+
++
+
+r 2τ · M · Nn
+
+| {z }
+
+> generalization gap
+
++ cτ · Nn| {z } 
+
+> lower-order
+
+, (1) 
+
+where c > 0 is a universal constant, τ bounds the per-example loss, and: 
+
+M := log Kbank + E[H( R | X, Π)] + E[H( A | X, Π, R )] + ε, (2) 
+
+N := 1  
+
+> σ20λ
+
+bLS (0) 
+
+| {z }
+
+> frozen-model fit
+
++ m 
+
+> 2
+
+(ρ − 1 − ln ρ) + ln 1 
+
+> δ
+
+. (3) The generalization gap scales with √M · N . The bank size Kbank enters through M via log Kbank ,creating two opposing forces. Making the bank smaller reduces log Kbank , so supervision is more consistent, but increases the coverage slack ε because some problems have no good path, raising 
+
+M from the other side. Conversely, making the bank larger reduces ε by improving coverage, but increases log Kbank by weakening consistency, also raising M . The optimal bank size minimizes 
+
+M (Kbank ), which is a moderate value that balances reuse and coverage. This is exactly what our experiments confirm in Table 2. Banking can also reduce N by lowering the frozen-model loss bLS (0) ,since banked rationales are more predictable to the pretrained student. 
+
+4.2 Assumptions and supporting results 
+
+We now state the assumptions and intermediate results that compose into Theorem 1. Full proofs are deferred to the appendix. 
+
+Setup. The student is an autoregressive model pθ (y | x) with frozen backbone; only LoRA weights 
+
+θ ∈ Rm are trained. The loss is the NLL: ℓ(θ; z) = − log pθ (y | x). Population and empirical risks are L(θ) = E[ℓ(θ; Z)] and bLS (θ) = 1
+
+> n
+
+P 
+
+> i
+
+ℓ(θ; Zi). For a distribution Q over θ, the Gibbs risk is 
+
+L(Q) = Eθ∼Q[L(θ)] .
+
+Assumption 1 (Bounded NLL) . 0 ≤ ℓ(θ; Z) ≤ τ a.s. for all θ in the posterior support (justified by length normalization or probability lower bounds). 
+
+5Part I: Banking controls supervision entropy (general). Assumption 2 (Path-bank support) . Under the banked regime, Π ∈ B path a.s. given X, where 
+
+Bpath := S 
+
+> c, ˜t
+
+B(c, ˜t) is the global path set and |B path | = Kbank .
+
+Proposition 1 (Banking reduces path uncertainty) . Under Assumption 2, the conditional entropy of the supervision satisfies 
+
+E[H( Y | X)] ≤ log Kbank + E[H( R | X, Π)] + E[H( A | X, Π, R )] . (4) This follows from the chain rule: H( Y | X) = H(Π | X) + H( R | X, Π) + H( A | X, Π, R ), with 
+
+H(Π | X) ≤ log Kbank by finite support (proof in Appendix E). 
+
+Assumption 3 (Near-floor empirical fit) . There exists a posterior Q such that 
+
+bLS (Q) ≤ E[H( Y | X)] + ε, ε ≥ 0. (5) 
+
+This is an optimization-dependent condition: it says the trained model nearly matches the information-theoretic floor. We verify empirically that this holds for our AQUA experiments in Section 5.7 (Table 4). 
+
+Combining Proposition 1 with Assumption 3 and a standard Bernstein-type PAC-Bayes bound, proved in Appendix F, yields a generalization bound where Kbank explicitly controls the deviation term through M as defined in Eq. 2. 
+
+Part II: Banking can reduce the complexity term (LoRA-specific). Assumption 4 (Regularized LoRA ERM) . Training returns a minimizer of the regularized objective: 
+
+ˆθS ∈ arg min θ [bLS (θ) + λ 
+
+> 2
+
+∥θ∥2], λ > 0.
+
+Proposition 2 (Norm control) . Under Assumption 4: 
+
+∥ˆθS ∥2 ≤ 2
+
+λ bLS (0) . (6) 
+
+Proof. Optimality of ˆθS gives bLS (ˆθS ) + λ 
+
+> 2
+
+∥ˆθS ∥2 ≤ bLS (0) ; since bLS (ˆθS ) ≥ 0, the result follows. □
+
+Proposition 3 (KL bound) . For Gaussian prior P = N (0 , σ 20 I) and posterior QS = N (ˆθS , σ 2post I)
+
+with ρ = σ2post /σ 20 :
+
+KL( QS ∥P) ≤ 1
+
+σ20 λ bLS (0) + m
+
+2 (ρ − 1 − ln ρ). (7) 
+
+Proof in Appendix G. 
+
+The KL term depends on the frozen-model loss bLS (0) . Banking can reduce bLS (0) and hence the complexity penalty N in Theorem 1. 
+
+Proposition 4 (Sufficient conditions for frozen-model alignment) . Under any of the fol-lowing conditions, banking reduces the frozen-model population cross-entropy (L(⋆)0 := 
+
+EX EY ∼p⋆(·| X)[− log p0(Y | X)] for regime ⋆ ∈ { bank , free }): 
+
+D1. Bank as projection: the banked target conditional minimizes the frozen-model cross-entropy over all distributions supported on Kbank paths. 
+
+D2. Canonicalization improves frozen likelihood pointwise: there exists a map c on targets such that − log p0(c(y) | x) ≤ − log p0(y | x) for all (x, y ), and the banked regime restricts support to such canonical forms. 
+
+D3. Entropy drop dominates mismatch increase: the reduction in E[H( Y | X)] from banking exceeds any increase in E[KL( p⋆(· | X)∥p0(· | X))] .Formal statements and proofs are in Appendix H. The conclusion of this proposition is directly testable; Section 5.7 confirms that bLS (0) is indeed lower under banking than under free generation. 
+
+Proof of Theorem 1. Substitute the KL bound (Proposition 3) into the Kbank -explicit PAC-Bayes bound and collect terms into M and N . Full derivation in Appendix I. □
+
+# 5 Experiments 
+
+5.1 Datasets 
+
+We evaluate on five benchmarks (see details in Appendix D.1): GSM8K [Cobbe et al., 2021] for grade-school arithmetic, AQUA [Ling et al., 2017] for multiple-choice math, StrategyQA [Geva 6Table 1: Post-distillation accuracy (%) across five benchmarks and two student models (mean ± std, 10 runs). Bold = best per column; shaded = D-RPC; “–” = not applicable.                                                                                               
+
+> Student: Llama 3.1 8B Instruct
+> Strategy GSM8K AQUA StrategyQA AI2ARC MATH Avg. CoT 83.96 ( ±0.33) 64.02 ( ±0.77) 73.32 ( ±1.31) 87.92 ( ±0.29) 41.57 ( ±0.35) 70.16 Freeform 81.63 ( ±0.72) 60.39 ( ±1.61) 72.27 ( ±1.27) 92.41 ( ±0.34) 41.68 ( ±0.18) 69.68 SuperCorrect 82.42 ( ±0.46) 59.45 ( ±2.59) ––36.62 ( ±0.46) –DCoT 81.86 ( ±0.64) 61.81 ( ±2.43) 72.53 ( ±1.81) 80.78 ( ±12.38) 45.23 ( ±0.53) 68.44 SGFT 77.94 ( ±0.69) 60.16 ( ±2.67) 70.31 ( ±1.29) 86.71 ( ±0.76) 36.15 ( ±0.43) 66.25 D-RPC (Ours) 85.41 (±0.49) 67.52 (±1.59) 74.15 (±1.49) 92.92 (±0.34) 48.76 (±0.45) 73.75 Student: Qwen 3 1.7B
+> Strategy GSM8K AQUA StrategyQA AI2ARC MATH Avg. CoT 77.92 ( ±0.29) 59.92 ( ±0.89) 61.92 ( ±0.92) 88.78 ( ±0.40) 49.21 ( ±0.40) 67.55 Freeform 73.38 ( ±0.68) 62.99 ( ±0.83) 61.75 ( ±2.29) 88.70 ( ±0.30) 48.09 ( ±0.26) 66.98 SuperCorrect 76.44 ( ±0.58) 63.78 ( ±2.59) ––42.82 ( ±0.36) –DCoT 73.99 ( ±0.69) 59.65 ( ±1.37) 66.16 (±1.39) 85.74 ( ±2.90) 54.91 ( ±0.34) 68.09 SGFT 65.44 ( ±0.59) 49.06 ( ±10.60) 60.26 ( ±2.78) 75.99 ( ±0.18) 29.44 ( ±0.29) 56.04 D-RPC (Ours) 78.29 (±0.95) 74.76 (±1.84) 64.59 ( ±2.46) 88.82 (±0.54) 59.72 (±0.39) 73.24
+
+et al., 2021] for multi-hop commonsense, AI2ARC [Clark et al., 2018] for science reasoning, and MATH [Hendrycks et al., 2021] for competition-level mathematics. These range from relatively simple, such as GSM8K, to challenging, such as MATH, allowing us to test whether reasoning-path compression scales across difficulty levels. 
+
+5.2 Implementation Details Clustering and embedding. Intent strings are embedded with all-MiniLM-L6-v2 [Reimers and Gurevych, 2019] and clustered via DBSCAN ( eps = 0 .25 , min samples = 2 ). No extensive sweep over clustering or embedding choices was performed; we discuss this limitation in Section 7. 
+
+Evaluation protocol. All methods use the final checkpoint (epoch 2.0, no validation-based selection), identical LoRA configuration ( r=64 , α=128 ), and a maximum output length of 512 tokens. Unless otherwise specified, results are averaged over 10 independent runs. More details are in Appendix D.2. 
+
+Metrics. We report accuracy (Acc) (exact match against gold; unparseable outputs count as incorrect) and format validity (FV) (accuracy among outputs that parse into valid JSON). 
+
+5.3 Baselines 
+
+We compare D-RPC against five distillation strategies, all sharing the same teacher (GPT-5.1) and SFT configuration, evaluated on two student models, i.e., Llama 3.1 8B Instruct and Qwen 3 1.7B. As an un-distilled reference, Direct Prompting evaluates the raw student without fine-tuning. Among unstructured approaches, Zero-Shot CoT [Kojima et al., 2022] distills chain-of-thought rationales and Freeform lets the teacher freely determine step count and granularity without predefined paths. Among structured approaches, DCoT [Do et al., 2025] directly distills chain-of-thought outputs, 
+
+SGFT [Bi et al., 2024] fine-tunes on structured rationales without retrieval, and SuperCorrect [Yang et al., 2025b] uses hierarchical XML thought templates (math-only; not applied to StrategyQA or AI2ARC). Training details and prompts are in Appendices D.2 and B.1. 
+
+5.4 Main Results 
+
+Table 1 reports absolute post-distillation accuracy across all five benchmarks for both student models. We report absolute accuracy rather than gains over each method’s own Direct Prompting baseline, because Direct Prompting baselines differ across methods due to different prompting formats and relative gains can be misleading. The impact of LoRA rank and α is discussed in Appendix D.3. 
+
+Llama 3.1 8B Instruct. D-RPC achieves the highest accuracy on all five benchmarks: 85.41% on GSM8K, 67.52% on AQUA, 74.15% on StrategyQA, 92.92% on AI2ARC, and 48.76% on MATH. The gains are most pronounced on the harder benchmarks: D-RPC outperforms the next-best method by +3.53 points on MATH and +3.50 on AQUA, confirming that path-guided supervision provides the largest benefit where solution heterogeneity is highest. D-RPC also surpasses SuperCor-7rect [Yang et al., 2025b] at substantially lower token cost, as detailed in Appendix D.3, indicating that compression and reuse of reasoning paths is more effective than verbose templates. 
+
+Qwen 3 1.7B. The same pattern holds with a smaller, different-family student: D-RPC leads on GSM8K, AQUA, AI2ARC, and MATH, and is competitive on StrategyQA, where DCoT is slightly higher. The gains on MATH are especially large at +10 .51 over CoT, demonstrating that path compression scales to challenging benchmarks and smaller models. 
+
+5.5 Analysis Why D-RPC helps. The gains are largest on benchmarks with high solution heterogeneity, such as MATH and AQUA, and smallest on the most homogeneous ones like StrategyQA, where most ques-tions reduce to a few common reasoning patterns. This is consistent with our hypothesis: D-RPC’s value comes from reducing supervision variance. When the teacher generates Freeform rationales, similar questions may receive radically different solution strategies, creating noisy supervision; conditioning on shared reasoning paths aligns the teaching signal across related questions. Moreover, D-RPC outperforms SuperCorrect despite using substantially fewer tokens (Appendix D.3), reinforc-ing a key design principle: effective distillation depends on compressing and reusing the reasoning space, not on longer or more verbose rationales. 
+
+5.6 Ablation Study 
+
+We conduct three ablations to isolate the effects of bank construction choices. All use identical SFT configurations; results are averaged over 10 runs. 
+
+Heterogeneous vs. homogeneous initialization. Table 3 compares two seed sets: a Heterogeneous 
+
+set sampled evenly across intent clusters to promote diversity and a Homogeneous set drawn from the largest clusters to limit diversity. Heterogeneous initialization helps most at low data volumes (1k–2k), consistent with better early coverage. At higher volumes ( ≥3k), sufficient training data compensates for limited initial diversity and the gap vanishes. 
+
+Bank guidance vs. no bank. As shown in Table 1, disabling retrieval and path-guided prompting reduces D-RPC to Freeform generation with the same teacher and the same budget. Removing the bank consistently degrades accuracy across all benchmarks, confirming that path-guided supervision provides a lower-variance signal than unconstrained rationale generation. 
+
+Bank size: the coverage–compression trade-off. Table 2 varies the number of seed questions from 50 to 150 while fixing the SFT training set at 2k. Performance peaks at 75 seed questions, yielding 84.34% accuracy with 75 paths: small enough for consistency, large enough for coverage. Below this sweet spot, 50 questions yield only 49 paths, too few to cover 2k training problems. Above it, 125–150 questions produce 119–145 paths that dilute reuse, gradually lowering accuracy. This matches the theory’s prediction: the effective quantity M (Kbank ) = log Kbank + . . . + ε(Kbank ) is minimized at an intermediate bank size. 
+
+5.7 Empirical Validation of the Bound 
+
+Table 4 reports the key quantities from Theorem 1 measured on AQUA with both student models. All NLL values are per-token (length-normalized), consistent with the bounded-loss Assumption 1 and the training objective. We approximate the Gibbs risk bLS (QS ) by the point estimate bLS (ˆθS ),standard for tight posteriors [Dziugaite and Roy, 2017]. 
+
+Banking reduces frozen-model NLL. bLS (0) is lowest for D-RPC on both models (Qwen: 2.68 vs. 2.70/3.29; Llama: 2.01 vs. 2.02/2.72), confirming that banked supervision is more predictable to the pretrained student regardless of model family or scale. This is consistent with the frozen-model alignment established in Proposition 4 and shows that banking can reduce N in Theorem 1. 
+
+Generalization gap and accuracy. D-RPC achieves the highest test accuracy on both models (Qwen: 74.0%; Llama: 63.4%). CoT consistently has the largest generalization gap (Qwen: 0.20; Llama: 0.29), while D-RPC and Freeform are comparable, consistent with Theorem 1 predicting a tighter bound under moderate bank size. 
+
+Adapter norms. The adapter norms ∥ˆθS ∥2 are comparable across strategies within each model, with Freeform slightly lower than D-RPC on both. This suggests that the primary mechanism by which 8Table 2: Effect of bank size on GSM8K Acc and format validity. 
+
+Size Paths Acc. (%) FV (%) 50 49 83 .19 ±0.8 83 .32 ±0.8
+
+75 75 84 .34 ±0.8 84 .61 ±0.8
+
+100 97 83 .28 ±0.6 83 .41 ±0.7
+
+125 119 82 .90 ±0.7 83 .08 ±0.7
+
+150 145 82 .91 ±0.5 82 .97 ±0.5
+
+Table 3: Heterogeneous vs. homogeneous bank initialization on GSM8K across training set sizes.                                       
+
+> Bank Paths Acc (%) FV (%) Size hetero homo hetero homo hetero homo 1000 50 57 83 .03 ±0.782 .30 ±0.683 .23 ±0.782 .37 ±0.6
+> 2000 97 93 83 .24 ±0.883 .12 ±0.383 .38 ±0.883 .21 ±0.4
+> 3000 151 133 84 .18 ±0.584 .36 ±0.484 .27 ±0.584 .46 ±0.4
+> 4000 188 186 83 .83 ±0.784 .87 ±0.683 .95 ±0.784 .95 ±0.6
+> 5000 243 252 84 .58 ±0.784 .94 ±0.684 .69 ±0.785 .18 ±0.7
+
+Table 4: Empirical bound components on AQUA (per-token NLL). Kbank = 42 canonical paths for D-RPC. All values are from a single checkpoint; test NLL uses teacher-generated targets. 
+
+Model Method bLS (0) bLS (ˆθS ) Ltest (ˆθS ) Gap ∥ˆθS ∥2 Acc. (%) Qwen 3 1.7B D-RPC 2.68 0.30 0.42 0.11 2792 74.0 
+
+CoT 2.70 0.35 0.55 0.20 2760 61.4 Free 3.29 0.27 0.38 0.11 2732 63.0 Llama 3.1 8B D-RPC 2.01 0.28 0.47 0.19 6318 63.4 
+
+CoT 2.02 0.38 0.67 0.29 6264 61.8 Free 2.72 0.29 0.45 0.17 6216 59.4 
+
+banking tightens the bound is through the entropy/coverage term M (via reduced bLS (0) ) rather than the complexity term N (via reduced adapter norm), consistent with Proposition 1. 
+
+# 6 Limitations 
+
+Evaluation scope. All experiments use a single teacher, GPT-5.1, and two student architectures, Llama 3.1 8B Instruct and Qwen 3 1.7B, across five reasoning benchmarks. While D-RPC’s gains are consistent across both student families and all task types tested, we have not verified whether the improvements transfer to other teacher models, larger or smaller student scales, or domains beyond math and commonsense reasoning such as code generation and scientific QA. 
+
+Computational overhead. D-RPC’s pipeline incurs about 2× the teacher-query cost of standard CoT, across three components: a categorization pass over all training questions, a seed-set pass on 5% of the training data to build the initial bank, and a rationale-generation pass conditioned on retrieved paths. For comparison, DCoT generates 3 CoT rationales per question (roughly 3×
+
+CoT cost), yet D-RPC still wins in most cases. The categorization pass is incidental supporting infrastructure for seed sampling and intent clustering, not D-RPC’s core mechanism, and could plausibly be replaced by a lighter embedding-based pipeline (e.g., a MiniLM classifier plus DBSCAN over question embeddings), which would lower overhead to roughly 1.05 × CoT; we have not ablated such alternatives. This cost is paid offline and does not affect student inference, though it may limit applicability where teacher API costs dominate. 
+
+Theoretical generality. The PAC-Bayes generalization analysis in Section 4 is derived under LoRA-based SFT with Gaussian weight priors. Extending the bound to full fine-tuning, alternative parameter-efficient methods such as adapters or prefix tuning, or non-Gaussian prior families remains open and would broaden the theoretical applicability of the framework. 
+
+# 7 Conclusion 
+
+We proposed D-RPC, which compresses the teacher’s reasoning space into a compact, reusable bank of canonical paths before distillation. By routing semantically similar questions to shared paths and dynamically absorbing novel solutions, the bank provides consistent yet diverse supervision without verbose templates. A PAC-Bayes generalization bound formalizes the resulting bank-size vs. coverage trade-off through an explicit log Kbank term, and empirical evaluation of the bound’s components confirms that the primary benefit of banking is controlling supervision entropy. Across five reasoning benchmarks and two student models, D-RPC consistently outperforms CoT, freeform, direct-distillation, and structured-supervision baselines. More broadly, our results suggest that structuring the supervision distribution before training is an effective and lightweight strategy for improving SLM reasoning. 9References 
+
+Ammar Ahmed, Azal Ahmad Khan, Ayaan Ahmad, Sheng Di, Zirui Liu, and Ali Anwar. Retrieval-of-thought: Efficient reasoning via reusing thoughts, 2025. URL https://arxiv.org/abs/2509. 21743 .Iv ´an Arcuschin, Jett Janiak, Robert Krzyzanowski, Senthooran Rajamanoharan, Neel Nanda, and Arthur Conmy. Chain-of-thought reasoning in the wild is not always faithful, 2025. URL 
+
+https://arxiv.org/abs/2503.08679 .Jing Bi, Yuting Wu, Weiwei Xing, and Zhenjie Wei. Enhancing the reasoning capabilities of small language models via solution guidance fine-tuning, 2024. URL https://arxiv.org/abs/2412. 09906 .Paul C. Bogdan, Uzay Macar, Neel Nanda, and Arthur Conmy. Thought anchors: Which llm reasoning steps matter?, 2025. URL https://arxiv.org/abs/2506.19143 .Tom B. Brown, Benjamin Mann, Nick Ryder, Melanie Subbiah, Jared Kaplan, Prafulla Dhariwal, Arvind Neelakantan, Pranav Shyam, Girish Sastry, Amanda Askell, Sandhini Agarwal, Ariel Herbert-Voss, Gretchen Krueger, Tom Henighan, Rewon Child, Aditya Ramesh, Daniel M. Ziegler, Jeffrey Wu, Clemens Winter, Christopher Hesse, Mark Chen, Eric Sigler, Mateusz Litwin, Scott Gray, Benjamin Chess, Jack Clark, Christopher Berner, Sam McCandlish, Alec Radford, Ilya Sutskever, and Dario Amodei. Language models are few-shot learners, 2020. URL https: //arxiv.org/abs/2005.14165 .Hongzhan Chen, Siyue Wu, Xiaojun Quan, Rui Wang, Ming Yan, and Ji Zhang. Mcc-kd: Multi-cot consistent knowledge distillation, 2023. URL https://arxiv.org/abs/2310.14747 .Xiao Chen, Sihang Zhou, Ke Liang, Xiaoyu Sun, and Xinwang Liu. Skip-thinking: Chunk-wise chain-of-thought distillation enable smaller language models to reason better and faster, 2025a. URL https://arxiv.org/abs/2505.18642 .Xinghao Chen, Zhijing Sun, Wenjin Guo, Miaoran Zhang, Yanjun Chen, Yirong Sun, Hui Su, Yijie Pan, Dietrich Klakow, Wenjie Li, and Xiaoyu Shen. Unveiling the key factors for distilling chain-of-thought reasoning, 2025b. URL https://arxiv.org/abs/2502.18001 .Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa Schoenick, and Oyvind Tafjord. Think you have solved question answering? try ARC, the AI2 reasoning challenge. In arXiv preprint arXiv:1803.05457 , 2018. Karl Cobbe, Vineet Kosaraju, Mohammad Bavarian, Mark Chen, Heewoo Jun, Lukasz Kaiser, Matthias Plappert, Jerry Tworek, Jacob Hilton, Reiichiro Nakano, Christopher Hesse, and John Schulman. Training verifiers to solve math word problems. arXiv preprint arXiv:2110.14168 ,2021. Antonia Creswell, Murray Shanahan, and Irina Higgins. Selection-inference: Exploiting large language models for interpretable logical reasoning, 2022. URL https://arxiv.org/abs/ 2205.09712 .Jin Cui, Jiaqi Guo, Jiepeng Zhou, Ruixuan Yang, Jiayi Lu, Jiajun Xu, Jiangcheng Song, Boran Zhao, and Pengju Ren. Mind: From passive mimicry to active reasoning through capability-aware multi-perspective cot distillation, 2026. URL https://arxiv.org/abs/2601.03717 .Chengwei Dai, Kun Li, Wei Zhou, and Songlin Hu. Capture the key in reasoning to enhance CoT distillation generalization. In Wanxiang Che, Joyce Nabende, Ekaterina Shutova, and Mohammad Taher Pilehvar, editors, Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 441–465, Vienna, Austria, July 2025. Association for Computational Linguistics. ISBN 979-8-89176-251-0. doi: 10.18653/v1/ 2025.acl-long.21. URL https://aclanthology.org/2025.acl-long.21/ .Shizhe Diao, Pengcheng Wang, Yong Lin, Rui Pan, Xiang Liu, and Tong Zhang. Active prompting with chain-of-thought for large language models, 2024. URL https://arxiv.org/abs/2302. 12246 .10 Cong-Thanh Do, Rama Doddipatla, and Kate Knill. Effectiveness of chain-of-thought in distilling reasoning capability from large language models, 2025. URL https://arxiv.org/abs/2511. 05184 .Gintare Karolina Dziugaite and Daniel M Roy. Computing nonvacuous generalization bounds for deep (stochastic) neural networks with many more parameters than training data. In Proceedings of the Thirty-Third Conference on Uncertainty in Artificial Intelligence (UAI) , 2017. Martin Ester, Hans-Peter Kriegel, J ¨org Sander, Xiaowei Xu, et al. A density-based algorithm for discovering clusters in large spatial databases with noise. In kdd , volume 96, pages 226–231, 1996. Mor Geva, Daniel Khashabi, Elad Segal, Tushar Khot, Dan Roth, and Jonathan Berant. Did Aristotle Use a Laptop? A Question Answering Benchmark with Implicit Reasoning Strategies. Transactions of the Association for Computational Linguistics (TACL) , 2021. Dan Hendrycks, Collin Burns, Saurav Kadavath, Akul Arora, Steven Basart, Eric Tang, Dawn Song, and Jacob Steinhardt. Measuring mathematical problem solving with the MATH dataset. In 
+
+NeurIPS , 2021. Edward J. Hu, Yelong Shen, Phillip Wallis, Zeyuan Allen-Zhu, Yuanzhi Li, Shean Wang, Lu Wang, and Weizhu Chen. Lora: Low-rank adaptation of large language models, 2021. URL https: //arxiv.org/abs/2106.09685 .Takeshi Kojima, Shixiang Shane Gu, Machel Reid, Yutaka Matsuo, and Yusuke Iwasawa. Large language models are zero-shot reasoners. Advances in neural information processing systems , 35: 22199–22213, 2022. Zhenyu Lei, Zhen Tan, Song Wang, Yaochen Zhu, Zihan Chen, Yushun Dong, and Jundong Li. Learning from diverse reasoning paths with routing and collaboration, 2025. URL https:// arxiv.org/abs/2508.16861 .Liunian Harold Li, Jack Hessel, Youngjae Yu, Xiang Ren, Kai-Wei Chang, and Yejin Choi. Symbolic chain-of-thought distillation: Small models can also ”think” step-by-step, 2024. URL https: //arxiv.org/abs/2306.14050 .Ziang Li, Manasi Ganti, Zixian Ma, Helena Vasconcelos, Qijia He, and Ranjay Krishna. Rethinking human preference evaluation of llm rationales, 2025. URL https://arxiv.org/abs/2509. 11026 .Wang Ling, Dani Yogatama, Chris Dyer, and Phil Blunsom. Program induction by rationale genera-tion: Learning to solve and explain algebraic word problems. arXiv preprint arXiv:1705.04146 ,2017. Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, et al. Self-refine: Iterative refinement with self-feedback, 2023. Lucie Charlotte Magister, Jonathan Mallinson, Jakub Adamek, Eric Malmi, and Aliaksei Severyn. Teaching small language models to reason, 2023. URL https://arxiv.org/abs/2212.08410 .Siru Ouyang, Jun Yan, I-Hung Hsu, Yanfei Chen, Ke Jiang, Zifeng Wang, Rujun Han, Long T. Le, Samira Daruki, Xiangru Tang, Vishy Tirumalashetty, George Lee, Mahsan Rofouei, Hangfei Lin, Jiawei Han, Chen-Yu Lee, and Tomas Pfister. Reasoningbank: Scaling agent self-evolving with reasoning memory, 2026. URL https://arxiv.org/abs/2509.25140 .Debjit Paul, Robert West, Antoine Bosselut, and Boi Faltings. Making reasoning matter: Measuring and improving faithfulness of chain-of-thought reasoning, 2024. URL https://arxiv.org/ abs/2402.13950 .Ofir Press, Muru Zhang, Sewon Min, Ludwig Schmidt, Noah A. Smith, and Mike Lewis. Measuring and narrowing the compositionality gap in language models, 2023. URL https://arxiv.org/ abs/2210.03350 .11 Nazneen Fatema Rajani, Bryan McCann, Caiming Xiong, and Richard Socher. Explain yourself! leveraging language models for commonsense reasoning, 2019. URL https://arxiv.org/abs/ 1906.02361 .Nils Reimers and Iryna Gurevych. Sentence-bert: Sentence embeddings using siamese bert-networks, 2019. URL https://arxiv.org/abs/1908.10084 .Devendra Singh Sachan, Mike Lewis, Dani Yogatama, Luke Zettlemoyer, Joelle Pineau, and Manzil Zaheer. Questions are all you need to train a dense passage retriever, 2023. URL https: //arxiv.org/abs/2206.10658 .Kumar Shridhar, Alessandro Stolfo, and Mrinmaya Sachan. Distilling reasoning capabilities into smaller language models, 2023. URL https://arxiv.org/abs/2212.00193 .Alberlucia Rafael Soarez, Daniel Kim, Mariana Costa, and Alejandro Torre. Demystifying low-rank knowledge distillation in large language models: Convergence, generalization, and information-theoretic guarantees, 2026. URL https://arxiv.org/abs/2603.22355 .Manveer Singh Tamber, Forrest Sheng Bao, Chenyu Xu, Ge Luo, Suleman Kazi, Minseok Bae, Miaoran Li, Ofer Mendelevitch, Renyi Qu, and Jimmy Lin. Benchmarking LLM faithfulness in RAG with evolving leaderboards. In Saloni Potdar, Lina Rojas-Barahona, and Sebastien Montella, editors, Proceedings of the 2025 Conference on Empirical Methods in Natural Language Processing: Industry Track , pages 799–811, Suzhou (China), November 2025. Association for Computational Linguistics. ISBN 979-8-89176-333-3. doi: 10.18653/v1/2025.emnlp-industry.54. URL https://aclanthology.org/2025.emnlp-industry.54/ .Peifeng Wang, Zhengyang Wang, Zheng Li, Yifan Gao, Bing Yin, and Xiang Ren. Scott: Self-consistent chain-of-thought distillation, 2023a. URL https://arxiv.org/abs/2305.01879 .Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed Chi, Sharan Narang, Aakanksha Chowdh-ery, and Denny Zhou. Self-consistency improves chain of thought reasoning in language models, 2023b. URL https://arxiv.org/abs/2203.11171 .Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed Chi, Quoc Le, and Denny Zhou. Chain-of-thought prompting elicits reasoning in large language models, 2023. URL https://arxiv.org/abs/2201.11903 .Xiangyu Wen, Junhua Huang, Zeju Li, Min Li, Jianyuan Zhong, Zhijian Xu, Mingxuan Yuan, Yongxiang Huang, and Qiang Xu. Reasoning scaffolding: Distilling the flow of thought from llms, 2025. URL https://arxiv.org/abs/2509.23619 .Sarah Wiegreffe, Jack Hessel, Swabha Swayamdipta, Mark Riedl, and Yejin Choi. Reframing human-ai collaboration for generating free-text explanations, 2022. URL https://arxiv.org/ abs/2112.08674 .Shicheng Xu, Liang Pang, Yunchang Zhu, Jia Gu, Zihao Wei, Jingcheng Deng, Feiyang Pan, Huawei Shen, and Xueqi Cheng. Distilling the implicit multi-branch structure in llms’ reasoning via reinforcement learning, 2025. URL https://arxiv.org/abs/2505.16142 .Jianzhi Yan, Le Liu, Youcheng Pan, Shiwei Chen, Yang Xiang, and Buzhou Tang. Towards efficient cot distillation: Self-guided rationale selector for better performance with fewer rationales, 2025. URL https://arxiv.org/abs/2509.23574 .Ling Yang, Zhaochen Yu, Tianjun Zhang, Shiyi Cao, Minkai Xu, Wentao Zhang, Joseph E. Gonzalez, and Bin Cui. Buffer of thoughts: Thought-augmented reasoning with large language models, 2024. URL https://arxiv.org/abs/2406.04271 .Ling Yang, Zhaochen Yu, Bin Cui, and Mengdi Wang. Reasonflux: Hierarchical llm reasoning via scaling thought templates. arXiv preprint arXiv:2502.06772 , 2025a. Ling Yang, Zhaochen Yu, Tianjun Zhang, Minkai Xu, Joseph E. Gonzalez, Bin Cui, and Shuicheng Yan. Supercorrect: Advancing small llm reasoning with thought template distillation and self-correction, 2025b. URL https://arxiv.org/abs/2410.09008 .12 Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Thomas L. Griffiths, Yuan Cao, and Karthik Narasimhan. Tree of thoughts: Deliberate problem solving with large language models, 2023a. URL https://arxiv.org/abs/2305.10601 .Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. React: Synergizing reasoning and acting in language models, 2023b. URL https://arxiv.org/ abs/2210.03629 .Junchi Yu, Ran He, and Rex Ying. Thought propagation: An analogical approach to complex reasoning with large language models, 2024. URL https://arxiv.org/abs/2310.03965 .Xiang Yu, Yujia Huo, Liqiong Cai, and Xuewei Luo. Chain-of-thought curriculum distillation: Teaching smaller models to reason step-by-step. In Proceedings of the 2025 2nd International Symposium on Artificial Intelligence for Education , ISAIE ’25, page 812–819, New York, NY, USA, 2025. Association for Computing Machinery. ISBN 9798400715792. doi: 10.1145/3775073. 3775200. URL https://doi.org/10.1145/3775073.3775200 .Eric Zelikman, Yuhuai Wu, Jesse Mu, and Noah D. Goodman. Star: Bootstrapping reasoning with reasoning, 2022. URL https://arxiv.org/abs/2203.14465 .Xianwei Zhuang, Zhihong Zhu, Zhichang Wang, Xuxin Cheng, and Yuexian Zou. Unicott: A unified framework for structural chain-of-thought distillation. In The Thirteenth International Conference on Learning Representations , 2025. Jiaru Zou, Ling Yang, Jingwen Gu, Jiahao Qiu, Ke Shen, Jingrui He, and Mengdi Wang. Reasonflux-prm: Trajectory-aware prms for long chain-of-thought reasoning in llms. arXiv preprint arXiv:2506.18896 , 2025a. Tao Zou, Xinghua Zhang, Haiyang Yu, Minzheng Wang, Fei Huang, and Yongbin Li. Eifbench: Extremely complex instruction following benchmark for large language models. arXiv preprint arXiv:2506.08375 , 2025b. 13 A Additional Related Work 
+
+Reasoning prompting and structured inference. Prompting methods such as few-shot prompt-ing [Brown et al., 2020] and Chain-of-Thought (CoT) [Wei et al., 2023] improve LLM reasoning by eliciting intermediate steps. Subsequent work explored richer structured rationales during inference, including self-consistency [Wang et al., 2023b], self-questioning [Press et al., 2023], ReAct [Yao et al., 2023b], and Tree-of-Thoughts [Yao et al., 2023a]. A recurring limitation is that these methods often induce miscellaneous, divergent, and sometimes unfaithful rationales [Tamber et al., 2025, Paul et al., 2024, Wang et al., 2023a]. These issues are particularly pronounced for SLMs. The limited capacity and context windows make them more sensitive to verbosely structured prompting schemes, where the model must explicitly construct and traverse the data structure during generation. 
+
+Rationale used for supervised fine-tuning. Model-generated rationales are widely used as an intermediate supervision signal in supervised fine-tuning (SFT), as they can improve both task perfor-mance and interpretability [Rajani et al., 2019, Wiegreffe et al., 2022]. To enhance rationale quality, MoRSD studies how to select rich, high-quality, informative rationales [Yan et al., 2025]. Thought Anchors explores identifying key rationales that dominate the decision of final results [Bogdan et al., 2025]. Earlier work on Symbolic CoT Distillation showed that even sub-1B-parameter students can acquire step-by-step reasoning when trained on diverse rationales sampled from a much larger teacher, and that diversity in the sampled chains, not their individual likelihood, is the dominant factor in distillation success [Li et al., 2024]. However, teacher rationales can vary substantially in clarity, step granularity, and correctness across questions and difficulty levels [Diao et al., 2024, Creswell et al., 2022], leading to a decrease in distillation performance. Existing studies suggest that such rationale divergence has been linked to reduced faithfulness and training instability [Sachan et al., 2023, Arcuschin et al., 2025, Li et al., 2025]. 
+
+# B Additional Prompting Details 
+
+B.1 Prompt Templates 
+
+We apply four prompting strategies to the teacher model GPT-5.1 to generate rationales. 
+
+Chain-of-Thought Prompt. 
+
+> Think step by step in a few precise steps (no more than six sentences) to solve the problem. ,→
+> Then output ONLY a compact JSON object of the form: {"rationale": "<explanation>", "ans": <numeric_answer> }Rules: - "ans" must be a number, not a string. - No additional text before or after the JSON.
+
+Stage 1 Initial Bank Construction Prompt(Ours). 
+
+> You are a rigorous but concise math tutor. You solve math problems carefully and explain your reasoning briefly and clearly. Avoid unnecessary prose; show only the key steps needed to reach the answer. You are solving a math or word problem. - Decompose the problem into abstract reasoning steps. - For each step, use a general action name (no question-specific words). - Each step must show actual computation. Question: <QUESTION_TEXT> Category: <ROUTE_CATEGORY> Intent: <INTENT_TEXT> Output ONLY valid JSON in the following format, and AVOID question-specific wording in reasoning_path keys: ,→
+> {
+
+14 "route": { "difficulty": <1|2|3>, "budget": <Follow Budget Contract>, "reasoning_path": ["<DescriptiveStepName1>", "<DescriptiveStepName2>", ...] }, "rationale": { "<DescriptiveStepName1>": "Step1: <...> Step2: <...> Step3: <...>", "<DescriptiveStepName2>": "Step1: <...> Step2: <...>", ... }, "ans": <numeric> }Hard rules: - Output must match the required JSON schema exactly. - "route" must be a dictionary containing exactly: difficulty, budget, and reasoning_path. ,→
+
+- "reasoning_path" must be a list of strings representing ordered steps. - The keys in "rationale" must match the strings in "reasoning_path" exactly. - Output JSON only; no extra text. Budget contract: - Difficulty 1 implies Budget 2. - Difficulty 2 or 3 implies Budget 3. - len(reasoning_path) must be <= budget. Reasoning key naming policy: 1) Keys must be TitleCase letters only (A--Z, a--z). No spaces, underscores, or digits. ,→
+
+2) Keys must be high-level descriptive summaries of the action taken; avoid question-specific wording. ,→
+
+3) Do NOT use generic sequential names (e.g., StepOne, CalculationOne). Rationale requirements: - For each reasoning_path entry, write a detailed multi-step explanation in one string. ,→
+
+- Use Step1:, Step2:, Step3:, ... labels; use as many substeps as needed (substeps do NOT count toward budget). ,→
+
+- Each substep should be concise and computational. 
+
+Stage 2 SFT Reasoning Extraction Prompt(Ours). 
+
+You are a structured reasoning tutor. You will be given: - A math question - One or more routing plans including: - Category - Intent - Budget - ReasoningPathOptions (candidate paths) Pick the best routing plan from the options and follow it if adequate; otherwise, refine only the reasoning_path conservatively. Question: <QUESTION_TEXT> Route: {"category": "<CATEGORY>", "intent": ["<INTENT>"], "difficulty": <1|2|3>, "budget": <BUDGET>, "reasoning_path_options": [ ["<PathOption1>"], ["<PathOption2>", "<PathOption3>"] 
+
+15 ]}Task Instructions: 1) Assess reasoning_path suitability: - If reasoning_path is missing and reasoning_path_options is provided, select the best option. ,→
+
+- If the selected reasoning_path can solve the problem, keep it unchanged. - If not, create a revised reasoning_path conservatively: * Use Title-Case letters only (A--Z, a--z) * No digits, underscores, or question-specific wording * Length must be <= budget - Keep category, intent, difficulty, and budget unchanged. 2) Generate detailed rationale: - For each entry in the chosen reasoning_path, write a detailed explanation. - Label sub-steps as Step1:, Step2:, Step3:, ... - Use as many sub-steps as needed (sub-steps do NOT count toward budget). - Each sub-step must include explicit computation or derivation when applicable. 3) Final answer: - Compute the numeric answer and place it in "ans". Output ONLY valid JSON (no markdown, no extra text): {"route": { "category": "<CATEGORY>", "intent": ["<INTENT>"], "difficulty": <1|2|3>, "budget": <BUDGET>, "reasoning_path": ["<FinalPath1>", "<FinalPath2_optional>"] }, "rationale": { "<DescriptiveStepName1>": "Step1: <...> Step2: <...> Step3: <...>", "<DescriptiveStepName2>": "Step1: <...> Step2: <...>", ... }, "ans": <numeric> }Requirements: - Each reasoning_path entry must appear exactly once as a key in rationale. - Keys in rationale must match reasoning_path entries exactly. - Do not exceed the budget in number of reasoning_path steps. - Rationale values must be single strings with Step1:, Step2:, ... labels. 
+
+Freeform Prompt. 
+
+You are a rigorous but concise math tutor. You solve math problems carefully and explain your reasoning briefly and clearly. Avoid unnecessary prose; show only the key steps needed to reach the answer. You are solving a math or word problem. - Decompose the problem into abstract reasoning steps. - For each step, use a general action name (no question-specific words). - Each step must show actual computation. Question: <QUESTION_TEXT> Your task: Solve the question and return ONLY a valid JSON object. Output ONLY valid JSON with freely chosen reasoning paths: {
+
+16 "rationale": { "<DescriptiveStepName1>": "<concise derivation>", "<DescriptiveStepName2>": "<concise derivation>", ... }, "ans": <numeric> }Rules: - Freely choose up to three reasoning paths with high-level, TitleCase names (letters only; no spaces, digits, or underscores). ,→
+
+- Keys must be human-readable action labels (e.g., PlanComputation, CombineTotals); avoid generic names like ReasoningPath1 and avoid question-specific wording. ,→
+
+- Keep each rationale concise and focused on the computation or logic. - If a second path is unnecessary, omit it. - "ans" must be numeric (no strings, units, or words). - Do not include any markdown or extra text; return JSON only. 
+
+SuperCorrect XML Prompt. 
+
+You are a rigorous but concise math tutor. You solve math problems carefully and explain your reasoning briefly and clearly. Avoid unnecessary prose; show only the key steps needed to reach the answer. Transform the solution of the following math problem into a step-by-step XML format. Each step should be enclosed within tags like <Step1> </Step1>. For each step, determine if the step is challenging or tricky; if so, add a detailed explanation ,→
+
+enclosed within <Key> </Key> as annotations to help the student understand the step correctly. ,→
+
+After all steps, summarize the common solution pattern to help generalize to similar problems ,→
+
+within <Generalized> </Generalized>. Finally, present the final answer enclosed within ,→
+
+<Answer> </Answer>. Problem: <QUESTION_TEXT> 
+
+17 Table 5: Three-slot excerpt from the reasoning-path bank B. Each slot maps a (category, canonical intent) pair to one or more canonical paths. This is an illustrative fragment; the full bank contains 50–150 paths.              
+
+> Category Canonical Intent Paths in B(c, ˜t)
+> Arithmetic unit-rate Π1:[ComputeUnitRate, MultiplyByCount]
+> Π2:[IdentifyRatio, ScaleToTarget]
+> Arithmetic total-cost Π3:[ComputeItemCost, SumComponents]
+> Commonsense temporal feasibility
+> Π4:[RecallKeyFacts, CheckTimeline, DeduceAnswer]
+
+# C Qualitative Examples of the D-RPC Pipeline 
+
+This section provides simplified, illustrative examples that trace each stage of D-RPC on concrete problem instances. The JSON structures and path names follow the actual format produced by our pipeline (see prompt templates in Appendix B.1); specific values are abbreviated for clarity. We use GSM8K arithmetic questions as the primary running example and include a StrategyQA instance to illustrate cross-domain applicability. 
+
+Concrete example. For GSM8K, the bank might contain the entry:     
+
+> Category: Arithmetic Intent: unit-rate computation
+> Reasoning Paths: {[compute rate, combine quantities], [find unit rate, multiply by count] }
+
+Two canonical strategies for the same intent, enough for coverage yet few enough for consistency. 
+
+C.1 Reasoning-Path Bank Structure 
+
+Table 5 shows a three-slot excerpt from the reasoning-path bank B (defined in Section 3.2) to illustrate its structure. Each row corresponds to a (category, canonical intent) pair and lists the reasoning paths Π ∈ B (c, ˜t) associated with that slot. Paths are ordered lists of abstract, reusable step names following the TitleCase naming policy enforced by the Stage 1 prompt in Appendix B.1. The full bank in our GSM8K experiments contains 50–150 paths depending on configuration (see the ablation in Table 2). 
+
+C.2 Question Categorization 
+
+Before any reasoning takes place, the teacher’s categorization function fcat from Section 3.2, Step 1, assigns a category–intent pair (Ci, T i) to every training question. The examples below show this output for three questions spanning two domains.    
+
+> Q1: "A baker sells cupcakes for $3 each. If she sold 48 on Monday and 32 on Tuesday, how much did she earn in total?" -> Category: Arithmetic Intent: total-cost aggregation Q2: "Tom drives 60 miles in 1.5 hours. How far can he drive in 4 hours at the same speed?" -> Category: Arithmetic Intent: unit-rate computation Q3: "Did Albert Einstein ever visit the Moon?" -> Category: Commonsense Intent: temporal feasibility check
+
+These labels serve only as keys for bank lookup and path retrieval; they are not included in the student’s training data. Q1 and Q2 share a category but differ in intent, so they are routed to different 18 bank slots. Q3 illustrates that the same categorization mechanism applies to non-mathematical domains. 
+
+C.3 Retrieved Paths vs. Freeform-Generated Paths 
+
+A central claim of this work is that unconstrained teacher generation introduces unnecessary super-vision variance: structurally similar questions receive structurally different rationales. To illustrate this contrast, we show the reasoning paths produced by D-RPC and by the Freeform baseline for two unit-rate questions that share the same underlying solution strategy. Q2: “Tom drives 60 miles in 1.5 hours. How far can he drive in 4 hours?” 
+
+D-RPC: [ComputeUnitRate, MultiplyByCount] 
+
+Freeform: [FindSpeed, MultiplyDistance] 
+
+Q4: “A factory makes 150 widgets in 5 hours. How many in 8 hours?” 
+
+D-RPC: [ComputeUnitRate, MultiplyByCount] 
+
+Freeform: [SetUpProportion, CrossMultiply] 
+
+Under D-RPC, both questions match the bank slot Arithmetic/unit-rate and retrieve the same canonical path Π1, so the student observes a single consistent template. Under Freeform, the teacher improvises a fresh structure for each question, choosing FindSpeed for Q2 and SetUpProportion 
+
+for Q4, producing valid but structurally incompatible rationales. When the student trains on both examples via LSFT = − log pθ (Y | X), the conflicting output structures act as label noise: the model must allocate capacity to reconcile multiple solution formats for the same problem type, rather than reinforcing a single reusable pattern. This is precisely the supervision-variance reduction that the entropy-floor analysis in Proposition 1 formalizes. 
+
+C.4 Bank-Guided Rationale Generation 
+
+Once a path is retrieved, the teacher receives the question and the candidate paths via the Stage 2 prompt fteach described in Section 3.3, with the full prompt in Appendix B.1, and generates the supervision tuple Y = (Π , R, A ). Below is the complete input–output pair for Q2. 
+
+> Input to teacher (Stage 2): Question: "Tom drives 60 miles in 1.5 hours. How far can he drive in 4 hours at the same speed?" Route: {"category": "Arithmetic", "intent": ["unit-rate computation"], "difficulty": 1, "budget": 2, "reasoning_path_options": [ ["ComputeUnitRate", "MultiplyByCount"], ["IdentifyRatio", "ScaleToTarget"] ]}Teacher output (Y): {"route": { "category": "Arithmetic", "intent": ["unit-rate computation"], "difficulty": 1, "budget": 2, "reasoning_path": ["ComputeUnitRate", "MultiplyByCount"] }, "rationale": { "ComputeUnitRate": "Step1: Distance = 60 miles,
+
+19 Time = 1.5 hours. Step2: Speed = 60 / 1.5 = 40 mph.", "MultiplyByCount": "Step1: Target time = 4 hours. Step2: Distance = 40 * 4 = 160 miles." }, "ans": 160 }
+
+The teacher selects path option Π1 = [ComputeUnitRate, MultiplyByCount] from the two candidates provided, then instantiates each abstract step with concrete sub-step computations to form the rationale R. The student’s training example is (X, Y ) where Y = (Π , R, A ): the reasoning path, the detailed rationale, and the final answer. 
+
+Contrast: Freeform generation on the same question. Under the Freeform prompt, fteach receives no candidate paths and must generate both the solution structure and content from scratch: 
+
+> Freeform teacher output (Q2): {"rationale": { "FindSpeed": "Step1: Speed = 60 / 1.5 = 40 mph.", "MultiplyDistance": "Step1: Distance = 40 * 4 = 160 miles." }, "ans": 160 }
+
+The final answer is identical, but the output lacks the route field entirely and uses the ad-hoc path name FindSpeed rather than the canonical ComputeUnitRate . When a different unit-rate question is posed, the Freeform teacher may invent yet another structure, for instance 
+
+SetUpProportion → CrossMultiply for Q4 above, whereas the bank-guided teacher consistently selects from the same small set of canonical paths. Over the full training set, this structural consis-tency reduces the variance of the supervision signal that the student must fit, which is the mechanism underlying D-RPC’s empirical gains. 
+
+# D Supplementary Setting 
+
+D.1 Detailed Datasets 
+
+Table 6: Datasets used for reasoning transfer training and evaluation. Task type, answer format, and the number of training and evaluation samples for each dataset are reported.                         
+
+> Dataset Task Answer #Train #Eval
+> GSM8K Math Numeric 7,473 1,319 AQUA Math Letter 10,000 254 StrategyQA Commonsense T/F 2,061 229 AI2ARC Science Letter 6,230 1,557 MATH Comp. math Numeric 10,000 5,000
+
+GSM8K [Cobbe et al., 2021] is a grade-school mathematics dataset consisting of arithmetic word problems that require multi-step numerical reasoning. 
+
+AQUA [Ling et al., 2017] is a multiple-choice mathematics reasoning dataset that requires selecting the correct option based on symbolic and logical reasoning. 
+
+StrategyQA [Geva et al., 2021] is a commonsense reasoning dataset in which each question requires implicit multi-hop reasoning over factual knowledge, with Boolean (True/False) answers. 
+
+D.2 Training Details 
+
+All supervised fine-tuning (SFT) experiments are conducted using an identical training configuration to ensure fair and controlled comparisons across different reasoning supervision strategies. We fine-20 Figure 2: Token usage analysis under different reasoning supervision strategies. Top: Average input and output token usage of the teacher LLM during rationale generation. Bottom: Average input and output token usage of the SFT student model at evaluation time. tune Llama-3.1-8B-Instruct as the student model using the AdamW optimizer with a learning rate of 1 × 10 −4 and a weight decay of 0.01 . The maximum sequence length is set to 2048 tokens. Training is performed for two epochs with a per-device batch size of 2 and gradient accumulation over 8 steps, resulting in an effective batch size of 16. We employ a linear learning rate scheduler with a warmup ratio of 3% , and apply gradient clipping with a maximum norm of 1.0 to stabilize training. To improve parameter efficiency, we adopt LoRA-based fine-tuning. LoRA adapters are applied to the query, key, value, and output projection layers with rank r = 64 , scaling factor α = 128 , and a dropout rate of 0.05 . All experiments are conducted using bfloat16 precision. Model checkpoints are saved every 250 training steps, and training logs are recorded every 25 steps. The random seed is fixed to 42 for all runs. Unless otherwise specified, no limit is imposed on the number of training samples. We use the same hyperparameter configuration for Qwen 3 1.7B. 
+
+D.3 Supplementary Experiments Token cost: D-RPC improves efficiency relative to template-heavy supervision. Figure 2 compares average input/output token usage for both the teacher LLM during rationale generation and the SFT student at evaluation time. While D-RPC includes retrieved reasoning paths and thus uses substantially more teacher input tokens than CoT and a comparable amount to Freeform, it substantially reduces teacher output length relative to SuperCorrect, yielding an overall reduction of roughly 33–35% in total teacher tokens per example across the math datasets. On the student side, D-RPC-trained models produce more explicit rationales than CoT and Freeform on every dataset, while staying shorter on average than SuperCorrect supervision (with the gap largest on GSM8K), avoiding the output-length explosion that increases inference latency. 21 Table 7: AQUA performance across training fractions under different LoRA ranks ( r=128 vs. r=64 ). Bold denotes the higher accuracy between the two ranks for each method and training fraction, FV denotes Format Validity.                                                                                                                                                                                                   
+
+> Train (%) = 10 Train (%) = 60 Strategy r128 Acc r128 FV r64 Acc r64 FV Strategy r128 Acc r128 FV r64 Acc r64 FV cot 64.96 67.35 62.20 64.75 cot 60.24 61.45 62.20 63.45 freeform 61.02 61.75 62.20 67.23 freeform 59.45 60.89 57.48 59.35 D-RPC(ours) 61.42 63.93 63.78 66.80 D-RPC(ours) 64.17 64.94 63.78 65.85 super correct 59.06 61.70 59.84 62.98 super correct 58.66 62.45 57.87 61.44 Train (%) = 20 Train (%) = 70 cot 60.24 60.96 64.96 67.90 cot 66.93 69.11 61.42 61.51 freeform 57.87 59.27 58.27 60.41 freeform 59.06 59.52 63.78 65.06 D-RPC(ours) 63.78 68.22 62.20 63.31 D-RPC(ours) 65.75 66.80 68.50 70.45 super correct 57.87 61.11 56.30 58.90 super correct 58.66 63.36 57.87 61.25 Train (%) = 30 Train (%) = 80 cot 64.96 66.80 62.20 63.45 cot 65.35 65.61 61.81 62.06 freeform 59.06 60.73 57.09 59.67 freeform 62.99 63.75 59.45 61.13 D-RPC(ours) 66.93 68.00 62.60 65.16 D-RPC(ours) 66.14 68.57 62.99 64.00 super correct 61.02 64.44 54.72 57.69 super correct 64.96 66.39 58.27 61.18 Train (%) = 40 Train (%) = 90 cot 66.54 68.15 63.78 64.29 cot 65.35 65.61 64.17 64.68 freeform 60.63 62.35 58.27 58.96 freeform 58.27 60.16 57.87 58.57 D-RPC(ours) 66.14 67.74 67.72 69.80 D-RPC(ours) 67.72 68.80 68.11 70.33 super correct 61.02 63.45 59.45 61.70 super correct 62.99 65.38 60.24 63.09 Train (%) = 50 Train (%) = 100 cot 62.60 63.10 66.14 66.67 cot 67.72 67.98 65.75 66.01 freeform 57.48 58.87 57.87 58.80 freeform 64.57 65.08 56.30 57.20 D-RPC(ours) 64.17 65.46 61.42 64.46 D-RPC(ours) 69.69 70.68 66.14 67.20 super correct 57.87 61.44 54.33 56.54 super correct 60.63 62.86 56.30 59.17
+
+LoRA Setting: How LoRA Rank and Alpha impact the results. Table 7 compares the rankings of LoRA at the same training ratios of r=64 and r=128. The impact of ranking depends on the training data volume. At low data ratios (10-20%), r=64 outperforms r=128, consistent with the phenomenon that the low-ranked adapter acts as an implicit regularizer to resist fitting noise. As the training ratio increases, the trend shifts to capacity-constrained adaptation, where r=128 gains a significant advantage and dominates at 80-100% data ratios. This suggests that r=64 underfits once sufficient supervision is provided. At all data ratios, D-RPC remains the strongest policy, achieving the best accuracy across most fractions and peaking at r=128 (69.69% accuracy) while maintaining good format validity. This indicates that its structured guidance is robust to ranking selection and can benefit from additional adapter capacity as the amount of data increases. 
+
+Implications for reasoning space compression. Taken together, experiments demonstrate that the effectiveness of D-RPC depends critically on controlled reasoning space compression. Initializing the reasoning path bank with a diverse yet compact set of reasoning paths yields the best balance between coverage and consistency, improving both average accuracy and training stability. These findings support the central design principle of D-RPC: reasoning paths should be selectively reused and constrained, rather than maximized, to serve as effective, low-variance supervision for SLM distillation. 22 E Proof of Proposition 1 
+
+Proof. By the chain rule for conditional entropy, 
+
+H( Y | X) = H(Π , R, A | X) = H(Π | X) + H( R | X, Π) + H( A | X, Π, R ).
+
+Under Assumption 2, for each x, the conditional distribution Π | X = x is supported on at most 
+
+Kbank values, hence H(Π | X = x) ≤ log Kbank . Taking expectation over X yields E[H(Π | X)] ≤
+
+log Kbank . Substituting into the chain rule gives Eq. (4). 
+
+# F Second-order PAC-Bayes: proof sketches for the bounded-loss route 
+
+For completeness, we state the intermediate results referenced in Section 4 and used in the derivation of Theorem 1. 
+
+Proposition 5 (Bernstein-type PAC-Bayes for bounded losses) . Under Assumption 1, for any prior P
+
+independent of S and any δ ∈ (0 , 1) , with probability at least 1 − δ over S ∼ D n, simultaneously for all posteriors Q,
+
+L(Q) ≤ bLS (Q) + 
+
+s
+
+2 bVS (Q) KL( Q∥P) + ln 1
+
+> δ
+
+
+
+n + c τ  KL( Q∥P) + ln 1
+
+> δ
+
+
+
+n . (8) 
+
+where c > 0 is a universal numerical constant and bVS (Q) := Eθ∼Q[ 1
+
+> n
+
+P
+
+> i
+
+(ℓ(θ; Zi) − bLS (θ)) 2].
+
+Lemma 1 (Mean–variance domination for bounded losses) . Under Assumption 1, bVS (Q) ≤ τ bLS (Q).
+
+Corollary 1 (Mean-dependent second-order PAC-Bayes) . Substituting Lemma 1 into Proposition 5: with probability at least 1 − δ,
+
+L(Q) ≤ bLS (Q) + 
+
+s
+
+2 τ bLS (Q) KL( Q∥P) + ln 1
+
+> δ
+
+
+
+n + c τ  KL( Q∥P) + ln 1
+
+> δ
+
+
+
+n . (9) 
+
+Corollary 2 (Explicit Kbank -dependence) . Under Assumptions 1–3, the same bound holds with 
+
+bLS (Q) replaced by M (Eq. 2) in the square-root term. 
+
+F.1 Proof sketch of Proposition 5 
+
+Proposition 5 is a standard Bernstein-type PAC-Bayes inequality for bounded losses. A typical proof follows these steps: 1. Bernstein mgf bound for bounded variables. For a bounded random variable U ∈ [0 , τ ], one upper bounds log E[exp( λ(E[U ] − U ))] in terms of λ, τ , and Var( U ), yielding a Bernstein-style concentration inequality. 2. Change of measure (Donsker–Varadhan). For any measurable f ,
+
+Eθ∼Q[f (θ)] ≤ KL( Q∥P) + log Eθ∼P[exp( f (θ))] .
+
+3. High-probability conversion. Apply Markov’s inequality and a standard argument to obtain a statement that holds with probability at least 1 − δ, introducing ln(1 /δ ), and obtain a bound simultaneously for all Q.4. Variance-sensitive form. Collect terms to obtain a deviation term scaling with 
+
+qbVS (Q) plus a lower-order O((KL + ln(1 /δ )) /n ) term, where boundedness introduces the factor τ in the latter. 
+
+F.2 Proof of Lemma 1 
+
+Proof. Fix θ and define U as a random variable taking values ℓ(θ; Zi) under the empirical distribution over indices i ∼ Unif {1, . . . , n }. Under Assumption 1, U ∈ [0 , τ ], hence U 2 ≤ τ U . Therefore, 
+
+Var( U ) = E[U 2] − E[U ]2 ≤ τ E[U ] − E[U ]2 ≤ τ E[U ].
+
+Noting that E[U ] = bLS (θ), we obtain 
+
+1
+
+n
+
+> n
+
+X
+
+> i=1
+
+ ℓ(θ; Zi) − bLS (θ)2 = Var( U ) ≤ τ bLS (θ).
+
+Finally, take expectation over θ ∼ Q to get bVS (Q) ≤ τ bLS (Q).23 F.3 Derivation of Corollary 1 
+
+Corollary 1 follows immediately by substituting Lemma 1 (Eq. (1)) into Proposition 5 (Eq. (8)). 
+
+F.4 Derivation of Corollary 2 
+
+Starting from Corollary 1 (Eq. (9) ), apply Assumption 3 (Eq. (5) ) and Proposition 1 (Eq. (4) ) to upper bound bLS (Q) by log Kbank + E[H( R | X, Π)] + E[H( A | X, Π, R )] + ε. Substituting this into Eq. (9) yields Eq. (2). 
+
+# G Norm control and Gaussian KL: proofs 
+
+G.1 Proof of Proposition 2 
+
+Proof. By optimality of ˆθS ,
+
+FS (ˆθS ) ≤ FS (0) =⇒ bLS (ˆθS ) + λ
+
+2 ∥ˆθS ∥22 ≤ bLS (0) .
+
+Since bLS (ˆθS ) ≥ 0, we conclude λ 
+
+> 2
+
+∥ˆθS ∥22 ≤ bLS (0) , which implies Eq. (6). 
+
+G.2 Proof of Proposition 3 
+
+Proof. For isotropic Gaussians N (μ, σ 2post Im) and N (0 , σ 20 Im), the KL divergence has the closed form 
+
+KL = ∥μ∥22
+
+2σ20
+
++ m
+
+2
+
+
+
+ρ − 1 − ln ρ
+
+
+
+, ρ = σ2post 
+
+σ20
+
+.
+
+Setting μ = ˆθS yields the equality in Eq. (7) . The inequality follows by substituting Proposition 2 into the mean-shift term ∥ˆθS ∥22/(2 σ20 ).
+
+# H Formal justification of frozen-model alignment under banking 
+
+This appendix provides the formal proofs behind Proposition 4 (stated in Section 4). The goal is to justify the following condition by a cross-entropy decomposition and designable sufficient conditions. 
+
+Assumption 5 (Frozen-model alignment under banking (restated)) . ES∼D n 
+
+> bank
+
+[bLS (0)] ≤
+
+ES∼D n 
+
+> free
+
+[bLS (0)] .
+
+H.1 Population form and cross-entropy decomposition 
+
+Define the frozen-model population cross-entropy in regime ⋆ ∈ { free , bank } by 
+
+L(⋆)0 := EX EY ∼p(⋆)(·| X)
+
+ − log p0(Y | X), Y = (Π , R, A ).
+
+Assuming integrability so that ES∼(D⋆)n [bLS (0)] = L(⋆)0 , Assumption 5 follows from 
+
+L(bank) 0 ≤ L (free) 0 . (10) For any target conditional p⋆(· | x),
+
+EY∼p⋆(·| x)[−log p0(Y | x)] = H  p⋆(· | x)+ KL  p⋆(· | x)∥p0(· | x),
+
+and averaging over X yields 
+
+L0 = E[H( Y | X)] + EKL  p⋆(· | X)∥p0(· | X) . (11) Thus, Eq. (10) is equivalent to 
+
+∆H + ∆KL ≤ 0, (12) where ∆H and ∆KL denote the bank-minus-free differences of the two terms in Eq. (11) . Proposi-tion 1 implies the Π-banking mechanism reduces (or upper-bounds) the path-uncertainty component through H(Π | X) ≤ log Kbank , while Assumption 5 additionally requires that any increase in mismatch to p0 does not offset the entropy reduction. 24 H.2 Sufficient designable conditions Condition D1 (Bank as projection under the frozen model). Let Pbank (Kbank ) denote the family of conditional distributions supported on a Kbank -template path bank: 
+
+Pbank (Kbank ):= 
+
+n
+
+p(· | x) : supp(Π |X = x) ⊆ B , |B| =Kbank 
+
+o
+
+,
+
+with no restriction on R, A given (X, Π) . Define p⋆ 
+
+> bank
+
+as 
+
+p⋆ 
+
+> bank
+
+∈ arg min 
+
+> p∈Pbank (Kbank )
+
+EX EY ∼p(·| X)[− log p0(Y | X)] . (13) Then L(bank) 0 ≤ L (free) 0 holds by construction. 
+
+Condition D2 (Canonicalization improves frozen likelihood pointwise). If there exists a map c on targets such that for all (x, y ),
+
+− log p0(c(y) | x) ≤ − log p0(y | x), (14) and the banked regime replaces Y by c(Y ) (or restricts support to such canonical forms), then Eq. (10) follows immediately by taking expectations. 
+
+Condition D3 (Entropy drop dominates mismatch increase). From Eq. (12), it suffices that 
+
+E[H free (Y | X)] − E[H bank (Y | X)] ≥ E[KL bank − KL free ],
+
+i.e., any increase in mismatch to p0 is smaller than the entropy reduction due to banking. Under any of Conditions D1–D3, Assumption 5 is justified, establishing Proposition 4. 
+
+# I Proof sketch of Theorem 1 
+
+Proof sketch. Fix δ ∈ (0 , 1) . On the event where Corollary 2 holds (probability at least 1 − δ), set 
+
+Q = QS and apply Proposition 3 to upper bound KL( QS ∥P) by 
+
+1
+
+σ20 λ bLS (0) + m
+
+2
+
+ ρ − 1 − ln ρ.
+
+Substitute this into the deviation terms in Eq. (2) . Then use the definitions of M (Eq. (2) ) and N
+
+(Eq. (3)) to obtain Eq. (1). 25

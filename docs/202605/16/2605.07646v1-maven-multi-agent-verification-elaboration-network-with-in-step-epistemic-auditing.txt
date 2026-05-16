@@ -1,0 +1,571 @@
+Title: MAVEN: Multi-Agent Verification-Elaboration Network with In-Step Epistemic Auditing
+
+URL Source: https://arxiv.org/pdf/2605.07646v1
+
+Published Time: Mon, 11 May 2026 01:25:33 GMT
+
+Number of Pages: 24
+
+Markdown Content:
+# MAVEN: Multi-Agent Verification-Elaboration Network with In-Step Epistemic Auditing 
+
+Yinsheng Yao 
+
+Tongji University Shanghai, China 
+
+2251929@tongji.edu.cn 
+
+Jiehao Tang 
+
+Tongji University Shanghai, China 
+
+2410953@tongji.edu.cn 
+
+Zhaozhen Yang 
+
+Tongji University Shanghai, China 
+
+2252712@tongji.edu.cn 
+
+Dawei Cheng † ∗
+
+Tongji University Shanghai, China 
+
+dcheng@tongji.edu.cn 
+
+## Abstract 
+
+While explicit reasoning trajectories enhance model interpretability, existing paradigms often rely on monolithic chains that lack intermediate verification, allowing early errors to cascade unchecked. This lack of modularity impedes granular auditing and compromises the epistemic trust required for high-stakes applications. We propose MAVEN (Multi-Agent Verification-Elaboration Network with In-Step Epistemic Auditing), a blackboard-inspired framework designed to transform LLMs into deliberate reasoners through explicit role-decoupling. At its core, MAVEN operationalizes an adversarial Skeptic-Researcher-Judge loop, simu-lating expert deliberation by functionally separating logical defense from factual grounding. Experiments on OpenBookQA, TruthfulQA, HALUEVAL and Strate-gyQA benchmarks demonstrate that MAVEN delivers superior reasoning quality across four fine-grained metrics. Notably, MAVEN consistently outperforms la-tent reasoning models such as GEMINI-3.1-Pro and consensus-based baselines (e.g., ReConcile) by generating explicitly structured, modular, and verifiable de-liberation trajectories, rather than relying on implicit internal states or post-hoc consensus. Moreover, comprehensive evaluations confirm that MAVEN is fully model-agnostic, serving as a strong and transferable reasoning booster that yields substantial performance improvements across diverse backbone models. 
+
+## 1 Introduction 
+
+Large Language Models (LLMs) have fundamentally restructured industrial workflows, particularly within knowledge-intensive sectors such as legal auditing, medical diagnostics, and automated fact-checking [OpenAI, 2023, DeepSeek-AI, 2024]. In these critical contexts, the efficacy of an AI system is contingent upon the accuracy of its final output and its capacity for fact-consistent reasoning [Ji et al., 2023, Huang et al., 2025]. However, as query complexity increases, the inherent constraints of monolithic reasoning architectures and linear pipelines [Wei et al., 2022, Zhou et al., 2022] have become pronounced. To establish epistemic trust among professionals, it is imperative to propose a multi-agent collaborative deliberation framework [Du et al., 2023, Li et al., 2023a] capable of providing robust, evidence-backed justifications. In the pursuit of complex multi-step reasoning, the landscape has evolved from basic Chain-of-Thought (CoT) prompting [Wei et al., 2022, Zhou et al., 2022, Wang et al., 2023a,b]. It exposes intermediate rationales but remains brittle to error  
+
+> ∗†Corresponding author. Preprint.
+> arXiv:2605.07646v1 [cs.CL] 8 May 2026
+
+propagation. To address this problem, subsequent architectures introduced non-linear topologies such as Tree-of-Thoughts [Yao et al., 2023a] and Graph-of-Thoughts [Besta et al., 2024, Yue et al., 2024] for richer exploration. Moreover, the paradigm has shifted toward multi-agent collaboration and consensus-based frameworks [Du et al., 2023, Li et al., 2023a, Chen et al., 2024a, Wang et al., 2024, Qian et al., 2024a, Feng et al., 2024], where robustness is enhanced through iterative debate or collective orchestration Dang et al. [2025], Liu et al. [2025]. However, a persistent limitation across these structural advancements is the limited operational decoupling: while personas differ, the generation and verification stages remain tightly coupled within a monolithic process or aggregate outputs at the terminal level Wynn et al. [2025], Li et al. [2025]. Consequently, logically flawed reasoning chains can still achieve consensus through majority agreement, preserving linguistic plausibility while masking underlying factual or logical errors. Recent frontiers in reasoning optimization have yielded substantial gains in task performance, ex-emplified by reinforcement-driven frameworks like DeepSeek-R1 DeepSeek-AI [2025]. Parallelly, sophisticated hallucination detection and uncertainty awareness mechanisms Ji et al. [2023], Huang et al. [2025], Zhao et al. [2024a], Zhang et al. [2024], Orgad et al. [2024], Sawczyn et al. [2026] have been proposed to mitigate unfaithful outputs. Yet, these methods predominantly optimize for terminal accuracy or treat reasoning as an opaque latent process, offering limited guarantees on causal depth and contextual grounding. As evidenced by recent studies Kadavath et al. [2022], Li and Ng [2025], correctness does not equate to trustworthiness; a correct answer derived from unsound logic is as hazardous as an explicit hallucination in mission-critical domains. Current evaluation and modeling paradigms still exhibit a critical gap in enforcing justification transparency and comparative quality throughout the reasoning trajectory Kulkarni et al. [2025], Bar-Shalom et al. [2025]. This underscores the necessity for frameworks that transition beyond black-box inference toward an auditable, multi-stage deliberation process where every intermediate step is subject to discrete verification gates Zhang et al. [2025]. To address these challenges, we propose MAVEN (Multi-Agent Verification-Elaboration Network with In-Step Epistemic Auditing), a blackboard-based deliberative framework that transforms LLMs from intuitive generators into systematic reasoners. The design takes inspiration from the classic blackboard architecture Nii [1986] and supports coordinated multi-agent collaboration on a shared reasoning workspace. MAVEN is designed as a transparent and modular adversarial deliberation network rather than a black-box generator. The framework operates through two interconnected stages: first, Phase I (Intuition-Guided Synthesis) addresses the “anchoring” problem by generating diverse expert intuitions and hierarchical plans to ground the reasoning, thereby preventing the model from drifting into hallucinated trajectories. Subsequently, Phase II (Adversarial Verification Loop) implements a recursive Skeptic-Researcher-Judge mechanism. By enforcing discrete verification gates and parametric probing, MAVEN forces the model to perform “introspection” and “internal critique” before narrative integration, effectively isolating parametric probing from narrative synthesis. Extensive evaluations on several datasets demonstrate that MAVEN not only achieves competitive accuracy against 10 state-of-the-art baselines but also significantly outperforms existing paradigms in reasoning rigor and justification quality, as evidenced by our proposed fine-grained metrics for causal depth and factual grounding. In summary, our contributions are three-fold: • Formulating structured reasoning as a decoupled process of deliberation, verification, and refine-ment, we introduce MAVEN, a novel multi-agent framework that operationalizes this principled decomposition via a blackboard architecture with adversarial verification loops. • We implement a modular reasoning platform integrating role-specific agents and discrete verifi-cation gates, enabling iterative error correction and significantly enhancing the causal rigor and information density of generated explanations. • Extensive experiments on multi-hop reasoning benchmarks demonstrate that MAVEN maintains competitive accuracy while achieving superior reasoning quality, yielding consistent gains in JCD, F&C, C&A and ARS metrics over state-of-the-art baselines. 
+
+## 2 Related Work 
+
+From Prompting to Multi-Agent Deliberation. LLM reasoning has evolved from linear prompt-ing [Wei et al., 2022, Zhou et al., 2022, Wang et al., 2023b] to search-based [Yao et al., 2023a, 2Stylist Phase I: Intuition-Anchored Planning Modular Trace Generation                  
+
+> Rq,R
+> Full MAVEN (h > 2) Fast Path Feedback + K REPLAN REJECT Blackboard Architecture W: Modular & Auditable Shared Workspace Phase ll: Adversarial Loop In-Step Epistemic Auditing General
+> Draft
+> d(0)
+> Final Ans. Input q
+> π
+> d(t)
+> Qver
+> EtWorkspace Planner FastProposer Confidence Scores & Uncertainty Heuristics Cognitive Diversity Layer
+> MultiProposer Critical
+> Data-C
+> Synthesizer Logical Defense Responder
+> Skeptic
+> Researcher Qver
+> Atint
+> Judge
+> Router h ≤ 2
+> Proposer Skeptic Researcher Judge
+> ACCEPT
+> Lookup Update
+> Knowledge Cache K
+> State W: • Claims & Evidence • Judicial Trace • Knowledge Cache K
+> SIG
+> π
+> Notations q: Original user input question R: Initial expert ideas and answers
+> π: Step-by-step task execution plan d(t) : Candidate draft at iteration t Qver : Questions to check for mistakes Atint : Internal defense of the draft Et: Fact report from parametric verification K: Saved facts for consistent reasoning
+> Et
+
+Figure 1: Overview of MAVEN. MAVEN utilizes a blackboard architecture to decouple factual probing from synthesis. Following an Adaptive Router, Phase I grounds hierarchical plans in Expert Intuitions to generate initial drafts. Phase II then initiates an adversarial loop for forensic verification. Throughout the process, a persistent Knowledge Cache enables reasoning resets while preserving verified facts, effectively mitigating hallucination accumulation. Besta et al., 2024] and autonomous structures [Zhou et al., 2024]. Drawing on the "Society of Mind" [Minsky, 1988], multi-agent ecosystems now employ symmetric debate [Chen et al., 2024a, Du et al., 2023], asymmetric personas [Chan et al., 2023, Wang et al., 2024], and collaborative frameworks spanning evolutionary to software-centric models [Wynn et al., 2025, Yuan et al., 2025, Nascimento et al., 2023, Qian et al., 2024b, Zhao et al., 2024b, Wu et al., 2024, Qian et al., 2024c, Hong et al., 2024]. However, many systems still optimize for terminal agreement and may propagate early mistakes when consensus is reached without explicit verification gates. Echoing the view that correctness alone does not imply trustworthy reasoning [Kadavath et al., 2022, Zhao et al., 2024a], MAVEN emphasizes a complete, verifiable logical chain. It adopts a blackboard architecture for de-coupled orchestration, adversarial deliberation, and structural replanning, enabling agents to challenge intermediate assumptions rather than only reconcile final outputs. By extending feedback-driven refinement and step-wise validation [Madaan et al., 2023, Shinn et al., 2023, Lightman et al., 2024], MAVEN prioritizes auditable, cross-agent accountability over static convergence. 
+
+Factuality Verification and Evaluation. To mitigate LLM hallucinations [Ji et al., 2023], prior work explored confidence calibration [Kadavath et al., 2022, Zhang et al., 2024], self-detection [Zhao et al., 2024a], and cross-examination [Cohen et al., 2023], alongside fine-grained evaluation rubrics [Ye et al., 2024, Pal et al., 2023]. While recent latent reasoners demonstrate strong capabilities [DeepSeek-AI, 2025], their opaque nature limits auditability and error attribution. Researchers have thus combined multi-agent deliberation [Yue et al., 2024, Chen et al., 2024b] with iterative verify-and-edit mechanisms [Gao et al., 2023, Zhao et al., 2023, Schick et al., 2023]. Although these loops and step-wise validations [Madaan et al., 2023, Lightman et al., 2024] often improve outcomes, they can still converge without causal transparency. MAVEN addresses this gap by mandating cross-agent verification at each reasoning step; by grounding state transitions in verified evidence, it offers an interpretable alternative that synergizes with ReAct-style coupling [Yao et al., 2023b] and logic-enhanced reasoning [Pan et al., 2023]. 
+
+## 3 Methodology 
+
+3.1 Problem Formulation 
+
+Given a complex query q requiring multi-hop reasoning, our goal is to produce a final answer a∗ that is both factually accurate and logically coherent. We formalize this as an iterative refinement process over a shared workspace W, coordinated by specialized agents through structured interventions. 3At each discrete time step t, the workspace state is defined as: 
+
+Wt = ⟨q, R, π, d (t), Aint  
+
+> t
+
+, Kt, Vt⟩ (1) where q is the input query; R = {r1, . . . , r N } denotes the set of N expert intuitions; π is the hierarchical reasoning plan; d(t) is the candidate draft at iteration t; Aint  
+
+> t
+
+represents the internal justifications generated during deliberation; Kt is a persistent knowledge cache mapping verified claims to supporting evidence; and Vt is the judicial trace recording all deliberation decisions. 
+
+3.2 Architecture Overview 
+
+Figure 1 illustrates the overall architecture. MAVEN is built on the blackboard architecture paradigm, where the global workspace W functions as a “cognitive ledger” enabling state-aware interventions by specialized agents. Unlike linear pipelines that accumulate errors, MAVEN facilitates recursive feedback loops where reasoning states are dynamically updated and scrutinized. This centralized workspace manages cross-agent dependencies, allowing the system to reset reasoning paths when contradictions are detected. The architecture comprises two phases: (I) Intuition-Guided Synthesis, which anchors initial plans in expert knowledge, and (II) Adversarial Deliberation, which subjects drafts to iterative refinement through forensic auditing. By decoupling factual probing from synthesis, MAVEN maintains structural integrity even as query complexity scales. To optimize computational efficiency, a Router agent estimates the reasoning complexity h—defined as the number of required factual verifications or logical inferences—and directs queries accordingly: Path (q) = FAST _P ATH if h ≤ τ ; FULL _M AVEN if h > τ. 
+
+where τ = 2 is the complexity threshold. Simple queries bypass the full deliberation loop via the Fast Path, while complex queries activate the complete pipeline. A core design principle is the categorical separation of generation, critique, retrieval, and adjudication into isolated operational stages. This prevents “hallucination drift” (an agent’s stochastic biases contaminate collective reasoning) by ensuring that no single agent controls both claim generation and verification. 
+
+3.3 Phase I: Modular Intuition-Guided Synthesis 
+
+A primary failure mode in agentic planning is “unbounded drifting,” where planners generate logically sound but factually ungrounded roadmaps. MAVEN addresses this through a three-stage process. Stage 1: Expert Intuition Anchoring. A set of N independent FastProposer agents generate intuitive responses R = {r1, . . . , r N }, each paired with an associated confidence score. These confidence scores and the variance across R serve as uncertainty heuristics: high consensus indicates straightfor-ward tasks, while high divergence signals latent ambiguity requiring deeper verification. Stage 2: Grounded Planning. The Planner agent transforms q and R into a structured reasoning plan π. Critically, the Planner is designed to detect contradictions within R and incorporate explicit verification steps, ensuring that π is anchored in identified uncertainties rather than assumed facts. Stage 3: Divergent Perspective Synthesis. To mitigate premature cognitive closure and ensure divergent perspective coverage, a MultiProposer agent generates candidate drafts through a Cog-nitive Diversity Layer encompassing three analytical lenses: (i) General, focusing on systematic drafting aligned with π; (ii) Critical, proactively interrogating potential risks; and (iii) Data-Centric, prioritizing quantitative and empirical evidence. Subsequently, the Synthesizer reconciles these perspectives—identifying consensus and resolving contradictions based on evidential strength—to integrate unique insights into a unified initial draft d(0) .
+
+3.4 Phase II: Adversarial Deliberation with In-Step Epistemic Auditing 
+
+The core of MAVEN lies in its recursive adversarial loop, where drafts undergo forensic auditing through four functionally decoupled agents: Skeptic, Responder, Researcher, and Judge. Skeptic (Forensic Scrutiny). The Skeptic performs a rigorous critique of the current draft d(t) along four investigative dimensions: (i) Fact Verification: probing numerical claims and statistics; (ii) Logical Coherence: identifying contradictions or non-sequiturs; (iii) Causal Scrutiny: question-ing oversimplified cause-effect relationships; and (iv) Adversarial Questioning: challenging core assumptions. This produces a set of verification questions Qver , each tagged with type and priority. 4Algorithm 1: MAVEN Deliberation Workflow 
+
+Input: Query q, iteration limit Tmax 
+
+Output: Final answer a∗
+
+if ROUTER (q) = FAST_PATH then return FAST PATH (q)
+
+R ← FAST PROPOSER (q); π ← PLANNER (q, R ); d ←
+
+SYNTHESIZER (MULTI PROPOSE (q, π, R )) ; K ← ∅ 
+
+for t ← 0 to Tmax − 1 do 
+
+Q ← SKEPTIC (d); E, K ← RESEARCHER (Q, RESPONDER (d, Q), K)
+
+δ, d ′, f ← JUDGE (π, d, E ) // f is reasoning feedback 
+
+if δ = ACCEPT then return STYLIST (d)
+
+if δ = REPLAN then 
+
+π ← PLANNER (q, f ); d ← SYNTHESIZER (MULTI PROPOSE (q, π, R )) 
+
+else d ← d′
+
+return STYLIST (d)
+
+Responder (Internal Defense). The Responder justifies d(t) against Qver using only parametric knowledge, without external retrieval. By forcing explicit articulation of the reasoning chain, this stage exposes latent assumptions and potential biases, producing internal justifications Aint  
+
+> t
+
+that make the model’s logical defense transparent and auditable. Researcher (Parametric Probing). The Researcher performs independent fact-checking by: (i) validating specific claims in Qver through parametric knowledge probing; (ii) contrasting verified facts against Aint  
+
+> t
+
+; and (iii) calibrating confidence in findings. This yields an evidence report Et and updates the persistent knowledge cache: 
+
+Kt+1 = Kt ∪ { (c, e ) | c ∈ Q ver , e = VERIFY (c)} (2) The decoupling of internal defense from independent parametric verification prevents propagation of plausible but incorrect reasoning. Judge (Adjudication). The Judge issues verdicts based on multi-dimensional evaluation across four criteria: factual accuracy, logical coherence, completeness (alignment with π), and neutrality. Based on the plan π, current draft d(t), and evidence report Et, the Judge produces a verdict 
+
+δ ∈ { ACCEPT , REJECT , REPLAN } that determines state transitions: Accept finalizes the draft for stylistic refinement; Reject triggers targeted revision producing d(t+1) ; Replan generates a new plan 
+
+π incorporating feedback while preserving Kt.Finalization. Upon an Accept verdict, a Stylist agent performs linguistic refinement on the final draft, improving fluency and readability without altering the factual content or logical structure. 
+
+3.5 Deliberation Pipeline and Robustness 
+
+The execution flow of MAVEN is summarized in Algorithm 1. The framework follows a bounded iterative deliberation process that terminates either upon a Judge Accept verdict or when the maximum iteration budget Tmax is reached. To ensure stable multi-agent execution, MAVEN integrates two robustness mechanisms. The Structural Integrity Gate (SIG) validates all inter-agent communications against predefined schemas before state transitions, employing a three-tier extraction strategy—direct JSON parsing, regex-based extraction upon failure, and Markdown code fence isolation as fall-back—with schema violations triggering error traces for agent self-correction to ensure workspace consistency under stochastic LLM formatting variations. Additionally, the knowledge cache K
+
+persists across Replan cycles: when narrative resets occur, drafts and plans are discarded but verified facts are retained, enabling backend consistency check. While K prevents redundant probing, the Judge’s textual feedback explicitly informs the Planner of failed claims to guide logical replanning. 54 Experiments 
+
+4.1 Experimental Settings 
+
+To comprehensively evaluate MAVEN’s capability in logical deduction, hallucination mitigation, and factual robustness, we benchmark the framework across OpenBookQA (OBQA) Mihaylov et al. [2018], TruthfulQA (TQA) Lin et al. [2022], HaluEval Li et al. [2023b] and StrategyQA (SQA) Geva et al. [2021]. For each dataset, we randomly sample 300 instances from the official test set. We verify the statistical robustness of our comparisons using McNemar’s test for accuracy and the Wilcoxon signed-rank test for quality scores, marking significant improvements ( p < 0.05 ) with † in our result tables. As shown in Table 1, we compare MAVEN against two baseline categories: agentic reasoning frameworks and frontier LLMs in zero-shot regimes. MAVEN uses DeepSeek-V3.2 as the backbone with deliberation constrained to Tmax = 3 iterations and temperature 0.0. We adopt an LLM-as-a-Judge protocol assessing justification quality (1–100 scale) across four dimensions: Justification Plausibility and Causal Depth (JCD), Factual Accuracy and Contextualization (F&C), Completeness and Comparative Analysis (C&A), and Argument Richness and Structure (ARS). A blind human preference study additionally validates the automated evaluation protocol. 
+
+4.2 Performance on Benchmarks 
+
+Table 1 summarizes answer accuracy (Acc) and four justification metrics (JCD, F&C, C&A, ARS) on OBQA, TQA, HaluEval, and SQA. MAVEN consistently delivers the strongest explanation quality across all datasets: it ranks best on JCD, C&A, and ARS in every benchmark, and achieves the best F&C on OBQA, HaluEval, and SQA, while remaining close to the top on TQA (90.90 vs. 91.37 for Gemini-3.1-Pro). Accuracy stays competitive—fourth on OBQA (96.33 vs. 98.00) and tied for third on HaluEval (98.33 vs. 99.00)—though it is lower on TQA and SQA, where Mixture-of-Agents (93.67) and Gemini-3.1-Pro (85.67) lead. Overall, MAVEN’s blackboard-based, verification-driven deliberation markedly improves causal depth, grounding, completeness, and structural rigor of justifications without materially sacrificing task performance. To validate that our improvements are not artifacts of the GPT-4o judge, we additionally conduct a blind human preference study. We randomly sample 50 instances from each dataset and recruit 5 annotators, all of whom are PhD students. For each instance, annotators are shown five anonymized responses (MAVEN, Mixture-of-Agents, Self-Discover, ReConcile and GEMINI-3.1-PRO) in ran-domized order, and are asked to select the best and second-best response using the same four explanation-quality criteria as in our automatic evaluation (JCD, F&C, C&A, ARS). Human prefer-ences are consistent with the automatic evaluation results, with MAVEN receiving the highest top-1 and top-2 selections across datasets. 
+
+4.3 Component Contribution 
+
+To quantify the contribution of MAVEN’s core components, we conduct an ablation study on all four benchmarks (Table 2). Across datasets, the iterative deliberation loop is the dominant driver of performance: removing iterations ( Tmax = 1 ) causes the largest and most consistent degradation in both Acc and justification quality, with notable Acc drops on OBQA (96.33 to 93.33), TQA (90.00 to 87.00), and SQA (82.00 to 76.67), alongside substantial declines in JCD/C&A/ARS (e.g., JCD 90.77 to 88.95 on TQA and 91.46 to 89.45 on SQA). Removing MultiProposer yields a milder but broad decrease across all metrics, suggesting that multi-perspective proposal diversity improves evidence coverage and reduces blind spots (e.g., OBQA JCD 92.92 to 90.26; HaluEval C&A 91.27 to 90.83). Removing FastProposer also hurts robustness, particularly on Acc for OBQA/SQA/TQA (93.67/77.33/87.67), indicating that early high-confidence anchors help stabilize subsequent ver-ification and refinement. Overall, the components act complementarily: iterations provide the core verification gains, while early anchoring and diverse proposals further improve coverage and justification structure. 6Table 1: Comparison on four benchmarks reporting Acc and four explanation-quality dimensions. MAVEN delivers consistent justification-quality gains while maintaining competitive accuracy. †
+
+indicates the corresponding method is significantly worse than MAVEN ( p < 0.05 ) using McNemar’s test for Acc and Wilcoxon signed-rank test for quality dimensions. 
+
+OPENBOOKQA TRUTHFULQA Method ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+LMVSLM 94.00 † 87.50 † 90.07 † 86.54 † 90.05 † 84.33 † 87.57 † 88.18 † 84.99 † 90.63 †
+
+Mixture-of-Agents 94.67 87.33 † 89.93 † 86.80 † 89.40 † 93.67 86.42 † 90.32 86.64 † 89.97 †
+
+Multi-LLM Collab 94.00 † 88.70 † 90.51 † 87.87 † 90.49 † 87.00 † 87.32 † 89.07 86.18 † 91.57 †
+
+ReConcile 95.33 84.47 † 88.30 † 80.57 † 83.17 † 79.67 † 79.81 † 83.37 † 75.46 † 84.35 †
+
+Self-Detection 95.00 86.60 † 89.85 † 86.34 † 89.98 † 87.00 † 87.04 † 88.62 † 85.78 † 90.43 †
+
+Self-Discover 96.67 89.47 † 90.98 † 88.21 † 90.41 † 87.33 86.91 † 88.84 † 85.02 † 90.05 †
+
+DEEPSEEK-V3.2 95.67 82.91 † 83.02 † 80.96 † 83.85 † 85.67 † 82.82 † 87.52 † 83.48 † 85.97 †
+
+DEEPSEEK-R1 97.33 78.73 † 85.09 † 67.92 † 71.08 † 90.00 84.62 † 88.19 † 84.04 † 89.28 †
+
+GEMINI-3.1-PRO 98.00 86.33 † 89.95 † 84.42 † 88.63 † 92.33 89.43 91.37 88.11 † 93.13 †
+
+GPT-5.1 94.33 † 83.22 † 87.45 † 79.32 † 84.35 † 90.00 87.53 † 90.76 87.54 † 92.30 †
+
+MAVEN 96.33 92.92 93.77 89.92 96.10 90.00 90.77 90.90 89.37 96.38 HALUEVAL STRATEGYQA Method ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+LMVSLM 93.00 † 88.37 † 94.87 † 87.14 † 89.45 † 82.00 89.67 † 91.30 † 84.64 † 89.68 †
+
+Mixture-of-Agents 96.67 85.13 † 93.90 † 88.15 † 87.30 † 83.67 89.47 † 91.77 † 85.35 † 89.82 †
+
+Multi-LLM Collab 91.00 † 88.43 † 93.15 † 86.88 † 89.85 81.67 90.12 † 91.48 † 86.08 † 89.83 †
+
+ReConcile 96.67 85.44 † 94.10 † 87.75 † 87.92 † 78.00 † 80.92 † 86.23 † 76.44 † 86.37 †
+
+Self-Detection 98.67 89.20 97.34 † 88.85 † 89.83 82.33 89.02 † 90.72 † 84.55 † 89.83 †
+
+Self-Discover 98.00 88.07 † 97.52 † 89.17 † 87.15 † 81.00 88.75 † 90.78 † 83.88 † 89.52 †
+
+DEEPSEEK-V3.2 96.33 85.92 † 94.18 † 87.30 † 83.85 † 81.33 84.46 † 85.48 † 80.87 † 86.49 †
+
+DEEPSEEK-R1 98.00 87.58 † 97.35 † 89.25 † 87.72 84.00 86.13 † 89.92 † 82.73 † 87.77 †
+
+GEMINI-3.1-PRO 98.33 88.67 † 97.95 89.18 † 89.68 85.67 87.75 † 90.13 † 82.04 † 87.17 †
+
+GPT-5.1 99.00 85.67 † 96.92 † 89.30 † 84.40 † 84.67 86.78 † 90.40 † 82.77 † 87.88 †
+
+MAVEN 98.33 90.70 98.08 91.27 90.85 82.00 91.46 92.72 87.84 93.11 4.4 Qualitative Analysis and Case Study 
+
+To demonstrate how MAVEN elevates reasoning quality, Table 3 presents a representative trace from StrategyQA. While the initial draft correctly identified the ground truth (Yes), its justification relied on superficial heuristics. MAVEN’s adversarial loop immediately intervened: the Skeptic probed the underlying causal mechanisms, prompting the Researcher to anchor the comparison in empirical taxonomy (fragile aquatic chemoautotrophy vs. resilient terrestrial heterotrophy). Recognizing this epistemic gap, the Judge issued a Reject verdict, forcing the system to assimilate these scientific principles. The finalized draft successfully transformed a basic procedural comparison into a rigorous, biologically grounded analysis. Broader qualitative analysis reveals that MAVEN’s occasional underperformance in absolute accuracy relative to massive closed-source models stems from its conservative deliberation strategy. For straightforward queries, the Skeptic’s hyper-vigilance can trigger over-correction or non-committal stances, marginally depressing rigid accuracy scores. However, this reflects a deliberate architectural preference for cautious validation over unverified commitment. As shown in Table 3, this conservative scrutiny yields explicitly structured and auditable reasoning trajectories, preventing hallucination drift. In safety-critical domains (e.g., medicine or law), such interpretability and forensic verifiability make principled deliberation strictly preferable to opaque gains in raw accuracy. 7Table 2: Ablation results across four benchmarks. We report Acc and four explanation-quality dimensions (JCD, F&C, C&A, ARS). Each variant removes one component from the full framework; removing iterative deliberation ( Tmax = 1 ) yields the largest and most consistent drop across datasets. 
+
+Variant OPENBOOKQA TRUTHFULQA ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+Full Framework 96.33 92.92 93.77 89.92 96.10 90.00 90.77 90.90 89.37 96.38 
+
+− MultiProposer 95.33 90.26 92.32 89.39 94.95 88.33 89.23 89.65 89.08 88.10 
+
+− Iterations 93.33 90.27 91.05 88.21 93.85 87.00 88.95 88.18 88.55 92.20 
+
+− FastProposer 93.67 91.45 92.03 88.87 95.26 87.67 89.39 89.74 88.56 90.91 
+
+Variant HALUEVAL STRATEGYQA ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+Full Framework 98.33 90.70 98.08 91.27 90.85 82.00 91.46 92.72 87.84 93.11 
+
+− MultiProposer 97.67 90.37 97.77 90.83 90.42 80.67 90.33 91.01 87.32 92.06 
+
+− Iterations 97.33 89.99 97.43 90.49 90.06 76.67 89.45 90.75 86.03 90.10 
+
+− FastProposer 97.67 90.12 97.67 90.63 90.28 77.33 90.62 91.50 86.68 91.11 Table 3: MAVEN Case Study. A demonstration from StrategyQA. Through adversarial deliberation, MAVEN upgrades its reasoning from superficial heuristics to rigorous ecological system analysis, successfully rectifying its initial causal gaps. 
+
+User Query: Are goldfish more difficult to care for than isopods? Ground Truth: True (Yes) 
+
+Initial Draft 
+
+"...Goldfish require a large aquarium. The nitrogen cycle is mandatory and takes 4-8 weeks. Isopods require a physical humidity gradient which is simpler to create. Goldfish care is proactive, isopod care is reactive..." 
+
+SKEPTIC "Explain the precise biochemical mechanisms of the aquarium nitrogen cycle ( N H 3 →
+
+N O − 
+
+> 2
+
+→ N O − 
+
+> 3
+
+) versus isopod decomposition. Quantify the difference in microbial com-plexity and stability." 
+
+RESEAR -
+
+> CHER
+
+"The aquarium nitrogen cycle is a linear, specialized chemoautotrophy dominated by a few genera. It is functionally fragile. The isopod enclosure relies on a web-like, generalized heterotrophy involving diverse kingdoms and is highly resilient due to functional redundancy." 
+
+JUDGE REJECT. Reasoning: The evidence report validates the technical claims but highlights that the draft’s causal analysis of system stability is incomplete. The draft must be revised to integrate the precise biochemical vulnerabilities of aquatic vs. terrestrial microbial networks. 
+
+Revised Draft 
+
+"...Goldfish live in a closed aquatic medium requiring a biological nitrogen cycle—a sim-plified, vulnerable metabolic pathway where specialized bacteria sequentially oxidize toxic ammonia. In contrast, isopods rely on a complex, resilient heterotrophic decomposition network providing a biological buffer. Therefore, goldfish are unequivocally more difficult due to the required precision of environmental control." 
+
+4.5 Iteration Count Sensitivity and System Stability 
+
+To investigate the impact of deliberation depth on MAVEN’s performance, we conduct a sensitivity analysis by varying Tmax from 1 to 6, where Tmax = 1 represents a baseline without adversarial deliberation. As shown in Figure 2, the steepest improvements occur between Tmax = 1 and 
+
+Tmax = 3 , validating that 1–2 rounds of forensic scrutiny effectively rectify initial hallucinations. Critically, MAVEN’s curves do not exhibit deliberative over-thinking; instead, metrics plateau into stable asymptotes for T ≥ 4. This robustness stems from the Judge Agent acting as a deterministic early-stopping gate once quality thresholds are met, and Epistemic Persistence of the knowledge cache preventing circular debates by anchoring verified facts. We recommend Tmax = 3 as the optimal configuration, balancing efficiency with deliberative rigor. 81 2 3 4 5 6
+
+(a) OBQA T 
+
+90 
+
+95 
+
+> Score
+
+1 2 3 4 5 6
+
+(b) TQA T 
+
+90 
+
+95 
+
+1 2 3 4 5 6
+
+(c) HALUEVAL T 
+
+90 
+
+95 
+
+1 2 3 4 5 6
+
+(d) SQA T 
+
+80 
+
+90 
+
+Acc (%) Just (%) Fact (%) Comp (%) Rich (%) Figure 2: Sensitivity analysis of Tmax (1–6) across four datasets. MAVEN exhibits asymptotic convergence. Performance leaps significantly from T = 1 to T = 3 , after which the Judge agent’s thresholding mechanism stabilizes the reasoning trajectory, preventing deliberative over-thinking. Table 4: Backbone generalization on four benchmarks. Results are reported as base model vs. base +MAVEN for two frontier models and two lightweight models. MAVEN yields consistent im-provements in Acc and all explanation-quality dimensions (JCD, F&C, C&A, ARS), with particularly strong justification gains on lightweight and open-source backbones. 
+
+OPENBOOKQA TRUTHFULQA Backbone / Method ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+DeepSeek-V3.2 Base 95.67 82.91 83.02 80.96 83.85 85.67 82.82 87.52 83.48 85.97 
+
++ MAVEN 96.33 92.92 93.77 89.92 96.10 90.00 90.77 90.90 89.37 96.38 GPT-5.1 Base 94.33 83.22 87.45 79.32 84.35 90.00 87.53 90.76 87.54 92.30 
+
++ MAVEN 95.00 92.52 94.98 89.02 90.98 91.33 93.44 92.85 92.87 97.00 GPT-4o-mini Base 92.67 82.81 82.07 78.96 81.55 73.00 80.33 81.23 76.77 85.37 
+
++ MAVEN 93.33 88.04 90.98 83.69 88.95 77.67 85.24 88.46 80.20 89.96 Qwen3-8B Base 92.67 83.63 81.98 79.31 89.73 63.00 78.60 77.37 74.94 84.22 
+
++ MAVEN 93.67 90.12 91.66 86.25 90.10 66.00 83.73 82.41 80.08 88.85 
+
+HALUEVAL STRATEGYQA Backbone / Method ACC JCD F&C C&A ARS ACC JCD F&C C&A ARS 
+
+DeepSeek-V3.2 Base 96.33 85.92 94.18 87.30 83.85 81.33 84.46 85.48 80.87 86.49 
+
++ MAVEN 98.33 90.70 98.08 91.27 90.85 82.00 91.46 92.72 87.84 93.11 GPT-5.1 Base 99.00 85.67 96.92 89.30 84.40 84.67 86.78 90.40 82.77 87.88 
+
++ MAVEN 99.33 91.59 98.48 93.17 91.02 85.00 92.31 93.14 88.77 93.29 GPT-4o-mini Base 96.67 83.72 88.64 85.78 86.56 75.67 83.94 87.87 80.05 85.98 
+
++ MAVEN 98.00 89.44 98.21 90.18 88.73 76.67 86.77 89.62 83.54 89.30 Qwen3-8B Base 95.67 80.76 86.72 84.48 83.67 73.33 81.90 84.69 77.57 84.77 
+
++ MAVEN 97.33 88.64 97.44 91.82 89.44 74.00 82.69 86.00 78.46 85.60 
+
+4.6 Generalizability across Backbones 
+
+To assess MAVEN’s model-agnostic nature, we evaluate it across diverse backbones including frontier models (GPT-5.1, DeepSeek-V3.2), lightweight variants (GPT-4o-mini), and open-source models (Qwen3-8B). As shown in Table 4, MAVEN consistently improves both accuracy and justification quality across all configurations and datasets. Frontier models achieve substantial gains: GPT-5.1+MAVEN attains the highest TQA scores in JCD (93.44) and ARS (97.00), while DeepSeek-V3.2+MAVEN shows pronounced improvements on OBQA, with JCD rising from 82.91 to 92.92 and ARS from 83.85 to 96.10, alongside similar gains on SQA where JCD increases from 84.46 to 91.46. The impact on lightweight models is equally notable—GPT-4o-mini+MAVEN achieves substantial F&C improvements on HaluEval (from 88.64 to 98.21) and TQA (from 81.23 to 88.46), while Qwen3-8B+MAVEN yields consistent enhancements across all metrics on HaluEval, with JCD improving from 80.76 to 88.64 and C&A from 84.48 to 91.82. Notably, justification-quality gains consistently exceed accuracy improvements across all backbones and datasets, indicating 9that MAVEN’s explicit scaffolding systematically enhances structural rigor and logical coherence regardless of model scale. 
+
+4.7 Computational Efficiency of Adaptive Routing 
+
+To evaluate the practical efficiency of MAVEN’s Adaptive Complexity Router, we analyze the routing distribution and computational savings across all four benchmarks. The Router demonstrates clear sensitivity to task complexity, which is consistently reflected in both routing decisions and token usage: on StrategyQA, where implicit multi-hop reasoning is often required, 71.7% of queries are routed to Full MAVEN and the average token consumption reaches 44.8k per query; in contrast, on HaluEval, whose queries demand less multi-hop reasoning, 96.3% are routed through the Fast Path with a much lower average token usage of 10.6k tokens per query. Aggregating across all 1,200 test queries, Adaptive Routing reduces total wall-clock time by 43.5% and token consumption by 43.9%. These efficiency gains do not compromise reasoning quality, MAVEN achieves superior justification scores across all datasets despite routing approximately half of queries through the lightweight Fast Path, confirming that the Router accurately identifies queries where full deliberation provides marginal benefit. 
+
+## 5 Conclusion 
+
+We introduce MAVEN (Multi-Agent Verification-Elaboration Network with In-Step Epistemic Auditing), a stateful multi-agent framework that transforms large language models into explicit and auditable reasoners. By coupling expert intuition anchoring with an adversarial Skep-tic–Researcher–Judge loop, MAVEN enforces causal rigor and systematic verification while re-maining agnostic to the underlying backbone model. Empirical evaluations on OpenBookQA, TruthfulQA, HaluEval, and StrategyQA demonstrate consistent gains across causal depth, factual grounding, and consistency, outperforming both frontier LLMs and specialized agentic systems. The framework is particularly well suited for high-stakes domains where reliability and interpretability are critical. Current limitations include computational overhead from iterative multi-agent calls and verification bounded by parametric memory. Future work will integrate RAG pipelines and real-time web search to enable dynamic knowledge grounding beyond the model’s training cutoff. 
+
+## References 
+
+OpenAI. Gpt-4 technical report. Technical report, OpenAI, March 2023. URL https://cdn. openai.com/papers/gpt-4.pdf . Version 6 (last revised 4 March 2024). DeepSeek-AI. Deepseek-v3 technical report. Technical report, DeepSeek-AI, December 2024. URL 
+
+https://arxiv.org/pdf/2412.19437 . arXiv:2412.19437 [cs.CL], last revised February 2025 (v2). Ziwei Ji, Nayeon Lee, Rita Frieske, Tiezheng Yu, Dan Su, Yan Xu, Etsuko Ishii, Ye Jin Bang, Andrea Madotto, and Pascale Fung. Survey of hallucination in natural language generation. ACM computing surveys , 55(12):1–38, 2023. Lei Huang, Weijiang Yu, Weitao Ma, Weihong Zhong, Zhangyin Feng, Haotian Wang, Qianglong Chen, Weihua Peng, Xiaocheng Feng, Bing Qin, et al. A survey on hallucination in large language models: Principles, taxonomy, challenges, and open questions. ACM Transactions on Information Systems , 43(2):1–55, 2025. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Fei Xia, Ed Chi, Quoc V Le, Denny Zhou, et al. Chain-of-thought prompting elicits reasoning in large language models. Advances in neural information processing systems , 35:24824–24837, 2022. Denny Zhou, Nathanael Schärli, Le Hou, Jason Wei, Nathan Scales, Xuezhi Wang, Dale Schuurmans, Claire Cui, Olivier Bousquet, Quoc Le, et al. Least-to-most prompting enables complex reasoning in large language models. arXiv preprint arXiv:2205.10625 , 2022. Yilun Du, Shuang Li, Antonio Torralba, Joshua B Tenenbaum, and Igor Mordatch. Improving factuality and reasoning in language models through multiagent debate. In Forty-first International Conference on Machine Learning , 2023. 10 Guohao Li, Hasan Hammoud, Hani Itani, Dmitrii Khizbullin, and Bernard Ghanem. Camel: Com-municative agents for" mind" exploration of large language model society. Advances in Neural Information Processing Systems , 36:51991–52008, 2023a. Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed H. Chi, Sharan Narang, Aakanksha Chowdhery, and Denny Zhou. Self-consistency improves chain of thought reasoning in language models. In The Eleventh International Conference on Learning Representations , 2023a. URL 
+
+https://openreview.net/forum?id=1PL1NIMMrw . ICLR 2023 poster. Lei Wang, Wanyu Xu, Yihuai Lan, Zhiqiang Hu, Yunshi Lan, Roy Ka-Wei Lee, and Ee-Peng Lim. Plan-and-solve prompting: Improving zero-shot chain-of-thought reasoning by large language models. arXiv preprint arXiv:2305.04091 , 2023b. Shunyu Yao, Dian Yu, Jeffrey Zhao, Izhak Shafran, Tom Griffiths, Yuan Cao, and Karthik Narasimhan. Tree of thoughts: Deliberate problem solving with large language models. Advances in neural information processing systems , 36:11809–11822, 2023a. Maciej Besta, Nils Blach, Ales Kubicek, Robert Gerstenberger, Michal Podstawski, Lukas Gianinazzi, Joanna Gajda, Tomasz Lehmann, Hubert Niewiadomski, Piotr Nyczyk, et al. Graph of thoughts: Solving elaborate problems with large language models. In Proceedings of the AAAI conference on artificial intelligence , volume 38, pages 17682–17690, 2024. Murong Yue, Jie Zhao, Min Zhang, Liang Du, and Ziyu Yao. Large language model cascades with mixture of thoughts representations for cost-efficient reasoning. In The Twelfth International Conference on Learning Representations , May 2024. URL https://openreview.net/forum? id=6okaSfANzh . ICLR 2024 poster. Justin Chen, Swarnadeep Saha, and Mohit Bansal. Reconcile: Round-table conference improves reasoning via consensus among diverse llms. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 7066–7085, 2024a. Junlin Wang, Jue Wang, Ben Athiwaratkun, Ce Zhang, and James Zou. Mixture-of-agents enhances large language model capabilities. arXiv preprint arXiv:2406.04692 , 2024. Chen Qian, Zihao Xie, Yifei Wang, Wei Liu, Kunlun Zhu, Hanchen Xia, Yufan Dang, Zhuoyun Du, Weize Chen, Cheng Yang, et al. Scaling large language model-based multi-agent collaboration. 
+
+arXiv preprint arXiv:2406.07155 , 2024a. Shangbin Feng, Weijia Shi, Yike Wang, et al. Don’t hallucinate, abstain: Identifying llm knowledge gaps via multi-llm collaboration. In Proceedings of the 62nd Annual Meeting of the ACL , pages 14664–14690, 2024. Yufan Dang, Chen Qian, Xueheng Luo, Jingru Fan, Zihao Xie, Ruijie Shi, Weize Chen, Cheng Yang, Xiaoyin Che, Ye Tian, et al. Multi-agent collaboration via evolving orchestration. arXiv preprint arXiv:2505.19591 , 2025. Yexiang Liu, Jie Cao, Zekun Li, Ran He, and Tieniu Tan. Breaking mental set to improve reasoning through diverse multi-agent debate. In The Thirteenth International Conference on Learning Representations , 2025. Andrea Wynn, Harsh Satija, and Gillian Hadfield. Talk isn’t always cheap: Understanding failure modes in multi-agent debate. arXiv preprint arXiv:2509.05396 , September 2025. URL https: //arxiv.org/abs/2509.05396 . v2 (13 Oct 2025); Accepted to ICML 2025 Multi-Agent Systems Workshop. Haoran Li, Ziyi Su, Yun Xue, Zhiliang Tian, Yiping Song, and Minlie Huang. Advancing collaborative debates with role differentiation through multi-agent reinforcement learning. In Proceedings of the 63rd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,pages 22655–22666, 2025. DeepSeek-AI. Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning. 
+
+arXiv preprint arXiv:2501.12948 , 2025. 11 Yukun Zhao, Lingyong Yan, Weiwei Sun, Guoliang Xing, Chong Meng, Shuaiqiang Wang, Zhicong Cheng, Zhaochun Ren, and Dawei Yin. Knowing what llms do not know: A simple yet effective self-detection method. In Proceedings of the 2024 conference of the north American chapter of the Association for Computational Linguistics: Human language technologies (Volume 1: Long Papers) , pages 7051–7063, 2024a. Hanning Zhang, Shizhe Diao, Yong Lin, Yi Fung, Qing Lian, Xingyao Wang, Yangyi Chen, Heng Ji, and Tong Zhang. R-tuning: Instructing large language models to say ‘I don’t know’. In Kevin Duh, Helena Gomez, and Steven Bethard, editors, Proceedings of the 2024 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies (Volume 1: Long Papers) , pages 7113–7139, Mexico City, Mexico, June 2024. Association for Computational Linguistics. doi: 10.18653/v1/2024.naacl-long.394. URL https: //aclanthology.org/2024.naacl-long.394/ .Hadas Orgad, Michael Toker, Zorik Gekhman, Roi Reichart, Idan Szpektor, Hadas Kotek, and Yonatan Belinkov. Llms know more than they show: On the intrinsic representation of llm hallucinations. 
+
+arXiv preprint arXiv:2410.02707 , 2024. Albert Sawczyn, Jakub Binkowski, Denis Janiak, Bogdan Gabrys, and Tomasz Jan Kajdanowicz. Factselfcheck: Fact-level black-box hallucination detection for llms. In Findings of the Association for Computational Linguistics: EACL 2026 , pages 5603–5621, 2026. Saurav Kadavath, Tom Conerly, Amanda Askell, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. Junyi Li and Hwee Tou Ng. Reasoning models hallucinate more: Factuality-aware reinforcement learning for large reasoning models. arXiv preprint arXiv:2505.24630 , 2025. Atharva Kulkarni, Yuan Zhang, Joel Ruben Antony Moniz, Xiou Ge, Bo-Hsiang Tseng, Dhivya Piraviperumal, Swabha Swayamdipta, and Hong Yu. Evaluating evaluation metrics–the mirage of hallucination detection. arXiv preprint arXiv:2504.18114 , 2025. Guy Bar-Shalom, Fabrizio Frasca, Yaniv Galron, Yftah Ziser, and Haggai Maron. Beyond token probes: Hallucination detection via activation tensors with act-vit. arXiv preprint arXiv:2510.00296 , 2025. Fuxiang Zhang, Jiacheng Xu, Chaojie Wang, Ce Cui, Yang Liu, and Bo An. Incentivizing llms to self-verify their answers. arXiv preprint arXiv:2506.01369 , 2025. H Penny Nii. The blackboard model of problem solving and the evolution of blackboard architectures. 
+
+AI magazine , 7(2):38–38, 1986. Pei Zhou, Jay Pujara, Xiang Ren, Xinyun Chen, Heng-Tze Cheng, Quoc V Le, Ed Chi, Denny Zhou, Swaroop Mishra, and Huaixiu Steven Zheng. Self-discover: Large language models self-compose reasoning structures. Advances in Neural Information Processing Systems , 37:126032–126058, 2024. Marvin Minsky. Society of Mind . Simon and Schuster, 1988. Chi-Min Chan, Weize Chen, Yusheng Su, Jianxuan Yu, Wei Xue, Shanghang Zhang, Jie Fu, and Zhiyuan Liu. Chateval: Towards better llm-based evaluators through multi-agent debate. arXiv preprint arXiv:2308.07201 , 2023. Siyu Yuan, Kaitao Song, Jiangjie Chen, Xu Tan, Dongsheng Li, and Deqing Yang. EvoAgent: Towards automatic multi-agent generation via evolutionary algorithms. In Proceedings of the 2025 Confer-ence of the Nations of the Americas Chapter of the Association for Computational Linguistics: Hu-man Language Technologies (Volume 1: Long Papers) , pages 6192–6217, Albuquerque, New Mex-ico, April 2025. Association for Computational Linguistics. doi: 10.18653/v1/2025.naacl-long.315. URL https://aclanthology.org/2025.naacl-long.315 .Nathalia Nascimento, Paulo Alencar, and Donald Cowan. Self-adaptive large language model (LLM)-based multiagent systems. In 2023 IEEE International Conference on Autonomic Computing and Self-Organizing Systems Companion (ACSOS-C) , pages 104–109, Toronto, ON, Canada, September 2023. IEEE. doi: 10.1109/ACSOS-C58168.2023.00048. URL https://ieeexplore. ieee.org/document/10336211 .12 Chen Qian, Yufan Dang, Jiahao Li, Wei Liu, Zihao Xie, Yifei Wang, Weize Chen, Cheng Yang, Xin Cong, Xiaoyin Che, Zhiyuan Liu, and Maosong Sun. Experiential co-learning of software-developing agents. In Proceedings of the 62nd Annual Meeting of the Association for Compu-tational Linguistics (Volume 1: Long Papers) , pages 5628–5640, Bangkok, Thailand, August 2024b. Association for Computational Linguistics. doi: 10.18653/v1/2024.acl-long.305. URL 
+
+https://aclanthology.org/2024.acl-long.305 .Xiutian Zhao, Ke Wang, and Wei Peng. An electoral approach to diversify LLM-based multi-agent collective decision-making. In Proceedings of the 2024 Conference on Empirical Methods in Natural Language Processing , pages 2712–2727, Miami, Florida, USA, November 2024b. Association for Computational Linguistics. doi: 10.18653/v1/2024.emnlp-main.158. URL https: //aclanthology.org/2024.emnlp-main.158 .Zengqing Wu, Run Peng, Shuyuan Zheng, Qianying Liu, Xu Han, Brian I. Kwon, Makoto Onizuka, Shaojie Tang, and Chuan Xiao. Shall we team up: Exploring spontaneous coop-eration of competing LLM agents. In Findings of the Association for Computational Lin-guistics: EMNLP 2024 , pages 5163–5186, Miami, Florida, USA, November 2024. Asso-ciation for Computational Linguistics. doi: 10.18653/v1/2024.findings-emnlp.297. URL 
+
+https://aclanthology.org/2024.findings-emnlp.297 .Chen Qian, Wei Liu, Hongzhang Liu, Nuo Chen, Yufan Dang, Jiahao Li, Cheng Yang, Weize Chen, Yusheng Su, Xin Cong, Juyuan Xu, Dahai Li, Zhiyuan Liu, and Maosong Sun. ChatDev: Communicative agents for software development. In Proceedings of the 62nd Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 15174–15186, Bangkok, Thailand, August 2024c. Association for Computational Linguistics. doi: 10.18653/v1/ 2024.acl-long.810. URL https://aclanthology.org/2024.acl-long.810 .Sirui Hong, Mingchen Zhuge, Jiaqi Chen, Xiawu Zheng, Yuheng Cheng, Ceyao Zhang, Jinlin Wang, Zili Wang, Steven Ka Shing Yau, Zijuan Lin, Liyang Zhou, Chenyu Ran, Lingfeng Xiao, Chenglin Wu, and Jürgen Schmidhuber. MetaGPT: Meta programming for a multi-agent collaborative framework. In The Twelfth International Conference on Learning Representations , May 2024. URL https://openreview.net/forum?id=VtmBAGCN7o . ICLR 2024 oral (top 1.2%). Aman Madaan, Niket Tandon, Prakhar Gupta, Skyler Hallinan, Luyu Gao, Sarah Wiegreffe, Uri Alon, Nouha Dziri, Shrimai Prabhumoye, Yiming Yang, Shashank Gupta, Bodhisattwa Prasad Majumder, Katherine Hermann, Sean Welleck, Amir Yazdanbakhsh, and Peter Clark. Self-refine: Iterative refinement with self-feedback. Advances in Neural Information Processing Systems , 36:46534– 46562, 2023. URL https://proceedings.neurips.cc/paper_files/paper/2023/hash/ 91edff07232fb1b55a505a9e9f6c0ff3-Abstract-Conference.html . NeurIPS 2023. Noah Shinn, Federico Cassano, Beck Labash, Ashwin Gopinath, Karthik Narasimhan, and Shunyu Yao. Reflexion: Language agents with verbal reinforcement learning. Advances in Neural Informa-tion Processing Systems , 36, 2023. URL https://proceedings.neurips.cc/paper_files/ paper/2023/hash/1b44b878bb782e6954cd888628510e90-Abstract-Conference.html .NeurIPS 2023. Hunter Lightman, Vineet Kosaraju, Yura Burda, Harri Edwards, Bowen Baker, Teddy Lee, Jan Leike, John Schulman, Ilya Sutskever, and Karl Cobbe. Let’s verify step by step. In The Twelfth International Conference on Learning Representations , May 2024. URL https://openreview. net/forum?id=v8L0pN6EOi . ICLR 2024 poster. Roi Cohen, May Hamri, Mor Geva, and Amir Globerson. Lm vs lm: Detecting factual errors via cross examination. arXiv preprint arXiv:2305.13281 , 2023. Seonghyeon Ye, Doyoung Kim, Sungdong Kim, Hyeonbin Hwang, Seungone Kim, Yongrae Jo, James Thorne, Juho Kim, and Minjoon Seo. FLASK: Fine-grained language model evaluation based on alignment skill sets. In The Twelfth International Conference on Learning Representations , 2024. URL https://openreview.net/forum?id=CYmF38ysDa .Ankit Pal, Logesh Kumar Umapathi, and Malaikannan Sankarasubbu. Med-HALT: Medical domain hallucination test for large language models. In Jing Jiang, David Reitter, and Shumin Deng, editors, 
+
+Proceedings of the 27th Conference on Computational Natural Language Learning (CoNLL) ,13 pages 314–334, Singapore, December 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023.conll-1.21. URL https://aclanthology.org/2023.conll-1.21/ .Guangyao Chen, Siwei Dong, Yu Shu, Ge Zhang, Jaward Sesay, Börje F. Karlsson, Jie Fu, and Yemin Shi. AutoAgents: A framework for automatic agent generation. In Proceedings of the Thirty-Third International Joint Conference on Artificial Intelligence (IJCAI) , pages 22–30, Jeju Island, South Korea, August 2024b. ijcai.org. doi: 10.24963/ijcai.2024/3. URL https: //www.ijcai.org/proceedings/2024/0003 .Luyu Gao, Zhuyun Dai, Panupong Pasupat, Anthony Chen, Arun Tejasvi Chaganty, Yicheng Fan, Vin-cent Zhao, Ni Lao, Hongrae Lee, Da-Cheng Juan, Kelvin Guu, and Chris Callison-Burch. RARR: Researching and revising what language models say, using language models. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) ,pages 16477–16508, Toronto, Canada, July 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023.acl-long.910. URL https://aclanthology.org/2023.acl-long.910 .Ruochen Zhao, Xingxuan Li, Shafiq Joty, Chengwei Qin, and Lidong Bing. Verify-and-edit: A knowledge-enhanced chain-of-thought framework. In Proceedings of the 61st Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 5823–5840, Toronto, Canada, July 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023. acl-long.320. URL https://aclanthology.org/2023.acl-long.320 .Timo Schick, Jane Dwivedi-Yu, Roberto Dessì, Roberta Raileanu, Maria Lomeli, Eric Hambro, Luke Zettlemoyer, Nicola Cancedda, and Thomas Scialom. Toolformer: Language models can teach themselves to use tools. In Advances in Neural Information Processing Systems , volume 36, 2023. URL https://openreview.net/forum?id=Yacmpz84TH . NeurIPS 2023 oral. Shunyu Yao, Jeffrey Zhao, Dian Yu, Nan Du, Izhak Shafran, Karthik Narasimhan, and Yuan Cao. ReAct: Synergizing reasoning and acting in language models. In The Eleventh International Conference on Learning Representations , May 2023b. URL https://openreview.net/forum? id=WE_vluYUL-X . ICLR 2023 (notable top 5%). Liangming Pan, Alon Albalak, Xinyi Wang, and William Yang Wang. Logic-LM: Empowering large language models with symbolic solvers for faithful logical reasoning. In Findings of the Association for Computational Linguistics: EMNLP 2023 , pages 3806–3824, Singapore, December 2023. Association for Computational Linguistics. doi: 10.18653/v1/2023.findings-emnlp.248. URL https://aclanthology.org/2023.findings-emnlp.248 .Todor Mihaylov, Peter Clark, Tushar Khot, and Ashish Sabharwal. Can a suit of armor conduct electricity? A new dataset for open book question answering. In Proceedings of the 2018 Conference on Empirical Methods in Natural Language Processing , pages 2381–2391, Brussels, Belgium, October 2018. Association for Computational Linguistics. doi: 10.18653/v1/D18-1260. URL https://aclanthology.org/D18-1260 .Stephanie Lin, Jacob Hilton, and Owain Evans. TruthfulQA: Measuring how models mimic human falsehoods. In Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers) , pages 3214–3252, Dublin, Ireland, May 2022. Association for Computational Linguistics. doi: 10.18653/v1/2022.acl-long.229. URL https://aclanthology. org/2022.acl-long.229 .Junyi Li, Xiaoxue Cheng, Xin Zhao, Jian-Yun Nie, and Ji-Rong Wen. Halueval: A large-scale hallucination evaluation benchmark for large language models. In Proceedings of the 2023 conference on empirical methods in natural language processing , pages 6449–6464, 2023b. Mor Geva, Daniel Khashabi, Elad Segal, Tushar Khot, Dan Roth, and Jonathan Berant. Did aristotle use a laptop? a question answering benchmark with implicit reasoning strategies. Transactions of the Association for Computational Linguistics , 9:346–361, 2021. 14 A Implementation Details 
+
+In our experiments, we implement the MAVEN framework using the following settings to ensure reproducibility. For the main evaluation, we utilize GPT-4o accessed via API. The decoding tem-perature is strictly set to 0.0 to ensure deterministic outputs for reasoning tasks, and the maximum generation length is set to 4096 tokens. Regarding the framework hyperparameters, we set the default maximum deliberation loops Kmax to 
+
+3. For the Judge Agent, the acceptance threshold for the weighted average score is set to 4.2, and the strict factual accuracy threshold is set to 4.0.
+
+## B Complete Prompt Templates 
+
+In this section, we provide the exact system and user prompt templates used by each agent within the MAVEN framework. Variables dynamically injected during runtime are denoted by 
+
+{variable_name} .
+
+B.1 Router Agent 
+
+The Router Agent analyzes the complexity of the user query to determine whether to use the FAST_PATH or FULL_MAVEN deliberation process. 
+
+System Prompt: Router 
+
+You are a highly efficient query analysis agent. Your primary task is to estimate the ’ reasoning hops’ required to fully answer a user’s query and then decide on the appropriate processing path. **Definition of Reasoning Hops:** - **1 Hop:** A direct, single-fact lookup. The answer is immediately available from a knowledge base. - **2 Hops:** Requires a simple inference or the combination of two distinct facts. There is one intermediate logical step. - **> 2 Hops (Complex):** Requires multi-step analysis, synthesis of different pieces of information, comparison of pros and cons, planning, or addressing subjective/ controversial topics. **Decision Criteria:** - **FAST_PATH**: Use for queries requiring **2 or fewer** reasoning hops. These are relatively straightforward. - **FULL_MAVEN**: Use for queries requiring **more than 2** reasoning hops. These are complex and benefit from a full deliberation process. **Examples:** - Query: "Who wrote ’Hamlet’?" -> **1 Hop**. Direct fact. -> **FAST_PATH**. - Query: "What is the capital of the country where the Eiffel Tower is located?" -> **2 Hops**. (1. Eiffel Tower -> France; 2. Capital of France -> Paris). -> **FAST_PATH **. - Query: "Analyze the pros and cons of nuclear energy." -> **> 2 Hops**. (Requires listing pros, listing cons, weighing them, structuring the analysis). -> ** FULL_MAVEN**. - Query: "A winter storm is ravaging a city... While driving, he discovers..." -> **> 2 Hops**. (Requires analyzing the context, inferring conditions, evaluating options, and eliminating distractors). -> **FULL_MAVEN**. Your output MUST be a single, strict JSON object with three keys: "decision", " estimated_hops", and "reason". 
+
+User Prompt: Router 
+
+Please analyze the following user query, estimate the reasoning hops required, and classify it. User Query: "{query}" Strictly output your decision in the following JSON format: 
+
+15 {"decision": "...", "estimated_hops": "...", "reason": "..." }
+
+B.2 Fast Proposer Agent System Prompt: Fast Proposer 
+
+You are a decisive expert assistant. Your task is to provide a direct, intuitive answer to the question. Focus on being factually correct and provide a confidence score. 
+
+User Prompt: Fast Proposer 
+
+Question: "{query}" Please provide: 1. Your direct answer (if multiple choice, state the option and text). 2. A brief, 1-sentence reason for your choice. 3. Your confidence score between 0.0 and 1.0. Format your response as a JSON object: {"answer": "...", "reason": "...", "confidence": 0.95 }
+
+B.3 Planner Agent System Prompt: Planner 
+
+You are a strategic designer. Your task is to create a high-level, logically clear execution plan to answer the user’s question. The plan should be broken down into several logical steps. 
+
+User Prompt: Planner (Initial Planning) 
+
+User Question: "{query}" Initial Intuitive Answers from experts: {fast_refs} Please create a high-level plan for this question. The plan should include a goal and a series of clear steps to guide the subsequent information gathering and drafting process. Use the initial answers as a reference to identify which areas need the most rigorous verification. The plan should be output in Markdown format. 
+
+User Prompt: Planner (Replanning) 
+
+Original User Question: "{query}" The previous plan has fundamental flaws and needs to be replanned. 
+
+16 Feedback from the "Judge": "{feedback}" Based on the feedback above, please generate a new, revised high_level_plan. Ensure the new plan addresses all the issues pointed out in the feedback. The plan should be output in Markdown format. 
+
+B.4 Multi-Proposer Agent 
+
+The Proposer Agent generates drafts based on the plan. We introduce diversity by appending specific instructions to the base prompt. 
+
+System Prompt: Proposer 
+
+You are an informative drafter. Your task is to follow the provided plan to quickly and broadly generate an information-rich preliminary draft answer. 
+
+User Prompt: Base Proposer 
+
+Original User Question: ---{query} ---Initial Intuitive Answers for reference: {fast_refs} Execution Plan: ---{plan} ---Please generate a detailed preliminary draft based on the original user question, the execution plan, and the initial expert intuition provided above. The draft should be well-structured, comprehensive, and directly address the user’s question. 
+
+To enforce draft diversity, we append one of the following instructions to the base prompt for parallel drafting: • Skeptical Perspective: Please pay special attention that your draft needs to take a critical and skeptical perspective, proactively exploring potential risks and negative factors. 
+
+• Quantitative Perspective: Please pay special attention that your draft needs to be centered on data and quantitative analysis, supporting its points with numbers and statistical results as much as possible. 
+
+B.5 Synthesizer Agent System Prompt: Synthesizer 
+
+You are a senior information integration specialist. Your task is to merge drafts from multiple sources into a single, comprehensive, balanced, and well-structured consensus draft. 
+
+User Prompt: Synthesizer 
+
+Original Execution Plan: ---
+
+17 {plan} ---Below are different versions of drafts written by multiple drafters based on the same plan. {drafts_string} Your task is to: 1. **Identify Consensus**: Find the core information that is mentioned in all drafts and on which they agree. 2. **Identify Differences and Contradictions**: Find the contradictions or differences in viewpoints that exist between the different drafts. 3. **Identify Unique Information**: Find information that is unique to one draft but valuable for answering the question. 4. **Synthesize**: Based on the analysis above, generate a new, single "consensus draft ". This draft should: * Contain the consensus and valuable unique information from all sources. * For contradictions, state them objectively, or choose the side with stronger evidence. * Be well-structured, logically coherent, and fully respond to the original plan. Please output this final consensus draft. 
+
+B.6 Skeptic Agent System Prompt: Skeptic 
+
+You are an extremely rigorous critical reviewer. Your task is to systematically challenge a draft. Your questions will be answered by another powerful AI model, so please ask questions that test its depth of knowledge and reasoning abilities. Your output must be in strict JSON format. 
+
+User Prompt: Skeptic 
+
+Please conduct a rigorous internal review of the following draft. Your questions will be answered by another powerful AI, so formulate them to probe for depth, context, and logical consistency. Draft: ---{draft} ---Please follow these review instructions: 1. **Fact Verification**: For key claims (like numbers, stats, events), ask for verification and context. - New example: "Please verify and elaborate on the statement ’unemployment fell by 5%’, including the time period and methodology." 2. **Logical Coherence**: Identify unclear or contradictory points in the argument and ask for clarification. - Example: "The draft first states the market is growing, but later says profits are declining. Please explain the potential relationship between these two seemingly contradictory trends." 3. **Causal Scrutiny**: Question if a stated cause-and-effect relationship is oversimplified. Ask for a deeper explanation. - Example: "The draft claims A led to B. What other significant factors, such as C and D, might have also contributed to B? Please elaborate." 4. **Adversarial Questioning**: Pose questions that challenge the draft’s core assumptions or seek counterexamples. - Example: "The draft’s central argument is X. Under what conditions would this argument not hold true? Please provide a specific counterexample or edge case." Your output must be a JSON array, where each object contains four keys: "claim" (the original statement being questioned), "question" (your verifiable question), "type" (one of: "Factual", "Logical", "Causal", or "Adversarial"), and "priority" (one of: "High", "Medium", "Low"). 
+
+18 Ensure your questions are self-contained and clear, so another AI can understand and answer them directly. 
+
+B.7 Responder Agent System Prompt: Responder 
+
+You are a knowledgeable author. You have just completed the draft below. Now, a reviewer has raised some questions about your draft. Please defend and explain these points based solely on the knowledge you had when writing the draft. 
+
+User Prompt: Responder 
+
+Your Draft: ---{draft} ---Reviewer’s Questions: ---{questions_string} ---Please answer the above questions one by one **without conducting any new external information retrieval**. Your goal is to explain the rationale behind your views and statements. Please output your answers in a clear list format. 
+
+B.8 Judge Agent System Prompt: Judge 
+
+You are a deliberate decision-making center. Your core task is to synthesize all information to make a fair, explainable, and quantifiable judgment, and to decide the direction of the process. Your thought process should follow these steps, but your final output must be a single, strict JSON object: 1. **Conflict Analysis**: Compare the evidence report with the current draft, identifying inconsistencies. 2. **Logical Evaluation**: Check if the draft’s internal chain of logic is sound and free of contradictions. 3. **Counterfactual Evaluation**: Negate the core conclusion to see if it sharply contradicts the evidence, thereby testing causal robustness. 4. **Formulate Revision Plan**: If the draft has issues, mentally construct a plan for revision. 5. **Generate Revised Draft**: Based on your plan, generate an improved version of the draft. If no changes are needed, use the original. 6. **Quantitative Assessment & Decision**: Score the draft on dimensions like factual accuracy and logical validity. Based on the scores and thresholds (Accept Threshold: {accept_threshold}, Fact Threshold: {fact_threshold}), make a final decision ( ACCEPT, REJECT, REPLAN). 
+
+User Prompt: Judge 
+
+Based on your system instructions, conduct a comprehensive evaluation of the following information. 
+
+19 **Original Plan:** ---{plan} ---**Current Draft:** ---{draft} ---**Evidence Report (from Researcher):** ---{evidence_report} ---Strictly output your final verdict in the following JSON format. Do not include any extra text, explanations, or Markdown formatting outside the JSON structure. {"reasoning": "Provide your complete, step-by-step thought process here. Clearly explain how you evaluated the facts, logic, and causal relationships to arrive at your final decision.", "revised_draft": "Place the final, revised version of the draft here based on your evaluation. If the original draft is accepted, simply copy the original draft here .", "final_decision": "Write only one of three decisions here: ’ACCEPT’, ’REJECT’, or ’ REPLAN’" }
+
+B.9 Stylist Agent System Prompt: Stylist 
+
+You are a final copy editor. Your core objective is to improve the fluency and readability of the final manuscript without altering any facts or logic. 
+
+User Prompt: Stylist 
+
+Please polish and format the final draft below. Ensure that no facts, data, or core logic are changed. Only improve the quality of the language and expression. Draft: ---{draft} ---Please output the polished final version. 
+
+## C Detailed Experimental Setup and Reproducibility 
+
+In this section, we provide comprehensive implementation details, hyperparameter configurations, and the specific rubrics used for our LLM-as-a-Judge evaluation metrics to ensure the full reproducibility of our experiments. 
+
+C.1 Implementation Details and Hyperparameters 
+
+MAVEN is implemented via a modular blackboard architecture, enabling structured, coordinated interaction between specialized reasoning agents. Unless otherwise specified, DeepSeek-V3.2 is utilized as the default backbone across all agentic roles. To balance reasoning depth against inference latency and API costs, the maximum number of deliberation iterations is strictly capped at Tmax = 3 .Furthermore, the generation temperature is fixed at 0.0 for all reasoning, proposing, and evaluation agents to ensure deterministic behavior and minimize stochastic variance during benchmarking. The 20 complete set of agentic network configurations, capacity constraints, and judicial decision thresholds are summarized in Table 5. Table 5: Global hyperparameters and decision thresholds used in the MAVEN pipeline. 
+
+Category Parameter Value 
+
+Deliberation Max Iterations ( Tmax ) 3Num. FastProposers ( N ) 5Judge Thresholds Accept Score Threshold ( α) 4.2 Fact Score Threshold ( β) 4.0 Model Params Primary LLM Backbone DeepSeek-V3.2 Max Generation Tokens 4096 Logic/Evaluation Temperature 0.0 
+
+C.2 Fine-grained Evaluation Metrics 
+
+In complex multi-hop reasoning and verification tasks, binary accuracy alone fails to capture the nuances of argument construction, hallucination mitigation, and causal validity. Consequently, we employ a GPT-4o-based expert judge to evaluate the intermediate and final justifications on a continuous 1−100 scale. To maintain strict evaluation consistency and prevent the "LLM-as-a-Judge" from exhibiting random biases, all metrics are formally defined via structured rubrics as follows: 
+
+Justification Plausibility & Causal Depth Score 
+
+* **Objective:** Assess the logical flow that bridges the technical principles to the final answer. * **Rubric:** * **1-49 (Superficial/Flawed):** The technical reasoning is broken, contradictory, or jumps to conclusions without proper engineering justification. * **50-69 (Plausible):** Provides a basic technical connection that supports the conclusion. * **70-89 (Well-Reasoned):** Presents a **clear, step-by-step technical reasoning chain**. It explicitly connects the relevant equipment parameters, operational principles, or maintenance procedures required to answer the question. * **90-100 (Deeply Principled):** Flawless technical execution that breaks down the question into its core engineering principles before synthesizing the final answer with proper causal relationships. 
+
+Factual Accuracy & Contextualization Score 
+
+* **Objective:** Assess if the technical facts, parameters, and domain knowledge the AI retrieves are accurate. * **Rubric:** * **1-49 (Major Errors):** Contains significant technical errors regarding equipment specifications, operational parameters, or maintenance procedures. * **50-69 (Accurate but Weak):** Technical facts are correct but poorly connected to the specific equipment or scenario in the question. * **70-89 (Accurate & Relevant):** Retrieves the correct technical knowledge required to answer the specific question about UHV equipment. * **90-100 (Flawless & Contextualized):** Not only retrieves the correct technical facts but contextualizes them perfectly within the specific station, equipment type , and operational scenario mentioned in the question. 
+
+21 Completeness & Alternative Analysis Score 
+
+* **Objective:** Assess if the answer addresses all aspects of the question and considers relevant operational considerations. * **Rubric:** * **1-49 (Incomplete):** Misses major technical points or key aspects of the maintenance/operation question. * **50-69 (Sufficient):** Covers the main technical points but ignores important operational details or safety considerations. * **70-89 (Comprehensive):** Thoroughly addresses all aspects of the prompt including equipment specifics, monitoring parameters, and operational procedures. * **90-100 (Expert Analysis):** Meets the "Comprehensive" standard AND provides additional insights on related considerations, potential issues, or cross-references to relevant standards/regulations. 
+
+Argument Richness & Structure Score 
+
+* **Objective:** Quantify the structural quality and technical depth. * **Additive Scoring Rubric:** * **Start with a baseline score of 50** for any coherent, paragraph-level technical explanation. * **+15 Points** for a **clear, organized structure** (e.g., categorized by inspection items, monitoring parameters, or procedural steps). * **+15 Points** for explicitly **identifying the key technical parameters or thresholds** relevant to the question. * **+10 Points** for **technical nuance or consideration of edge cases/abnormal conditions**. * **+10 Points** for **specific equipment references, numerical specifications, or industry standard citations**. * **Final Score is the sum, capped at 100.** 
+
+## D Iteration-Budget Sensitivity Analysis 
+
+Table 6 reports the raw scores underlying the iteration-budget sensitivity curves in Section 4.5. We vary the maximum number of deliberation rounds Tmax , where Tmax = 1 corresponds to a single-pass generation without iterative refinement. Overall, the improvements concentrate in early iterations (typically up to Tmax ≤ 3), after which performance saturates and remains stable. This behavior indicates that MAVEN’s stopping mechanism avoids unnecessary late-stage revisions and mitigates drift at larger iteration budgets. 
+
+## E Case Studies 
+
+Table 7 demonstrates a complete workflow of the MAVEN framework on a complex reasoning question from StrategyQA. Table 7: MAVEN Case Study (Full Deliberation Trace). Complete op-erational trace demonstrating the rigorous fact-checking and causal re-finement on a StrategyQA query. The system autonomously escalates the reasoning from a basic hobbyist level to an advanced biological and ecological comparison. 
+
+User Query: Are goldfish more difficult to care for than isopods? 
+
+Ground Truth: True (Yes) 
+
+ITERATION 1: Initial Synthesis Draft (Accepted for Review) 
+
+Continued on next page 22 Table 7 continued from previous page Initial Draft • Environmental Control: Goldfish require large aquaria (20–55+ gal) to stabi-lize the mandatory nitrogen cycle and maintain 0 ppm Ammonia. • Maintenance: Goldfish are labor-intensive (weekly water changes, 1-2 hours). Isopods are minimal and observational (<20 mins). • Conclusion: Yes, goldfish are unequivocally more difficult due to required precision and small margin for error. 
+
+FORENSIC SCRUTINY (S KEPTIC Probes) Q1 (Factual) "Verify the basis for the cited 20+ gal minimum. What physiological data supports these volume requirements for cold-water species?" 
+
+Q2 (Causal) "Explain the precise biochemical mechanisms of the nitrogen cycle ( N H 3 →
+
+N O − 
+
+> 2
+
+→ N O − 
+
+> 3
+
+). What microbial genera catalyze each step? Quantify the differ-ence in microbial complexity compared to isopod decomposition." 
+
+Q3 (Logical) "Compare the technical demands of maintaining a humidity gradient (VPD) versus water testing. What are the specific physiological consequences of deviations?" 
+
+Q4 (Adversar-ial) 
+
+"Is there a coherent framework where isopods are ’more difficult’? Consider the specialized material sourcing (pesticide-free leaf litter) and deep ecological knowledge required." 
+
+PARAMETRIC PROBING & GROUNDING (R ESEARCHER Evidence Report) On Biology "The 20-55+ gallon rule reflects the biology of ’Tank Busters’: indeterminate growth, high metabolic waste, and high oxygen demand for cold-water cyprinids." 
+
+On Ecology "The aquarium nitrogen cycle is a **linear, specialized chemoautotrophy** domi-nated by a few genera (*Nitrosomonas*, *Nitrospira*). It is functionally **frag-ile**. The isopod enclosure is a **web-like, generalized heterotrophy** involving diverse kingdoms (Fungi, Bacteria) and is highly **resilient** due to functional redundancy." 
+
+On Difficulty "A valid alternative definition of difficulty exists: ’Logistical/Knowledge-Based Difficulty’. Sourcing specific, uncontaminated decaying wood and establishing bioactive microfauna is a non-trivial hurdle underweighted in the initial draft." 
+
+ADJUDICATION (J UDGE Verdict) Verdict REJECT Reasoning "The evidence report validates the technical claims but highlights substantive gaps: (1) It provides a biochemical depth (fragile linear autotrophy vs. resilient heterotro-phy) missing from the draft. (2) It identifies that logistical/sourcing challenges for isopods represent a valid dimension of difficulty that is underweighted. The draft must be revised to integrate these scientific specifics and acknowledge the logistical difficulty dimension." 
+
+ITERATION 2: Revised Draft & Final Verdict (A CCEPT )Revised Text • (Integration of Biology) "Must establish a biological nitrogen cycle—a **sim-plified, vulnerable metabolic pathway** where specialized chemoautotrophic bacteria sequentially oxidize toxic ammonia. In contrast, isopods rely on a **complex, resilient heterotrophic decomposition network**..." • (Integration of Logistics) "Isopod care introduces distinct, non-trivial challenges in material sourcing (pesticide-free leaf litter) and ecological balancing, but its ongoing parameter management is fundamentally simpler." • (Final Conclusion) "Yes, goldfish are significantly more difficult... when eval-uated on procedural criteria and acute error margin. It is noted that alternative definitions focusing on logistical sourcing could lead to different judgments." 
+
+## F Licenses for Existing Assets 
+
+We properly credit all datasets and models used in this paper, and we respect all applicable licenses and terms of use. 23 Table 6: Iteration-budget sensitivity (raw numbers). MAVEN performance under different maximum iteration budgets Tmax on OBQA, TQA, HaluEval, and SQA. Tmax = 1 denotes single-pass genera-tion without deliberation. Bold marks the best value per metric within each dataset. All values are in %. 
+
+Tmax OpenBookQA (OBQA) TruthfulQA (TQA) Acc JCD F&C C&A ARS Acc JCD F&C C&A ARS 
+
+1 93.33 90.27 91.05 88.21 93.85 87.00 88.95 88.18 88.55 92.20 2 95.67 92.44 93.10 89.80 95.20 88.33 90.35 89.70 89.20 95.20 3 96.33 92.92 93.77 89.92 96.10 90.00 90.77 90.90 89.37 96.38 4 96.00 92.97 93.20 90.71 96.90 91.00 90.95 92.75 91.26 96.90 5 96.67 93.19 92.75 90.28 96.70 91.67 91.05 92.65 91.16 96.94 6 97.00 93.28 93.33 90.43 97.60 92.00 91.06 92.71 91.72 97.25 
+
+Tmax HaluEval StrategyQA (SQA) Acc JCD F&C C&A ARS Acc JCD F&C C&A ARS 
+
+1 97.33 89.99 97.43 90.49 90.06 76.67 89.45 90.75 86.03 90.10 2 98.00 90.50 97.86 90.90 90.65 80.00 91.05 91.35 87.73 93.05 3 98.33 90.70 98.08 91.27 90.85 82.00 91.46 92.72 87.84 93.11 4 98.67 90.55 98.25 91.45 90.70 82.33 91.50 92.50 87.88 92.89 5 99.00 90.91 98.35 91.55 90.95 82.67 91.75 92.85 87.99 93.05 6 98.33 90.85 98.50 91.90 91.32 82.67 91.83 93.43 88.22 93.65 
+
+We use four publicly available datasets in our experiments. OpenBookQA is released under the Apache License 2.0. TruthfulQA is released under the Apache-2.0 license. HaluEval is released under the MIT License. StrategyQA is released under the MIT License and permitted for research use. All datasets were accessed through their official repositories or Hugging Face. For large language models, we accessed GPT series via the official OpenAI API, Gemini via the Google Gemini API, and DeepSeek via the official DeepSeek Open Platform API. All API usages strictly comply with the respective providers’ Terms of Use and research publication policies. These models were used exclusively for inference and evaluation purposes. We did not perform any fine-tuning, distillation, or weight redistribution, nor did we create or re-package any datasets. No terms of service were violated in this work. 24
