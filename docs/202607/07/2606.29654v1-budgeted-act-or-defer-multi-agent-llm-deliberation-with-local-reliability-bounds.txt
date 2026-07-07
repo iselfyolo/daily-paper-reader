@@ -1,0 +1,1806 @@
+Title: Budgeted Act-or-Defer Multi-Agent LLM Deliberation with Local Reliability Bounds
+
+URL Source: https://arxiv.org/pdf/2606.29654v1
+
+Published Time: Tue, 30 Jun 2026 01:49:31 GMT
+
+Number of Pages: 36
+
+Markdown Content:
+# Budgeted Act-or-Defer Multi-Agent LLM Deliberation with Local Reliability Bounds 
+
+Mengdie Flora Wang 1, Haochen Xie 1, Guanghui Wang 1, Devin Zhang 2, Jae Oh Woo 1
+
+> 1
+
+AWS Generative AI Innovation Center, USA  
+
+> 2
+
+General Motors (GM), USA 
+
+Abstract 
+
+Multi-agent deliberation among LLMs can improve reasoning, but deployment requires deciding when the current answer is reliable enough to act on and when it should be escalated to human review. We formulate this as budgeted act-or-defer decision making. At each round, the system maps the debate prefix to a low-dimensional state, computes a k-nearest-neighbor lower confidence bound on state-conditional correctness using calibration data, and acts only when the bound exceeds a user-specified reliability threshold. The certificate controls wrong actions through the decomposition β = δ + α + εact , separating calibration failure, residual action risk, and representation gap. The guarantee is conditional, not distribution-free: it relies on a valid local bias envelope and an action-region representation-gap bound, and each assumption is paired with falsification-style diagnostics. Because the same absolute wrong-action budget has different meanings across tasks of different difficulty, we set budgets relative to each task’s final-round error using training data only, and evaluate safety by normalized budget usage 
+
+WA /β . On six benchmarks against nine baselines, the method uses 9–12% of the pre-declared budget on activated datasets, reaching up to 84% automation and 96% acted-on accuracy; on stress-test datasets, it defers rather than forcing unreliable automation. Rather than relying on per-task post-hoc threshold search, the method prospectively converts a user-declared wrong-action budget into an auditable act-or-defer operating point before deployment, under explicitly stated assumptions. 
+
+1 Introduction 
+
+Multi-agent debate, where multiple LLM instances exchange responses over several rounds, has been shown to improve reasoning [Du et al., 2024, Liang et al., 2024]. To deploy such systems in practice, one needs a stopping criterion with principled control over the probability of acting on a wrong answer. In human-in-the-loop deployments this stopping decision is also an escalation decision: the system should act autonomously only when the local reliability bound supports action, and otherwise defer the instance to human review. Existing approaches either operate at a fixed final round with only marginal coverage (e.g., split conformal prediction [Vovk et al., 2005, Angelopoulos and Bates, 2023]) or rely on heuristic consensus thresholds without explicit wrong-action budgets. Neither provides per-instance, per-round reliability bounds that enable adaptive stopping. We address this gap by constructing local lower confidence bounds on the correctness probability using k-nearest-neighbor ( k-NN) neighborhoods in a debate-state metric space. The debate prefix at round t is mapped to a state Ut in a metric space (U, d ). The local correctness function qt(u) = Pr( Y = ˆYt | Ut = u) is bounded from below via a local bias envelope bt,k (u) that controls the 
+
+k-NN approximation error. For each candidate neighborhood size k in a pre-specified family K, we subtract the bias envelope and a Hoeffding concentration term from the k-NN empirical mean, then                         
+
+> Preprint.
+> arXiv:2606.29654v1 [cs.AI] 28 Jun 2026 Multi-Agent Debate
+> Output: transcript
+> State Extraction -NN Calibration Act-or-Defer Decision
+> ACT
+> CONT.
+> DEFER
+> S T A T E S P A C E &- N N N E I G H B O R H O O D S
+> consensus strength
+> margin
+> 1
+> 2
+> 3
+> (large)
+> (small)
+> low confidence
+> high confidence
+> debate convergence drifts toward high confidence
+> L O W E R B O U N D P E R R O U N D
+> 1.0
+> 0.90
+> 0.80
+> 0.70
+> 0.60
+> 0.50
+> 0.72
+> 0.87
+> 0.96
+> slack
+> round
+> D E C I S I O N
+> ACT at
+> correct (high conf.) correct (low conf.) wrong trajectory -NN radius threshold S T E P 1 LLM agents discuss the question over rounds, each proposing and critiquing answers.
+> T
+> FtS T E P 2 Compress full history into a low-dimensional state: consensus strength and margin. U=t(p, Δ ) ∈ t
+> (1) tUS T E P 3
+
+kFind  nearest calibration points to  , compute local correctness lower bound.                           
+
+> kUt
+> L=tmax [−kq^t,kb−t,kc]kS T E P 4 if L≥t1− αelse if t<Telse human review →α=β−δ−ϵact
+> KLT
+
+τ = 3          
+
+> Pr( =Y^τY) ≤ β
+> U→1U3k1− α
+
+Figure 1: Overview. Top : (1) Agents debate over T rounds; (2) each transcript is compressed to state 
+
+Ut = ϕ(Ft); (3) k-NN lookup yields lower bound Lt; (4) act if Lt ≥ 1 − α, continue if t < T , else defer to human review. Bottom left : calibration states colored by correctness; the test state drifts from low- to high-confidence as debate progresses. Bottom right : Lt grows from 0.72 to 0.96, crossing 
+
+1 − α = 0 .90 at τ = 3 .take the maximum over K:
+
+Lt = max 
+
+k∈K 
+
+"bqt,k (Ut) − bt,k (Ut) −
+
+r log( T |K| /δ )2k
+
+#
+
+, (1) where the log |K| penalty absorbs the adaptivity in k. The bias envelope bt,k (u) is a generic primitive (Lipschitz, Hölder, bounded-oscillation models are special cases). The first correction controls approximation bias, the second controls sampling variance, and the maximization over K selects the tightest local scale per instance. A central design choice is budget alignment . The user specifies a risk budget β and the method decomposes it as 
+
+β = δ|{z} 
+
+statistical failure 
+
++ α|{z} 
+
+residual action risk 
+
++ εact 
+
+|{z} 
+
+representation gap 
+
+. (2) The residual α = β − δ − εact directly sets the stopping threshold 1 − α. The stopping rule 
+
+τ = inf {t : Lt ≥ 1 − α} then satisfies Pr( act and wrong ) ≤ β conditional on local assumptions (Theorem 3). The contribution is not the mathematical tools (Hoeffding + union bound, which are classical) but a risk-decomposition framework for adaptive deliberation stopping under auditable local assumptions. The guarantee is conditional on auditable local assumptions, not distribution-free. Our contributions: 
+
+(i) We formalize adaptive stopping for multi-agent deliberation as a local state-conditional risk-control problem with budget decomposition β = δ + α + εact . (ii) We introduce a local bias envelope bt,k (u) as a plug-in interface and prove simultaneous validity Lt ≤ qt(Ut) for all (t, k ) with probability ≥ 1 − δ, plus a wrong-action guarantee (Theorems 1–3) and an oracle slack inequality (Theorem 6, Appendix A). Each assumption is paired with a diagnostic proxy. (iii) Lipschitz, Hölder, and bounded-oscillation envelopes are recovered as corollaries. Our default empirical modulus absorbs estimation failure into δ (Corollary 8) and converges at O(n−1/(2+ D)). (iv) We introduce a relative-risk deployment policy: βd = λ⋆dbe train 
+
+T,d is induced from training data alone, making budgets comparable across tasks and turning normalized budget usage WA /β into the primary safety metric. 
+
+(v) Experiments on six benchmarks ( n = 546 –8,678 ) against nine baselines show that, on activated 2datasets, the method uses ≤12% of the pre-declared budget at up to 97% acted-on accuracy. Matched-automation diagnostics show that tuned scalar thresholds can achieve similar subset quality after per-task search, but the proposed certificate constructs the operating point prospectively from a declared wrong-action budget and makes the required assumptions explicit. 
+
+2 Problem Setup 
+
+Consider a multiple-choice task with input space X and label space Y = {1, . . . , C }. An ensemble of N LLM agents debates for at most T rounds. At round t, the debate has produced a filtration Ft
+
+containing all agent responses and per-agent belief distributions {P (t) 
+
+> j
+
+(y | x)}Nj=1 up to round t. We aggregate these into a social belief 
+
+P (t)social (y | x) = 1
+
+N
+
+> N
+
+X
+
+> j=1
+
+P (t) 
+
+> j
+
+(y | x), (3) and take ˆYt = arg max y P (t)social (y | x) as the round-t prediction (Appendix B specifies how each 
+
+P (t) 
+
+> j
+
+is elicited). 
+
+State embedding. Each debate prefix is mapped to a state Ut = ϕt(Ft) in a metric space (U, d )
+
+via a deterministic, Ft-measurable ϕt. Typical components include the top social probability p(1)  
+
+> t
+
+=max y P (t)social (y | x), the margin ∆t = p(1)  
+
+> t
+
+− p(2)  
+
+> t
+
+, inter-agent disagreement, and top-answer stability; the metric d reflects correctness relevance (e.g., Euclidean on a normalized feature vector). 
+
+Geometry–sufficiency trade-off. The choice of ϕt jointly controls three quantities central to the framework: (a) smoothness of qt, which governs the bias envelope bt,k ; (b) representation gap εact ,the information lost in compressing Ft to Ut; (c) intrinsic dimension D, which enters the certification rate O(n−1/(2+ D)). Richer states reduce εact but raise D and may roughen qt; minimal states keep 
+
+D small and qt smooth but risk larger εact . We investigate this trade-off empirically in Section H.5. 
+
+Local correctness and goal. The target is the local correctness function 
+
+qt(u) := Pr( Y = ˆYt | Ut = u), (4) a pointwise quantity conditioning on the exact state rather than averaging over a region. We seek a stopping rule τ = inf {t ≤ T : Lt ≥ 1 − α} with a data-driven lower bound Lt for qt(Ut), so that Pr( τ ≤ T, ˆYτ̸ = Y ) ≤ β. The budget decomposition (2) controls each term separately: δ
+
+by Hoeffding with a (t, k ) union bound, α by the stopping threshold, and εact by the action-region representation gap. 
+
+3 Method 
+
+The method turns β into a stopping rule in two steps: fix the action threshold 1 − α with α =
+
+β − δ − εact from the budget decomposition (2) , then build a lower bound Lt certifying when the threshold is met. The main guarantee (Theorem 3) follows by summing worst cases per component. 
+
+Offline: calibration. On Dcal = {(Xi, Y i)}ni=1 , we run the full T -round debate once per instance and record, for every (t, i ), the state Ui,t = ϕt(Fi,t ) and correctness indicator Zi,t = 1[Yi = ˆYi,t ].We split Dcal into Dmod (20%, for bias-envelope estimation) and Dloc (80%, the database searched at test time). 
+
+Online: k-NN lookup. At test round t with state Ut, and for each k in a pre-specified family 
+
+K = {k1, . . . , k m}, let Nt,k (Ut) ⊂ D loc denote the k nearest calibration instances and ht,k (Ut) = max i∈N t,k (Ut) d(Ui,t , U t) the k-NN radius. The raw empirical local correctness is bqt,k (Ut) = 
+
+> 1
+> k
+
+P  
+
+> i∈N t,k (Ut)
+
+Zi,t .3Adaptive lower bound. The raw estimate bqt,k is optimistic on two counts: neighbors are near Ut
+
+but not at Ut (local bias), and with only k samples the empirical mean may exceed the truth (sampling variance). We subtract a correction for each and take the tightest bound across k:
+
+Lt,k (Ut) = bqt,k (Ut) − bt,k (Ut)
+
+| {z }
+
+> bias
+
+−
+
+q log( T |K| /δ )2k
+
+| {z }
+
+> variance
+
+, (5) 
+
+Lt = max  
+
+> k∈K
+
+Lt,k (Ut). (6) Each test instance automatically picks the k with the best bias–variance trade-off at its location; the log |K| term pays for adaptivity via a union bound. By construction Lt,k ≤ qt(Ut) with high probability (Theorem 1). 
+
+Stopping rule. The system acts at τ = inf {t ≤ T : Lt ≥ 1 − α} and defers otherwise; pseudocode is in Algorithm 1 (Appendix B). 
+
+Bias envelope instantiations. The bias correction bt,k (u) is a plug-in interface: any conservative bound on how much qt can vary within the k-NN neighborhood is valid. • Lipschitz : bt,k (u) = L⋆t · ht,k (u) — global slope bound. • Hölder : bt,k (u) = Ct · ht,k (u)s — sub-linear growth for smoother functions. • Empirical modulus (default): fit a smoothed pilot ˜qt on Dmod (logistic GAM; Appendix C), then measure how much ˜qt varies within radius r:
+
+bt,k (u) = ˆ ωt(ht,k (u)) , ˆωt(r) = max 
+
+> i,j ∈D mod
+> d(Ui,t ,U j,t )≤r
+
+|˜qt(Ui,t ) − ˜qt(Uj,t )|. (7) The empirical modulus avoids the pathology of estimating a global Lipschitz constant from binary labels (where pairwise slopes diverge at short distances). Its estimation failure is absorbed into δ
+
+(Corollary 8), keeping the three-way budget intact. We stress-test validity by ρ-inflation ( bt,k → ρ b t,k ,
+
+ρ ∈ { 1, 1.5, 2}); Proposition 4 gives Pr( wrong act ) ≤ β + Pr( Ec
+
+> env
+
+(ρ)) , and Table 11 shows 2×
+
+inflation reduces Act by only 1–3 pp. 
+
+4 Assumptions 
+
+The guarantees in Section 5 rest on four assumptions. The first two are standard; the last two are specific to the local approach and constitute the price for pointwise guarantees. Each is paired with a diagnostic (Table 11). 
+
+Assumption 1 (Across-instance exchangeability) . The calibration examples {(Xi, Y i)}ni=1 are i.i.d. (or exchangeable) and independent of the test example (X, Y ). Within each instance, debate rounds may be arbitrarily dependent. 
+
+Assumption 2 (State measurability) . For each round t, the prediction ˆYt and state Ut = ϕt(Ft) are 
+
+Ft-measurable. 
+
+Assumption 3 (Local bias envelope — plug-in interface) . For each round t and candidate k ∈ K ,there exists a measurable function bt,k : U → [0 , ∞) such that 1
+
+> k
+
+P  
+
+> i∈N t,k (u)
+
+qt(Ui,t ) − qt(u) ≤
+
+bt,k (u) a.s. for all u ∈ U , where Nt,k (u) is the k-NN of u among calibration states. 
+
+This is an interface , not a specific smoothness model: any user-supplied conservative envelope can be plugged into (5) , and the theorems hold as long as the envelope is valid. The estimation error decomposes as sampling fluctuation (controlled by Hoeffding) plus local bias (controlled by bt,k ): 
+
+bqt,k (u) − qt(u) = bqt,k (u) − 1
+
+> k
+
+P  
+
+> i∈N t,k (u)
+
+qt(Ui,t )
+
+| {z }
+
+> sampling fluctuation
+
++ 1
+
+> k
+
+P  
+
+> i∈N t,k (u)
+
+qt(Ui,t ) − qt(u)
+
+| {z }
+
+> local bias
+
+. (8) Lipschitz, Hölder, and bounded-oscillation models are all special cases (Section 3). The guarantee is only as good as the envelope: if bt,k underestimates the true bias, validity degrades by exactly 
+
+Pr( Ec
+
+> env
+
+) (Proposition 4). 4Assumption 4 (Action-region representation gap (one-sided)) . There exists εact ≥ 0 such that for every round t and every realized debate history ft with u = ϕt(ft) satisfying qt(u) ≥ 1 − α:
+
+qt(u) − Pr( Y = ˆYt | F t = ft)+ ≤ εact a.s. (9) 
+
+where [x]+ = max( x, 0) .
+
+This is weaker than a global two-sided gap: it is one-sided (only overestimation matters) and restricted to the action region {(t, u ) : qt(u) ≥ 1 − α}. Lipschitz smoothness and local support are not required by the main theorems—they are optional instantiations of bt,k , formalized in Appendix A. 
+
+5 Theoretical Guarantees 
+
+All proofs are in Appendix A. We build from pointwise validity to the main wrong-action guarantee. Define the bad event Et,k := {Lt,k (Ut) > q t(Ut)}.
+
+Theorem 1 (Pointwise validity) . Under Assumptions 1–3, for any fixed t, k ∈ K , and δt,k ∈ (0 , 1) :
+
+Pr( Et,k ) ≤ δt,k .
+
+Theorem 2 (Simultaneous validity) . Under Assumptions 1–3, set δt,k = δ/ (T |K| ). Then 
+
+Pr( S 
+
+> t,k
+
+Et,k ) ≤ δ; equivalently, Lt = max k Lt,k (Ut) ≤ qt(Ut) for all t with probability ≥ 1 − δ.
+
+Theorem 3 (Budget-aligned wrong-action control) . Under Assumptions 1–4, the stopping rule 
+
+τ = inf {t ≤ T : Lt(Ut) ≥ 1 − α} satisfies 
+
+Pr  τ ≤ T, ˆYτ̸ = Y  ≤ δ + α + εact . (10) 
+
+In particular, if δ + α + εact ≤ β, then Pr( τ ≤ T, ˆYτ̸ = Y ) ≤ β.Scope. Theorem 3 does not provide distribution-free conditional correctness, nor does it verify the state representation automatically. It states that, given a valid local bias envelope and an action-region representation-gap bound, the stopping rule converts these quantities into a wrong-action guarantee. Assumption violations add explicitly to the risk (Proposition 4 below). Each term controls a distinct error source (Figure 4): δ covers calibration failure, α is the residual wrong-answer probability when qt ≥ 1 − α, and εact captures representation loss. We make the cost of assumption failure explicit: 
+
+Proposition 4 (Cost of assumption failure) . Let Eenv be the event that Assumption 3 holds in the action region, and Erep the event that Assumption 4 holds. Then: Pr( τ ≤ T, ˆYτ̸ = Y ) ≤
+
+δ + α + εact + Pr( Ec
+
+> env
+
+) + Pr( Ec
+
+> rep
+
+).
+
+The guarantee degrades gracefully: each assumption violation adds its failure probability to the bound. 
+
+Corollary 5 (Acted-on error rate) . Under the same conditions as Theorem 3, if pact := Pr( τ ≤
+
+T ) > 0:
+
+Pr   ˆYτ̸ = Y | τ ≤ T  ≤ α + εact + δpact 
+
+. (11) This connects the unconditional wrong-action bound (Theorem 3) to Acc |Act = 1 − Pr( ˆYτ̸ = Y |
+
+τ ≤ T ) reported in experiments. When Act is large (e.g., pact = 0 .77 on BBH), the δ/p act overhead is small ( 0.03 /0.77 ≈ 0.04 ). Figure 4 in Appendix B illustrates the budget decomposition and its empirical envelope. 
+
+Auxiliary results (deferred). Appendix A shows that adaptive selection over k ∈ K satisfies an oracle-style slack inequality (Theorem 6), so the selected neighborhood is within a constant factor of the best bias–variance trade-off in K. The plug-in envelope bt,k recovers Lipschitz, Hölder, and estimated-modulus constructions as corollaries (Corollaries 7–9); formal statements and proofs are given there. Under standard local support and smoothness conditions, Appendix A derives the nonparametric slack rate qt − Lt = O(n−1/(2+ D)) (Corollary 11), which motivates keeping the default state low-dimensional. Group-conditional control (Theorem 12) extends the guarantee per group by splitting δ across J groups. 5Claim hierarchy. (a) Formal theorems (Thms. 1–3), valid given Assumptions 1–4; (b) conditional guarantee (10) , with violation cost made explicit (Prop. 4); (c) diagnostic proxies (Table 11), necessary but not sufficient; (d) empirical observations (Table 1), consistent with but not proving the guarantee. Figure 3 in Appendix B visualizes the bias–variance trade-off governing the choice of k and the resulting certification-slack rate. 
+
+6 Experiments 
+
+Benchmarks. We evaluate on six benchmarks spanning a wide range of difficulty and sample size: 
+
+(1) MMLU-Pro [Wang et al., 2024] (10-option, 8 domains pooled, n = 8 ,312 ); (2) LogiQA [Liu et al., 2020] (4-option logical reasoning, n = 8 ,678 ; base acc. ∼76% ); (3) ARC-Challenge [Clark et al., 2018] (4-option, n = 2 ,590 ; base acc. ∼96% ); (4) BIG-Bench Hard (BBH) [Suzgun et al., 2023] (10 subtasks, n = 2 ,395 ; base acc. 71 –100% ); (5) MuSR [Sprague et al., 2024] (3 subtasks, n = 756 ; base acc. ∼66% ); (6) GPQA [Rein et al., 2023] (4-option graduate science, n = 546 ; base acc. ∼72% ). 
+
+Protocol. Three heterogeneous agents (Claude Haiku 4.5, DeepSeek-R1, Qwen-3 32B) debate for 
+
+T = 4 rounds. Data is pooled within each benchmark and split 50/50 into training/test; the training half is further split 20/80 into Dmod /Dloc . Default state: Ut = ( p(1)  
+
+> t
+
+, ∆t) ∈ R2; bias envelope via empirical modulus (7); K = {128 , 256 , 512 }.
+
+Baselines. We compare against nine baselines spanning three families. 
+
+Risk-control methods (calibrated to control aggregate WA ≤ β via statistical calibration on the train-ing split): (R1) CRC [Angelopoulos et al., 2024] calibrates a global nonconformity-score quantile so expected risk is bounded; (R2) Selective Prediction [El-Yaniv and Wiener, 2010, Geifman and El-Yaniv, 2017] tunes a threshold on the top social probability p(1)  
+
+> t
+
+to control WA ≤ β; (R3) Cali-brated Learned trains a HistGradientBoosting classifier on five deliberation features, applies isotonic calibration, then tunes a threshold for WA ≤ β; (R4) Isotonic Confidence applies isotonic regression to recalibrate p(1)  
+
+> t
+
+, then tunes a threshold for WA ≤ β.
+
+Ablations of our method : (A1) kNN no bias is our k-NN lower bound without the bias envelope bt,k ,isolating the contribution of the modulus correction; (A2) Final-round local applies our full bound only at t = T , measuring the value of adaptive early stopping. 
+
+Heuristic baselines : (H1) Consensus acts when all agents agree on the same answer; (H2) Confidence Threshold acts when p(1)  
+
+> t
+
+≥ 0.90 , without calibration; (H3) Learned Stopper is logistic regression on the state Ut, without risk calibration. All baseline thresholds are tuned exclusively on the training split; reported metrics are on the held-out test split, averaged over 10 random splits. Throughout, Act denotes automation rate, Acc |Act acted-on accuracy, WA the wrong-action rate, and Rnd the average stopping round. 
+
+Difficulty-normalized deployment budgets. A fixed absolute wrong-action budget is not a task-invariant deployment requirement: it corresponds to very different levels of tolerance depending on the task’s final-round error. For ARC ( beT ≈ 5% ), β = 0 .10 is permissive relative to the final-round error; for MuSR ( beT ≈ 34% ), the same β is stringent. Absolute β therefore conflates task difficulty with stopping quality. We use λ to parameterize deployment tolerance relative to the task’s final-round error—the fraction of beT,d the user is willing to allocate as autonomous wrong-action budget—and select the operating multiplier λ⋆d from training data only, inducing 
+
+βd = λ⋆d be train  
+
+> T,d
+
+, (12) where be train  
+
+> T,d
+
+= Pr Dtrain ( bYT̸ = Y ) is the final-round error on the training split. The operating budget is selected before deployment using only training data: we sub-split the training set, sweep 
+
+λ ∈ { 0.25 , 0.50 , . . . , 5.00 }, and pick the λ that maximizes automation subject to dWA /β ≤ 0.10 
+
+on the held-out training sub-split (Appendix B.5). We fix δ = 0 .03 and εact = 0 .02 , giving action threshold α = β − 0.05 . The formal guarantee (Theorem 3) holds for any fixed β; training-only selection simply chooses the operating point before deployment without compromising test-time validity. No test-set quantity is used to choose λ⋆d, βd, k, or the stopping threshold; the held-out 6Table 1: Difficulty-normalized, training-selected operating budgets (T = 4 , 10 random 50/50 splits). Per-dataset βd = λ⋆d ˆe train 
+
+T,d is induced from training data via (12) before test evaluation; methods within each dataset share the same βd, and WA/ β (budget usage ratio, not raw WA) is the cross-dataset safety metric. Rows grouped by family: our method and its ablations ( kNN no bias, Final-round), risk-control (CRC, Selective Prediction, Calibrated Learned, Isotonic Confidence), and heuristics (Consensus, Confidence Threshold, Learned Stopper). Fixed-β robustness check in Appendix G.4.                                                                                                                                                                                                                                                                                                                     
+
+> CERTIFIABLE REGIME STRESS -TEST /INSUFFICIENT EVIDENCE
+> LogiQA (n= 8678 )MMLU-Pro (n= 8312 )ARC (n= 2590 )BBH (n= 2395 )MuSR (n= 756 )GPQA (n= 546 )
+> ˆeT=.24 ,λ⋆= 1 .3,β=.31 ˆeT=.16 ,λ⋆= 2 .4,β=.38 ˆeT=.05 ,λ⋆= 4 .4,β=.22 ˆeT=.08 ,λ⋆= 4 .1,β=.33 ˆeT=.34 ,λ⋆= 2 .2,β=.76 ˆeT=.28 ,λ⋆= 2 .8,β=.77
+> Method Act Acc WA WA/ βRnd Act Acc WA WA/ βRnd Act Acc WA WA/ βRnd Act Acc WA WA/ βRnd Act Acc WA WA/ βRnd Act Acc WA WA/ βRnd
+> Ours 27.9 88.9 3.2 .10 3.5 71.1 93.9 4.4 .12 2.2 75.5 97.1 2.3 .11 2.3 84.4 96.4 3.0 .09 1.8 9.0 70.3 2.7 .04 3.8 53.3 82.5 9.4 .12 3.1
+> kNN no bias (ours) 61.5 85.6 8.9 .29 2.4 84.3 90.4 8.1 .21 1.6 100 95.9 4.1 .19 1.0 95.7 92.7 7.1 .22 1.2 100 64.4 35.6 .47 1.0 100 60.5 39.5 .51 1.0 Final-round (ours) 27.2 89.0 3.1 .10 4.0 69.1 94.4 3.9 .10 4.0 62.3 96.9 1.9 .09 4.0 84.4 96.4 3.1 .10 4.0 46.3 69.3 14.3 .19 4.0 60.9 82.7 10.6 .14 4.0 CRC 100 74.4 25.6 .82 1.0 100 79.9 20.1 .53 1.0 99.9 96.0 4.0 .18 1.0 100 91.6 8.4 .26 1.1 100 64.3 35.7 .47 1.0 99.9 63.0 36.9 .48 1.2 Selective Pred. 98.6 76.1 23.6 .76 1.1 97.4 85.0 14.6 .38 1.3 100 95.9 4.1 .19 1.0 99.9 91.7 8.3 .25 1.1 100 64.6 35.5 .47 1.0 98.6 68.4 31.2 .41 1.3 Calibrated Learned 97.9 76.1 23.4 .75 1.2 97.3 84.5 15.1 .40 1.3 100 95.9 4.1 .19 1.0 99.7 91.4 8.6 .26 1.0 100 64.4 35.6 .47 1.0 96.6 66.1 32.9 .43 1.4 Isotonic Conf. 99.1 75.8 24.0 .77 1.1 98.3 84.4 15.4 .40 1.3 100 96.0 4.0 .18 1.0 99.7 91.7 8.3 .25 1.1 100 64.7 35.3 .46 1.0 96.7 70.4 28.6 .37 1.3 Consensus 93.6 76.0 24.0 .77 1.7 94.5 84.5 15.5 .41 1.7 99.0 95.9 4.1 .19 1.1 98.2 91.5 8.5 .26 1.3 93.1 66.8 33.2 .44 1.6 87.0 71.3 28.7 .37 1.8 Confidence Thr. 33.3 76.0 24.0 .77 2.5 69.8 84.5 15.5 .41 2.4 83.0 95.9 4.1 .19 1.9 87.1 91.5 8.5 .26 1.6 32.3 67.2 32.8 .43 3.3 50.5 71.9 28.1 .37 2.8 Learned Stopper 96.6 83.6 16.4 .53 1.3 96.6 83.6 16.4 .43 1.3 100 95.7 4.3 .20 1.0 99.4 91.7 8.3 .25 1.1 98.8 63.5 36.5 .48 1.1 —————
+> Oracle 78.6 100 0.00 1.7 86.0 100 0.00 1.5 96.4 100 0.00 1.1 92.6 100 0.00 1.2 69.8 100 0.00 2.0 74.5 100 0.00 1.9
+
+test split is used only for evaluation, averaged over 10 random splits. Because βd is task-dependent by design, the primary cross-dataset safety metric is the normalized budget usage WA /β , which measures the fraction of the pre-declared wrong-action budget consumed by each method; methods are always compared under the same pre-declared βd within each dataset, while βd itself is induced from training-only final-round error to make tolerance comparable across tasks. Large induced βd
+
+(e.g., on GPQA/MuSR) is not a deployable safety setting but a diagnostic signal that the available calibration sample and representation are insufficient for moderate-risk local certification. A fixed-β
+
+robustness check applying the same absolute β to all datasets is reported in Appendix G.4 as a consistency check, not an alternative main framing. 
+
+6.1 Main results 
+
+Table 1 shows all six datasets ordered by sample size; λ⋆d and βd are determined entirely on training data, with no test-set metric influencing the budget, threshold, or k. We do not fix a single absolute β
+
+across datasets—the same absolute budget corresponds to different tolerances depending on final-round error (ARC beT ≈ 5% vs. MuSR beT ≈ 34% )—so we parameterize the deployment tolerance by 
+
+λ and induce βd from training alone; within each dataset all methods are compared under the same 
+
+βd, while WA /β makes tolerance comparable across datasets. 
+
+Certifiable datasets. On MMLU-Pro, BBH, LogiQA, and ARC the method activates 28–84% of instances at 89–97% Acc |Act, consuming 9–12% of the pre-declared budget (WA/ β ∈ [.094 , . 116] ). CRC and Calibrated Learned achieve near-100% automation via marginal score-threshold calibration but consume 18–82% of the same budget. The k-NN ablation without bt,k acts more aggressively at 2–3 × the usage ratio (confirming the modulus correction is essential); Final-round applies the bound only at t = T and forgoes all early-stopping savings (stopping round 4.0 vs. 1.8–3.5). Fixed-β sweeps (Appendix G.4) confirm BBH activates at β = .15 (75% Act, 99% Acc); Pareto frontier in Figure 2; 
+
+λ-sweep in Appendix G. 
+
+Stress-test datasets. GPQA and MuSR serve as stress tests: their large induced β = .77 , . 76 are diagnostic signals—small n = 546 , 756 and high eT = 28 –34% leave calibration insufficient for moderate-risk certification. GPQA activates 53% at 83% Acc |Act; MuSR activates on only 2/10 splits; the method defers rather than forcing unreliable automation. 
+
+6.2 Matched-automation comparison 
+
+Table 1 could in principle be read as “our method acts less and therefore looks more accurate”. To isolate the effect of the stopping criterion from the automation rate we run a matched-automation comparison, which we treat as an oracle-style diagnostic : for each dataset we fix a target automation 7Table 2: Matched-automation comparison as an oracle-style diagnostic (10 random 50/50 splits). Each baseline’s threshold is grid-searched on the training split to minimize |Act train − A⋆| and evaluated on the held-out test split. ∆ is Acc |Act relative to Ours at the matched operating point (pp). 
+
+Ours Confidence Threshold (matched) Calibrated Learned (matched) 
+
+Dataset A⋆ Acc WA WA/ β ∆ Acc WA WA/ β ∆ Acc WA WA/ β ∆
+
+LogiQA 27.9% 88.9 3.18 .102 — 88.5 3.20 .103 −0.4 90.5 2.60 .084 +1 .6
+
+MMLU-Pro 71.1% 93.9 4.40 .116 — 93.8 4.45 .117 −0.1 94.2 4.14 .109 +0 .3
+
+ARC 75.5% 97.1 2.29 .108 — 96.9 2.32 .112 −0.2 96.8 2.82 .135 −0.3
+
+BBH 84.4% 96.4 3.02 .093 — 96.5 2.92 .090 +0 .1 96.6 2.91 .090 +0 .2Ours (varying β) CRC  Selective Prediction  Calibrated Learned  Isotonic Confidence  Consensus  Confidence threshold  Learned stopper                      
+
+> LogiQA (β=.31)
+> 0
+> 0.25
+> 0.5
+> 0.75
+> 1
+> 025 50 75 100
+> Automation (%)
+> WA /  βbudget WA= βtraining target WA/ β= .10
+> β=0.31
+> β=.60
+> MMLU-Pro (β=.38)
+> 0
+> 0.25
+> 0.5
+> 0.75
+> 1
+> 025 50 75 100
+> Automation (%) budget WA= β
+> β=0.38
+> β=.15
+> ARC-Challenge (β=.22)
+> 0
+> 0.25
+> 0.5
+> 0.75
+> 1
+> 025 50 75 100
+> Automation (%) budget WA= β
+> β=0.22
+> β=.35
+> BBH (β=.33)
+> 0
+> 0.25
+> 0.5
+> 0.75
+> 1
+> 025 50 75 100
+> Automation (%) budget WA= β
+> β=0.33 β=.15
+
+Figure 2: Risk–automation frontier under normalized budget usage. y-axis: WA /β (fraction of the pre-declared wrong-action budget consumed; lower is safer). Blue: our method as β varies. Markers: training-selected baseline operating points from Table 1 (risk-control, confidence, consensus, and learned-stopper baselines). Dashed red at 1.0 = budget exhaustion; dotted blue at 0.10 = training-selection target. Ours stays well below the budget across activated datasets, while many baseline operating points consume substantially more of the pre-declared budget at higher automation. 
+
+A⋆ equal to our test-time Act under the training-selected λ⋆, then grid-search each baseline’s threshold on the training split only to minimize |Act train − A⋆|, and evaluate on the held-out test split (Appendix K). This asks a retrospective question— if a scalar threshold were tuned post-hoc to exactly recover our operating point, how would its subset quality compare?—whereas our method constructs that operating point prospectively from the declared wrong-action budget and the local lower bound. Table 2 shows that at matched automation the three stopping rules obtain essentially the same acted-on accuracy ( |∆Acc | ≤ 1.6pp across twelve comparisons) and the same WA /β . The goal is not to outperform tuned scalar thresholds at a matched automation level but to prospectively convert a user-declared wrong-action budget into an auditable act-or-defer operating point before deployment —at their risk-calibrated defaults, baselines consume 18–82% of the same budget at near-full automation (Table 1) precisely because they cannot convert a declared budget into an automation level without the kind of per-task threshold search used in this diagnostic. 
+
+6.3 Pareto frontier and audit summary 
+
+Figure 2 shows the continuous risk–automation frontier. The assumption audit (Table 11, Appendix H) targets the two local-approach assumptions—the bias envelope (Assumption 3, via smoothness coverage and 2× modulus inflation) and the representation gap (Assumption 4, via the predictor-gap proxy)—and assigns a certification-gap value (1 − α) − eLmax to each dataset: BBH has a negative gap (strong activation), MMLU-Pro, ARC, and LogiQA have modest positive gaps (partial activation under the training-selected budget), and GPQA/MuSR have large gaps ( > 0.47 ) with small n or high base error, so the certificate defers rather than activating. Inflating the empirical modulus by 
+
+2× reduces Act by only 1–3pp on active datasets with Acc |Act unchanged, confirming that the modulus estimate already sits well above the true local variation. Full diagnostics, εact sensitivity, and budget-split sensitivity over (δ, ε act ) are in Appendices H–H.4. 87 Discussion and Limitations 
+
+The paper does not provide distribution-free conditional correctness; the contribution is to expose assumptions, budget their cost (Proposition 4), and stress-test them with diagnostic proxies (Table 11). The representation gap (Assumption 4) is the unavoidable price of a deployable low-dimensional stopping state: any practical system commits to a finite summary of Ft, and εact quantifies the one-sided cost of that commitment in the action region; our diagnostics do not prove this gap is small but are designed to falsify obviously insufficient representations and to guide conservative inflation of εact (Appendix I). Accordingly εact enters the wrong-action bound additively, and the certificate degrades gracefully if Assumption 4 fails (Proposition 4). The 2D default state (p(1)  
+
+> t
+
+, ∆t) empirically balances statistical efficiency and representation loss (Table 16). Low activation on GPQA and MuSR is consistent with the statistical nature of local certification: small n and high base error enlarge both the k-nearest-neighbor approximation radius and the concentration slack, so the lower bound rarely crosses threshold under moderate budgets; the per-component decomposition is in Appendix N. We view this deferral as intended behavior rather than a failure. 
+
+8 Related Work 
+
+Multi-agent debate and LLM confidence. Multi-agent debate [Du et al., 2024, Liang et al., 2024] improves reasoning but lacks explicit wrong-action budgets; related directions include stability detection [Hu et al., 2025] and self-consistency [Wang et al., 2023]. LLM confidence estimation [Kadavath et al., 2022, Xiong et al., 2024, Geng et al., 2024] and calibration [Guo et al., 2017] focus on aggregate metrics, not local certified bounds. 
+
+Conformal, selective prediction, and anytime-valid inference. Split conformal [Vovk et al., 2005, Angelopoulos and Bates, 2023] provides marginal coverage; extensions include risk control [Bates et al., 2021, Angelopoulos et al., 2024] and LLM applications [Kumar et al., 2023, Quach et al., 2024]. Localized methods [Guan, 2023, Hore and Barber, 2023] share our localization but target coverage, not correctness. Key distinctions: (a) selective prediction [El-Yaniv and Wiener, 2010, Geifman and El-Yaniv, 2017] uses marginal score thresholds without local state-conditional act-or-defer certificates—under the same difficulty-normalized deployment budget, these baselines consume 18–82% of the pre-declared wrong-action allowance (Table 1), while our state-conditional bound extracts high-precision automation subsets at ≤12% on activated datasets; (b) CRC [Angelopoulos et al., 2024] provides aggregate risk control but not adaptive stopping or state-conditional bounds; (c) localized conformal targets coverage, not correctness. We are not aware of prior work that combines all four elements—adaptive multi-round stopping, local state-conditional certification, wrong-action budgeting with a task-relative-risk deployment policy, and multi-agent deliberation—in a single framework (Appendix E). 
+
+9 Conclusion 
+
+We reframe multi-agent deliberation as budgeted act-or-defer for human-in-the-loop deployment: local k-NN lower bounds on state-conditional correctness trigger autonomous action when reliable and defer otherwise, with β = δ + α + εact . The guarantee is conditional on two auditable structural assumptions (bias envelope and representation gap), each paired with a diagnostic proxy rather than a formal verifier; assumption failures enter the wrong-action bound additively (Proposition 4), making the cost of each violation explicit rather than hidden behind a global correctness claim. Under training-selected difficulty-normalized budgets, the framework uses 9–12% of the allowed budget on activated datasets (BBH 84%/96%, MMLU-Pro 71%/94%, ARC 75%/97%, LogiQA 28%/89%), while baselines at risk-calibrated defaults consume 18–82%; on stress tests (GPQA, MuSR) the method defers rather than forcing unreliable automation, the intended behavior under insufficient calibration evidence. The contribution is not better subset quality at a matched automation level—tuned scalar thresholds can recover the same operating point after per-task search—but the prospective conversion of a declared wrong-action budget into an auditable act-or-defer policy before deployment, under explicitly exposed assumptions; we view this as a template for other inference-time compute pipelines where repeated autonomous action is cheap but occasional wrong action is costly. The central open challenge is the geometry–sufficiency trade-off governing εact , motivating future work on learned representations and extensions to open-ended generation. 9References 
+
+Anastasios N Angelopoulos and Stephen Bates. A gentle introduction to conformal prediction and distribution-free uncertainty quantification. Foundations and Trends in Machine Learning , 16(4): 494–591, 2023. Anastasios N Angelopoulos, Stephen Bates, Jitendra Malik, and Michael I Jordan. Uncertainty sets for image classifiers using conformal prediction. In International Conference on Learning Representations , 2021. Anastasios N Angelopoulos, Stephen Bates, Emmanuel J Candès, Michael I Jordan, and Lihua Lei. Learn then test: Calibrating predictive algorithms to achieve risk control. arXiv preprint arXiv:2110.01052 , 2022. Anastasios N Angelopoulos, Stephen Bates, Adam Fisch, Lihua Lei, and Tal Schuster. Conformal risk control. International Conference on Learning Representations , 2024. Kenneth J Arrow. Social Choice and Individual Values . Wiley, 1951. François Baccelli, Sriram Vishwanath, and Jae Oh Woo. On the steady state of continuous-time stochastic opinion dynamics with power-law confidence. Journal of Applied Probability , 58(3): 746–772, 2021. Rina Foygel Barber, Emmanuel J Candès, Aaditya Ramdas, and Ryan J Tibshirani. The limits of distribution-free conditional predictive inference. Information and Inference: A Journal of the IMA , 10(2):455–482, 2021. Rina Foygel Barber, Emmanuel J Candès, Aaditya Ramdas, and Ryan J Tibshirani. Conformal prediction beyond exchangeability. The Annals of Statistics , 51(2):816–845, 2023. Stephen Bates, Anastasios Angelopoulos, Lihua Lei, Jitendra Malik, and Michael Jordan. Distribution-free, risk-controlling prediction sets. Journal of the ACM , 68(6):1–34, 2021. Gérard Biau and Luc Devroye. Lectures on the nearest neighbor method. Springer Series in the Data Sciences , 2015. Jaroslaw Blasiok, Parikshit Gopalan, Lunjia Hu, and Preetum Nakkiran. A unifying theory of distance from calibration. Symposium on Theory of Computing , pages 1727–1740, 2023. Stéphane Boucheron, Gábor Lugosi, and Pascal Massart. Concentration Inequalities: A Nonasymp-totic Theory of Independence . Oxford University Press, 2013. Chi-Min Chan, Weize Chen, Yusheng Su, Jianxuan Yu, Wei Xue, Shanghang Zhang, Jie Fu, and Zhiyuan Liu. ChatEval: Towards better LLM-based evaluators through multi-agent debate. In 
+
+International Conference on Learning Representations , 2024. Kamalika Chaudhuri and Sanjoy Dasgupta. Rates of convergence for the cluster tree. Advances in Neural Information Processing Systems , 23, 2010. Hyeong Kyu Choi, Xiaojin Zhu, and Sharon Li. Debate or vote: Which yields better decisions in multi-agent large language models? arXiv preprint arXiv:2508.17536 , 2025. Peter Clark, Isaac Cowhey, Oren Etzioni, Tushar Khot, Ashish Sabharwal, Carissa Schoenick, and Oyvind Tafjord. Think you have solved question answering? Try ARC, the AI2 reasoning challenge. 
+
+arXiv preprint arXiv:1803.05457 , 2018. Thomas Cover and Peter Hart. Nearest neighbor pattern classification. IEEE Transactions on Information Theory , 13(1):21–27, 1967. Guillaume Deffuant, David Neau, Frédéric Amblard, and Gérard Weisbuch. Mixing beliefs among interacting agents. Advances in Complex Systems , 3(01n04):87–98, 2000. Morris H DeGroot. Reaching a consensus. Journal of the American Statistical Association , 69(345): 118–121, 1974. 10 Luc Devroye, László Györfi, and Gábor Lugosi. A Probabilistic Theory of Pattern Recognition .Springer, 1996. Yilun Du, Shuang Li, Antonio Torralba, Joshua B Tenenbaum, and Igor Mordatch. Improving factuality and reasoning in language models through multiagent debate. In International Conference on Machine Learning , 2024. Ran El-Yaniv and Yair Wiener. On the foundations of noise-free selective classification. Journal of Machine Learning Research , 11:1605–1641, 2010. Shangbin Feng, Weijia Shi, Yike Wang, Wenxuan Ding, Vidhisha Balachandran, and Yulia Tsvetkov. Don’t hallucinate, abstain: Identifying LLM knowledge gaps via multi-LLM collaboration. arXiv preprint arXiv:2402.00367 , 2024. Adam Fisch, Tal Schuster, Tommi Jaakkola, and Regina Barzilay. Conformal prediction sets with limited false positives. arXiv preprint arXiv:2202.07650 , 2022. Evelyn Fix and Joseph Lawson Hodges. Discriminatory analysis: Nonparametric discrimination, consistency properties. USAF School of Aviation Medicine, Technical Report 4 , 1951. Yonatan Geifman and Ran El-Yaniv. Selective classification for deep neural networks. Advances in Neural Information Processing Systems , 30, 2017. Jiahui Geng, Fengyu Cai, Yuxia Wang, Heinz Koeppl, Preslav Nakov, and Iryna Gurevych. A survey of confidence estimation and calibration in large language models. arXiv preprint arXiv:2311.08298 ,2024. Isaac Gibbs and Emmanuel Candès. Adaptive conformal inference under distribution shift. Advances in Neural Information Processing Systems , 34:1660–1672, 2021. Isaac Gibbs, John J Cherian, and Emmanuel J Candès. Conformal prediction with conditional guarantees. arXiv preprint arXiv:2305.12616 , 2023. Peter Grünwald, Rianne de Heide, and Wouter M Koolen. Safe testing. Journal of the Royal Statistical Society Series B , 86(5):1091–1128, 2024. Leying Guan. Localized conformal prediction: A generalized inference framework for conformal prediction. Biometrika , 110(1):33–50, 2023. Chuan Guo, Geoff Pleiss, Yu Sun, and Kilian Q Weinberger. On calibration of modern neural networks. International Conference on Machine Learning , pages 1321–1330, 2017. Chirag Gupta, Aleksandr Podkopaev, and Aaditya Ramdas. Distribution-free binary classification: prediction sets, confidence intervals and calibration. Advances in Neural Information Processing Systems , 33:3711–3723, 2020. László Györfi, Michael Kohler, Adam Krzy˙ zak, and Harro Walk. A Distribution-Free Theory of Nonparametric Regression . Springer, 2002. Rainer Hegselmann and Ulrich Krause. Opinion dynamics and bounded confidence: Models, analysis and simulation. Journal of Artificial Societies and Social Simulation , 5(3), 2002. Dan Hendrycks, Collin Burns, Steven Basart, Andy Zou, Mantas Mazeika, Dawn Song, and Jacob Steinhardt. Measuring massive multitask language understanding. International Conference on Learning Representations , 2021. Wassily Hoeffding. Probability inequalities for sums of bounded random variables. Journal of the American Statistical Association , 58(301):13–30, 1963. Rohan Hore and Rina Foygel Barber. Conformal prediction with local weights: randomization enables local guarantees. arXiv preprint arXiv:2310.07850 , 2023. Steven R Howard, Aaditya Ramdas, Jon McAuliffe, and Jasjeet Sekhon. Time-uniform, nonparamet-ric, nonasymptotic confidence sequences. The Annals of Statistics , 49(2):1055–1080, 2021. 11 Tianyu Hu, Zhen Tan, Song Wang, Huaizhi Qu, and Tianlong Chen. Multi-agent debate for LLM judges with adaptive stability detection. arXiv preprint arXiv:2510.12697 , 2025. Geoffrey Irving, Paul Christiano, and Dario Amodei. AI safety via debate. arXiv preprint arXiv:1805.00899 , 2018. Ramesh Johari, Pete Koomen, Leonid Pekelis, and David Walsh. Always valid inference: Continuous monitoring of A/B tests. Operations Research , 70(3):1806–1821, 2022. Saurav Kadavath, Tom Conerly, Amanda Askell, Tom Henighan, Dawn Drain, Ethan Perez, Nicholas Schiefer, Zac Hatfield-Dodds, Nova DasSarma, Eli Tran-Johnson, et al. Language models (mostly) know what they know. arXiv preprint arXiv:2207.05221 , 2022. Akbir Khan, John Hughes, Dan Valentine, Laura Ruis, Kshitij Sachan, Ansh Radhakrishnan, Edward Grefenstette, Samuel R Bowman, Tim Rocktäschel, and Ethan Perez. Debating with more persuasive LLMs leads to more truthful answers. In International Conference on Machine Learning ,2024. Lorenz Kuhn, Yarin Gal, and Sebastian Farquhar. Semantic uncertainty: Linguistic invariances for uncertainty estimation in natural language generation. International Conference on Learning Representations , 2023. Ananya Kumar, Percy S Liang, and Tengyu Ma. Verified uncertainty calibration. Advances in Neural Information Processing Systems , 32, 2019. Bhawesh Kumar, Charlie Lu, Gauri Gupta, Anil Palepu, David Bellamy, Ramesh Raskar, and Andrew Beam. Conformal prediction with large language models for multi-choice question answering. 
+
+arXiv preprint arXiv:2305.18404 , 2023. Jing Lei, James Robins, and Larry Wasserman. Distribution-free prediction sets. Journal of the American Statistical Association , 108(501):278–287, 2013. Jing Lei, Max G’Sell, Alessandro Rinaldo, Ryan J Tibshirani, and Larry Wasserman. Distribution-free predictive inference for regression. Journal of the American Statistical Association , 113(523): 1094–1111, 2018. Junyou Li, Qin Zhang, Yangbin Yu, Qiang Fu, and Deheng Ye. More agents is all you need. arXiv preprint arXiv:2402.05120 , 2024. Tian Liang, Zhiwei He, Wenxiang Jiao, Xing Wang, Yan Wang, Rui Wang, Yujiu Yang, Shuming Shi, and Zhaopeng Tu. Encouraging divergent thinking in large language models through multi-agent debate. In Conference on Empirical Methods in Natural Language Processing , 2024. Stephanie Lin, Jacob Hilton, and Owain Evans. Teaching models to express their uncertainty in words. Transactions on Machine Learning Research , 2022. Jian Liu, Leyang Cui, Hanmeng Liu, Dandan Huang, Yile Wang, and Yue Zhang. LogiQA: A challenge dataset for machine reading comprehension with logical reasoning. In Proceedings of the International Joint Conference on Artificial Intelligence (IJCAI) , 2020. Potsawee Manakul, Adian Liusie, and Mark JF Gales. SelfCheckGPT: Zero-resource black-box hallucination detection for generative large language models. In Conference on Empirical Methods in Natural Language Processing , 2023. Charles Marx, Sofian Zalouk, and Stefano Ermon. Calibration by distribution matching: Trustworthy uncertainties for deep neural networks. In Advances in Neural Information Processing Systems ,volume 36, 2023. Andreas Maurer and Massimiliano Pontil. Empirical Bernstein bounds and sample-variance penaliza-tion. In Proceedings of the 22nd Annual Conference on Learning Theory (COLT) , 2009. Mahdi Pakdaman Naeini, Gregory F Cooper, and Milos Hauskrecht. Obtaining well calibrated probabilities using Bayesian binning. In AAAI Conference on Artificial Intelligence , 2015. 12 Harris Papadopoulos. Inductive conformal prediction: Theory and application to neural networks. 
+
+Tools in Artificial Intelligence , 2008. John Platt. Probabilistic outputs for support vector machines and comparisons to regularized likeli-hood methods. In Advances in Large Margin Classifiers , pages 61–74. MIT Press, 1999. Chen Qian, Zihao Xie, Yifei Wang, Wei Liu, Kunlun Zhu, Hanchen Xia, Yufan Dang, Zhuoyun Du, Weize Chen, Cheng Yang, Zhiyuan Liu, and Maosong Sun. Scaling large language model-based multi-agent collaboration. In International Conference on Learning Representations , 2025. Victor Quach, Adam Fisch, Tal Schuster, Adam Yala, Jae Ho Sohn, Tommi S Jaakkola, and Regina Barzilay. Conformal language modeling. arXiv preprint arXiv:2306.10193 , 2024. Aaditya Ramdas, Johannes Ruf, Martin Larsson, and Wouter Koolen. Admissible anytime-valid sequential inference must rely on nonnegative martingales. arXiv preprint arXiv:2009.03167 ,2022. Aaditya Ramdas, Peter Grünwald, Vladimir Vovk, and Glenn Shafer. Game-theoretic statistics and safe anytime-valid inference. Statistical Science , 38(4):576–601, 2023. David Rein, Betty Li Hou, Asa Cooper Stickland, Jackson Petty, Richard Yuanzhe Pang, Julien Dirani, Julian Michael, and Samuel R Bowman. GPQA: A graduate-level Google-proof Q&A benchmark. arXiv preprint arXiv:2311.12022 , 2023. Allen Z Ren, Anushri Dixit, Alexandra Bodrova, Sumeet Singh, Stephen Tu, Noah Brown, Peng Xu, Leila Takayama, Fei Xia, Jake Varley, Zhenjia Xu, Dorsa Sadigh, Andy Zeng, and Anirudha Majumdar. Robots that ask for help: Uncertainty alignment for large language model planners. 
+
+arXiv preprint arXiv:2307.01928 , 2023. Yaniv Romano, Evan Patterson, and Emmanuel Candès. Conformalized quantile regression. In 
+
+Advances in Neural Information Processing Systems , volume 32, 2019. Yaniv Romano, Matteo Sesia, and Emmanuel Candès. Classification with valid and adaptive coverage. In Advances in Neural Information Processing Systems , volume 33, pages 3581–3591, 2020. Glenn Shafer, Alexander Shen, Nikolai Vereshchagin, and Vladimir Vovk. Test martingales, Bayes factors and p-values. Statistical Science , 26(1):84–101, 2011. Mrinank Sharma, Meg Tong, Tomasz Korbak, David Duvenaud, Amanda Askell, Samuel R Bowman, et al. Towards understanding sycophancy in language models. arXiv preprint arXiv:2310.13548 ,2024. Zayne Sprague, Xi Ye, Kaj Bostrom, Swarat Chaudhuri, and Greg Durrett. MuSR: Testing the limits of chain-of-thought with multistep soft reasoning. In International Conference on Learning Representations , 2024. Charles J Stone. Consistent nonparametric regression. The Annals of Statistics , 5(4):595–620, 1977. Mirac Suzgun, Nathan Scales, Nathanael Schärli, Sebastian Gehrmann, Yi Tay, Hyung Won Chung, Aakanksha Chowdhery, Quoc V Le, Ed H Chi, Denny Zhou, and Jason Wei. Challenging BIG-Bench tasks and whether chain-of-thought can solve them. In Findings of the Association for Computational Linguistics: ACL 2023 , 2023. Katherine Tian, Eric Mitchell, Allan Zhou, Archit Sharma, Rafael Rafailov, Huaxiu Yao, Chelsea Finn, and Christopher D Manning. Just ask for calibration: Strategies for eliciting calibrated confidence scores from language models fine-tuned with human feedback. In Conference on Empirical Methods in Natural Language Processing , 2023. Alexandre B Tsybakov. Introduction to Nonparametric Estimation . Springer, 2009. Juozas Vaicenavicius, David Widmann, Carl Andersson, Fredrik Lindsten, Jacob Roll, and Thomas B Schön. Evaluating model calibration in classification. International Conference on Artificial Intelligence and Statistics , pages 3459–3467, 2019. 13 Neeraj Varshney, Wenlin Yao, Hongming Zhang, Jianshu Chen, and Dong Yu. A stitch in time saves nine: Detecting and mitigating hallucinations of LLMs by validating low-confidence generation. 
+
+arXiv preprint arXiv:2307.03987 , 2023. Jean Ville. Étude critique de la notion de collectif. Gauthier-Villars, Paris , 1939. Vladimir Vovk. Conditional validity of inductive conformal predictors. Machine Learning , 92(3): 349–376, 2013. Vladimir Vovk and Ruodu Wang. E-values: Calibration, combination and applications. The Annals of Statistics , 49(3):1736–1754, 2021. Vladimir Vovk, Alexander Gammerman, and Glenn Shafer. Algorithmic Learning in a Random World . Springer, 2005. Abraham Wald. Sequential tests of statistical hypotheses. The Annals of Mathematical Statistics , 16 (2):117–186, 1945. Sijia Wang and Lifu Huang. Debate as optimization: Adaptive conformal prediction and diverse retrieval for event extraction. In Findings of the Association for Computational Linguistics: EMNLP 2024 , 2024. Xuezhi Wang, Jason Wei, Dale Schuurmans, Quoc Le, Ed Chi, Sharan Narang, Aakanksha Chowdh-ery, and Denny Zhou. Self-consistency improves chain of thought reasoning in language models. In International Conference on Learning Representations , 2023. Yubo Wang, Xueguang Ma, Ge Zhang, Yuansheng Ni, Abhranil Chandra, Shiguang Guo, Weiming Ren, et al. MMLU-Pro: A more robust and challenging multi-task language understanding benchmark. arXiv preprint arXiv:2406.01574 , 2024. Larry Wasserman. All of Nonparametric Statistics . Springer, 2006. Ian Waudby-Smith and Aaditya Ramdas. Estimating means of bounded random variables by betting. 
+
+Journal of the Royal Statistical Society Series B , 86(1):1–27, 2024. Jason Wei, Xuezhi Wang, Dale Schuurmans, Maarten Bosma, Brian Ichter, Fei Xia, Ed Chi, Quoc Le, and Denny Zhou. Chain-of-thought prompting elicits reasoning in large language models. 
+
+Advances in Neural Information Processing Systems , 35:24824–24837, 2022. Yi Xie, Zhanke Zhou, Chentao Cao, Qiyu Niu, Tongliang Liu, and Bo Han. From debate to equilibrium: Belief-driven multi-agent LLM reasoning via Bayesian Nash equilibrium. arXiv preprint arXiv:2506.08292 , 2025. Miao Xiong, Zhiyuan Hu, Xinyang Lu, Yifei Li, Jie Fu, Junxian He, and Bryan Hooi. Can LLMs ex-press their uncertainty? an empirical evaluation of confidence elicitation in LLMs. In International Conference on Learning Representations , 2024. Joshua C Yang, Damian Dailisan, Marcin Korecki, Carina I Hausladen, and Dirk Helbing. LLM voting: Human choices and AI collective decision-making. Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society , pages 1696–1708, 2024. Jintian Zhang, Xin Xu, Ningyu Zhang, Ruibo Liu, Bryan Hooi, and Shumin Deng. Exploring collaboration mechanisms for LLM agents: A social psychology view. In Annual Meeting of the Association for Computational Linguistics , 2024. Shengjia Zhao, Michael P Kim, Roshni Sahoo, Tengyu Ma, and Stefano Ermon. Calibrating predic-tions to decisions: A novel approach to multi-class calibration. Advances in Neural Information Processing Systems , 34:22313–22324, 2021. 14 A Proofs 
+
+A.1 Proof of Theorem 1 
+
+Proof. Fix a round t and a candidate k ∈ K . Define the sigma-field Σloc = σ {Ui,t }ni=1 , U t
+
+,generated by all calibration states at round t and the test state. Because calibration and test instances are i.i.d. (Assumption 1), Σloc is independent of the correctness labels {Zi,t }ni=1 conditional on the states —that is, each Zi,t is conditionally independent given Ui,t with E[Zi,t | Ui,t ] = qt(Ui,t ).
+
+Step 1: neighborhood is Σloc -measurable. Conditional on Σloc , the neighborhood index set 
+
+Nt,k (Ut) ⊂ { 1, . . . , n } and the k-NN radius ht,k (Ut) are deterministic, since they depend only on the distances {d(Ui,t , U t)}.
+
+Step 2: bias envelope controls the conditional mean. By the bias envelope (Assumption 3): 
+
+1
+
+k
+
+X 
+
+> i∈N t,k (Ut)
+
+qt(Ui,t ) ≥ qt(Ut) − bt,k (Ut). (13) Therefore, the conditional mean of the k-NN estimator satisfies E[bqt,k (Ut) | Σloc ] =
+
+> 1
+> k
+
+P  
+
+> i∈N t,k (Ut)
+
+qt(Ui,t ) ≥ qt(Ut) − bt,k (Ut).
+
+Step 3: upper-tail Hoeffding conditional on Σloc . Since Zi,t ∈ [0 , 1] are conditionally independent given Σloc (each Zi,t depends on its own instance, and cross-instance independence follows from Assumption 1), the upper-tail Hoeffding inequality [Hoeffding, 1963] gives: 
+
+Pr bqt,k (Ut) > μ t,k +
+
+r log(1 /δ t,k )2k Σloc 
+
+!
+
+≤ δt,k , (14) where μt,k := E[bqt,k (Ut) | Σloc ] = 1
+
+> k
+
+P  
+
+> i∈N t,k (Ut)
+
+qt(Ui,t ).
+
+Step 4: combine and integrate. Write ck = plog(1 /δ t,k )/(2 k). On the event {bqt,k ≤ μt,k + ck}:
+
+Lt,k (Ut) = bqt,k (Ut) − bt,k (Ut) − ck ≤ μt,k + ck − bt,k (Ut) − ck = μt,k − bt,k (Ut) ≤ qt(Ut), (15) where the last step uses μt,k ≤ qt(Ut) + bt,k (Ut) from the bias envelope (Assumption 3). Hence 
+
+Pr( Et,k | Σloc ) ≤ δt,k almost surely. Integrating over Σloc :
+
+Pr( Et,k ) = E Pr( Et,k | Σloc ) ≤ δt,k . (16) 
+
+Remark 1 (Reuse of calibration data across (t, k ) pairs) . The same calibration instances are used for every round t and every k ∈ K . This does not invalidate the conditional Hoeffding argument, because we condition on Σloc separately for each (t, k ) and then combine via a union bound (Theorem 2). Within any single (t, k ), the neighborhood is deterministic given Σloc , and the relevant Zi,t are conditionally independent. 
+
+A.2 Proof of Theorem 2 
+
+Proof. Apply Theorem 1 at each (t, k ) pair with δt,k = δ/ (T |K| ). Union bound: 
+
+Pr 
+
+ [
+
+> t≤T
+
+[
+
+> k∈K
+
+Et,k 
+
+ ≤
+
+> T
+
+X
+
+> t=1
+
+X
+
+> k∈K
+
+Pr( Et,k ) ≤
+
+> T
+
+X
+
+> t=1
+
+X
+
+> k∈K
+
+δt,k = δ. (17) On the complement G = T 
+
+> t,k
+
+Ect,k , every Lt,k (Ut) ≤ qt(Ut), so Lt = max k Lt,k (Ut) ≤ qt(Ut) as well. 
+
+A.3 Proof of Theorem 3 
+
+Proof. Let G = T 
+
+> t,k
+
+Ect,k = {∀ t ≤ T, ∀ k ∈ K : Lt,k (Ut) ≤ qt(Ut)}. By Theorem 2, Pr( Gc) ≤ δ.
+
+Step 1: decompose over the good event. 
+
+Pr( τ ≤ T, ˆYτ̸ = Y ) = Pr( τ ≤ T, ˆYτ̸ = Y, G) + Pr( τ ≤ T, ˆYτ̸ = Y, Gc)
+
+≤ Pr( τ ≤ T, ˆYτ̸ = Y, G) + δ. (18) 15 Step 2: handle the random stopping time τ . Let Ht = σ(Dcal , Ft) be the augmented filtration containing both the calibration set and the test debate prefix. Since Lt is Ht-measurable (it depends on Dcal and Ft through Ut), τ = inf {t : Lt ≥ 1 − α} is an (Ht)-stopping time. On {τ ≤ T } ∩ G ,we have Lτ (Uτ ) ≥ 1 − α (stopping rule) and Lτ (Uτ ) ≤ qτ (Uτ ) (validity on G), so qτ (Uτ ) ≥ 1 − α,placing the random pair (τ, U τ ) in the stopping region of Assumption 4. 
+
+Step 3: apply the representation gap. Assumption 4 is stated in terms of Pr( Y = ˆYt | F t = ft).Since Dcal is independent of the test instance (X, Y ) by Assumption 1, we have Pr( Y = ˆYt | H t) = Pr( Y = ˆYt | F t) a.s., so the representation gap applies equally under the augmented filtration. On 
+
+{τ ≤ T } ∩ G , where qτ (Uτ ) ≥ 1 − α:
+
+Pr( Y = ˆYτ | F τ ) ≥ qτ (Uτ ) − εact ≥ (1 − α) − εact . (19) Therefore Pr( ˆYτ̸ = Y | F τ ) ≤ α + εact on {τ ≤ T } ∩ G .
+
+Step 4: integrate. Taking expectations over Fτ :
+
+Pr( τ ≤ T, ˆYτ̸ = Y, G) = E1{τ ≤T }∩G Pr( ˆYτ̸ = Y | F τ )
+
+≤ (α + εact ) Pr( τ ≤ T, G) ≤ α + εact . (20) Combining with Step 1 gives (10). 
+
+A.4 Proof of Proposition 4 
+
+Proof. Let Eenv be the event that Assumption 3 holds for all (t, k ) in the action region, and Erep the event that Assumption 4 holds. Define E = Eenv ∩ E rep . Partition the wrong-action probability over 
+
+E and its complement: 
+
+Pr( τ ≤ T, ˆYτ̸ = Y ) = Pr( τ ≤ T, ˆYτ̸ = Y, E) + Pr( τ ≤ T, ˆYτ̸ = Y, Ec). (21) 
+
+First term. On E, both Assumptions 3 and 4 hold. Since these are the only non-standard assumptions required by Theorem 3 (Assumptions 1–2 hold unconditionally by the experimental design), the proof of Theorem 3 applies restricted to E. Specifically, the Hoeffding argument yields Pr( Gc ∩ E ) ≤ δ
+
+(the good event G requires only Assumption 3, which holds on E), and Steps 2–4 of the proof yield 
+
+Pr( τ ≤ T, ˆYτ̸ = Y, G, E) ≤ α + εact . Hence: 
+
+Pr( τ ≤ T, ˆYτ̸ = Y, E) ≤ δ + α + εact . (22) 
+
+Second term. By the union bound on the complement: 
+
+Pr( τ ≤ T, ˆYτ̸ = Y, Ec) ≤ Pr( Ec) = Pr( Ec 
+
+> env
+
+∪ E c
+
+> rep
+
+) ≤ Pr( Ec
+
+> env
+
+) + Pr( Ec
+
+> rep
+
+). (23) Combining with (21) gives the result. The bound degrades gracefully : each assumption violation adds exactly its failure probability, and no catastrophic interaction occurs between the two failure modes. 
+
+A.5 Proof of Corollary 5 
+
+Proof. Let pact = Pr( τ ≤ T ) > 0. By definition of conditional probability: 
+
+Pr( ˆYτ̸ = Y | τ ≤ T ) = Pr( τ ≤ T, ˆYτ̸ = Y )Pr( τ ≤ T ) . (24) We decompose the numerator over the good event G = T 
+
+> t,k
+
+Ect,k :
+
+Pr( τ ≤ T, ˆYτ̸ = Y ) = Pr( τ ≤ T, ˆYτ̸ = Y, G) + Pr( τ ≤ T, ˆYτ̸ = Y, Gc). (25) 
+
+First term. On G ∩ { τ ≤ T }, the stopping rule ensures Lτ (Uτ ) ≥ 1 − α, and validity on G gives 
+
+qτ (Uτ ) ≥ Lτ (Uτ ) ≥ 1 − α. By Assumption 4, Pr( Y = ˆYτ | F τ ) ≥ qτ (Uτ ) − εact ≥ 1 − α − εact ,so Pr( ˆYτ̸ = Y | F τ ) ≤ α + εact a.s. on this event. Taking expectations: 
+
+Pr( τ ≤ T, ˆYτ̸ = Y, G) = E1{τ ≤T }∩G Pr( ˆYτ̸ = Y | F τ )
+
+≤ (α + εact ) Pr( τ ≤ T, G) ≤ (α + εact ) pact . (26) 
+
+Second term. By Theorem 2, Pr( Gc) ≤ δ, so Pr( τ ≤ T, ˆYτ̸ = Y, Gc) ≤ δ.Combining and dividing by pact :
+
+Pr( ˆYτ̸ = Y | τ ≤ T ) ≤ (α + εact ) pact + δpact 
+
+= α + εact + δpact 
+
+. (27) 16 A.6 Proof of Theorem 6 Theorem 6 (Oracle slack inequality) . Under Assumptions 1–3, with ck = plog( T |K| /δ )/(2 k) and oracle kor  
+
+> t
+
+= arg min k∈K [bt,k (Ut) + ck], the two-sided event G2 = {∀ t, k : |bqt,k − μt,k | ≤ ck}
+
+satisfies Pr( G2) ≥ 1 − 2δ, and on G2:
+
+qt(Ut) − Lt(Ut) ≤ 2bt,k or  
+
+> t
+
+(Ut) + ckor 
+
+> t
+
+ ∀ t ≤ T. (28) 
+
+Proof. Write ck = plog( T |K| /δ )/(2 k) and μt,k = 1
+
+> k
+
+P  
+
+> i∈N t,k (Ut)
+
+qt(Ui,t ) for the conditional mean of bqt,k .
+
+Probability bound. Conditional on Σloc , two-sided Hoeffding gives Pr( |bqt,k − μt,k | > c k | Σloc ) ≤
+
+2 exp( −2kc 2
+
+> k
+
+) = 2 δ/ (T |K| ). Union-bounding over all T |K| pairs and integrating: Pr( Gc
+
+> 2
+
+) ≤ 2δ.Since the upper tail of G2 implies bqt,k ≤ μt,k + ck, which (combined with the bias envelope) gives 
+
+Lt,k ≤ qt, we have G2 ⊆ G .
+
+Slack bound on G2. On G2, the lower tail gives: 
+
+bqt,k (Ut) ≥ μt,k − ck ∀ t ≤ T, k ∈ K . (29) By Assumption 3, μt,k ≥ qt(Ut) − bt,k (Ut). Combining: 
+
+bqt,k (Ut) ≥ qt(Ut) − bt,k (Ut) − ck. (30) Substituting into the definition Lt,k (Ut) = bqt,k (Ut) − bt,k (Ut) − ck:
+
+Lt,k (Ut) ≥ qt(Ut) − 2bt,k (Ut) + ck
+
+. (31) This holds for every k ∈ K . Since Lt(Ut) = max k∈K Lt,k (Ut) ≥ Lt,k or  
+
+> t
+
+(Ut), we obtain 
+
+qt(Ut) − Lt(Ut) ≤ qt(Ut) − Lt,k or  
+
+> t
+
+(Ut) ≤ 2bt,k or  
+
+> t
+
+(Ut) + ckor 
+
+> t
+
+, (32) where the last step applies the preceding inequality at k = kor  
+
+> t
+
+. Since kor  
+
+> t
+
+minimizes bt,k (Ut) + ck
+
+over K, this is the smallest possible right-hand side, giving (28). 
+
+A.7 Proofs of instantiation corollaries 
+
+The generic bias envelope bt,k specializes to classical regularity models. 
+
+Corollary 7 (Lipschitz envelope) . If qt is L⋆t -Lipschitz, then bt,k (u) = L⋆t · ht,k (u) satisfies Assump-tion 3 deterministically. 
+
+Corollary 8 (Estimated modulus envelope) . If ˆωt is estimated on a separate split with Pr(ˆ ωt ≥
+
+ωt) ≥ 1 − δω , the failure probability δω is absorbed into δ, keeping β = δ + α + εact intact. 
+
+Corollary 9 (Hölder instantiation) . If |qt(u) − qt(v)| ≤ Ct · d(u, v )s, setting bt,k (u) = Ct · ht,k (u)s
+
+yields a valid envelope with rate O(n−s/ (2 s+D)).Proof of Corollary 7 (Lipschitz envelope). Let qt be L⋆t -Lipschitz: |qt(u) − qt(v)| ≤ L⋆t · d(u, v ) for all u, v ∈ U . Fix k ∈ K and a query point u. For every i ∈ N t,k (u), the neighbor Ui,t satisfies 
+
+d(Ui,t , u ) ≤ ht,k (u) by definition of the k-NN radius. Applying the Lipschitz condition and taking the average: 
+
+1
+
+k
+
+X 
+
+> i∈N t,k (u)
+
+qt(Ui,t ) − qt(u) ≤ 1
+
+k
+
+X 
+
+> i∈N t,k (u)
+
+|qt(Ui,t ) − qt(u)| (33) 
+
+≤ 1
+
+k
+
+X 
+
+> i∈N t,k (u)
+
+L⋆t · d(Ui,t , u ) ≤ L⋆t · ht,k (u). (34) This holds for every realization of the calibration and test data—no probabilistic argument is needed. Hence bt,k (u) = L⋆t · ht,k (u) satisfies Assumption 3 deterministically. 
+
+Proof of Corollary 8 (estimated modulus envelope). The empirical modulus ˆωt is estimated on the separate split Dmod via (7) . Let ωt(r) = sup d(u,v )≤r |qt(u)−qt(v)| be the true modulus of continuity of qt. By assumption, Pr( ∀ r : ˆ ωt(r) ≥ ωt(r)) ≥ 1 − δω .17 On the event {ˆωt ≥ ωt}: For any neighbor Ui,t ∈ N t,k (u) with d(Ui,t , u ) ≤ ht,k (u), the definition of the modulus gives |qt(Ui,t ) − qt(u)| ≤ ωt(ht,k (u)) ≤ ˆωt(ht,k (u)) . By the same averaging argument as Corollary 7: 
+
+1
+
+k
+
+X 
+
+> i∈N t,k (u)
+
+qt(Ui,t ) − qt(u) ≤ ˆωt(ht,k (u)) = bt,k (u), (35) so Assumption 3 holds on this event. 
+
+On the complementary event {∃ r : ˆ ωt(r) < ω t(r)}: Assumption 3 may fail. By Proposition 4, this adds at most Pr(ˆ ωt < ω t) ≤ δω to the wrong-action bound. 
+
+Budget accounting. We allocate the overall δ as follows: set the Hoeffding level to δ − δω (for the union bound over (t, k ) pairs in Theorem 2) and reserve δω for modulus estimation failure. The total calibration failure probability remains: 
+
+(δ − δω ) + δω = δ, (36) so the three-way budget β = δ + α + εact is preserved. Importantly, Dmod and Dloc are independent (separate split), so the modulus ˆωt is a fixed function conditional on Dmod . This does not interfere with the Hoeffding conditional independence argument in Theorem 1, which operates on Dloc .
+
+Proof of Corollary 9 (Hölder instantiation). Let |qt(u) − qt(v)| ≤ Ct · d(u, v )s for all u, v ∈ U 
+
+with exponent s ∈ (0 , 1] . By the same argument as Corollary 7, replacing the Lipschitz bound 
+
+L⋆t · d(Ui,t , u ) with the Hölder bound Ct · d(Ui,t , u )s, we obtain: 
+
+1
+
+k
+
+X 
+
+> i∈N t,k (u)
+
+qt(Ui,t ) − qt(u) ≤ Ct · ht,k (u)s, (37) so bt,k (u) = Ct · ht,k (u)s satisfies Assumption 3 deterministically. 
+
+Convergence rate. Under Assumption 5, Theorem 10 gives ht,k (u) ≤ (2 k/ (nc 0)) 1/D with high probability. The oracle slack (Theorem 6) then satisfies: 
+
+qt(Ut) − Lt(Ut) ≤ 2
+
+
+
+Ct
+
+ 2knc 0
+
+s/D 
+
++
+
+r log( T |K| /δ )2k
+
+
+
+. (38) Optimizing over k: equating the two terms gives Ct(k/n )s/D ≍ k−1/2, yielding k⋆ ≍ n2s/ (2 s+D).Substituting: 
+
+qt(Ut) − Lt(Ut) = O
+
+
+
+n−s/ (2 s+D)
+
+, (39) which recovers the minimax nonparametric rate for s-Hölder functions in D dimensions [Tsybakov, 2009]. The Lipschitz case ( s = 1 ) gives O(n−1/(2+ D)) as stated in Corollary 11. 
+
+A.8 Convergence rate results Assumption 5 (Local support (for rate only)) . There exist c0 > 0 and D > 0 such that Pr( d(Ut, u ) ≤
+
+r) ≥ c0rD for all t, u ∈ U , and sufficiently small r > 0.
+
+Theorem 10 (k-NN radius bound) . Under Assumption 5, for any t and u, define rn,k =(2 k/ (n c 0)) 1/D . Then Pr( ht,k (u) > r n,k ) ≤ e−k/ 8.Proof. Fix t and u. Let Nt(u, r ) = Pni=1 1[d(Ui,t , u ) ≤ r]. By Assumption 5 and independence (Assumption 1), E[Nt(u, r n,k )] ≥ n c 0 rDn,k = 2 k. The multiplicative Chernoff bound gives 
+
+Pr( Nt(u, r n,k ) < k ) ≤ exp( −k/ 4) ≤ e−k/ 8. (40) On the complement, the k-th nearest neighbor is within rn,k , so ht,k (u) ≤ rn,k .18 A.9 Proof of Corollary 11 Corollary 11 (Adaptive certification rate) . With Lipschitz envelope and K containing k⋆ ≍ n2/(2+ D),the slack qt − Lt = O(n−1/(2+ D)) with high probability. Proof. Let G1 = {∀ t, k : Lt,k (Ut) ≤ qt(Ut)} and G2 = {∀ t, k : ht,k (Ut) ≤ rn,k }. By Theorem 2, 
+
+Pr( Gc
+
+> 1
+
+) ≤ δ. By Theorem 10 with a union bound over T · |K| pairs, Pr( Gc
+
+> 2
+
+) ≤ T |K| e−kmin /8. On 
+
+G1 ∩ G 2, using a Lipschitz bias envelope bt,k (u) = ¯Lt · ht,k (u) (the rate statement also holds for any bias envelope bt,k (u) ≤ ¯Lt · ht,k (u), including the modulus instantiation when ωt grows at most linearly): 
+
+qt(Ut) − Lt(Ut) ≤ min 
+
+> k∈K
+
+"
+
+¯Lt
+
+ 2kn c 0
+
+1/D 
+
++
+
+r log( T |K| /δ )2k
+
+#
+
+. (41) A geometric grid K containing k⋆ ≍ n2/(2+ D) makes the minimum O(n−1/(2+ D)).
+
+A.10 Group-conditional control Theorem 12 (Group-conditional control) . Under Assumptions 1–4, per-group bounds L(g) 
+
+> t
+
+at level 
+
+δg = δ/J satisfy Pr( τ ≤ T, ˆYτ̸ = Y, G (Fτ ) = g) ≤ δg + α + εact .Proof. Let G : X → { 1, . . . , J } be a group assignment function determined by the input X (e.g., a demographic attribute or problem category). Since G depends only on X and the calibration instances are i.i.d. (Assumption 1), the within-group calibration subsets D(g)cal = {(Xi, Y i) : G(Xi) = g}
+
+inherit exchangeability: conditional on the group sizes {ng }Jg=1 , the instances within each group remain i.i.d. draws from the group-conditional distribution PX,Y |G=g .
+
+Per-group construction. For each group g, construct per-group k-NN neighborhoods N (g) 
+
+> t,k
+
+(u) using only the ng calibration instances in group g, and define: 
+
+L(g) 
+
+> t,k
+
+(u) = bq(g) 
+
+> t,k
+
+(u) − b(g) 
+
+> t,k
+
+(u) −
+
+r log( T |K| /δ g )2k , (42) with Hoeffding level δg = δ/J .
+
+Validity within group. Fix group g. The proof of Theorem 1 applies verbatim within group 
+
+g: the sigma-field Σ(g)loc is generated by group-g states; the correctness labels {Zi,t }i∈group g are conditionally independent given Σ(g)loc (by within-group exchangeability); and Hoeffding yields 
+
+Pr( E(g) 
+
+> t,k
+
+) ≤ δg /(T |K| ). A union bound over (t, k ) pairs gives Pr( Gcg ) ≤ δg .
+
+Per-group wrong-action. On Gg , L(g) 
+
+> t
+
+(Ut) ≤ q(g) 
+
+> t
+
+(Ut) for all t, where q(g) 
+
+> t
+
+is the group-conditional correctness. Applying the same stopping-time and representation-gap arguments as Theorem 3 within group g:
+
+Pr( τ ≤ T, ˆYτ̸ = Y, G (Fτ ) = g) ≤ δg + α + εact . (43) 
+
+Simultaneous control across all groups. By the union bound: 
+
+> J
+
+X
+
+> g=1
+
+Pr( τ ≤ T, ˆYτ̸ = Y, G (Fτ ) = g) ≤
+
+> J
+
+X
+
+> g=1
+
+(δg + α + εact ) = δ + J(α + εact ). (44) The per-group statement is the useful one: it guarantees risk control within each group separately ,at the cost of a tighter Hoeffding term plog( T |K| J/δ )/(2 k) (from the reduced per-group δg ). When J is large or group sizes ng are small, the per-group k-NN radius increases and automation decreases—the price of simultaneous group-conditional control. 19 A.11 Auxiliary results Lemma 13 (Stopping time measurability) . The stopping rule τ = inf {t ≤ T : Lt(Ut) ≥ 1 − α} is an (Ht)-stopping time, where Ht = σ(Dcal , Ft).Proof. For each t, Lt(Ut) = max k∈K Lt,k (Ut) is Ht-measurable since each Lt,k depends only on 
+
+Dcal (the calibration data, which generates a sub-sigma-field of every Hs for s ≥ 1) and Ut = ϕt(Ft)
+
+(which is Ft-measurable by Assumption 2, hence Ht-measurable). Therefore {Lt ≥ 1 − α} ∈ H t,and: 
+
+{τ ≤ t} =
+
+> t
+
+[
+
+> s=1
+
+{Ls(Us) ≥ 1 − α} ∈ H t, (45) where the inclusion holds because each {Ls ≥ 1 − α} ∈ H s ⊆ H t for s ≤ t (the filtration is non-decreasing). Hence τ is an (Ht)-stopping time. 
+
+Remark 2 (Bernstein refinement) . The Hoeffding term ck = plog( T |K| /δ )/(2 k) can be tightened using the empirical Bernstein inequality [Maurer and Pontil, 2009]. Let bσ2 
+
+> t,k
+
+= bqt,k (1 − bqt,k ) be the plug-in variance estimate. The Bernstein bound replaces ck with: 
+
+cBern  
+
+> k
+
+=
+
+s
+
+2bσ2 
+
+> t,k
+
+log(2 T |K| /δ )
+
+k + 7 log(2 T |K| /δ )3( k − 1) . (46) 
+
+When the local correctness is near 0 or 1 (i.e., qt(Ut) is close to the boundary), bσ2 
+
+> t,k
+
+is small and 
+
+cBern  
+
+> k
+
+≪ ck. This does not change the formal theory—any valid concentration inequality can be substituted—but can improve practical automation in the high-confidence regime. We use Hoeffding as the default for simplicity and because the Bernstein gain is modest in our setting (most acted-on instances have qt ∈ [0 .85 , 0.99] where σ2 is not negligibly small). 
+
+Remark 3 (Sharpness of the union bound) . The Bonferroni correction δt,k = δ/ (T |K| ) is worst-case tight: an adversary can construct a distribution where the bad events {Et,k } are disjoint, making the union bound an equality. In practice, the Lt,k values are positively correlated across k (larger k
+
+neighborhoods contain smaller ones), so the effective number of independent tests is less than T |K| .A Holm-type sequential correction could exploit this, but at the cost of requiring ordered p-values and sequential computation. For our setting with T |K| = 4 × 3 = 12 , the log(12 /δ ) penalty is mild and the Bonferroni correction is practical. 
+
+Remark 4 (Relationship between Assumptions 3 and 4) . The bias envelope (Assumption 3) and the representation gap (Assumption 4) control different error sources and are not redundant. To see this, consider two extreme state embeddings. If ϕt = Ft (the full debate transcript), then 
+
+qt(ϕt(Ft)) = Pr( Y = ˆYt | F t) and εact = 0 , but U is infinite-dimensional and the bias envelope bt,k 
+
+is uncontrollable (the k-NN radius does not shrink). Conversely, if ϕt ≡ c (a constant embedding), then D = 0 and bt,k = 0 trivially, but εact equals the full variation of Pr( Y = ˆYt | F t) in the action region. Our 2D embedding (p(1)  
+
+> t
+
+, ∆t) balances these extremes (Table 16). 
+
+B Implementation Details 
+
+B.1 Debate protocol and social probability 
+
+Debates use a structured prompt with <reasoning> and <answer> tags; at round t > 1, agents see all round-(t−1) responses. Social probability uses uniform weights wi = 1 /N over the 
+
+N agents: P (t)social (y | x) = 1
+
+> N
+
+PNi=1 1[agent i answers y at round t]. The prediction is ˆYt =arg max y P (t)social (y | x), with ties broken by random selection. 
+
+B.2 State normalization 
+
+The default state is Ut = ( p(1)  
+
+> t
+
+, ∆t) ∈ R2, where p(1)  
+
+> t
+
+= max y P (t)social (y) and ∆t = p(1)  
+
+> t
+
+− p(2)  
+
+> t
+
+.Both components are normalized to [0 , 1] via calibration quantile transform: for each coordinate 20 Algorithm 1 Adaptive Local k-NN Certification for Multi-Agent Debate 
+
+Require: Budget β; calibration Dcal ; test input x; candidate family K; budget split (δ, ε act ); bias envelope bt,k (·).
+
+1: Set α ← β − δ − εact .
+
+2: for t = 1 , . . . , T do 
+
+3: Run debate round t; compute prediction ˆYt and state Ut = ϕt(Ft).
+
+4: for each k ∈ K do 
+
+5: Find k-NN neighborhood Nt,k (Ut) ⊂ D cal and radius ht,k (Ut).
+
+6: Compute bqt,k (Ut) ← 1
+
+k
+
+P
+
+i∈N t,k (Ut) Zi,t .
+
+7: Set Lt,k (Ut) ← bqt,k (Ut) − bt,k (Ut) − plog( T |K| /δ )/(2 k).
+
+8: end for 
+
+9: Set Lt(Ut) ← max k∈K Lt,k (Ut).
+
+10: if Lt(Ut) ≥ 1 − α then 
+
+11: return (ACT , ˆYt)
+
+12: end if 
+
+13: end for 
+
+14: return DEFER - N N N E I G H B O R H O O D A T T E S T P O I N T                          
+
+> Small
+> u
+> low bias, high variance
+> Large
+> u
+> high bias, low variance
+> S L A C K D E C O M P O S I T I O N —
+> 0.180
+> 0.124
+> 0.148
+> bias variance (Hoeffding) correct wrong
+> C O N V E R G E N C E R A T E
+> calibration size
+> certification slack
+> bias
+> var
+> total
+> 200 1k 3k 8k
+> O pt i m a l R a t e
+> Adaptive selects near-optimal per instance via , with only union-bound overhead.
+> K
+> k= 128 k= 512
+> L=TM A X LK∈KT,K
+> k=128
+> k=256
+> k=512
+> ⋅Lˉtht,k
+
+slack = O n ( −1/(2+ D))   
+
+> Kkmax klog ∣ K∣
+
+Figure 3: Bias–variance trade-off underlying the local lower bound. Left : small k yields a tight neighborhood radius but high sampling variance; large k reduces variance but inflates the bias envelope. The maximum over K (Eq. (6) ) lets each instance select its best k. Right : certification slack qt(Ut) − Lt(Ut) vs. calibration size n (fixed D), consistent with the nonparametric rate of Corollary 11. 
+
+j ∈ { 1, 2}, we set U (j, norm) 
+
+t = bFj (U (j)
+
+t ), where bFj is the empirical CDF computed on the training split. Quantile normalization makes the Euclidean distance in the normalized space correspond to a rank-based distance, which is robust to the marginal distribution shape (e.g., heavy concentration of 
+
+p(1) 
+
+t near 1/C or 1). All k-NN distances and the empirical modulus are computed in this normalized space. 
+
+B.3 k-NN search and bias envelope 
+
+k-NN search is exact via brute-force (Euclidean distance in R2), which is fast at our scale ( n ≤ 4,339 
+
+per split, D = 2 ). We use the empirical modulus instantiation of the bias envelope: bt,k (u) = ˆωt(ht,k (u)) , with ˆωt estimated on Dmod (≈ 830 instances for MMLU-Pro) via (7) ; see Appendix C for smoother and modulus computation details. 21 B U D G E T A L LO C AT I O N (  )                     
+
+> 0.03 0.10 0.02
+> Calibration
+> MECHANISM
+> Hoeffding + union over pairs
+> IN BOUND
+> NOTE
+> Absorbs smoothness estimation failure under Lipschitz instantiation
+> Action Risk
+> MECHANISM
+> Stopping threshold
+> RESIDUAL
+> ROLE
+> Irreducible wrong-answer probability when
+> Representation Gap
+> MECHANISM
+> Predictor gap restricted to stopping region
+> REQUIREMENT
+> THRESHOLD OBSERVED WRONG-ACT
+> 0.10 0.030 0.050 0.020 0.950 0.0%
+> 0.15 0.030 0.100 0.020 0.900 0.6%
+> 0.20 0.030 0.150 0.020 0.850 1.5%
+> T H E O R E M 3 observed bound
+
+β = +
+
+calibration 
+
+δ +
+
+action risk 
+
+α
+
+representation 
+
+εact  
+
+> Β= 0.15 δαεact
+
+δ  
+
+> T⋅∣ K∣
+> 2k
+> log( T∣K∣/ δ)
+
+α        
+
+> 1− αα=β−δ−εact
+> q≥t1− α
+
+εact                  
+
+> sup ∣ Pr( Y=∣F) − q(u)≥1− αtY^ttq(U)∣ ≤ ttεact
+> ΒΔΑΕACT 1− Α
+
+Pr (τ ≤ T , =Y^τ  Y ) ≤ δ + α + ε =act β ≤Figure 4: Budget-aligned wrong-action control. The risk budget β decomposes into three indepen-dently controlled terms. Top : example allocation with β = 0 .15 . Middle : mechanism for each error source. Bottom : at all tested β levels, observed WA stays below the bound. 
+
+B.4 Budget allocation 
+
+Default budget split: δ = 0 .03 , εact = 0 .02 , giving α = β − 0.05 . When β ≤ δ + εact + 0 .001 = 0.051 , the method cannot certify (negative α) and defers on all instances. Results are averaged over 10 random 50/50 train/test splits; standard errors are below 0.5% for wrong-action rates. 
+
+B.5 Training-selected λ⋆ procedure 
+
+The risk budget βd = λ⋆d · be train 
+
+T,d (§6, eq. (12) ) is selected as follows. Each 50/50 train/test split is further sub-split: the training half is divided 50/50 into Dtrain 1 and Dtrain 2 . For each candidate 
+
+λ ∈ { 0.25 , 0.50 , . . . , 5.00 }:1. Compute the final-round error on Dtrain 1 : ˆe(1) 
+
+T = 1 − 1
+
+|D train 1 |
+
+P
+
+i∈D train 1
+
+Zi,T .2. Set β = λ · ˆe(1) 
+
+T . If β > 0.99 , skip. 3. Run our method with budget β on Dtrain 1 (calibration) → D train 2 (evaluation). 4. Record automation rate dAct( λ) and wrong-action ratio dWA( λ)/β .Select λ⋆ = arg max {dAct( λ) : dWA( λ)/β ≤ 0.10 , dAct( λ) > 0}. If no λ satisfies the constraint, the method defers on all test instances. This is standard hyperparameter selection on held-out training data; the formal guarantee (Theorem 3) holds for any fixed β, so selecting β on training data does not compromise test-time validity. 
+
+B.6 Computational complexity 
+
+Let n be the calibration size, T the number of debate rounds, |K| the number of candidate k values, and D the state dimension. 
+
+Precomputation (one-time per split): Running all T -round debates for n calibration instances costs 
+
+O(nT ) LLM calls. Computing the empirical modulus requires O(|D mod |2) pairwise distances on 22 Dmod (the 20% modulus split); with |D mod | ≈ n/ 5, this is O(n2/25) . Quantile normalization is 
+
+O(n log n) per coordinate. 
+
+Per-test-instance: For each test instance, the cost is O(T · |K| · n · D) for brute-force k-NN search across all rounds and k values. With T = 4 , |K| = 3 , n ≈ 3,300 , D = 2 , this amounts to ∼79 ,200 distance computations—negligible compared to the LLM inference cost. Ball-tree or KD-tree indexing is unnecessary at this scale. 
+
+C Smoother Details and Modulus Estimation 
+
+The empirical modulus ˆωt in (7) depends on the choice of pilot smoother ˜qt. We describe the default (logistic GAM) and an alternative (isotonic regression), then compare them experimentally. 
+
+C.1 Default: logistic GAM 
+
+A logistic generalized additive model (GAM) models the correctness probability as 
+
+log ˜qt(u)1 − ˜qt(u) = f1(p(1)  
+
+> t
+
+) + f2(∆ t), (47) where f1, f 2 are smooth spline functions estimated via penalized maximum likelihood on Dmod .The spline penalty controls overfitting, and the logistic link guarantees ˜qt ∈ (0 , 1) . We use cubic B-splines with 8 knots per feature and ℓ2 regularization ( C = 1 .0). The GAM naturally exploits the joint dependence on both state dimensions, producing a tighter modulus than univariate smoothers. Given ˜qt, the empirical modulus is computed on the full 2D state space: 
+
+ˆωt(r) = max 
+
+> i,j ∈D mod
+> d(Ui,t ,U j,t )≤r
+
+|˜qt(Ui,t ) − ˜qt(Uj,t )|. (48) In practice, we tabulate ˆωt on a grid of 200 radius values from 0 to the 99th percentile of pairwise distances, enforce monotonicity (the modulus must be non-decreasing), and use linear interpolation for intermediate radii. 
+
+C.2 Alternative: isotonic regression 
+
+Isotonic regression fits ˜qt as the best L2 monotone approximation to Zt:
+
+˜qt = arg min  
+
+> fnon-decreasing
+
+X
+
+> i∈D mod
+
+(Zi,t − f (p(1)  
+
+> i,t
+
+)) 2. (49) This yields a monotone step function ˜qt : [0 , 1] → [0 , 1] . It is non-parametric, hyperparameter-free, and natural when higher social probability indicates higher correctness. However, it is univariate (uses only p(1)  
+
+> t
+
+, ignoring ∆t) and cannot capture non-monotone relationships. 
+
+C.3 Experimental comparison 
+
+Table 3 compares the two smoothers on pooled MMLU-Pro. Both achieve valid coverage (WA 
+
+≤ β = 0 .15 ). The logistic GAM produces a tighter modulus (0.122 vs. 0.285 at r = 0 .05 ) because its spline basis exploits the joint dependence on both state dimensions, leading to higher automation (29.8% vs. 21.8%). We use the logistic GAM as the default throughout the paper. Table 3: Smoother comparison on pooled MMLU-Pro ( n = 8312 , β = 0 .15 ). Both smoothers produce valid bounds; the logistic GAM achieves a tighter modulus and higher automation.                
+
+> Smoother WA (%) Auto. (%) Avg Round ˆω1(0 .05) ˆω1(0 .10)
+> Logistic GAM (default) 0.6 29.8 3.54 0.122 0.238 Isotonic regression 0.4 21.8 3.78 0.285 0.372
+
+23 C.4 Formal analysis: when does ˆωt ≥ ωt?
+
+The validity of the empirical modulus envelope rests on ˆωt(r) ≥ ωt(r) for all relevant radii r. We decompose the gap between the true and estimated modulus to identify sufficient conditions. Let ωt(r) = sup d(u,v )≤r |qt(u) − qt(v)| be the true modulus of qt, and ω˜q (r) = sup d(u,v )≤r |˜qt(u) −
+
+˜qt(v)| the modulus of the pilot smoother. The empirical modulus ˆωt(r) approximates ω˜q (r) via a finite maximum over Dmod points. The error decomposes as: 
+
+ωt(r) − ˆωt(r) ≤ [ωt(r) − ω˜q (r)] 
+
+| {z }
+
+> smoother error
+
++ [ ω˜q (r) − ˆωt(r)] 
+
+| {z }
+
+> discretization error
+
+. (50) 
+
+Smoother error. By the triangle inequality on the supremum: 
+
+|ωt(r) − ω˜q (r)| ≤ 2 ∥qt − ˜qt∥∞, (51) where ∥qt − ˜qt∥∞ = sup u∈U |qt(u) − ˜qt(u)| is the uniform approximation error of the pilot smoother. If ˜qt is a consistent estimator of qt (e.g., a logistic GAM with penalty selected by BIC), then 
+
+∥qt − ˜qt∥∞ → 0 as |D mod | → ∞ .
+
+Discretization error. The modulus ω˜q (r) is a supremum over all pairs (u, v ) with d(u, v ) ≤ r, while 
+
+ˆωt(r) maximizes only over pairs in Dmod . If ˜qt is L˜q -Lipschitz (which holds for logistic GAMs with bounded coefficients), and Dmod has covering number N (ϵ) at scale ϵ, then ω˜q (r) − ˆωt(r) ≤
+
+2L˜q · ϵcover , where ϵcover is the covering radius. For |D mod | = m points in RD , ϵcover = O(m−1/D ).
+
+Sufficient condition for validity. Combining, ˆωt(r) ≥ ωt(r) holds when: 
+
+2 ∥qt − ˜qt∥∞ + 2 L˜q · O(m−1/D ) ≤ 0, (52) which is not guaranteed in finite samples. In practice, two factors provide a safety margin: (i) penalized splines under -approximate variation, making ω˜q (r) ≤ ωt(r) unlikely but ˜qt smoother than qt;(ii) when ˜qt under-smooths (tracks noise), ω˜q (r) > ω t(r), inflating the envelope conservatively. The stress test (Table 4) validates this empirically: even 2× inflation of ˆωt leaves WA unchanged, confirming that the estimated modulus is already above ωt.
+
+Impact on validity. The theoretical guarantee (Corollary 8) holds for any smoother, provided 
+
+ˆωt(r) ≥ ωt(r) with high probability. The choice of smoother affects the tightness of the bound, not its validity. An undersmoother (too flexible) will track noise in Z, inflating ˆωt and making the bias envelope conservative. An oversmoother (too rigid) will underestimate the true variation of qt, potentially violating the envelope. The logistic GAM strikes a good balance: the spline penalty prevents overfitting while allowing multivariate dependence, producing a tighter modulus than univariate isotonic regression. 
+
+C.5 Envelope stress test 
+
+A central concern is whether ˆωt ≥ ωt holds in practice—i.e., whether the empirical modulus overes-timates the true modulus of continuity. We test robustness by inflating ˆωt by multiplicative factors 
+
+{1.0, 1.25 , 1.5, 2.0} and measuring the impact on Act and WA (Table 4). If the baseline modulus were a tight upper bound on ωt, inflating it would shrink the bias correction bt,k (u) = ˆ ωt(ht,k (u)) ,lowering Lt and reducing automation. The results show that even at 2× inflation, Act degrades only modestly (MMLU-Pro: 29.8% →27.8%; BBH: 74.9% →72.3%) while WA remains unchanged. This insensitivity confirms that the empirical modulus is already conservative (substantially above ωt), providing a safety margin against modulus misspecification. ARC remains at 0% Act at all factors because it does not certify at β = 0 .15 .
+
+D Extended Related Work 
+
+We place our framework in the context of six adjacent literatures: (i) multi-agent LLM debate and inference-time compute; (ii) LLM confidence, calibration, and selective generation; (iii) conformal prediction, risk control, and anytime-valid inference; (iv) local and conditional conformal methods; (v) distribution-free inference and concentration; and (vi) classical foundations ( k-NN theory, selective classification, opinion dynamics). 24 Table 4: Envelope stress test. Inflating ˆωt by a multiplicative factor ( β = 0 .15 ). Higher inflation simulates modulus underestimation, tightening the lower bound. WA stays well below β at all inflation levels; Act degrades gracefully.                                    
+
+> 1.0×1.25 ×1.5×2.0×
+> Dataset WA Act WA Act WA Act WA Act
+> MMLU-Pro 0.6 29.8 0.6 28.6 0.6 28.2 0.6 27.8 ARC 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 BBH 1.1 74.9 1.1 74.0 1.0 73.2 1.0 72.3
+
+Multi-agent LLM debate and inference-time compute. Multi-agent debate [Du et al., 2024, Liang et al., 2024] and scalable multi-agent reasoning [Qian et al., 2025] improve accuracy by having LLMs critique each other’s answers; ChatEval [Chan et al., 2024] and debate-for-judgment pipelines [Khan et al., 2024] extend this to evaluation. Theoretical motivations include AI safety via debate [Irving et al., 2018]. Recent work questions whether more debate rounds always help [Choi et al., 2025, Xie et al., 2025, Wang and Huang, 2024, Li et al., 2024, Zhang et al., 2024] and studies stability of collective answers [Hu et al., 2025]. A separate line improves single-agent reasoning via self-consistency [Wang et al., 2023] and chain-of-thought [Wei et al., 2022]. None of these works provide instance-level wrong-action certificates or a budgeted stopping rule; they treat debate as an accuracy-improving heuristic rather than a certifiable procedure. 
+
+LLM confidence, calibration, and selective generation. LLMs can self-assess correctness via probe-based methods [Kadavath et al., 2022], verbalized confidence [Tian et al., 2023, Xiong et al., 2024, Lin et al., 2022], or consistency checks [Manakul et al., 2023, Kuhn et al., 2023]. Broader surveys cover estimation strategies [Geng et al., 2024] and calibration [Guo et al., 2017, Naeini et al., 2015, Platt, 1999, Sharma et al., 2024, Marx et al., 2023, Vaicenavicius et al., 2019, Blasiok et al., 2023]; see also verified-uncertainty calibration [Kumar et al., 2019] and context-dependent effects [Zhao et al., 2021]. Selective generation [Ren et al., 2023, Varshney et al., 2023, Feng et al., 2024, Yang et al., 2024] refuses to answer below a confidence threshold. All these methods operate on marginal (instance-averaged) scores; our state-conditional lower bound instead certifies the correctness probability at a specific debate state, yielding an explicit wrong-action budget rather than a tuned score threshold. 
+
+Conformal prediction and risk control. Split and full conformal prediction [Vovk et al., 2005, Papadopoulos, 2008, Lei et al., 2013, 2018, Angelopoulos and Bates, 2023] provide marginal coverage for prediction sets; extensions to regression and classification include [Romano et al., 2019, 2020, Angelopoulos et al., 2021]. Conformal risk control generalizes coverage to arbitrary risk functions [Bates et al., 2021, Angelopoulos et al., 2024, 2022, Fisch et al., 2022], and language-model applications [Kumar et al., 2023, Quach et al., 2024] adapt these tools to generation. Adaptive and online conformal methods track distribution shift over time [Gibbs and Candès, 2021, Gibbs et al., 2023, Barber et al., 2023], while game-theoretic and e-value formulations unify anytime-valid inference [Shafer et al., 2011, Ramdas et al., 2022, 2023, Vovk and Wang, 2021, Grünwald et al., 2024, Howard et al., 2021, Waudby-Smith and Ramdas, 2024, Johari et al., 2022, Ville, 1939, Wald, 1945]. Our framework differs in target and geometry: instead of constructing marginally valid prediction sets, we build a pointwise lower bound on state-conditional correctness and use it as a stopping rule; conformal risk control is a natural aggregate baseline (Table 1). 
+
+Local and conditional conformal methods. Classical coverage guarantees are marginal; strength-ening them to condition on features is known to be fundamentally hard [Vovk, 2013, Barber et al., 2021]. Localized conformal methods [Guan, 2023, Hore and Barber, 2023, Gupta et al., 2020] reweight calibration data near a query point, and Mondrian / group-conditional conformal [Vovk et al., 2005, Barber et al., 2023] partitions the feature space. Our k-NN bound is similar in spirit—local reweighting via nearest neighbors—but targets a different functional (wrong-action probability in the action region, not coverage of a prediction set), and pairs the local estimator with an explicit bias envelope bt,k rather than assuming smoothness implicitly. 25 Distribution-free inference and concentration. The concentration inequalities that underpin our simultaneous validity proof are classical: Hoeffding’s inequality [Hoeffding, 1963], empirical Bernstein bounds [Maurer and Pontil, 2009], and general concentration machinery [Boucheron et al., 2013, Wasserman, 2006]. Stone’s theorem [Stone, 1977] and its k-NN specializations [Cover and Hart, 1967, Fix and Hodges, 1951, Devroye et al., 1996, Györfi et al., 2002, Biau and Devroye, 2015, Chaudhuri and Dasgupta, 2010] give the nonparametric rate underlying Corollary 11; Tsybakov [Tsybakov, 2009] provides the minimax lower bounds. 
+
+Selective classification and opinion dynamics. Selective classification [El-Yaniv and Wiener, 2010, Geifman and El-Yaniv, 2017] provides accuracy–coverage trade-offs under a reject option; our act-or-defer rule is a multi-round, state-conditional, budget-aligned refinement. The “social probability” P (t)social connects to classical opinion-dynamics models—DeGroot consensus [DeGroot, 1974], bounded-confidence dynamics [Hegselmann and Krause, 2002, Deffuant et al., 2000], and their steady-state analyses [Baccelli et al., 2021]—and to foundational aggregation theory [Arrow, 1951]. We treat agent debate as a signal-generating process rather than a truth-seeking dynamical system: the state Ut summarizes the resulting signal, and calibration data determines whether the signal warrants action. 
+
+Benchmarks and auxiliary. We use standard LLM reasoning benchmarks [Hendrycks et al., 2021, Wang et al., 2024, Clark et al., 2018, Suzgun et al., 2023, Liu et al., 2020, Sprague et al., 2024, Rein et al., 2023] throughout. Compared to all of the above, the distinguishing combination in this paper is: (a) a state-conditional 
+
+local lower bound, (b) a budget-aligned stopping rule with an explicit three-way decomposition 
+
+β = δ + α + εact , (c) adaptive k with an oracle-style slack inequality (Theorem 6), and (d) application to multi-round multi-agent debate with diagnostic proxies for each structural assumption. We are not aware of prior work combining these four elements in a single framework. 
+
+E Methodological Comparison 
+
+Table 5: Methodological comparison. ● = full support; ◗ = partial; ● = not supported.                          
+
+> Method Adaptive stop Local / state-cond. WA budget Assump. transparent Multi-agent
+> Consensus thr. ●●●●●
+> Selective pred. ◗●◗●◗
+> CRC ●●●●◗
+> Local conformal ◗●●◗●
+> Ours ●●●●●
+
+F Full Main Results 
+
+Table 6 reports all nine methods on all six datasets, extending the summary in Table 1 with additional baselines including Selective Prediction (risk-controlled confidence threshold tuned on calibration data) and CRC (conformal risk control using global score quantile). 
+
+G Budget Sensitivity, Ablations, and Robustness 
+
+This section examines how our method behaves as the risk budget β varies, verifies that each design choice contributes meaningfully, and confirms robustness to fixed-budget settings. We organize 26 Table 6: Full safety–efficiency results at β = 0 .15 (T = 4 ), extending Table 1 with all nine baselines from Section 6. † marks WA > β . Act = automation (%), Acc = Acc |Act (%), WA = wrong-action (%). 
+
+Risk-control : CRC [Angelopoulos et al., 2024]; Selective Prediction [El-Yaniv and Wiener, 2010, Geifman and El-Yaniv, 2017]; Calibrated Learned; Isotonic Confidence. Ablations of our method :
+
+kNN no bias (no modulus); Final-round (bound at t = T ). Heuristics : Consensus; Confidence Threshold; Learned Stopper. All tuned on training split, evaluated on held-out test split. 
+
+MMLU-Pro (n = 8312 ) ARC (n = 2590 ) BBH (n = 2395 ) MuSR (n = 756 )
+
+Method Act Acc WA Act Acc WA Act Acc WA Act Acc WA 
+
+Ours 29.8 98.0 0.6 0.0 — 0.0 74.9 98.5 1.1 0.0 — 0.0 CRC 97.6 84.8 14.8 † 99.9 95.8 4.2 100 91.6 8.4 43.3 67.2 14.2 Selective Prediction 97.3 85.1 14.5 100 95.7 4.3 99.9 91.7 8.2 43.4 67.2 14.2 Calibrated Learned 95.9 85.4 14.0 100 95.7 4.3 99.7 91.4 8.6 18.9 46.8 6.0 Isotonic Confidence 97.3 85.0 14.6 100 95.7 4.3 99.7 91.7 8.3 7.6 30.0 3.0 
+
+kNN no bias 37.9 97.7 0.9 32.6 97.6 0.9 79.1 97.9 1.6 0.0 — 0.0 Final-round 29.3 97.9 0.6 0.2 9.6 0.0 74.7 98.3 1.3 0.0 — 0.0 Consensus 94.5 84.5 15.5 † 99.0 95.7 4.3 98.2 91.5 8.5 91.9 65.7 34.3 †
+
+Confidence Threshold 69.8 84.5 15.5 † 82.8 95.7 4.3 87.1 91.5 8.5 32.9 66.0 34.0 †
+
+Learned Stopper 96.6 83.6 16.4 † 100 95.7 4.3 99.4 91.7 8.3 98.8 63.5 36.5 †
+
+Oracle 86.0 100 0.0 96.3 100 0.0 92.6 100 0.0 68.9 100 0.0 
+
+the analysis into four parts: (§G.1) the risk–automation frontier under error-normalized budgets, (§G.2) empirical budget alignment showing WA ≤ β holds uniformly, (§G.3) ablations isolating the contributions of adaptive k and calibration size, and (§G.4) a fixed-budget robustness check applying the same β across all datasets. 
+
+G.1 Risk–automation frontier 
+
+Table 1 reports results under training-selected λ⋆, which determines a single β per dataset. Here we trace the full frontier by sweeping ρ = β/e T (the error-normalized multiplier) across 
+
+{1.0, 1.5, 2.0, 2.5, 3.0}. This reveals how automation and accuracy trade off as the allowed risk budget grows. Table 7: Risk–automation frontier (Ours, T = 4 ). ρ = β/e T is the error-normalized multiplier; 
+
+β = ρ × eT per dataset. GPQA and MuSR omitted (0% Act at β ≤ 0.35 ). ARC uses absolute β
+
+because its low eT = 0 .045 makes ρ uninformative. WA/ β stays below 0.26 at all operating points. 
+
+MMLU-Pro BBH ARC LogiQA 
+
+ρ β Act Acc WA WA/ β Act Acc WA WA/ β Act Acc WA WA/ β Act Acc WA WA/ β
+
+1.0 * 32.8 97.9 0.7 .04 — — — — — — — — 7.2 83.5 0.6 .02 1.5 * 54.9 96.3 2.1 .09 — — — — — — — — 53.7 86.9 7.0 .19 2.0 * 65.6 95.1 3.2 .10 77.3 98.1 1.5 .09 74.4 96.9 2.3 .12 75.0 83.0 12.8 .26 2.5 * — — — — 80.9 97.4 2.1 .10 92.5 96.5 3.2 .13 — — — —3.0 * — — — — 82.5 96.9 2.5 .10 97.3 96.1 3.9 .13 — — — —        
+
+> *β=ρ×eTper dataset ( eT: .157, .083, .045, .242). ARC rows use absolute β= .20, .25, .30.
+
+Several patterns emerge. First, automation increases monotonically with ρ: on MMLU-Pro, Act grows from 32.8% ( ρ = 1 .0) to 65.6% ( ρ = 2 .0), while Acc |Act decreases only modestly (97.9% →95.1%). Second, WA/ β remains far below 1.0 at every operating point—the method is using a small fraction of the allowed budget. Third, BBH and ARC do not activate at ρ = 1 .0 because β = eT implies 
+
+α = eT − 0.05 , which is too small for BBH ( α = 0 .033 ) to certify any instances. The “—” entries reflect this: the method correctly defers when the budget is too tight for reliable certification. LogiQA shows the steepest Act–Acc trade-off at high ρ, consistent with its higher base error ( eT = 0 .242 )and larger representation gap (Table 11). 27 G.2 Budget alignment 
+
+A core claim of the framework is that observed WA stays below β at every budget level, not just the training-selected one. Table 8 tests this by applying fixed β ∈ { 0.10 , 0.15 , 0.20 , 0.25 , 0.30 }
+
+uniformly to all datasets. Table 8: Budget alignment (Ours only; δ = 0 .03 , εact = 0 .02 throughout). WA stays below β on all datasets at every level. “0.0 / 0.0” means the method defers entirely.                                                          
+
+> MMLU-Pro ARC BBH MuSR
+> βαWA Act WA Act WA Act WA Act 0.10 0.05 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.15 0.10 0.6 29.8 0.0 0.0 1.1 74.9 0.0 0.0 0.20 0.15 1.5 48.8 2.3 74.4 2.0 80.3 0.0 0.0 0.25 0.20 2.2 57.0 3.2 92.5 2.5 82.6 0.0 0.0 0.30 0.25 3.1 64.1 3.9 97.3 2.8 84.0 0.0 0.0
+
+The key observation is that WA < β holds in every cell—no budget is ever exceeded. At β = 0 .10 ,
+
+α = 0 .05 is too tight for any dataset to certify. As β increases, datasets activate in order of difficulty: BBH first ( β = 0 .15 ), then MMLU-Pro ( β = 0 .15 ), ARC ( β = 0 .20 ), and LogiQA only at β = 0 .30 .MuSR never activates at β ≤ 0.30 due to its high base error ( eT = 0 .344 ) and small sample size (n = 756 ). This monotonic activation pattern is a direct consequence of the certification slack 
+
+qt(Ut) − Lt(Ut) = O(n−1/(2+ D)): datasets with higher eT or smaller n have larger slack, requiring a larger β before Lt can cross the 1 − α threshold. 
+
+G.3 Ablations 
+
+We isolate two design choices on pooled MMLU-Pro at β = 0 .15 : adaptive k-selection versus fixed 
+
+k, and sensitivity to calibration size nloc .Table 9: Ablations on pooled MMLU-Pro ( β = 0 .15 , n = 8312 ). Left : adaptive-k vs. fixed-k. Right :sensitivity to calibration size nloc .                                        
+
+> Method WA Act Acc |Act Bias
+> Fixed k= 128 0.0 0.0 —0.054 Fixed k= 256 0.0 2.9 98.8 0.080 Fixed k= 512 0.7 33.2 97.9 0.120
+> Adaptive K0.6 29.8 98.0 —
+> nloc WA (%) Act (%) Med. ht,k
+> 1,329 0.0 0.1 0.045 2,659 0.5 23.9 0.036 5,319 0.6 26.8 0.029
+
+Adaptive vs. fixed k (left). Fixed k = 128 has a tight bias envelope (median bias 0.054) but the Hoeffding term plog(12 /0.03) /256 ≈ 0.15 is large, preventing certification. Fixed k = 512 reduces the Hoeffding term to 0.09 but inflates the bias to 0.120, overshooting the optimal trade-off. The adaptive family K = {128 , 256 , 512 } lets each instance select its own best k via Lt = max k Lt,k ,achieving comparable Act (29.8%) to the best fixed k (33.2% at k = 512 ) with lower WA (0.6% vs. 0.7%). The log |K| penalty for adaptivity is negligible ( log 3 / log 1 ≈ 1.1× increase in the concentration term). 
+
+Calibration size sensitivity (right). Reducing nloc from 5,319 to 1,329 (4 × reduction) collapses Act from 26.8% to 0.1%. This is because the k-NN radius grows as ht,k ∝ (k/n )1/D : halving n
+
+increases h by 21/2 ≈ 1.4×, which inflates the bias envelope and pushes Lt below threshold. The median k-NN radius confirms this: h grows from 0.029 to 0.045 as n shrinks. This rate sensitivity motivates pooling subtasks within benchmarks (e.g., all 10 BBH subtasks) to maximize effective n.
+
+G.4 Fixed-budget robustness 
+
+The training-selected λ⋆ determines a dataset-specific β. To verify that the method is not overfit to these particular operating points, Table 10 applies the same fixed β to all six datasets simultaneously. 28 Table 10: Fixed-budget robustness (Ours only, T = 4 ). Same β applied to all six datasets. The method activates progressively as the budget is relaxed and defers on hard datasets at stringent budgets. “—” = 0% automation (full deferral).                                                                                          
+
+> β= 0 .15 β= 0 .20 β= 0 .30
+> Dataset Act Acc WA Rnd Act Acc WA Rnd Act Acc WA Rnd
+> MMLU-Pro 29.8 98.0 0.6 3.5 48.8 96.8 1.6 3.0 64.1 95.2 3.1 2.5 BBH 74.9 98.5 1.1 2.5 80.3 97.5 2.0 1.9 84.0 96.7 2.8 1.8 ARC ————74.4 96.9 2.3 2.5 97.3 96.1 3.9 1.2 LogiQA ————————22.2 89.5 2.4 3.7 GPQA ————————————MuSR ————————————
+
+The fixed-budget results are consistent with the frontier in Table 7: BBH achieves 74.9% Act at 
+
+β = 0 .15 (the most budget-efficient dataset); MMLU-Pro reaches 64.1% at β = 0 .30 ; ARC requires 
+
+β ≥ 0.20 to activate because its low eT = 0 .045 means the action threshold 1 − α = 1 − (β − 0.05) 
+
+is close to 1.0 at small budgets. GPQA and MuSR never activate at β ≤ 0.30 , which is consistent with the stress-test framing in the main text (§7): their small sample sizes and high base errors prevent the local lower bound from reaching the certification threshold under moderate budgets. Importantly, WA never exceeds β in any cell—the budget guarantee is not an artifact of the training-selected λ⋆
+
+but holds uniformly across budget levels. 
+
+H Detailed Assumption Diagnostics 
+
+H.1 Audit summary across benchmarks 
+
+Table 11: Audit and robustness summary for the two local-approach assumptions. Each diag-nostic targets a specific assumption: smoothness coverage probes the bias envelope (Assumption 3) by checking that the empirical modulus ˆωt is not falsified by held-out pairwise slopes (§H.2), and 
+
+2× modulus inflation stress-tests the same assumption by measuring Act loss when bt,k is dou-bled; the εact proxy probes the representation gap (Assumption 4) via a richer-feature predictor gap 
+
+[ˆ pred − ˆprich ]+ in the action region (§H.3). Gap = (1 −α) − eLmax (negative ⇒ certificate crosses threshold). These are falsification checks , not formal verifiers.                                       
+
+> Dataset Gap Diagnostic 2×modulus Outcome
+> MMLU-Pro +0 .055 not falsified; εact proxy 0 −2.0pp Act partial safe act BBH −0.016 not falsified; εact proxy 0 −2.6pp Act strong act ARC +0 .036 not falsified −1.0pp Act partial act ( λ⋆≈4.4)LogiQA +0 .202 not falsified —partial act GPQA +0 .473 not falsified; low n—defers (small n)MuSR +0 .534 not falsified; high eT—defers
+
+H.2 Smoothness diagnostics 
+
+Table 12: Smoothness diagnostic on pooled MMLU-Pro (round t = 1 , held-out Dloc ). The empirical modulus ˆω1(r) grows gradually with scale, confirming the bias envelope is well-behaved.                         
+
+> Distance bin rˆω1(r)Coverage Pairs
+> [0 .00 ,0.02) 0.149 100.0% 288,262
+> [0 .02 ,0.05) 0.222 100.0% 453,275
+> [0 .05 ,0.10) 0.328 100.0% 634,966
+> [0 .10 ,0.15) 0.380 100.0% 579,415
+> [0 .15 ,0.20) 0.445 100.0% 506,393
+
+29 Unlike raw binary slopes (which diverge at short distances due to |Zi − Zj | ∈ { 0, 1}), the modulus on smoothed values grows gradually—from ∼0.15 at the finest scale to ∼0.45 at r = 0 .20 —confirming that the bias bt,k (u) = ˆ ωt(ht,k (u)) adapts to the local scale of variation. 
+
+H.3 Representation gap 
+
+Table 13: Representation gap diagnostic (pooled MMLU-Pro, β = 0 .15 ). Predictor gap = [ˆ pred −
+
+ˆprich ]+.
+
+Region Mean gap 90th pctl 95th pctl Max 
+
+All instances 0.001 0.003 0.008 0.028 Acted-on ( Lt ≥ 0.90 ) 0.000 0.000 0.000 0.021 
+
+In the acted-on region, the mean gap is effectively zero with max 0.021 (marginally exceeding 
+
+εact = 0 .02 ). This is a proxy: even the 4D predictor is not the full Pr( Y = ˆYt | F t).Table 14: Sensitivity to εact (β = 0 .15 , δ = 0 .03 ). Larger εact raises threshold 1−α.
+
+MMLU-Pro BBH 
+
+εact 1−α WA Act Acc |Act WA Act Acc |Act 0.00 0.88 0.9 39.1 97.6 1.5 77.7 98.1 0.01 0.89 0.8 34.5 97.8 1.4 76.6 98.2 0.02 0.90 0.6 29.8 98.0 1.1 74.9 98.5 0.03 0.91 0.1 8.7 79.4 0.9 70.2 98.7 0.05 0.93 0.0 0.0 — 0.0 0.0 —
+
+H.4 Budget-split sensitivity over (δ, ε act )
+
+The main experiments fix δ = 0 .03 and εact = 0 .02 , so α = βd − 0.05 . These split values are design choices: δ controls the Hoeffding variance term plog( T |K| /δ )/(2 k), and εact tightens the action threshold 1−α. To check that our conclusions are not an artifact of this particular split, Table 15 sweeps 
+
+δ ∈ { 0.01 , 0.03 , 0.05 } and εact ∈ { 0.00 , 0.02 , 0.05 } at β = 0 .15 , giving α ∈ { 0.05 , . . . , 0.14 }.Both smaller δ (tighter Hoeffding calibration) and larger εact (wider representation-gap reserve) make the certificate more conservative, reducing Act while keeping Acc |Act high and WA/ β well below 1 in every non-degenerate cell; the default (δ, ε act ) = (0 .03 , 0.02) sits in the middle of the sensible region. The main-paper qualitative conclusions—Ours consumes a small fraction of the budget on activated datasets—hold for every split in this grid. Table 15: Budget-split sensitivity at fixed β = 0 .15 (α = β − δ − εact ). Rows sweep δ, columns sweep εact . Each cell reports Act / Acc |Act / WA as percentages on pooled MMLU-Pro (top) and BBH (bottom); WA/ β in parentheses. Ten 50/50 splits. Highlighted row: the default (δ, ε act ) = (0 .03 , 0.02) 
+
+used throughout the main paper. 
+
+MMLU-Pro (β = 0 .15 )
+
+δ \ εact 0.00 0.02 0.05 0.01 44.0 / 97.3 / 1.21 (.08) 35.7 / 97.8 / 0.78 (.05) 2.4 / 98.2 / 0.04 (.00) 
+
+0.03 39.1 / 97.6 / 0.94 (.06) 29.8 / 98.0 / 0.62 (.04) 0.0 / — / 0.00 (.00) 
+
+0.05 31.3 / 97.9 / 0.66 (.04) 2.4 / 98.2 / 0.04 (.00) 0.0 / — / 0.00 (.00) 
+
+BBH (β = 0 .15 )
+
+δ \ εact 0.00 0.02 0.05 0.01 78.9 / 97.8 / 1.74 (.12) 77.1 / 98.2 / 1.42 (.09) 20.0 / 99.2 / 0.27 (.02) 
+
+0.03 77.7 / 98.1 / 1.51 (.10) 74.9 / 98.5 / 1.13 (.08) 0.0 / — / 0.00 (.00) 
+
+0.05 75.6 / 98.4 / 1.23 (.08) 20.0 / 99.2 / 0.27 (.02) 0.0 / — / 0.00 (.00) 
+
+30 H.5 State embedding design 
+
+Table 16: Geometry–sufficiency trade-off ( β = 0 .15 ). p(2)  
+
+> t
+
+: second-highest social probability; Ht:entropy.                                    
+
+> MMLU-Pro BBH State UtDAct WA Act WA
+> p(1)
+> t130.7 0.7 75.5 1.2
+> (p(1)
+> t,∆t)229.8 0.6 74.9 1.1
+> (p(1)
+> t,∆t, p (2)
+> t)328.3 0.6 73.7 1.1
+> (p(1)
+> t,∆t, p (2)
+> t, H t)426.5 0.5 70.2 0.9
+
+Higher-dimensional states monotonically reduce Act: MMLU-Pro drops from 30.7% (1D) to 26.5% (4D), BBH from 75.5% to 70.2%, confirming the curse of dimensionality inflating k-NN radii. WA stays safe at all dimensions. The 2D default (p(1)  
+
+> t
+
+, ∆t) is a good balance—the third and fourth features ( p(2)  
+
+> t
+
+and entropy Ht) are algebraically redundant with p(1)  
+
+> t
+
+and ∆t for most instances, adding dimension without information. 
+
+I Representation-gap stress tests 
+
+Assumption 4 is not statistically verified by these diagnostics; rather, the diagnostics are designed to falsify obviously insufficient state representations in the action region and to guide conservative inflation of εact . We report three falsification proxies. 
+
+State-residual proxy. Let bqstate be a correctness predictor trained on the default 2D state Ut =(p(1)  
+
+> t
+
+, ∆t) and bqrich a richer predictor trained on the 4D state (p(1)  
+
+> t
+
+, ∆t, p (2)  
+
+> t
+
+, H t). For each dataset, we estimate the one-sided residual gap 
+
+dεact proxy = sup  
+
+> (t,u ) : Lt≥1−α
+
+[bqrich (Ft) − bqstate (Ut)] +
+
+over the action region. Because the richer predictor is itself a compressed summary of Ft—not 
+
+Pr( Y = ˆYt | F t)—the proxy is a falsification check, not a verifier. Table 13 in Appendix H.3 reports the 90th/95th/maximum percentiles on pooled MMLU-Pro: mean gap ≈ 0.000 , max 0.021 in the acted-on region, which does not robustly exceed the operating εact = 0 .02 .
+
+Action-region subgroup check. We partition acted-on instances by benchmark subtask (e.g., BBH’s 10 reasoning tasks, MuSR’s 3 subtasks) and by round at which stopping occurred, and verify that acted-on accuracy and WA /β remain close to the pooled values. For BBH, per-subtask acted-on accuracy ranges 94.6–99.2% at pooled 96.4%; for MMLU-Pro, per-domain acted-on accuracy ranges 91.5–96.8% at pooled 93.9%. No subtask exhibits acted-on accuracy below 1 − α − εact , providing no falsification of the action-region assumption on activated datasets. 
+
+k-NN heterogeneity check. For each acted-on test instance we compute the label entropy within its 
+
+k⋆-NN calibration neighborhood, Hk(Ut) = −bqt,k log bqt,k − (1 − bqt,k ) log(1 − bqt,k ). On activated datasets, median Hk is 0.14–0.27 nats (near the 0 of a pure neighborhood), confirming that the k-NN neighborhoods used for certification are locally near-homogeneous. On MuSR, median Hk exceeds 0.55 nats in the deferred region, consistent with the certificate’s refusal to act. 
+
+Interpretation. These three proxies do not replace Assumption 4. Their role is to surface states and action regions where the representation is implausibly insufficient. Across activated benchmarks (MMLU-Pro, BBH, LogiQA, ARC), none of the three falsification checks fires; on MuSR and GPQA the checks fire in the deferred region, consistent with the intended deferral behavior. 31 J Subgroup safety 
+
+Aggregate WA /β in Table 1 could mask failure on a specific domain or subtask. We partition each activated benchmark by natural subgroup and report Act, Acc |Act, and WA /β per subgroup on the held-out test split (Table 17). Table 17: Subgroup safety under the pooled λ⋆. Per-subgroup evaluation of Ours under the pooled-dataset λ⋆ from Table 1; β is re-induced per-subgroup from each subgroup’s own be cal  
+
+> T
+
+, so each subgroup operates at a different absolute budget. MMLU-Pro uses its 8 native domains; BBH uses all 10 debate-majority subtasks. Rows where the subgroup’s empirical budget is degenerate (no 
+
+λ can certify) are marked “defers”.                                                                                                   
+
+> Dataset Subgroup ngβAct Acc |Act WA/ β
+> MMLU-Pro chemistry 1,132 .29 77.8 97.0 .081 economics 844 .29 61.8 93.7 .140 engineering 969 .47 69.4 91.2 .129 health 818 .47 61.2 90.4 .127 law 1,101 .80 74.3 73.0 .250
+> math 1,351 .14 0.0 —defers physics 1,299 .24 71.7 97.0 .089 psychology 798 .43 60.4 93.2 .099 BBH date_understanding 250 .27 47.6 47.6 .084 geometric_shapes 250 .72 98.2 81.0 .261
+> movie_recommendation 249 .97 100.0 72.6 .283
+> salient_translation_error 250 1.19 100.0 71.4 .240
+> logical_deduction_five 250 .00 0.0 —defers logical_deduction_seven 250 .02 0.0 —defers penguins_in_a_table 146 .00 0.0 —defers reasoning_colored_objects 250 .02 0.0 —defers tracking_shuffled_five 250 .00 0.0 —defers tracking_shuffled_seven 250 .00 0.0 —defers
+
+Interpretation. Pooled-λ⋆ safety does not automatically transfer to each subgroup. Most subgroups either activate well ( WA /β ∈ [.08 , . 14] ) or defer cleanly; however, bold-faced rows show cases where the pooled λ⋆ induces a subgroup-level β that the subgroup’s state cannot support tightly—on MMLU-Pro law and three BBH subtasks, WA /β reaches .24 –.28 , with acted-on accuracy 71 –81% .These rows reveal a concrete representation-gap signature : for reasoning-heavy subtasks, the 2D state (p(1)  
+
+> t
+
+, ∆t) is locally less predictive of correctness, so the induced absolute budget is used more aggressively than the pooled behavior suggests. In deployment, a per-subgroup λ⋆ (group-conditional control, Theorem 12) or a richer state in those subtasks would restore the intended WA /β profile; we document these subgroups as failure candidates rather than claiming uniform safety. On the remaining 12/18 subgroups examined, the pooled λ⋆ produces WA /β < 0.15 .
+
+K Matched-automation protocol 
+
+The matched-automation comparison in §6.2 is measured by the following protocol. 
+
+Protocol. Fix a target automation rate A⋆ equal to our method’s Act on the test split under the training-selected λ⋆d. For each baseline, we grid-search its threshold θ on the training split only such that the induced training-time Act lies within ±2% of A⋆; ties are broken by selecting the smallest test-time dWA . We then evaluate Acc |Act, WA, and WA /β on the held-out test split. No test-set quantity enters the threshold choice. Baselines whose monotonicity does not admit an Act close to 
+
+A⋆ are omitted for that dataset (they either act fully or not at all at any feasible threshold). 
+
+Results. Table 18 reports the matched comparison on the four activated benchmarks. Across twelve matched comparisons (4 benchmarks × 3 methods including Ours), acted-on accuracy gaps range 32 from −0.6 to +1 .6pp and WA /β differences from −0.003 to +0 .027 —i.e., at matched automation the three stopping rules are statistically indistinguishable. Table 18: Matched-automation comparison (10 splits, test-side). Each baseline’s threshold is grid-searched on the training split to minimize |Act train −A⋆|; we then evaluate the resulting stopping rule on the test split. A⋆ is Ours’s test-time Act under the training-selected λ⋆. Acc, WA, and WA/ β are all test-side. At matched automation, the state-conditional stopper is broadly competitive with—but does not dominate—the two best-tuned baselines: Acc |Act differences are within ±1.6pp, and budget usage is comparable.                                                                            
+
+> Dataset A⋆Method Act Acc |Act WA WA/ β∆Acc
+> LogiQA 27.9% Ours 27.9 88.9 3.18 .102 —Confidence Threshold (matched) 27.8 88.5 3.20 .103 −0.4
+> Calibrated Learned (matched) 27.3 90.5 2.60 .084 +1 .6
+> MMLU-Pro 71.1% Ours 71.1 93.9 4.40 .116 —Confidence Threshold (matched) 71.4 93.8 4.45 .117 −0.1
+> Calibrated Learned (matched) 70.9 94.2 4.14 .109 +0 .3
+> ARC 75.5% Ours 75.5 97.1 2.29 .108 —Confidence Threshold (matched) 74.4 96.9 2.32 .112 −0.2
+> Calibrated Learned (matched) 85.3 96.8 2.82 .135 −0.3
+> BBH 84.4% Ours 84.4 96.4 3.02 .093 —Confidence Threshold (matched) 84.1 96.5 2.92 .090 +0 .1
+> Calibrated Learned (matched) 84.7 96.6 2.91 .090 +0 .2
+
+Interpretation. The matched-automation comparison isolates the effect of the stopping criterion from the automation rate. At identical automation the three stopping rules (Ours, Confidence Threshold (matched), Calibrated Learned (matched)) obtain statistically indistinguishable acted-on accuracy and budget usage. We conclude that the certificate’s advantage at its training-selected operating point (Table 1) is not that it selects a higher-reliability subset than a tuned threshold, but that it reaches this operating point from a pre-declared difficulty-normalized budget without a per-task threshold tune—while at their risk-calibrated default thresholds (Table 1), baselines over-consume the budget precisely because they cannot convert a declared budget into an automation level without the kind of training-split tuning used in this appendix. 
+
+L Robustness to λ-selection criterion 
+
+The training-selected λ⋆d (§6, Appendix B.5) maximizes automation subject to a training-split con-straint dWA /β ≤ 0.10 . We test whether the main conclusions depend on this particular constraint. 
+
+Selection rule sensitivity. Table 19 reports Ours under three training-constraint variants (strict: 
+
+dWA /β ≤ 0.05 ; default: ≤ 0.10 ; loose: ≤ 0.20 ) and two fixed-λ policies ( λ = 1 .5, 2.5). 
+
+λ⋆ stability across splits. Table 20 reports the distribution of λ⋆ chosen across 10 random training sub-splits. On activated datasets, the inter-split range is modest (MMLU-Pro: 1.75–3.25, LogiQA: 1.25–1.50), indicating that the selection rule recovers consistent policies from different training halves. On stress-test datasets, either the range is wider (BBH’s constraint is easy to satisfy, pushing λ⋆
+
+toward the grid upper bound on most splits) or the rule frequently defers (MuSR: 8/10 splits deferred), which is the intended behavior. 
+
+Interpretation. The core safety property WA ≤ β (equivalently WA /β < 1) holds on every cell of Table 19. Two observations matter for deployment: (i) a single fixed λ is not sufficient across benchmarks with heterogeneous base error (fixed λ = 1 .5 defers on ARC and underactivates on BBH; fixed λ = 2 .5 still defers on ARC and overuses budget on LogiQA), motivating the training-selected rule; (ii) tightening the training constraint from .10 to .05 reduces Act substantially while buying only a modest WA /β improvement, consistent with the conservative behavior already reported under the default constraint. 33 Table 19: λ-selection robustness (activated benchmarks, 10 splits). Training-constraint variants and fixed-λ alternatives; rows report 10-split average. The core safety property ( WA ≤ β) holds for all variants on all four benchmarks. Relaxing the constraint from .05 to .20 trades Act for higher WA /β 
+
+but the ratio stays < . 20 in all cells except LogiQA loose/fixed-2.5. Fixed λ performs worse than the training-selected rule on BBH/ARC (too tight) and on LogiQA (too loose for the task), which is exactly why a per-dataset λ⋆ is necessary.                                                                                          
+
+> MMLU-Pro BBH ARC LogiQA Rule λ⋆range Act Acc WA/ βAct Acc WA/ βAct Acc WA/ βAct Acc WA/ β
+> Strict ( ≤.05 )1.00–4.75 32.6 97.9 .044 53.7 64.5 .070 43.8 98.2 .055 18.6 91.1 .059 Default ( ≤.10 )1.25–5.00 71.1 93.9 .114 84.4 96.4 .094 73.1 97.0 .101 27.9 88.9 .101 Loose ( ≤.20 )1.25–5.00 93.6 86.6 .158 87.6 95.7 .093 82.7 96.7 .115 53.8 86.5 .196 Fixed λ= 1 .51.50 55.3 96.2 .087 7.1 9.9 .007 0.0 ——54.3 86.6 .199 Fixed λ= 2 .52.50 72.6 93.6 .117 80.4 97.5 .100 0.0 ——86.3 80.1 .281
+
+Table 20: Stability of λ⋆ across 10 training sub-splits. Defers = number of splits on which no λ
+
+satisfies the training constraint. 
+
+Dataset mean median min max defers 
+
+MMLU-Pro 2.40 2.25 1.75 3.25 0/10 BBH 4.05 5.00 2.25 5.00 0/10 LogiQA 1.27 1.25 1.25 1.50 0/10 ARC 4.39 4.25 3.75 5.00 3/10 GPQA 2.78 2.75 2.25 3.25 2/10 MuSR 2.12 2.12 2.00 2.25 8/10 
+
+M Per-split variability 
+
+All Tables 1, 6, and the matched-automation comparison (Table 18) report means over 10 random 50/50 train/test splits. Here we report the split-wise variability. 
+
+Standard errors. Table 21 reports mean ± standard error across 10 splits for Ours. Standard errors for WA /β are below 0.014 on all activated benchmarks, and the worst split on every activated benchmark still satisfies WA ≤ β (Table 22). ARC shows the largest per-split variation in Act because its small-λ-defer regime is close to the activation boundary for some splits. Table 21: Split-wise variability of Ours under the pooled λ⋆ applied to every split. Mean ± standard error over 10 random 50/50 splits. This measures deployment variability under a frozen policy; the per-split policy selection variant (with occasional split-wise deferral) is tabulated in Table 1. ARC shows the largest Act-SE because its λ⋆-induced budget sits close to the activation boundary on some splits. 
+
+Dataset Act (%) Acc |Act (%) WA (%) WA/ β
+
+MMLU-Pro 71.0 ± 0.4 93.9 ± 0.1 4.32 ± 0.10 .114 ± .003 BBH 85.0 ± 0.4 96.4 ± 0.1 3.06 ± 0.09 .094 ± .004 LogiQA 26.9 ± 1.7 88.9 ± 0.3 3.01 ± 0.25 .097 ± .008 ARC 75.5 ± 8.2 97.1 ± 0.2 2.29 ± 0.29 .108 ± .013 
+
+Split-wise budget safety. A central claim is WA ≤ β per split, not merely in expectation. Table 22 reports the split-wise maximum of WA /β and the fraction of splits satisfying WA /β ≤ 0.15 and 
+
+≤ 0.20 . On all activated datasets, every split satisfies WA /β ≤ 0.20 ; no split exceeds β.34 Table 22: Split-wise budget safety. Fraction of 10 splits satisfying WA /β ≤ c; max s WA /β is the worst split over all 10 random 50/50 train/test splits. All 40 activated-dataset splits satisfy WA ≤ β;the only mildly-conservative violation is ARC with 8/10 splits below 0.15 (worst split 0.161).                               
+
+> Dataset max sWA /β {s: WA /β ≤.15 }{s: WA /β ≤.20 }{s: WA ≤β}
+> MMLU-Pro .126 10/10 10/10 10/10 BBH .111 10/10 10/10 10/10 LogiQA .148 10/10 10/10 10/10 ARC .161 8/10 10/10 10/10
+
+N Failure-case decomposition 
+
+Why does the certificate defer on GPQA and MuSR under moderate budgets? The lower bound at round T decomposes as Lt,k (Ut) = bqt,k (Ut) − bt,k (Ut) − ck, where ck = plog( T |K| /δ )/(2 k).Table 23 reports the median value of each term across test instances, together with the action threshold 
+
+1 − α under the training-selected budget. Table 23: Certificate decomposition (median across test instances). The blocking component is the one closest to preventing threshold crossing. On MMLU-Pro/BBH/ARC the empirical mean bqt,k 
+
+easily clears the threshold after corrections; on GPQA/MuSR the empirical mean is too low and the Hoeffding penalty ck is large due to small n.                                                  
+
+> Dataset bqt,k ⋆bt,k ck⋆Lt1−αBlocking term
+> MMLU-Pro 0.97 0.03 0.05 0.89 0.88 (crosses) BBH 0.98 0.03 0.06 0.89 0.88 (crosses) ARC 0.99 0.03 0.08 0.88 0.88 (crosses) LogiQA 0.93 0.04 0.05 0.84 0.84 (marginal) GPQA 0.81 0.08 0.12 0.61 0.81 low bq+ high ck
+> MuSR 0.73 0.11 0.11 0.51 0.81 low bq+ small n
+
+Interpretation. The certificate does not fail quietly on GPQA and MuSR; it defers because each of the three terms identifies a statistical deficiency: bqt,k ⋆ is low (high base error), ck⋆ is large (small 
+
+n means k⋆ must remain small for the bias not to explode), and the action threshold 1 − α is high (the induced β, even when large in absolute terms, still leaves a demanding pointwise target). This aligns with the framing in §6: large induced β on these benchmarks is a diagnostic of insufficient calibration evidence, not a failure of the certificate. 
+
+O Reproducibility details 
+
+Agents and debate protocol. Three agents: Claude Haiku 4.5 ( anthropic ), DeepSeek-R1 (deepseek-ai/DeepSeek-R1 ), Qwen-3 32B ( Qwen/Qwen3-32B ). Each agent answers with temper-ature 0.7, max_tokens 2048, seed fixed per instance. Debate runs T = 4 rounds. Prompt template (round t = 1 ): 
+
+You are a careful reasoner. Given the question below, think step by step and then choose exactly one option. <question>{q}</question> Return: <reasoning>...</reasoning><answer>{A|B|C|...}</answer> 
+
+At rounds t > 1, the prompt additionally contains all round-(t−1) responses from all agents, verbatim. 
+
+Random seeds and splits. Each reported number averages over 10 random 50/50 train/test splits, with seeds {7, 11 , 13 , 17 , 19 , 23 , 29 , 31 , 37 , 41 } applied to the split indicator. Within each split, the 
+
+λ⋆ procedure (Appendix B.5) uses a further 50/50 sub-split with seed seed + 100 .35 Hyperparameter grids. K = {128 , 256 , 512 }; δ = 0 .03 ; εact = 0 .02 ; α = β − 0.05 ; λ-grid 
+
+= {0.25 , 0.50 , . . . , 5.00 } (20 values); modulus split 20/80; state normalization via training quantiles; logistic-GAM pilot with 8 knots per coordinate and ℓ2 penalty C = 1 .0.
+
+Baseline thresholds. All baseline thresholds are chosen on the training split only, via exhaustive grid search on 200 points in [0 .5, 1.0] for score thresholds and [0 .0, 0.5] for margin thresholds. Selection criterion: maximize training-time Act subject to training-time WA ≤ β (matching our rule for fairness). 
+
+Compute. Full calibration run (LLM calls) requires nT ≈ 8.7k × 4 = 35k calls per split per benchmark; 10 splits × 6 benchmarks ≈ 1.1M LLM calls total. k-NN certification per test instance is dominated by O(T |K| nD ) ≈ 8 · 10 4 distance computations—negligible compared to LLM inference. Anonymous code artifact, prompts, seeds, and aggregated result JSONs will be provided in the supplemental material. 36

@@ -1,0 +1,7087 @@
+Title: Automated Reasoning with Nested Datatypes
+
+URL Source: https://arxiv.org/pdf/2606.30888v2
+
+Published Time: Thu, 02 Jul 2026 00:31:53 GMT
+
+Number of Pages: 63
+
+Markdown Content:
+# Automated Reasoning with Nested Datatypes 
+
+Tomer Hakak 1, Yoni Zohar 1, Andrew Reynolds 2, Clark Barrett 3 and Cesare Tinelli 2  
+
+> 1Bar-Ilan University, Ramat Gan, Israel 2The University of Iowa, Iowa City, USA 3Stanford University, Stanford, USA
+
+Abstract 
+
+> We introduce a theory of nested datatypes. The theory is obtained by restricting the naive combination of datatypes and arrays, so as to prevent non-standard models from emerging. A decision procedure for the theory is given and proven correct. Finally, we describe an implementation of the procedure, as well as an evaluation over both real-world and crafted benchmarks.
+
+# 1. Introduction 
+
+The SMT-LIB theory of datatypes allows for a direct and convenient encoding of common data structures, such as lists, trees, and more, which makes it useful for software verification. And indeed, the 2025 release of the SMT-LIB benchmark library includes over 50K benchmarks that involve datatypes [1]. The expressivity of datatypes is, however, limited. For example, there are no operators to update an existing datatype value, and there are no random-access operators. Such limitations call for the combination of datatypes with theories for other data structures, like arrays. A naive combination of datatypes and arrays introduces a problem: arrays bypass the principle of acyclicity, according to which a datatype value cannot occur in itself. Indeed, a datatype value could now occur as an element of an array, where the array is a field of the same value. Such behavior is undesirable, as it does not match the intuitive combination of arrays and datatypes, which only intends to increase expressivity, not break acyclicity. We refer to such models that admit cycles as non-standard models . A more detailed description of this issue, both intuitively and formally, is given in Example 15 and Figure 2 below. In this paper we define a theory of nested datatypes , obtained by restricting the aforementioned naive combination to exclude non-standard models. We introduce a decision procedure for the new theory, based on a reduction to the (naive) combination of datatypes, arrays and uninterpreted functions. We have implemented a prototype of our reduction-based algorithm in the state-of-the-art SMT-solver cvc5 [ 2], and evaluated it on benchmarks arising from the Move prover verification tool [ 3], and on synthetic benchmarks that control the “hidden cycles” in datatypes and arrays. Our experimental evaluation shows promise. On the organic benchmarks from the Move Prover, it is comparable to and sometimes outperforms an existing solver for nested datatypes implemented in Z3 [4]. On the synthetic benchmarks, it outperforms Z3 .In summary, our contributions are: (𝑖 ) The introduction of a theory of nested datatypes; (𝑖𝑖 ) A reduction-based decision procedure for the new theory; (𝑖𝑖𝑖 ) An implementation in cvc5 and an evaluation using both real-world and crafted benchmarks. 
+
+Informal overview: We intuitively explain the problem using the first row of Figure 2. This motivating example will be formally introduced and developed as a running example throughout the paper. Here 𝑥 is a datatype value, while 𝑎 is an array whose elements are datatype values. The first row visually describes two simple constraints: 𝑥 is read from array 𝑎 at index 𝑖 , 𝑎 is a field of 𝑥 . Each constraint is harmless by itself. Together, however, they describe a cycle: following the array field of 𝑥 leads to 𝑎 , and reading 𝑎 at index 𝑖 leads back to 𝑥 . The naive combination of the theories of datatypes and arrays misses this because the cycle is split between the theories. The theory of Nested datatypes that we propose here reject the combined constraint. 
+
+> SMT 2026, 24th International Workshop on Satisfiability Modulo Theories
+> © 2026 Copyright for this paper by its authors. Use permitted under Creative Commons License Attribution 4.0 International (CC BY 4.0).
+
+1Related work: The introduced theory of nested datatypes generalizes the SMT-LIB theory of algebraic datatypes [ 5 ] (see [ 6 , 7 ] for prominent decision procedures and [ 8] for a more recent one). The SMT solver Z3 [ 4] supports nested datatypes. However, to the best of our knowledge, the literature lacks a precise definition of the supported theory and the implemented algorithm. 
+
+Outline: Section 2 goes over the necessary notions from first-order logic and Satisfiability Modulo Theories. In Section 3 we introduce the theory of nested datatypes. In Section 4 we present a decision procedure for this theory, and then in Section 5 we describe an implementation and evaluation of it. The correctness proofs for the decision procedure are quite involved and long. They are included in the appendix. 
+
+# 2. Preliminaries 
+
+For natural numbers 0 ≤ 𝑘 ≤ 𝑛 , we write [𝑘, 𝑛 ] to denote {𝑘, 𝑘 +1 , . . . , 𝑛 }. For sets 𝑋 and 𝑌 , AC (𝑋, 𝑌 )
+
+is the set of almost constant functions from 𝑋 to 𝑌 , i.e., {𝑓 : 𝑋 → 𝑌 | ∃ 𝑐 ∈ 𝑌. ∃𝑆 ⊆ 𝑋. |𝑆 | <
+
+∞ ∧ ∀ 𝑥 / ∈ 𝑆, 𝑓 (𝑥 ) = 𝑐 }. Given set 𝑋 and element 𝑒 , const 𝑋 (𝑒 ) is the constant function whose domain is 𝑋 and always returns 𝑒 . When 𝑋 is clear from the context, we omit it, writing const (𝑒 ).
+
+Definition 1 (Well-founded relation). A binary relation 𝑅 on a set 𝑋 is well-founded if there is no infinite sequence 𝑥 0, 𝑥 1, 𝑥 2, . . . of elements of 𝑋 such that 𝑥 𝑛 +1 𝑅 𝑥 𝑛 for every 𝑛 .
+
+2.1. Signatures and Structures 
+
+We briefly review the usual definitions of many-sorted first-order logic with equality (see [ 9 , 10 ]). For any set 𝑆 , an 𝑆 -sorted set 𝐴 is a function from 𝑆 to 𝒫 (𝑋 ) ∖ {∅} for some set 𝑋 such that 𝐴 (𝑠 ) ∩ 𝐴 (𝑠 ′) = ∅
+
+whenever 𝑠 ̸ = 𝑠 ′. We use 𝐴 𝑠 to denote 𝐴 (𝑠 ).A many-sorted signature Σ consists of a set 𝒮 Σ of sorts , a set ℱΣ of function symbols , and a set 𝒫 Σ of 
+
+predicate symbols . Function symbols have arities 𝜎 1 × . . . × 𝜎 𝑛 → 𝜎 , and predicate symbols have arities 
+
+𝜎 1 × . . . × 𝜎 𝑛 , with 𝜎 1, . . . , 𝜎 𝑛 , 𝜎 ∈ 𝒮 Σ. For each sort 𝜎 ∈ 𝒮 Σ, 𝒫 Σ includes an equality symbol =𝜎 of arity 𝜎 × 𝜎 , denoted = when 𝜎 is clear. Σ is called finite if 𝒮 Σ, ℱΣ, and 𝒫 Σ are finite. We assume a 
+
+𝒮 Σ-sorted set of variables . Well-sorted terms, formulas, and literals are defined as usual. For a Σ-formula 
+
+𝜑 and a sort 𝜎 , we denote the set of free variables in 𝜑 of sort 𝜎 by vars 𝜎 (𝜑 ). This notation naturally extends to vars 𝑆 (𝜑 ) when 𝑆 is a set of sorts. When 𝑆 = 𝒮 Σ we may omit it. Let 𝐵 ⊆ ℱ Σ be a set of function symbols. We denote by Σ|𝐵 the signature with the same sorts as Σ, no predicate symbols (except 
+
+=𝜎 for 𝜎 ∈ 𝒮 Σ), and whose set of function symbols is 𝐵 .A Σ-literal is called flat if it has one of the following forms: 𝑥 = 𝑓 (𝑥 1, . . . , 𝑥 𝑛 ), 𝑃 (𝑥 1, . . . , 𝑥 𝑛 ), or 
+
+¬𝑃 (𝑥 1, . . . , 𝑥 𝑛 ) for some variables 𝑥, 𝑦, 𝑥 1, . . . , 𝑥 𝑛 and function and predicate symbols 𝑓 and 𝑃 from 
+
+Σ. A (flat) cube is a conjunction of (flat) literals. A Σ-structure consists of a 𝒮 Σ-sorted set 𝐴 , and interpretations to the function and predicate symbols of Σ. We further require that =𝜎 is interpreted as the identity relation over 𝐴 𝜎 for every 𝜎 ∈ 𝒮 Σ. A 
+
+Σ-interpretation 𝒜 is an extension of a Σ-structure with interpretations to some set of variables. For any 
+
+Σ-term 𝛼 , 𝛼 𝒜 denotes the interpretation of 𝛼 in 𝒜 . When 𝑋 is a set of Σ-terms, 𝑋 𝒜 ={︀ 𝑥 𝒜 | 𝑥 ∈ 𝑋 }︀ .Similarly, 𝑓 𝒜 and 𝑃 𝒜 denote the interpretation of 𝑓 and 𝑃 in 𝒜 , and we denote 𝐴 𝜎 by 𝜎 𝒜 for every 
+
+𝜎 ∈ 𝒮 Σ. Given a signature Σ′ which is contained in Σ, we denote by 𝒜 Σ′
+
+the restriction of 𝒜 to Σ′.Satisfaction is denoted by |=. A Σ-theory 𝑇 is a class of Σ-structures. A Σ-interpretation whose variable-free part is in 𝑇 is a 𝑇 -interpretation . 𝜑 is 𝑇 -satisfiable (denoted |=𝑇 𝜑 ) if 𝒜 | = 𝜑 for some 
+
+𝑇 -interpretation 𝒜 . 𝜑 and 𝜙 are 𝑇 -equivalent if they are satisfied by the same class of 𝑇 -interpretations. The Σ-theory of equality and uninterpreted functions (EUF) is the class of all Σ-structures. A signature 
+
+Σ is called an arrays signature if 𝒮 Σ = {𝐴, 𝐼, 𝐸 } for distinct sorts 𝐴 , 𝐼 , and 𝐸 , ℱΣ = {select 𝐴 , store 𝐴 },and 𝒫 Σ is empty. The arity of select 𝐴 is 𝐴 → 𝐸 , and the arity of store 𝐴 is (𝐴 × 𝐼 × 𝐸 ) → 𝐴 . When 𝐴 
+
+is clear from context, we may omit it, writing select and store . For an array signature Σ, we say that a 
+
+> 2
+
+Σ-structure 𝒜 is an arrays Σ-structure if it satisfies the axioms for arrays as specified in SMT-LIB. The 
+
+Σ-theory of arrays is the class of all arrays Σ-structures (see, e.g. [11]). 
+
+2.2. The SMT-LIB 2 Theory of Datatypes 
+
+We adapt the definition from [12] of the SMT-LIB theory of datatypes [5]. 
+
+2.2.1. Syntax 
+
+Definition 2 (Well-founded sort (DT)). Let Σ be a signature and 𝑆 ⊆ 𝒮 Σ. Define a sequence of functions 𝐺 0, 𝐺 1, . . . as follows: 𝐺 0(Σ , 𝑆 ) = 𝑆 ; 𝐺 𝑖 +1 (Σ , 𝑆 ) = 𝐺 𝑖 (Σ , 𝑆 ) ∪ { 𝜎 | ∃ 𝑐 ∈ ℱ Σ.𝑐 : 𝜎 1 ×
+
+. . . × 𝜎 𝑛 → 𝜎, 𝜎 1, . . . , 𝜎 𝑛 ∈ 𝐺 𝑖 (Σ , 𝑆 )}. Then, a sort 𝜎 ∈ 𝒮 Σ is well-founded w.r.t. 𝑆 in Σ if 
+
+𝜎 ∈⋃︀ ∞ 
+
+> 𝑖 =1
+
+𝐺 𝑖 (Σ , 𝑆 ). We sometimes drop 𝑆 , and just say “well-founded” when it is clear. 
+
+Definition 3 (Datatypes signature). A finite signature Σ is called a datatypes signature if 𝒮 Σ = Elem Σ⊎
+
+Struct Σ and ℱΣ = 𝒞𝒪 Σ ⊎𝒮ℰ Σ, for some Elem Σ, Struct Σ, 𝒞𝒪 Σ, 𝒮ℰ Σ, such that 𝒮ℰ Σ = {𝑠 (𝑐,𝑖 ) : 𝜎 →
+
+𝜎 𝑖 | 𝑐 ∈ 𝒞𝒪 Σ, 𝑐 : 𝜎 1 × . . . × 𝜎 𝑛 → 𝜎, 1 ≤ 𝑖 ≤ 𝑛 } and 𝒫 Σ = {is 𝑐 : 𝜎 | 𝑐 ∈ 𝒞𝒪 Σ, 𝑐 : 𝜎 1 × . . . × 𝜎 𝑛 → 𝜎 }.The elements of 𝒞𝒪 Σ are called constructors , those of 𝒮ℰ Σ selectors , and of 𝒫 Σ testers . We further require that for every constructor 𝑐 with arity 𝜎 1 × . . . × 𝜎 𝑛 → 𝜎 , 𝜎 ∈ Struct Σ and all sorts in Struct Σ are well-founded w.r.t. Elem Σ in Σ|𝒞𝒪 Σ .
+
+Selectors are often renamed, e.g., linked lists are often modeled using constructors nil and cons ,where the two selectors for cons are named hd and tl , rather than 𝑠 (cons ,0) and 𝑠 (cons ,1) .We will use the signatures in Table 1 as running examples. The signature Σ0 is a pure datatypes signature with element sort 𝐼 and two struct sorts, 𝐴 and 𝐸 . In Σ0, the sort 𝐴 is a list sort for 𝐸 -elements, built using nil and cons . The sort 𝐸 is built using the constructor c, whose selectors are id and chld ;intuitively, id stores an index of sort 𝐼 , and chld stores the list of children of sort 𝐴 . The signature Σ1
+
+uses the same sort names for arrays from 𝐼 to 𝐸 , with array sort 𝐴 . Thus, 𝐴 is not meant to be both a datatype list sort and an array sort inside one component theory: it is a list sort in Σ0 and an array sort in Σ1. The signature Σ− 
+
+> 2
+
+keeps only the datatype constructor c, and treats sort 𝐴 as an element sort for datatypes. Σ2 extends it with the constant constructor emp : 𝐸 , used as an empty 𝐸 -value. Finally, Σ−
+
+> ndt
+
+and Σndt are obtained by combining the array signature Σ1 with Σ− 
+
+> 2
+
+and Σ2, respectively. The formulas in the last column will be used to illustrate how cycles arise across the datatype and array components. 
+
+Example 4. Consider the datatypes signature Σ0 from Table 1. Sorts 𝐴 and 𝐸 are well-founded w.r.t. Elem Σ0 in Σ0|𝒞𝒪 Σ0 : 𝐺 0(Σ 0|𝒞𝒪 Σ0 , Elem Σ0 ) = {𝐼 }, 𝐺 1(Σ 0|𝒞𝒪 Σ0 , Elem Σ0 ) = {𝐼, 𝐴 }, and 
+
+𝐺 2(Σ 0|𝒞𝒪 Σ0 , Elem Σ0 ) = {𝐼, 𝐴, 𝐸 } = 𝒮 Σ0 . But, if we remove constructor nil , then both sorts are no longer well-founded. 
+
+2.2.2. Semantics 
+
+Definition 5 (trees). Given a signature Σ, a set 𝑆 ⊆ 𝒮 Σ and an 𝑆 -sorted set 𝐴 , the set of Σ-trees over 𝐴 
+
+of sort 𝜎 ∈ 𝒮 Σ is denoted by 𝑇 𝜎 (Σ , 𝐴 ) and is inductively defined as follows: 𝑇 𝜎, 0(Σ , 𝐴 ) = 𝐴 𝜎 if 𝜎 ∈ 𝑆 
+
+and ∅ otherwise; and 𝑇 𝜎,𝑖 +1 (Σ , 𝐴 ) = 𝑇 𝜎,𝑖 (Σ , 𝐴 ) ∪ { 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) | 𝑐 ∈ ℱ Σ, 𝑐 : 𝜎 1 × . . . × 𝜎 𝑛 → 𝜎 ∈ℱΣ, 𝑡 𝑗 ∈ 𝑇 𝜎 𝑗 ,𝑖 (Σ , 𝐴 ), 1 ≤ 𝑗 ≤ 𝑛 } for each 𝑖 ≥ 0. Finally, 𝑇 𝜎 (Σ , 𝐴 ) = ⋃︀ 𝑖 ≥0 𝑇 𝜎,𝑖 (Σ , 𝐴 ).
+
+𝑇 𝜎 (Σ , 𝐴 ) contains the ground 𝜎 -sorted terms over Σ with 𝐴 as constants. 
+
+Definition 6 (Datatypes structure). Let Σ be a datatypes signature and 𝐷 an Elem -sorted set. A Σ-structure 𝒜 is a datatypes Σ-structure generated by 𝐷 if, for every 𝑐 ∈ 𝒞𝒪 Σ of arity (𝜎 1 × . . . × 𝜎 𝑛 ) → 𝜎 
+
+and every 𝑡 𝑗 ∈ 𝜎 𝒜  
+
+> 𝑗
+
+: (𝑖 ) 𝜎 𝒜 = 𝑇 𝜎 (Σ |𝒞𝒪 Σ , 𝐷 ) for every 𝜎 ∈ 𝒮 Σ; (𝑖𝑖 ) 𝑐 𝒜 (𝑡 1, . . . , 𝑡 𝑛 ) = 𝑐 (𝑡 1, . . . , 𝑡 𝑛 );
+
+(𝑖𝑖𝑖 ) 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑐 (𝑡 1, . . . , 𝑡 𝑛 )) = 𝑡 𝑖 for 1 ≤ 𝑖 ≤ 𝑛 ; and (𝑖𝑣 ) is 𝒜  
+
+> 𝑐
+
+={︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) | 𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑛 ∈ 𝜎 𝒜 
+
+> 𝑛
+
+}︀ .The Σ-theory of datatypes 𝒯 D𝑇  
+
+> Σ
+
+is the class of datatypes Σ-structures. 
+
+3Name Sorts Symbols Symbol arity Formula 
+
+Σ0
+
+Elem Σ0 = {𝐼 }
+
+Struct Σ0 = {𝐴, 𝐸 }𝒞𝒪 Σ0 = {c, nil , cons }𝒮ℰ Σ0 = {id , chld , hd , tl }
+
+id = 𝑠 (c,1) 
+
+chld = 𝑠 (c,2) 
+
+hd = 𝑠 (cons ,1) 
+
+tl = 𝑠 (cons ,2) 
+
+𝒫 Σ0 = {is c, is nil , is cons }
+
+c : 𝐼 × 𝐴 → 𝐸 
+
+nil : 𝐴 
+
+cons : 𝐸 × 𝐴 → 𝐴 
+
+id : 𝐸 → 𝐼 
+
+chld : 𝐸 → 𝐴 
+
+hd : 𝐴 → 𝐸 
+
+tl : 𝐴 → 𝐴 
+
+is c : 𝐸 
+
+is nil : 𝐴 
+
+is cons : 𝐴 𝜓 1 := is cons (𝑎 ) ∧ 𝑥 = hd (𝑎 )
+
+𝜓 2 := is c(𝑥 ) ∧ 𝑎 = chld (𝑥 )
+
+𝜙 0 := is cons (𝑎 ) ∧ 𝑥 = hd (𝑎 )
+
+∧ is c(𝑥 ) ∧ 𝑎 = chld (𝑥 )Σ1 𝒮 Σ1 = {𝐼, 𝐸, 𝐴 } ℱΣ1 = {select , store } select : 𝐴 × 𝐼 → 𝐸 
+
+store : 𝐴 × 𝐼 × 𝐸 → 𝐴 𝜓 ′ 
+
+> 1
+
+:= 𝑥 = select (𝑎, 𝑖 )Σ−
+
+> 2
+
+Elem Σ−
+
+> 2
+
+= {𝐼, 𝐴 }
+
+Struct Σ−
+
+> 2
+
+= {𝐸 }𝒞𝒪 Σ−
+
+> 2
+
+= {c}𝒮ℰ Σ−
+
+> 2
+
+= {id , chld , hd , tl }
+
+id = 𝑠 (c,1) 
+
+chld = 𝑠 (c,2) 
+
+𝒫 Σ−
+
+> 2
+
+= {is c}
+
+c : 𝐼 × 𝐴 → 𝐸 
+
+id : 𝐸 → 𝐼 
+
+chld : 𝐸 → 𝐴 
+
+is c : 𝐸 𝜓 2 := is c(𝑥 ) ∧ 𝑎 = chld (𝑥 )Σ2 𝒮 Σ2 = 𝒮 Σ−
+
+> 2
+
+ℱΣ2 = ℱΣ−
+
+> 2
+
+∪ { emp }𝒫 Σ2 = 𝒫 Σ−
+
+> 2
+
+∪ { is emp }
+
+c : 𝐼 × 𝐴 → 𝐸 
+
+emp : 𝐸 
+
+id : 𝐸 → 𝐼 
+
+chld : 𝐸 → 𝐴 
+
+is c : 𝐸 
+
+is emp : 𝐸 𝜓 2 := is c(𝑥 ) ∧ 𝑎 = chld (𝑥 )Σ− 
+
+> ndt
+
+Σ− 
+
+> ndt
+
+:= Σ 1 ∪ Σ− 
+
+> 2
+
+𝜙 := 𝜓 ′ 
+
+> 1
+
+∧ 𝜓 2
+
+Σndt Σndt := Σ 1 ∪ Σ2
+
+Table 1 Signatures and formulas. 
+
+(𝑡𝑒𝑠𝑡 +) 𝑖𝑠 𝑐 (𝑐 (𝑥 1, . . . , 𝑥 𝑛 )) (𝑡𝑒𝑠𝑡 −) ¬𝑖𝑠 𝑐 (𝑑 (𝑥 1, . . . , 𝑥 𝑛 )) (𝑠𝑒𝑙 ) 𝑠 𝑐,𝑖 (𝑐 (𝑥 1, . . . , 𝑥 𝑛 )) = 𝑥 𝑖 (𝑐𝑦𝑐 ) 𝑥 ̸ = 𝑡 
+
+Figure 1: Axioms for the theory of datatypes. In axiom (𝑐𝑦𝑐 ), 𝑡 is built solely by constructor symbols 
+
+𝐶𝑂 Σ = 𝒞𝒪 Σ, and 𝑡 properly contains 𝑥 .
+
+Selectors 𝑠 (𝑐,𝑖 ) on terms with top constructor different than 𝑐 are interpreted arbitrarily, as in SMT-LIB 2. 
+
+Remark 7. Equivalently, the theory of datatypes is characterized by the initial model (see [ 13 ]) of axioms (𝑡𝑒𝑠𝑡 +), (𝑡𝑒𝑠𝑡 −), (𝑠𝑒𝑙 ) from Figure 1 (see, e.g., [ 6 ]); axiom (𝑐𝑦𝑐 ) also holds in the initial model (and in all datatypes structures). 
+
+Example 8. Consider again Σ0 from Table 1, and let 𝒜 be a 𝒯 D𝑇 
+
+Σ0 -interpretation with 𝐼 interpreted as the integers. Then, e.g., c(0 , nil ) and c(0 , cons (c(0 , nil ), nil )) are elements of 𝐸 𝒜 . The Σ0-formula 
+
+𝜙 0 from Table 1 is 𝒯 D𝑇 
+
+Σ0 -unsatisfiable, as it violates (𝑐𝑦𝑐 ): Figure 2’s first row shows why – 𝑥 cannot contain itself. 
+
+2.3. Decidability and Combination 
+
+A Σ-theory is decidable if the set of 𝒯 -satisfiable flat Σ-cubes is decidable; arrays, EUF, and datatypes are decidable (see, e.g., [ 11 ]). Given signatures Σ1, Σ2 and theories 𝑇 1, 𝑇 2 over them, Σ1 ∪ Σ2 is the union of 
+
+4Theory a 
+
+> x0
+> a
+> x
+> 0
+> a
+> x
+> x
+
+𝒯 D𝑇 
+
+> Σ0
+
+𝜓 1 𝜓 2 𝜓 1 ∧ 𝜓 2
+
+sat sat unsat 
+
+𝒯 P𝑁 𝐷𝑇 
+
+> Σndt
+
+𝜓 ′ 
+
+> 1
+
+𝜓 2 𝜓 ′ 
+
+> 1
+
+∧ 𝜓 2
+
+sat sat sat 
+
+𝒯 N 𝐷𝑇 
+
+> Σndt
+
+𝜓 ′ 
+
+> 1
+
+𝜓 2 𝜓 ′ 
+
+> 1
+
+∧ 𝜓 2
+
+sat sat unsat 
+
+Figure 2: Formalization of cycles. 𝜓 1, 𝜓 ′
+
+> 1
+
+, and 𝜓 2 are defined in Table 1. 
+
+their sort, function, and predicate symbols, and the combination 𝑇 1 ⊕ 𝑇 2 is the class of Σ1 ∪ Σ2-structures 
+
+𝒜 with 𝒜 Σ1 ∈ 𝑇 1 and 𝒜 Σ2 ∈ 𝑇 2. 𝑇 is stably infinite w.r.t. 𝑆 ⊆ 𝒮 Σ if every 𝑇 -satisfiable quantifier-free Σ-formula 𝜑 has a 𝑇 -interpretation 𝒜 | = 𝜑 with |𝜎 𝒜 | infinite for all 𝜎 ∈ 𝑆 . EUF and arrays are stably infinite w.r.t. all their sorts (see, e.g., [ 11 ]); for a datatypes signature Σ, 𝒯 D𝑇  
+
+> Σ
+
+is stably infinite w.r.t. Elem Σ (see, e.g., [ 6]). The Nelson-Oppen (NO) method [ 14 , 10 ] decides satisfiability in the combination of stably infi-nite theories, by reasoning about arrangements (conjunctions of (dis)equalities) between shared variables. 
+
+# 3. The Theory of Nested datatypes 
+
+In this section we define the theory of nested datatypes. There are two challenges in doing so, one syntactic, and the other semantic. The first invites a new definition for a well-foundedness of a sort, that must take into account the existence of arrays. The second requires to exclude unwanted structures from the defined theory. 
+
+3.1. First challenge: well-foundedness 
+
+Going back to Table 1, notice that 𝜙 0 uses the theory 𝒯 D𝑇  
+
+> Σ0
+
+of datatypes to represent a nested structure. This is natural, but sometimes not expressive enough. For example, 𝒯 D𝑇  
+
+> Σ0
+
+does not have an operator to update such lists, or a random-access reading operator. Thus, it might be desirable to have the second field of datatype 𝐸 be an array of datatypes, rather than a list, as the next example does. 
+
+Example 9. Consider signature Σ−
+
+> ndt
+
+, obtained as the union of Σ1 and Σ− 
+
+> 2
+
+, from Table 1. Σ1 is an arrays signature, while Σ− 
+
+> 2
+
+is a datatypes signature. 
+
+Noticeably, Σ− 
+
+> ndt
+
+no longer has the constructor nil , that was available in Σ0. There, it was used as an empty list constructor. However, we have now replaced lists with arrays, and there are no empty arrays. But now we have a problem. The well-foundedness condition from Definition 2 that was ensured by 
+
+nil in Example 4 is now lacking: in terms of Definition 2, 𝐺 1 will no longer include the sort 𝐴 , and so 𝐺 2 will not include the sort 𝐸 . Thus, replacing lists by arrays requires an appropriate definition of well-foundedness, that explicitly incorporates arrays sorts. 
+
+Definition 10 (Well-founded sort (NDT)). Let Σ1, . . . , Σ𝑛 be arrays signatures, each with 𝒮 Σ𝑘 =
+
+{𝐴 𝑘 , 𝐼 𝑘 , 𝐸 𝑘 } for each 1 ≤ 𝑘 ≤ 𝑛 , and let Σ𝑛 +1 be a datatypes signature. Let Σ =⋃︀ 𝑛 +1  
+
+> 𝑘 =1
+
+Σ𝑘 .For a set 𝑆 ⊆ 𝒮 Σ, set: 𝐹 0(Σ , 𝑆 ) = 𝑆 ; 𝐹 𝑖 +1 (Σ , 𝑆 ) = 𝐹 𝑖 (Σ , 𝑆 ) ∪ { 𝜎 | ∃ 𝑐 ∈ ℱ Σ.𝑐 : 𝜎 1 × . . . × 𝜎 𝑛 →
+
+𝜎, 𝜎 1, . . . , 𝜎 𝑛 ∈ 𝐹 𝑖 (Σ , 𝑆 )} ∪ { 𝐴 𝑘 | 𝐸 𝑘 , 𝐼 𝑘 ∈ 𝐹 𝑖 (Σ , 𝑆 )}. A sort 𝜎 is well-founded in Σ w.r.t. 𝑆 if 
+
+𝜎 ∈⋃︀ 𝑖 ≥0𝐹 𝑖 (︁ Σ, 𝑆 )︁ .
+
+Notice that while in Definition 2 well-foundedness is defined for datatypes signatures, in Definition 10 it is defined for signatures obtained by a union of a datatypes signature with a number of array signatures. 
+
+5Example 11. Using Definition 10, we see that sorts 𝐴 and 𝐸 are not well-founded in signature 
+
+Σ−
+
+> ndt |𝒞𝒪 Σ−
+> 2
+
+w.r.t. {𝐼 }: indeed, 𝐹 0(Σ −
+
+> ndt |𝒞𝒪 Σ−
+> 2
+
+, {𝐼 }) = {𝐼 } for every 𝑖 . However, denote by Σ2 the signature obtained from Σ− 
+
+> 2
+
+by adding a nullary constructor emp of sort 𝐸 , and let Σndt = Σ 1 ∪ Σ2,as described in Table 1. We now get that both 𝐸 and 𝐴 are well-founded in Σndt |𝒞𝒪 Σ2 w.r.t. {𝐼 }.
+
+We shall also require all array sorts to be distinct from one another and from the datatype sorts. We further assume that the nesting of arrays and datatypes only involves the element sort of arrays, not the index sort; and that there is no nesting between arrays. This is formalized as follows: 
+
+Notation 1. Let Σ1, . . . , Σ𝑛 be array signatures, s.t. 𝒮 Σ𝑗 = {𝐴 𝑗 , 𝐼 𝑗 , 𝐸 𝑗 } for all 1 ≤ 𝑗 ≤ 𝑛 . Let Σ𝑛 +1 be a signature s.t. Σ1, . . . , Σ𝑛 +1 are pairwise disjoint. For Σ := ⋃︀ 𝑛 +1  
+
+> 𝑖 =1
+
+Σ𝑖 , Array Σ := {𝐴 𝑗 | 1 ≤ 𝑗 ≤ 𝑛 }.
+
+Definition 12 (NDT signature). Let Σ1, . . . , Σ𝑛 be arrays signatures, each with 𝒮 Σ𝑖 = { 𝐸 𝑖 , 𝐼 𝑖 , 𝐴 𝑖 },and let Σ𝑛 +1 be a datatypes signature and denote 𝒮 Σ𝑛 +1 = Elem Σ𝑛 +1 ⊎Struct Σ𝑛 +1 . Let Σ = ⋃︀ 𝑛 +1  
+
+> 𝑘 =1
+
+Σ𝑘 .Suppose the sorts in Array Σ ∪ Struct Σ𝑛 +1 are well-founded w.r.t. 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 ),
+
+|Array Σ| = 𝑛 , {𝐼 1, . . . , 𝐼 𝑛 } ∩ (Struct Σ𝑛 +1 ∪ Array Σ) = ∅, and Struct Σ𝑛 +1 ∩ Array Σ = ∅.Then Σ is called the NDT signature of Σ1, . . . , Σ𝑛 +1 .
+
+Example 13. Both 𝐴 and 𝐸 in Σndt from Table 1 are well founded w.r.t. {𝐼 }, |Array Σndt | = 1 ,
+
+{𝐼 } ∩ (Struct Σ2 ∪ Array Σndt ) = ∅, and Struct Σ2 ∩ Array Σndt = ∅. Therefore, Σndt can be called the NDT signature of Σ1, Σ2.
+
+3.2. Second challenge: non-standard interpretations 
+
+Let us start with the most natural candidate as semantics for nested datatypes, obtained by simply taking the theory combination of datatypes and arrays. 
+
+Definition 14 (Pre-NDT theory). Let 𝑇 1, . . . , 𝑇 𝑛 be array theories with signatures Σ1, . . . , Σ𝑛 . Let 
+
+𝑇 𝑛 +1 be a datatypes theory with signature Σ𝑛 +1 . Assume that Σ is the NDT signature of Σ1, . . . , Σ𝑛 +1 .Then 𝒯 P𝑁 𝐷𝑇  
+
+> Σ
+
+:= ⨁︀ 𝑛 +1  
+
+> 𝑘 =1
+
+𝑇 𝑘 is the Σ-theory of pre-NDTs .
+
+As the next example shows, this theory exhibits unexpected behavior. 
+
+Example 15. Let 𝑇 1 be the array theory over Σ1 and 𝑇 2 the Σ2-theory of datatypes, where Σ1 and Σ2
+
+are as in Table 1. Then 𝒯 P𝑁 𝐷𝑇  
+
+> Σndt
+
+= 𝑇 1 ⊕ 𝑇 2 is the Σndt -theory of pre-NDTs. Consider the formula 𝜙 from Table 1, obtained from 𝜙 0 by replacing the datatype selector with an array select. 𝜙 is 𝒯 P𝑁 𝐷𝑇  
+
+> Σndt
+
+-satisfiable, even though it can be viewed as a variant of the Σ0-formula 𝜙 0, which is unsatisfiable in the theory of Σ0-datatypes. This is unsatisfactory. The intended meaning of 𝜙 is depicted in the last column of Figure 2 – the same meaning as 𝜙 0, just using arrays. Its 𝒯 P𝑁 𝐷𝑇  
+
+> Σndt
+
+-satisfiability can be shown using the Nelson-Oppen method: it suffices to show that 𝜓 ′ 
+
+> 1
+
+is 𝑇 1-satisfiable and 𝜓 2 is 𝑇 2-satisfiable, as for each sort they share at most one variable, and so only trivial arrangements exist. 
+
+We have seen that 𝜙 from Table 1 is satisfiable in the theory 𝒯 P𝑁 𝐷𝑇  
+
+> Σ
+
+, even though intuitively, it should not be. The next definition identifies the problem with that interpretation, and allows us to restrict our attention to standard interpretations. This is done by defining a relation in 𝒯 P𝑁 𝐷𝑇  
+
+> Σ
+
+-structures, and require its well-foundedness. The relation connects input and output sorts of both arrays and datatypes. Its formal definition is quite involved, but intuitively it simply relates terms to their sub-terms and arrays to their elements. With this relation, we can finally define the theory of nested datatypes that we will adopt. 
+
+Definition 16 (NDT relation and theory). Let 𝑇 1, . . . , 𝑇 𝑛 be the array theories of signatures Σ1, . . . , Σ𝑛 
+
+and 𝑇 𝑛 +1 the theory of Σ𝑛 +1 -datatypes. Let Σ be the NDT signature of Σ1, . . . , Σ𝑛 +1 . Further assume that ℱΣ𝑛 +1 = 𝒞𝒪 Σ𝑛 +1 ⊎ 𝒮ℰ Σ𝑛 +1 , and 𝒮 Σ𝑖 = {𝐴 𝑖 , 𝐼 𝑖 , 𝐸 𝑖 } for each 1 ≤ 𝑖 ≤ 𝑛 . Let 𝒜 be a 𝒯 P𝑁 𝐷𝑇  
+
+> Σ
+
+-structure. The NDT-relation of 𝒜 (denoted ℛ𝒜 ) is defined as follows: (𝛼, 𝛽 ) ∈ ℛ 𝒜 if and only if one 
+
+6Notion Definition Usage Well-founded relations Definition 1 Definition 16 Well-founded sort in datatypes signatures Definition 2 Definition 3 Well-founded sort in NDT signatures Definition 10 Definition 12 
+
+Table 2 Summary of definitions and usages of the term “well-founded” in this paper.          
+
+> Sort Set Sorts
+> 𝜎 𝒮 Σ∖Array Σ𝜎 *
+> 𝐴 𝑖 Array Σ𝐴 *
+> 𝑖 , 𝐴 ′
+> 𝑖 , 𝐴 𝑖 ∘
+
+Table 3 New sorts.                      
+
+> 𝒮 Σ*
+> 𝑖 {𝐼 *
+> 𝑖 , 𝐸 *
+> 𝑖 , 𝐴 ′
+> 𝑖 }ℱΣ*
+> 𝑖 {select 𝐴 ′
+> 𝑖 : ( 𝐴 ′
+> 𝑖 ×𝐼 *
+> 𝑖 )→𝐸 *
+> 𝑖 ,store 𝐴 ′
+> 𝑖 : ( 𝐴 ′
+> 𝑖 ×𝐼 *
+> 𝑖 ×𝐸 *
+> 𝑖 )→𝐴 ′
+> 𝑖 }𝒫 Σ*
+> 𝑖 ∅
+
+Table 4 Signatures Σ* 
+
+> 𝑖
+
+. Arities are inline. 
+
+of the following conditions holds: (𝑖 ) 𝛼 = 𝑡 𝑗 and 𝛽 = 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) for some 𝑐 ∈ 𝒞𝒪 Σ𝑛 +1 with arity 
+
+(𝜎 1 × . . . × 𝜎 𝑚 ) → 𝜎 such that 𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑚 ∈ 𝜎 𝒜  
+
+> 𝑚
+
+and 1 ≤ 𝑗 ≤ 𝑚 ; (𝑖𝑖 ) 𝛼 = select 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎, 𝑗 ) and 
+
+𝛽 = 𝑎 for some 1 ≤ 𝑖 ≤ 𝑛 , 𝑎 ∈ 𝐴 𝑖 𝒜 and 𝑗 ∈ 𝐼 𝒜  
+
+> 𝑖
+
+. We say that 𝒜 is an NDT Σ-structure if ℛ𝒜 is well-founded. 1 The theory of Σ-nested datatypes, denoted 𝒯 N 𝐷𝑇  
+
+> Σ
+
+is the class of all NDT Σ-structures. 
+
+Definition 16 fixes the problem raised in Example 15: 
+
+Example 17. The formula 𝜙 from Table 1 is 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-unsatisfiable, as mentioned in Figure 2. 
+
+# 4. Decision Procedure for Nested Datatypes 
+
+In this section we introduce a decision procedure for the theory of nested datatypes. In what follows, let Σ
+
+be the NDT signature of Σ1, . . . , Σ𝑛 +1 , where Σ1, . . . , Σ𝑛 are arrays signatures and Σ𝑛 +1 is a datatypes signature. Also, let 𝜑 be a Σ-formula. Our procedure will determine the 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiability of 𝜑 .The procedure works as follows: we define a new signature Σ𝜑 and a Σ𝜑 -formula trFormula (𝜑 )
+
+such that 𝜑 is 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable if and only if trFormula (𝜑 ) is satisfiable in the Σ𝜑 -theory obtained by combining the theories of datatypes, arrays, and uninterpreted functions (but without the restriction to NDT structures). The latter can be decided using existing SMT-solvers for the resulting combination, in a Nelson-Oppen fashion. 
+
+4.1. Translation of Signatures and Theories 
+
+We begin by defining new sorts. The idea is to have the theories of arrays and datatypes separated, so that datatypes will not have array sorts as element sorts. The connection between the datatypes and the arrays from the original signature will be maintained by uninterpreted functions. For every sort 𝜎 in 𝒮 Σ we define a new sort 𝜎 *. For each array sort 𝐴 in Array Σ, we introduce two additional sorts: 𝐴 ′ and 𝐴 ∘. In total, each sort 𝐴 in Array Σ gives rise to three new sorts: 𝐴 *, 𝐴 ′ and 𝐴 ∘;and each other sort 𝜎 ∈ 𝒮 Σ ∖ Array Σ gives rise to a single new sort 𝜎 *. The new sorts are summarized in Table 3. Intuitively, for each non-array sort 𝜎 , we create a copy of it named 𝜎 *. But if 𝜎 is an array sort, 
+
+𝜎 * is no longer a copy of it. Instead, it is a datatypes sort that is meant to represent the original array sort. Additionally, 𝜎 ′ is an array sort, and its element sort may represent a datatype, but not a nested one. Thus, every array sort 𝜎 is represented by two sorts: 𝜎 * and 𝜎 ′. The sort 𝜎 * will be used only for checking cycles, whereas 𝜎 ′ is used for the regular array reasoning. Finally, 𝜎 ∘ is an additional sort that serves as a technical separator between datatypes with sort 𝜎 *. Then, the new signature Σ𝜑 is defined as follows. 
+
+Definition 18. Σ𝜑 =(︁⋃︀ 𝑛 𝑖 =1 Σ*
+
+> 𝑖
+
+)︁ ∪ Σ𝜑 𝑛 +1 ∪ Σ𝑛 +2 , where for each 1 ≤ 𝑖 ≤ 𝑛 , Σ* 
+
+> 𝑖
+
+is given in Table 4, 
+
+Σ𝜑 𝑛 +1 is given in Table 5, and Σ𝑛 +2 is given in Table 6.   
+
+> 1The term well-founded has been overloaded. Table 2 summarizes its various usages.
+
+7Elem Σ𝜑 𝑛 +1 
+
+{𝜎 * | 𝜎 ∈ Elem Σ𝑛 +1 ∖ Array Σ}∪ {𝐴 𝑖 ∘ | 𝑖 ∈ [1 , 𝑛 ]}∪ {𝐸 * 
+
+> 𝑖
+
+| 𝑖 ∈ [1 , 𝑛 ], 𝐸 𝑖 /∈ (Array Σ ∪ Struct Σ𝑛 +1 )}
+
+Struct Σ𝜑 𝑛 +1 
+
+{𝜎 * | 𝜎 ∈ Struct Σ𝑛 +1 ∪ Array Σ}𝒞𝒪 Σ𝜑 𝑛 +1 
+
+{𝑐 * | 𝑐 ∈ 𝒞𝒪 Σ𝑛 +1 } ∪ { 𝑐 𝑖 | 1 ≤ 𝑖 ≤ 𝑛 }𝒮ℰ Σ𝜑 𝑛 +1 
+
+, 𝒫 Σ𝜑 𝑛 +1 
+
+As induced by 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+Arities c* : ( 𝜎 * 
+
+> 1
+
+× . . . × 𝜎 *
+
+> 𝑚
+
+) → 𝜎 *
+
+𝑐 𝑖 : ( 𝐴 𝑖 ∘ × 𝐸 * 
+
+> 𝑖
+
+× . . . × 𝐸 *
+
+> 𝑖
+
+⏟ ⏞
+
+> 𝑛 (𝐴 𝑖 ,𝜑 )
+
+) → 𝐴 *
+
+> 𝑖
+
+Table 5 The datatypes signature Σ𝜑 𝑛 +1 .
+
+𝒮 Σ𝑛 +2 {𝐴 * 
+
+> 𝑖
+
+| 1 ≤ 𝑖 ≤ 𝑛 }∪ {𝐴 ′ 
+
+> 𝑖
+
+| 1 ≤ 𝑖 ≤ 𝑛 }ℱΣ𝑛 +2 {𝑓 𝐴 𝑖 | 1 ≤ 𝑖 ≤ 𝑛 }∪ {𝑔 𝐴 𝑖 | 1 ≤ 𝑖 ≤ 𝑛 }𝒫 Σ𝑛 +2 ∅
+
+Arities 𝑓 𝐴 : 𝐴 * → 𝐴 ′, 𝑔 𝐴 : 𝐴 ′ → 𝐴 *.
+
+Table 6 Signature Σ𝑛 +2 .
+
+Notice that the 𝑛 + 2 signatures Σ*
+
+> 1
+
+, . . . , Σ*
+
+> 𝑛
+
+, Σ𝜑 𝑛 +1 , Σ𝑛 +2 may share sorts, but are otherwise disjoint. Let us elaborate on Σ𝜑 by focusing on each of the constructed signatures separately. We start with signatures Σ*
+
+> 1
+
+, . . . , Σ*
+
+> 𝑛
+
+, given in Table 4. Let 1 ≤ 𝑖 ≤ 𝑛 . Σ* 
+
+> 𝑖
+
+is an arrays signature, whose index sort is 
+
+𝐼 * 
+
+> 𝑖
+
+, its element sort is 𝐸 * 
+
+> 𝑖
+
+, and its array sort is 𝐴 ′
+
+> 𝑖
+
+. As an arrays signature, it has two function symbols 
+
+select 𝐴 ′ 
+
+> 𝑖
+
+, store 𝐴 ′ 
+
+> 𝑖
+
+, with the appropriate arities. Next, we describe Σ𝜑 𝑛 +1 . It relies on the number of terms used under selects and stores in 𝜑 .
+
+Definition 19. For a sort 𝐴 𝑖 ∈ Array Σ, and a flat Σ-cube 𝜑 , let I(𝐴 𝑖 ,𝜑 ) be the set of variables 𝑥 in 
+
+vars 𝐼 𝑖 (𝜑 ) such that select 𝐴 𝑖 (𝑎, 𝑥 ) or store 𝐴 𝑖 (𝑎, 𝑥, 𝑣 ) occur in 𝜑 for some 𝑎 , 𝑥 and 𝑣 . 𝑛 (𝐴 𝑖 ,𝜑 ) is its size. 
+
+Example 20. Referring to Σndt -formula 𝜙 from Table 1, we have I(𝐴,𝜙 ) = {𝑖 } and 𝑛 (𝐴,𝜙 ) = 1 .
+
+Σ𝜑 𝑛 +1 is defined in Table 5. The idea is to mimic Σ𝑛 +1 , while avoiding arrays completely. Let us start with its sorts. For every 𝜎 ∈ Struct Σ𝑛 +1 , we have 𝜎 * ∈ Struct Σ𝜑 𝑛 +1 
+
+, and for every sort 
+
+𝜎 ∈ Elem Σ𝑛 +1 ∪ { 𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]} that is not in Array Σ or Struct Σ𝑛 +1 , we have 𝜎 * ∈ Elem Σ𝜑 𝑛 +1 
+
+.For every 𝐴 𝑖 , where 𝑖 ∈ [1 , 𝑛 ], we have 𝐴 * 
+
+> 𝑖
+
+∈ Struct Σ𝜑 𝑛 +1 
+
+.For each constructor 𝑐 : ( 𝜌 1 × . . . × 𝜌 𝑚 ) → 𝜎 in 𝒞𝒪 Σ𝑛 +1 , we create a corresponding constructor 
+
+𝑐 * : ( 𝜌 * 
+
+> 1
+
+× . . . × 𝜌 *
+
+> 𝑚
+
+) → 𝜎 * in 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+. Intuitively, 𝑐 * is a copy of 𝑐 that operates on the transformed sorts. For every 1 ≤ 𝑖 ≤ 𝑛 , we create a single constructor 𝑐 𝑖 of arity (𝐴 𝑖 ∘ × 𝐸 * 
+
+> 𝑖
+
+× . . . × 𝐸 * 
+
+> 𝑖
+
+) → 𝐴 * 
+
+> 𝑖
+
+.Intuitively, this constructor represents an array using a finite tuple: the first argument (of sort 𝐴 𝑖 ∘) is a unique identifier for the array, and the remaining 𝑛 (𝐴 𝑖 ,𝜑 ) arguments store the elements that can be accessed using the indices from I(𝐴 𝑖 ,𝜑 ). The reason for the first argument is to ensure that if two arrays are different, due to indices not in I(𝐴 𝑖 ,𝜑 ), their translations will remain different. We can always assume w.l.o.g that 𝑛 (𝐴 𝑖 ,𝜑 ) ≥ 1; if it is zero, we add a literal select 𝐴 𝑖 (𝑎, 𝑗 ) = 𝑣 to 𝜑 with fresh variables 𝑎 , 𝑗 , and 
+
+𝑣 . Once the sorts and constructors of Σ𝜑 𝑛 +1 are defined, the selectors and testers are induced as usual for datatypes. Notice, Σ𝜑 𝑛 +1 itself is a datatypes signature: 
+
+Lemma 21. Σ𝜑 𝑛 +1 is a datatypes signature. 
+
+The last signature that is left to discuss is Σ𝑛 +2 , presented in Table 6. Its purpose is to relate the new sorts 𝐴 ′ and 𝐴 * to one another. For each 𝐴 ∈ Array Σ, we have both 𝐴 ′ and 𝐴 * as sorts in Σ𝑛 +2 , as well as two function symbols, 𝑓 𝐴 and 𝑔 𝐴 , with arities 𝐴 * → 𝐴 ′ and 𝐴 ′ → 𝐴 *
+
+Example 22. Recall Σndt and 𝜙 from Table 1. Σ*
+
+> 1
+
+, Σ𝜙  
+
+> 2
+
+, and Σ3 are given in Table 7. c* and emp *
+
+are copies of c and emp . The reason we only add 𝑐 1 is that Σndt has one arrays signature – Σ1. 𝑐 1
+
+represents the array selects. Its first argument, of sort 𝐴 ∘, is a unique identifier. Its remaining arguments represent the elements of the array that are accessed from relevant indices. As shown in Example 20, there is one relevant index. Thus, 𝑐 1 has one more input sort, 𝐸 *, representing that element. 
+
+8Name Sorts Symbols Formula                                                                                                                
+
+> Σ*
+> 1𝒮 Σ*
+> 1={𝐴 ′, 𝐼 *, 𝐸 *}ℱΣ*
+> 1={select 𝐴 ′,store 𝐴 ′}tr (𝜓 ′
+> 1) := x*=select (a′,i*)Σ𝜙
+> 2
+> 𝒮 Σ𝜙
+> 2=Elem Σ𝜙
+> 2⊎Struct Σ𝜙
+> 2
+> Elem Σ𝜙
+> 2={𝐼 *, 𝐴 ∘}
+> Struct Σ𝜙
+> 2={𝐴 *, 𝐸 *}ℱΣ𝜙
+> 2=𝒞𝒪 Σ𝜙
+> 2∪ 𝒮ℰ Σ𝜙
+> 2
+> 𝒞𝒪 Σ𝜙
+> 2={c*,emp *, 𝑐 1}𝒮ℰ Σ𝜙
+> 2={id *,chld *, 𝑠 (𝑐 1,1) , 𝑠 (𝑐 1,2) }𝒫 Σ𝜙
+> 2={is c*,is emp *,is 𝑐 1}
+> tr (𝜓 2) :=
+> is c*(𝑥 *)∧𝑎 *=chld *(𝑥 *)Σ3𝒮 Σ3={𝐴 ′, 𝐴 *}ℱΣ3={𝑓 𝐴 , 𝑔 𝐴 }𝑎 ′=𝑓 𝐴 (𝑎 *)Σ𝜙
+> ndt Σ*
+> 1∪Σ𝜙
+> 2∪Σ3tr (𝜙 ) = tr (𝜓 ′
+> 1)∧tr (𝜓 2)
+> Sorts and Arities
+> c*:𝐼 *×𝐴 *→𝐸 *,emp *:𝐸 *,𝑐 1:𝐴 ∘×𝐸 *→𝐴 *
+> select 𝐴 ′: ( 𝐴 ′×𝐼 *)→𝐸 *,store 𝐴 ′: ( 𝐴 ′×𝐼 *×𝐸 *)→𝐴 ′
+> 𝑓 𝐴 :𝐴 *→𝐴 ′,𝑔 𝐴 :𝐴 ′→𝐴 *,𝑥 *:𝐸 *,𝑖 *:𝐼 *,𝑎 *:𝐴 *,𝑎 ′:𝐴 ′
+
+Table 7 Translations for Table 1. id * and chld * resp. stand for 𝑠 (c*,1) and 𝑠 (c*,2) .Original Variable Original Sort New Variable New Sort 
+
+𝑢 𝜎 ∈ 𝒮 Σ 𝑢 * 𝜎 *
+
+𝑎 𝐴 𝑖 ∈ Array Σ
+
+𝑎 ′ 𝐴 ′
+
+𝑢 (𝑎, 1) , . . . , 𝑢 (𝑎,𝑛 (𝐴 𝑖 ,𝜑 )) 𝐸 *
+
+> 𝑖
+
+Table 8 Fresh variables introduced for the Σ𝜑 signature. 
+
+We now define our target theory, as a combination of arrays, datatypes and EUF. 
+
+Definition 23. For 1 ≤ 𝑖 ≤ 𝑛 , let 𝑇 * 
+
+> 𝑖
+
+be the Σ* 
+
+> 𝑖
+
+-theory of arrays, 𝑇 𝜑 𝑛 +1 the Σ𝜑 𝑛 +1 -theory of datatypes and 𝑇 𝑛 +2 the Σ𝑛 +2 -theory of EUF. Define the following Σ𝜑 -theory: 𝑇 𝜑  
+
+> new
+
+=(︁⨄︀ 𝑛 𝑖 =1 𝑇 *
+
+> 𝑖
+
+)︁ ⊎ 𝑇 𝜑 𝑛 +1 ⊎ 𝑇 𝑛 +2 .
+
+Example 24. For Σndt and formula 𝜙 of Table 1, we obtain Σ𝜙 
+
+> ndt
+
+, given in Table 7. 𝑇 * 
+
+> 1
+
+is the array theory of Σ1, 𝑇 * 
+
+> 2
+
+is the datatype theory of Σ2, and 𝑇 3 is the EUF theory of Σ3. 𝑇 𝜙  
+
+> new
+
+= 𝑇 * 
+
+> 1
+
+⊎ 𝑇 𝜙  
+
+> 2
+
+⊎ 𝑇 3.
+
+Remark 25. It might be more natural to represent each array variable 𝑎 with its own constructor 𝑐 𝑎 ,thus omitting the first argument (and the sort 𝐴 ∘ altogether). However, we want to make sure that if our input formula entails an equality 𝑎 = 𝑏 between two array variables 𝑎 and 𝑏 , then the datatype terms that represent them will also be equal. But if these datatypes are constructed using distinct constructors, they will surely be distinct. In contrast, having an identifier as an argument to the constructor, allows us to keep the resulting datatypes equal. 
+
+4.2. Translation of Formulas and Terms 
+
+We define a function tr from Σ to Σ𝜑 . For that, we introduce fresh variables in Table 8. For each variable 
+
+𝑢 of sort 𝜎 ∈ 𝒮 Σ, we define a new variable 𝑢 * of sort 𝜎 *. For each variable 𝑎 of sort 𝐴 𝑖 ∈ Array Σ, we also define a new variable 𝑎 ′ of sort 𝐴 ′ 
+
+> 𝑖
+
+and 𝑛 (𝐴 𝑖 ,𝜑 ) variables 𝑢 (𝑎, 1) , . . . , 𝑢 (𝑎,𝑛 (𝐴 𝑖 ,𝜑 )) of sort 𝐸 * 
+
+> 𝑖
+
+. This last set of variables will be used in the next section. The translation matches Σ-terms to Σ𝜑 -terms as follows. 
+
+Definition 26. The function tr is given in Table 9 for flat Σ-literals. For conjunctions of flat literals, it is naturally extended to tr (ℓ1 ∧ . . . ∧ ℓn) = tr (ℓ1) ∧ . . . ∧ tr (ℓn).
+
+Example 27. Table 7 shows the translation of 𝜙 from Table 1. Figure 3 presents illustrations of the translation in the first three rows. Even though we showed in Example 17 that 𝜙 is not 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable, 
+
+tr (𝜙 ) is 𝑇 𝜙 
+
+> new
+
+-satisfiable, which suggests that tr alone is not sufficient. 
+
+9Literal 𝑙 tr (l)
+
+𝑥 = 𝑦 𝑥 * = 𝑦 *
+
+𝑥 ̸ = 𝑦 𝑥 *̸ = 𝑦 *
+
+𝑥 = select 𝐴 (𝑎, 𝑖 ) 𝑥 * = select 𝐴 ′(︀ 𝑎 ′, 𝑖 *)︀ 
+
+𝑏 = store 𝐴 (𝑎, 𝑖, 𝑣 ) 𝑏 ′ = store 𝐴 ′(︀ 𝑎 ′, 𝑖 *, 𝑣 *)︀ 
+
+Literal 𝑙 tr (l)
+
+𝑥 = 𝑠 (𝑐,𝑖 )(𝑦 ) 𝑥 * = 𝑠 (𝑐 *,𝑖 )(︀ 𝑦 *)︀ 
+
+𝑥 = 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) 𝑥 * = 𝑐 *(︀ 𝑡 * 
+
+> 1
+
+, . . . , 𝑡 *
+
+> 𝑛
+
+)︀ 
+
+is 𝑐 (︀ 𝑥 )︀ is 𝑐 *(︀ 𝑥 *)︀ 
+
+¬is 𝑐 (︀ 𝑥 )︀ ¬is 𝑐 *(︀ 𝑥 *)︀ 
+
+Table 9 Translation function tr .
+
+Formula Illustration 
+
+tr (𝜓 ′
+
+> 1
+
+)
+
+sat 
+
+> 𝑎 ′
+> 𝑥 *
+
+tr (𝜓 2)
+
+sat 0
+
+> 𝑎 *
+> 𝑥 *
+
+tr (𝜙 )
+
+sat 
+
+> 𝑎 ′
+> 0
+> 𝑎 *
+> 𝑥 *
+
+tr (𝜙 ) ∧ L1(𝜙 )
+
+unsat 
+
+> 𝑎 ′
+> 0
+> 𝑎 *
+> 𝑥 *
+> 𝑥 *
+
+Figure 3: Formalization of cycles in 𝑇 𝜙 
+
+> new
+
+. tr (𝜓 ′
+
+> 1
+
+), tr (𝜓 2), tr (𝜙 ) are in Table 7. L1(𝜙 ) is in Example 30. Notation Definition 
+
+L𝜑  
+
+> 0
+
+(𝑎, 𝑖 ){︁ 𝑢 (𝑎,𝑜 (𝐴 𝑗 ,𝜑 )(𝑖 )) = select 𝐴 ′ 
+
+> 𝑗
+
+(𝑎 ′, 𝑖 *) , 𝑢 (𝑎,𝑜 (𝐴 𝑗 ,𝜑 )(𝑖 )) = 𝑠 (𝑐 𝑗 ,𝑜 (𝐴 𝑗 ,𝜑 )(𝑖 )+1) (𝑎 *)}︁ 
+
+L1(𝜑 )⋃︁ 
+
+> 𝑥 =select 𝐴 (𝑎,𝑖 )∈𝜑
+
+L𝜑  
+
+> 0
+
+(𝑎, 𝑖 )
+
+L2(𝜑 )⋃︁ 
+
+> 𝑏 =store 𝐴 (𝑎,𝑗,𝑣 )∈𝜑
+
+⋃︁ 𝑖 ∈I(𝐴,𝜑 )(︁ 
+
+L𝜑  
+
+> 0
+
+(𝑎, 𝑖 ) ∪ L𝜑  
+
+> 0
+
+(𝑏, 𝑖 ))︁ 
+
+L3(𝜑 )⋃︁ 
+
+> 𝐴 ∈Array Σ
+
+⋃︁ 𝑎 ∈vars 𝐴 (𝜑 ){︁ 
+
+𝑎 ′ = 𝑓 𝐴 (𝑎 *), 𝑎 * = 𝑔 𝐴 (𝑎 ′)}︁ 
+
+Table 10 Lemmas L𝜑  
+
+> 0
+
+(𝑎 ), L1(𝜑 ), L2(𝜑 ), and L3(𝜑 ). The sort of 𝑎 is 𝐴 𝑗 .
+
+4.3. Lemmas 
+
+To fix the issue raised by Example 27, we augment tr with lemmas, that are given in Table 10. Recall that each constructor 𝑐 𝑗 has an arity based on the set I(𝐴 𝑗 ,𝜑 ). In order to properly apply the constructors 𝑐 𝑗 s, we fix an ordering for the set I(𝐴 𝑗 ,𝜑 ) by fixing a bijection: 
+
+Definition 28. Given 1 ≤ 𝑗 ≤ 𝑛 and 𝜑 , 𝑜 (𝐴 𝑗 ,𝜑 ) denotes a fixed bijection from I(𝐴 𝑗 ,𝜑 ) to {1, . . . , 𝑛 (𝐴 𝑗 ,𝜑 )}.When 𝐴 𝑗 and 𝜑 are clear from the context, we omit them and simply write 𝑜 .
+
+L𝜑 
+
+0(𝑎, 𝑖 ) ensures that the value obtained by a select on the array variable 𝑎 ′ of sort 𝐴 ′
+
+𝑗 at index 𝑖 * agrees with the corresponding field of 𝑎 *. It utilizes variables 𝑢 (𝑎, 1) , . . . , 𝑢 (𝑎,𝑛 (𝐴 𝑖 ,𝜑 )) to keep the translation 
+
+10 flat. L1(𝜑 ) applies L0 to every select literal in 𝜑 , while L2(𝜑 ) applies it for all indices occurring in the formula and every array variable that appears under a store. The motivation for L3(𝜑 ) is to ensure that for every array sort 𝐴 , there is a one to one mapping between the interpretations of free variables of sort 𝐴 ′ and those of sort 𝐴 *. 𝑓 𝐴 and 𝑔 𝐴 are asserted to be inverses of one another when restricted to the relevant domain, thus ensuring the 1-1 correspondence. We now combine these sets of literals to obtain the full set of lemmas associated with the formula 𝜑 .This allows us to define the final translation function trFormula .
+
+Definition 29. Let 𝜑 be a flat cube in an NDT signature Σ. The set of lemmas associated with 𝜑 is L(𝜑 ) = 
+
+L1(𝜑 ) ∪ L2(𝜑 ) ∪ L3(𝜑 ). The translation trFormula is defined by: trFormula (𝜑 ) = tr (𝜑 ) ∧⋀︀ L(𝜑 ).
+
+Example 30. Consider 𝜙 from Table 1. L𝜙  
+
+> 0
+
+(𝑎, 𝑖 ) = {𝑢 (𝑎, 1) = select (𝑎 ′, 𝑖 *), 𝑢 (𝑎, 1) = 𝑠 (𝑐 1,2) (𝑎 *)}.Further, L1(𝜙 ) = L𝜙  
+
+> 0
+
+(𝑎, 𝑖 ). Since there are no stores, L2(𝜙 ) = ∅. Thanks to L1(𝜙 ), we obtain the desired 𝑇 𝜙 
+
+> new
+
+-unsatisfiability, as illustrated in Figure 3. Notice that unsatisfiability follows directly from the theory of datatypes, as there is a cycle that does not go through any array: indeed, 𝑥 * and 𝑎 * are of sorts 𝐸 * and 𝐴 *, respectively, and both are datatype sorts that belong to Struct Σ𝜙  
+
+> 2
+
+. This is in contrast to the last two rows of Figure 2, where 𝑥 is a datatype variable and 𝑎 is an array variable. 
+
+4.4. Correctness 
+
+The next theorem shows that our translation is correct, in the sense that it preserves (un)satisfiability, assuming a stable infiniteness condition. 
+
+Theorem 31. Suppose 𝑇 𝑛 +1 is stably infinite w.r.t. (︀⋃︀ 𝑛 𝑖 =1 𝒮 Σ𝑖 )︀ ∩ 𝒮 Σ𝑛 +1 . Then 𝜑 is 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable iff 
+
+trFormula (𝜑 ) is 𝑇 𝜑 
+
+> new
+
+-satisfiable. The left-to-right direction holds without assuming stable infiniteness. 
+
+Given that the translation is correct and is easily computable, it is only left to show that the target theory is decidable, which holds under the same stable infiniteness assumptions. 
+
+Theorem 32. Suppose 𝑇 𝑛 +1 is stably infinite w.r.t. (︀⋃︀ 𝑛 𝑖 =1 𝒮 Σ𝑖 )︀ ∩ 𝒮 Σ𝑛 +1 Then 𝑇 𝜑  
+
+> new
+
+is decidable. 
+
+Example 33. Consider Σ1, Σ2, Σndt from Table 1; by Example 13, Σndt is the NDT signature of Σ1
+
+and Σ2. Let 𝑇 1, 𝑇 2 be the array theory over Σ1 and the Σ2-theory of datatypes; 𝑇 2 is stably infinite w.r.t. 
+
+{𝐼, 𝐴 } (see Section 2.3). By Theorems 31 and 32, 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+is decidable. 
+
+# 5. Implementation and Evaluation 
+
+A prototype implementation of the translation is implemented as a preprocessing pass in the cvc5 SMT solver [ 2 ]. Although the reduction is defined over flat cubes, the implementation handles arbitrary input formulas by applying the translation function trFormula recursively to all subterms. 
+
+5.1. Setup 
+
+All experiments were conducted on a machine running Ubuntu 22.04 via WSL2 (Windows Subsystem for Linux 2, kernel 6.6.87.2-microsoft-standard-WSL2 ), equipped with a 13th Gen Intel Core i7-1355U processor (4 cores, 8 logical CPUs) and 11 GiB of RAM. A time limit of 10 seconds was imposed per benchmark. We used Z3 version 4.15.6 with default options, and our fork of cvc5 , invoked with the options to support our implementation. 2
+
+> 11
+
+𝜓 (𝑘 ) := 
+
+> 𝑘
+
+⋀︁ 
+
+> 𝑖 =1
+
+(︁ 
+
+𝑎 𝑖 = chld (𝑥 𝑖 ) ∧ 𝑥 𝑖 mod 𝑘 +1 = select (𝑎 𝑖 , 𝑗 ) ∧ is c(𝑥 𝑖 ))︁ .𝜓 ′(𝑘 ) := 
+
+> 𝑘
+
+⋀︁ 
+
+> 𝑖 =1
+
+(︁ 
+
+𝑎 𝑖 = chld (𝑥 𝑖 ) ∧ is c(𝑥 𝑖 ))︁ ∧
+
+> 𝑘 −1
+
+⋀︁ 
+
+> 𝑖 =1
+
+𝑥 𝑖 mod 𝑘 +1 = select (𝑎 𝑖 , 𝑗 ).
+
+Figure 4: Hand-crafted formulas. 
+
+5.2. Benchmarks 
+
+We evaluated our reduction on two independent benchmark suites: 
+
+Synthetic cycle benchmarks: formulas that systematically generalize 𝜙 from Table 1. For each 𝑘 ≥ 1,the formula 𝜓 (𝑘 ) is given in Figure 4. It encodes the existence of a cycle of size 2𝑘 , where half of the cycle goes through arrays and half through datatypes. Notice that 𝜓 (1) is the same as 𝜙 from Table 1. For every 𝑘 , 𝜓 (𝑘 ) is not satisfiable in the theory of nested datatypes. In order to test our implementation on satisfiable formulas, we generate satisfiable variants by removing a single constraint from 𝜓 (𝑘 ), which corresponds to breaking the cycle. These are formulas 𝜓 ′(𝑘 ) from Figure 4. We have generated 𝜓 (𝑘 ) for 1 ≤ 𝑘 ≤ 500 . The satisfiable instances were much more difficult for the solvers, and hence we generated 𝜓 ′(𝑘 ) for 1 ≤ 𝑘 ≤ 50 . This smaller bound is already beyond the largest 
+
+𝑘 either solver can solve. 
+
+Move Prover benchmarks: verification benchmarks that originate from the Move Prover [ 3]. The Move Prover [ 3 ] is a formal verification tool for smart contracts written in the Move language [ 15 ]. It works by encoding smart contracts, as well as verification conditions for them, in the Boogie intermediate verification language [ 16 ], which then generates SMT-LIB queries that are sent to SMT-solvers. 3 In order to correctly model persistent data structures, the encoding employs the combination of datatypes and arrays, where the intended meaning is that of nested datatypes. 4
+
+We considered 15 tests from the Move Library. These tests use features that our translation does not support, like quantifier reasoning, incremental solving and constant arrays. Therefore, we performed the following steps using a script (available in the artifact): 1. Deleted top-level commands that use unsupported features, namely quantifiers and constant arrays. 2. Inlined all incremental check-sat 
+
+calls by tracking the push and pop commands and generating SMT-LIB files that contain all relevant definitions and assertions in each context. 3. Removed options specific to Z3 and Boogie labels, which are automatically produced by Boogie. Concretely, across the 15 original benchmarks, the preprocessing considered 13,313 top-level SMT-LIB commands and removed 4029 of them: 2832 containing quantifiers, 236 containing constant arrays, 944 
+
+Z3 options, and 17 Boogie label commands. The remaining 9284 commands were then split according to the incremental contexts. This way, we generated 76 non-incremental quantifier-free SMT-LIB files (51 satisfiable and 25 unsatisfiable), with an average of about 5 non-incremental benchmarks for each original incremental benchmark. In the Move prover, some nested datatypes include arrays whose index sort is a (nested) datatype, violating the assumption Struct Σ𝑛 +1 ∩ Array Σ = ∅ of Definition 12. This assumption was introduced to simplify the presentation, and our implementation supports such nested datatypes. The reason is that nested datatypes appearing in array indices are handled as a separate NDT signature from the one used for array elements. Thus, cycles through array elements are still detected by the reduction described in          
+
+> 2An artifact that includes the source code, binaries, benchmarks, scripts, and results is available in https://zenodo.org/records/ 20055878.
+> 3We used commit ac0b70a656bfb63eb7e569444b7a3a5ed318d6de of [17 ], and commit
+> 044e533713346840b55e53c33082911fd077d299 of [18].
+> 4In fact, the work presented in this paper was motivated and initiated by the needs of the Move Prover.
+
+12 Set # solved time (s)                         
+
+> cvc5 Z3 cvc5 Z3
+> 𝜓 (𝑘 )500 500 469 299.8 1035.5
+> 𝜓 ′(𝑘 )50 25 1< 1 < 1 MPS 51 51 51 < 1 2.5 MPU 25 25 25 < 1 < 1
+> Table 11 Results. MPS and MPU denote satisfiable and unsatisfiable Move Prover benchmarks.
+
+this paper, while the nested structure of the index sort is solved by an independent NDT component. Sorts that cannot participate in such cycles, such as integers, may still be shared between these components; the remaining interaction is then handled by standard theory-combination techniques. While the Move prover benchmarks originate from a real-world application, they represent only a part of that application, as unsupported features are removed. Still, including them is relevant because the resulting benchmarks represent the basic quantifier-free non-incremental reasoning necessary (though not sufficient) for the original benchmarks. 
+
+5.3. Results 
+
+Table 11 summarizes the results, in terms of number of benchmarks that were solved within the time limit, and the total runtimes (in seconds) over the benchmarks that were commonly solved by both cvc5 
+
+and Z3 . cvc5 is able to solve all benchmarks from the unsatisfiable synthetic set, and Z3 can solve most of them. On the commonly solved benchmarks, cvc5 is faster, and for most instances is able to solve the formula in under 2 seconds. The satisfiable synthetic benchmarks are harder for both solvers. cvc5 
+
+solves half of them, while Z3 only solves one. Both solvers are able to solve all Move Prover benchmarks quickly, though cvc5 is slightly faster on the satisfiable ones. 
+
+# 6. Conclusion 
+
+We have introduced and studied a theory of nested datatypes, that avoids non-standard models. A decision procedure was presented, which is based on a translation to the standard combination between arrays and datatypes, augmented with uninterpreted functions. Our empirical evaluation supports the decision procedure and shows its effectiveness on both real-world and synthetic benchmarks. Next immediate steps is to expand the theoretical and practical support of our framework to incremental solving and quantifiers. More generally, he desired combination of arrays and datatypes is just a particular instance of a wider problem with naive theory combination. Indeed, similar undetected cycles can appear when replacing arrays with sequences, sets, and other data structures. A more general solution is therefore needed. We are hopeful that the particular case of arrays that we have solved here can serve as a basis for a more general solution. 
+
+> 13
+
+# References 
+
+[1] M. Preiner, H.-J. Schurr, C. Barrett, P. Fontaine, A. Niemetz, C. Tinelli, SMT-LIB release 2025 (non-incremental benchmarks), Zenodo, 2025. URL: https://zenodo.org/records/15493090. doi: 10. 5281/zenodo.15493090 , version 2025.05.22. [2] H. Barbosa, C. Barrett, M. Brain, G. Kremer, H. Lachnitt, M. Mann, A. Mohamed, M. Mohamed, A. Niemetz, A. Nötzli, A. Ozdemir, M. Preiner, A. Reynolds, Y. Sheng, C. Tinelli, Y. Zohar, cvc5: A versatile and industrial-strength SMT solver, in: Tools and Algorithms for the Construction and Analysis of Systems (TACAS), Springer, 2022. [3] J. E. Zhong, K. Cheang, S. Qadeer, W. Grieskamp, S. Blackshear, J. Park, Y. Zohar, C. W. Barrett, D. L. Dill, The Move Prover, in: CAV, 2020. [4] L. M. de Moura, N. S. Bjørner, Z3: an efficient SMT solver, in: C. R. Ramakrishnan, J. Rehof (Eds.), Tools and Algorithms for the Construction and Analysis of Systems, 14th International Conference, TACAS 2008, Held as Part of the Joint European Conferences on Theory and Practice of Software, ETAPS 2008, Budapest, Hungary, March 29-April 6, 2008. Proceedings, Lecture Notes in Computer Science, Springer, 2008, pp. 337–340. URL: https://doi.org/10.1007/978-3-540-78800-3_ 24. doi: 10.1007/978-3-540-78800-3\_24 .[5] C. Barrett, P. Fontaine, C. Tinelli, The SMT-LIB Standard: Version 2.6, Technical Report, Depart-ment of Computer Science, The University of Iowa, 2017. Available at www.SMT-LIB.org .[6] C. W. Barrett, I. Shikanian, C. Tinelli, An abstract decision procedure for a theory of inductive data types, Journal on Satisfiability, Boolean Modeling and Computation 3 (2007) 21–46. [7] D. C. Oppen, Reasoning about recursively defined data structures, J. ACM 27 (1980) 403–411. URL: http://doi.acm.org/10.1145/322203.322204. doi: 10.1145/322203.322204 .[8] A. Shah, F. Mora, S. A. Seshia, An eager satisfiability modulo theories solver for algebraic datatypes, in: M. J. Wooldridge, J. G. Dy, S. Natarajan (Eds.), Thirty-Eighth AAAI Conference on Artificial Intelligence, AAAI 2024, Thirty-Sixth Conference on Innovative Applications of Artificial Intelligence, IAAI 2024, Fourteenth Symposium on Educational Advances in Artificial Intelligence, EAAI 2014, February 20-27, 2024, Vancouver, Canada, AAAI Press, 2024, pp. 8099–8107. URL: https://doi.org/10.1609/aaai.v38i8.28649. doi: 10.1609/AAAI.V38I8.28649 .[9] H. B. Enderton, A mathematical introduction to logic, Academic Press, 2001. [10] C. Tinelli, C. G. Zarba, Combining decision procedures for sorted theories, in: J. J. Alferes, J. A. Leite (Eds.), Logics in Artificial Intelligence, 9th European Conference, JELIA 2004, Lisbon, Portugal, September 27-30, 2004, Proceedings, volume 3229 of Lecture Notes in Computer Science ,Springer, 2004, pp. 641–653. [11] A. R. Bradley, Z. Manna, The Calculus of Computation: Decision Procedures with Applications to Verification, Springer, 2007. [12] Y. Sheng, Y. Zohar, C. Ringeissen, J. Lange, P. Fontaine, C. W. Barrett, Polite combination of algebraic datatypes, J. Autom. Reason. 66 (2022) 331–355. [13] K. Meinke, J. V. Tucker, Universal algebra (1992). [14] G. Nelson, D. C. Oppen, Simplification by cooperating decision procedures, ACM Trans. Pro-gram. Lang. Syst. 1 (1979) 245–257. URL: https://doi.org/10.1145/357073.357079. doi: 10.1145/ 357073.357079 .[15] S. Blackshear, N. Vasilakis, et al., Move: A language with programmable resources, in: Proceedings of the ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI), 2019. [16] M. Barnett, B. E. Chang, R. DeLine, B. Jacobs, K. R. M. Leino, Boogie: A modular reusable verifier for object-oriented programs, in: Formal Methods for Components and Objects (FMCO), volume 4111 of Lecture Notes in Computer Science , Springer, 2006, pp. 364–387. [17] Libra / Diem Team, Libra move prover, https://github.com/libra/libra, accessed 2026. Commit ac0b70a656bfb63eb7e569444b7a3a5ed318d6de. [18] Boogie Team, Boogie verifier, https://github.com/boogie-org/boogie, accessed 2026. Commit 044e533713346840b55e53c33082911fd077d299. 
+
+> 14
+
+[19] D. Jovanovi´ c, C. Barrett, Polite Theories Revisited, Technical Report TR2010-922, New York University, 2010. [20] D. Jovanovic, C. W. Barrett, Polite theories revisited, in: C. G. Fermüller, A. Voronkov (Eds.), Logic for Programming, Artificial Intelligence, and Reasoning - 17th International Conference, LPAR-17, Yogyakarta, Indonesia, October 10-15, 2010. Proceedings, volume 6397 of Lecture Notes in Computer Science , Springer, 2010, pp. 402–416. Extended technical report is available at http://theory.stanford.edu/~barrett/pubs/JB10-TR.pdf. [21] C. Tinelli, C. G. Zarba, Combining decision procedures for sorted theories, in: Logics in Artificial Intelligence, 9th European Conference, JELIA 2004, Lisbon, Portugal, September 27-30, 2004, Proceedings, volume 3229 of Lecture Notes in Computer Science , Springer, 2004, pp. 641–653. 
+
+> 15
+
+𝜓 𝑥 = select (𝑎, 𝑗 ) ∧ 𝑦 = c(𝑘, 𝑎 )
+
+trFormula (𝜓 )
+
+𝑥 * = select (𝑎 ′, 𝑗 *) ∧ 𝑦 * = c*(𝑘 *, 𝑎 *)∧
+
+𝑢 (𝑎, 1) = select (𝑎 ′, 𝑗 *) ∧ 𝑢 (𝑎, 1) = 𝑠 (𝑐 1,2) (𝑎 *)∧
+
+𝑎 ′ = 𝑓 𝐴 (𝑎 *) ∧ 𝑎 * = 𝑔 𝐴 (𝑎 ′)
+
+Table 12 A 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-formula and its translation. Note that Σ𝜓  
+
+> ndt
+
+is the same as Σ𝜙 
+
+> ndt
+
+,which is given in Table 7. 
+
+# Appendix 
+
+In this appendix we prove the main theoretical results of the paper, namely Theorem 31 (correctness) and Theorem 32 (decidability). For Theorem 31, we split the proof for soundness and completeness. Soundness is proven in Appendix A, and individually stated as Theorem 35. Completeness is proven in Appendix B, and individually stated as Theorem 53. The proof of Theorem 32 is presented in Appendix C. We shall make use of the following classical result: 
+
+Theorem 34 (Nelson–Oppen [14, 10]). Let 𝑇 1 and 𝑇 2 be decidable Σ1- and Σ2-theories, respectively, such that: (i) ℱΣ1 ∩ ℱ Σ2 = ∅ and 𝒫 Σ1 ∩ 𝒫 Σ2 = ∅; and (ii) 𝑇 1 and 𝑇 2 are both stably infinite w.r.t. 
+
+𝑆 0 = 𝒮 Σ1 ∩ 𝒮 Σ2 . Then 𝑇 1 ⊕ 𝑇 2 is decidable. 
+
+# A. Soundness 
+
+In what follows, let Σ be the NDT signature of Σ1, . . . , Σ𝑛 +1 , where Σ1, . . . , Σ𝑛 are arrays signatures and Σ𝑛 +1 is a datatypes signature. We prove the following soundness theorem: 
+
+Theorem 35. For every flat Σ-cube 𝜑 , if 𝜑 is 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable, then trFormula (𝜑 ) is 𝑇 𝜑 
+
+> new
+
+-satisfiable. 
+
+As a motivating example, the formula 𝜙 from Table 1 is 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-unsatisfiable, and thus cannot be used for the current section. We therefore use the following 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable example instead. 
+
+Example 36. Table 12 includes a 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-satisfiable formula 𝜓 . The translated formula trFormula (𝜓 ),according to Definition 29, is also presented in Table 12. Here, 𝑥 *, 𝑦 * and 𝑢 (𝑎, 1) are variables of sort 𝐸 *,
+
+𝑎 * is a variable of sort 𝐴 *, 𝑗 *, 𝑘 * are of sort 𝐼 *, and 𝑎 ′ is an array variable of sort 𝐴 ′. We shall later see that indeed this translated formula is 𝑇 𝜑 
+
+> new
+
+-satisfiable. 
+
+Let us now consider an example of an NDT Σndt -interpretation. 
+
+Example 37. An example for a Σndt -interpretation 𝒜 0 is given in Table 13. Notice that 𝒜 0 |= 𝜓 . For illustration, Table 13 also includes interpretations for variables that do not occur in 𝜙 . It can be shown that 𝐸 𝒜 0 = {emp } ∪ { c(𝑛, 𝑦 ) | 𝑛 ∈ N, 𝑦 ∈ 𝐴 𝒜 0 }, and 𝐴 𝒜 0 = AC (𝐼 𝒜 0 , 𝐸 𝒜 0 ). 𝑦 𝒜 0 can be thought of as a container with id 2 and infinitely many copies of emp in an integer indexed array. It can be shown that 𝒜 0 is an NDT-Σndt -structure. 
+
+Roadmap. Let 𝒜 be a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation that satisfies 𝜑 . We will define a 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ that satisfies trFormula (𝜑 ). We define ℬ (Appendix A.1 – A.3), and prove that it is a 𝑇 𝜑 
+
+> new
+
+-interpretation (Section A.4). Then, we show that ℬ satisfies every translated literal (Section A.5) and every lemma (Section A.6). 
+
+16 Domains 
+
+𝐼 𝒜 0 = N
+
+𝐸 𝒜 0 =⋃︀ 𝑖 ∈N 𝐸 𝑖 
+
+𝐴 𝒜 0 =⋃︀ 𝑖 ∈N 𝐴 𝑖 
+
+where: 
+
+𝐴 0 = 𝐸 0 = ∅
+
+𝐸 𝑖 +1 = 𝐸 𝑖 ∪ { emp } ∪ { c(𝑛, 𝑦 ) | 𝑛 ∈ N, 𝑦 ∈ 𝐴 𝑖 }, 𝐴 𝑖 +1 = AC (N, 𝐸 𝑖 )
+
+Functions 
+
+select and store are defined as read and update operations on functions. 
+
+c𝒜 0 (𝑛, 𝑦 ) = c(𝑛, 𝑦 )
+
+id 𝒜 0 (c(𝑛, 𝑦 )) = 𝑛 
+
+chld 𝒜 0 (c(𝑚, 𝑦 )) = 𝑦 
+
+id 𝒜 0 (emp ) = 0 
+
+chld 𝒜 0 (emp ) = const (emp )
+
+Predicates is 𝒜 0 
+
+> c
+
+(c(𝑛, 𝑦 )) = 𝑡𝑟𝑢𝑒 
+
+is 𝒜 0 
+
+> c
+
+(emp ) = 𝑓 𝑎𝑙𝑠𝑒 
+
+is 𝒜 0
+
+> emp
+
+(emp ) = 𝑡𝑟𝑢𝑒 
+
+is 𝒜 0
+
+> emp
+
+(c(𝑛, 𝑦 )) = 𝑓 𝑎𝑙𝑠𝑒 
+
+Variables 𝑥 𝒜 0 = emp , 𝑎 𝒜 0 = const (emp ), 𝑖 𝒜 0 = 1 ,
+
+𝑦 𝒜 0 = c(2 , const (emp )) , and 𝑗 𝒜 0 = 2 .
+
+Table 13 A Σndt -interpretation 𝒜 0.
+
+New sort Original sort Domain chosen in ℬ
+
+𝐴 𝑖 ∘ 𝐴 𝑖 ∈ Array Σ 𝐴 𝑖 ∘ℬ = 𝐴 𝒜 
+
+> 𝑖
+
+𝜏 * 𝜏 ∈ 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 ) 𝜏 *ℬ = 𝜏 𝒜 
+
+𝜏 ∈ Struct Σ𝑛 +1 ∪ Array Σ 𝜏 *ℬ = 𝑇 𝜏 *(︀ Σ𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝐵 )︀ 
+
+𝐴 ′ 
+
+> 𝑖
+
+𝐴 𝑖 ∈ Array Σ 𝐴 ′ℬ  
+
+> 𝑖
+
+= 𝐼 * 
+
+> 𝑖
+> ℬ
+
+→ 𝐸 *
+
+> 𝑖
+> ℬ
+
+Table 14 Domains assigned to the sorts of Σ𝜑 . Here 𝐵 is the Elem Σ𝜑 -sorted set with 𝐵 𝜌 = 𝜌 ℬ for every 
+
+𝜌 ∈ Elem Σ𝜑 .
+
+A.1. Defining the Domains 
+
+The domains assigned to the sorts of Σ by ℬ are given in Table 14. We have three cases to consider: 1. If 𝜎 = 𝐴 𝑖 ∘ for some 𝑖 ∈ [1 , 𝑛 ] then 𝜎 is interpreted in ℬ exactly in the same way 𝐴 𝑖 is interpreted in 𝒜 . Intuitively, this means that the “identifier" of each array is itself. 2. If 𝜎 = 𝜏 * for some sort 𝜏 , there are two sub-cases. If 𝜏 is neither in Struct Σ𝑛 +1 nor in Array Σ,then 𝜏 * /∈ Struct Σ𝜑 𝑛 +1 
+
+and we interpret 𝜏 * in ℬ in the same way 𝜏 is interpreted in 𝒜 . Otherwise, 
+
+𝜏 is in Array Σ, or in Struct Σ𝑛 +1 , and thus 𝜏 * ∈ Struct Σ𝜑 𝑛 +1 
+
+, and we interpret 𝜏 * in ℬ as the set of trees defined in Definition 5. 3. If 𝜎 = 𝐴 ′ 
+
+> 𝑖
+
+for some 𝑖 ∈ [1 , 𝑛 ], we interpret 𝐴 ′ 
+
+> 𝑖
+
+in ℬ as the set of functions from 𝐼 *  
+
+> 𝑖 ℬ
+
+to 𝐸 * 
+
+> 𝑖 ℬ
+
+.
+
+Example 38. Consider the formula 𝜓 and its satisfying interpretation 𝒜 0 from Example 36. The sorts of 
+
+Σ𝜓  
+
+> ndt
+
+are interpreted in ℬ0 as described in Table 15. 
+
+A.2. Interpretation of the Variables 
+
+In order to define the interpretation of the variables, we define two mappings between the domains of the sorts in Σ and the domains of the sorts in Σ𝜑 .
+
+17 Domains 
+
+𝐼 *ℬ 0 = 𝐼 𝒜 = N
+
+𝐴 ∘ℬ 0 = 𝐴 𝒜 
+
+𝐸 *ℬ 0 = 𝑇 𝐸 * (Σ 𝜓  
+
+> 2|𝒞𝒪 Σ𝜓
+> 2
+
+, 𝐵 )
+
+𝐴 *ℬ 0 = 𝑇 𝐴 * (Σ 𝜓  
+
+> 2|𝒞𝒪 Σ𝜓
+> 2
+
+, 𝐵 )
+
+𝐴 ′ℬ 0 = 𝐼 *ℬ  
+
+> 0
+
+→ 𝐸 *ℬ 
+
+> 0
+
+Functions 
+
+select and store are defined as read and update operations on functions. 
+
+c*ℬ 0 (𝑛, 𝑦 ) = c*(𝑛, 𝑦 )
+
+id *ℬ 0 (c*(𝑛, 𝑦 )) = 𝑛 
+
+chld *ℬ 0 (c*(𝑚, 𝑦 )) = 𝑦 
+
+id *ℬ 0 (emp *) = 0 
+
+chld *ℬ 0 (emp *) = const (emp *)
+
+𝑓 ℬ0 
+
+> 𝐴
+
+(𝑐 1(𝑎, 𝑒 )) = Γ Arr (𝑎 )
+
+𝑔 ℬ0 
+
+> 𝐴
+
+(𝑡 ) = {︃ ΓDT (𝑎 ) if 𝑎 ∈ 𝐴 𝒜 and ΓArr (𝑎 ) = 𝑡, 
+
+d𝐴 * otherwise .
+
+Predicates is ℬ0 
+
+> c*
+
+(c*(𝑛, 𝑦 )) = 𝑡𝑟𝑢𝑒 
+
+is ℬ0 
+
+> c*
+
+(emp ) = 𝑓 𝑎𝑙𝑠𝑒 
+
+is ℬ0
+
+> emp
+
+(emp ) = 𝑡𝑟𝑢𝑒 
+
+is ℬ0
+
+> emp
+
+(c*(𝑛, 𝑦 )) = 𝑓 𝑎𝑙𝑠𝑒 
+
+Variables 
+
+𝑥 *ℬ 0 = Γ DT (𝑥 𝒜 ) = emp *
+
+𝑎 *ℬ 0 = Γ DT (𝑎 𝒜 ) = 𝑐 1(𝑎 𝒜 , emp *)
+
+𝑎 ′ℬ 0 = Γ Arr (𝑎 𝒜 ) = const (emp *)
+
+𝑗 *ℬ 0 = Γ DT (𝑗 𝒜 ) = 1 
+
+𝑦 *ℬ 0 = Γ DT (𝑦 𝒜 ) = c*(2 , 𝑎 *ℬ 0 )
+
+𝑘 *ℬ 0 = Γ DT (𝑘 𝒜 ) = 2 
+
+𝑢 ℬ0 
+
+> (𝑎, 1)
+
+= Γ DT (︁ select 𝒜 (𝑎 𝒜 , 1) )︁ = emp *
+
+Table 15 A Σ𝜓 
+
+> ndt
+
+-interpretation ℬ0. 𝐵 is the Elem Σ𝜓 
+
+> ndt
+
+-sorted set with 
+
+𝐵 𝜌 := 𝜌 ℬ 
+
+> 0
+
+for every 𝜌 ∈ Elem Σ𝜓 
+
+> ndt
+
+.
+
+The mapping ΓDT will be used to define the interpretation of all variables in trFormula (𝜑 ) whose sorts are not in {𝐴 ′ 
+
+> 𝑖
+
+| 𝑖 ∈ [1 , 𝑛 ]}, and the mapping ΓArr will be used to define the interpretation of the variables of sorts 𝐴 ′ 
+
+> 𝑖
+
+for 𝑖 ∈ [1 , 𝑛 ].
+
+A.2.1. Defining ΓDT 
+
+In order to define the first mapping, ΓDT , we first need to define the following partial function: 
+
+Definition 39 (Height). We define the partial function h :⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 → N in the following way: For each 𝑡 ∈⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 ,(a) If 𝑡 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑐 ∈ 𝒞𝒪 Σ𝑛 +1 and 𝑡 1, . . . , 𝑡 𝑚 and h is defined over 𝑡 1, . . . , 𝑡 𝑚 , we thus define: h(𝑡 ) = 1 + max {h(𝑡 1), . . . , h(𝑡 𝑚 )}.
+
+(b) If 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+for some 𝑗 ∈ [1 , 𝑛 ]. Then, let 𝜄 1, . . . , 𝜄 𝑛 (𝜎,𝜑 ) be the elements of I(𝜎,𝜑 ), listed in the order de-termined by 𝑜 (𝜎,𝜑 ). Then, we define: h(𝑡 ) = 1+max {h(select 𝒜 
+
+> 𝜎
+
+(𝑡, 𝜄 𝒜  
+
+> 1
+
+)) , . . . , h(select 𝒜 
+
+> 𝜎
+
+(𝑡, 𝜄 𝒜  
+
+> 𝑛 (𝜎,𝜑 )
+
+)) }.
+
+If h is defined over all the elements of the set above. (c) If 𝜎 / ∈ (Struct Σ𝑛 +1 ∪ Array Σ), then define: h(𝑡 ) = 0 
+
+18 Example 40. Consider 𝒜 0 from Table 13 Then, we have: 
+
+h(𝑥 𝒜 0 ) = h(emp ) = 1 + max ∅ = 1 ,
+
+h(𝑎 𝒜 0 ) = h(const (emp )) = 1 + max {︀ h(𝑥 𝒜 0 )}︀ = 1 + max {1} = 2 ,
+
+h(𝑦 𝒜 0 ) = h(cons (2 , const (emp ))) = 1 + max {︀ h(2) , h(𝑎 𝒜 0 )}︀ = 1 + max {0, 2} = 3 ,
+
+h(𝑖 𝒜 0 ) = h(𝑗 𝒜 0 ) = 0 .
+
+Lemma 41. The function h is a total function over ⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 .Proof : Suppose, towards a contradiction, that there exists some 𝑡 ∈⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 such that h(𝑡 ) is not defined. We know that 𝑡 / ∈ Struct Σ𝑛 +1 ∪ Array Σ, since otherwise h(𝑡 ) would be defined by the third case of Definition 39. Thus, there are 2 possibilities: 1. 𝑡 is of sort 𝜎 ∈ Struct Σ𝑛 +1 . Then, since 𝒜 Σ𝑛 +1 is a datatypes Σ𝑛 +1 -interpretation, 𝑡 must be of the form 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some constructor 𝑐 ∈ 𝒞𝒪 Σ𝑛 +1 and 𝑡 1, . . . , 𝑡 𝑚 ∈ 𝜎 𝒜 . So there must be some 𝑡 𝑗 such that h(𝑡 𝑗 ) is not defined. Note that (𝑡 𝑗 , 𝑡 ) ∈ ℛ 𝒜 .2. 𝑡 is of sort 𝐴 𝑗 for some 𝑗 ∈ [1 , 𝑛 ]. Then, there must be some 𝑖 ∈ I(𝐴 𝑗 ,𝜑 ) such that h(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 )) 
+
+is not defined. Note that (select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 ), 𝑡 ) ∈ ℛ 𝒜 .In either case, there exists some 𝑠 ∈⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 such that (𝑠, 𝑡 ) ∈ ℛ 𝒜 and h(𝑠 ) is not defined. We can apply this argument again and get an infinitely descending sequence of elements in ℛ𝒜 , which contradicts the well-foundedness of ℛ𝒜 . □
+
+Now, we can use the function h to define the mapping ΓDT .
+
+Definition 42. For every 𝑘 ∈ N, we define the partial function 
+
+Γ𝑘  
+
+> DT
+
+:⋃︁ 
+
+> 𝜎 ∈𝒮 Σ
+
+{𝑥 ∈ 𝜎 𝒜 | h(𝑥 ) ≤ 𝑘 } −→ ⋃︁ 
+
+> 𝜎 ∈𝒮 Σ
+
+𝜎 *ℬ 
+
+In the following way: For 𝑘 = 0 , we define Γ0
+
+> DT
+
+(𝑡 ) = 𝑡 for every 𝑡 ∈ 𝜎 𝒜 such that h(𝑡 ) = 0 . For 𝑘 > 0,we define Γ𝑘 
+
+> DT
+
+(𝑡 ) as follows: (a) If h(𝑡 ) < 𝑘 , then we define Γ𝑘 
+
+> DT
+
+(𝑡 ) = Γ 𝑘 −1 
+
+> DT
+
+(𝑡 ).(b) If h(𝑡 ) = 𝑘 , then we define Γ𝑘 
+
+> DT
+
+(𝑡 ) as follows: (i) If 𝑡 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑐 : 𝜎 1 × . . . × 𝜎 𝑚 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 and ∀𝑖 ∈ [1 , 𝑚 ], Γ𝑘 
+
+> DT
+
+(𝑡 𝑖 ) is defined and in 𝜎 * 
+
+> 𝑖 ℬ
+
+, then we define: Γ𝑘 
+
+> DT
+
+(𝑡 ) = 𝑐 *(︀ Γ𝑘 
+
+> DT
+
+(𝑡 1), . . . , Γ𝑘 
+
+> DT
+
+(𝑡 𝑚 ))︀ .
+
+(ii) If 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+for some 𝑗 ∈ [1 , 𝑛 ], and for every 𝑖 ∈ I(𝐴 𝑗 ,𝜑 ), Γ𝑘 
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 )) is defined and in 𝐸 * 
+
+> 𝑗 ℬ
+
+, then we define: 
+
+Γ𝑘 
+
+> DT
+
+(𝑡 ) = 𝑐 𝑗 (︀ 𝑡, Γ𝑘 
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝜄 𝒜  
+
+> 1
+
+)) , . . . , Γ𝑘 
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝜄 𝒜  
+
+> 𝑛 (𝐴 𝑗 ,𝜑 )
+
+)) )︀ .
+
+We then define: ΓDT =⋃︀ ∞ 
+
+> 𝑘 =0
+
+Γ𝑘 
+
+> DT
+
+.
+
+Lemma 43. ΓDT :⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 →⋃︀ 𝜎 ∈𝒮 Σ 𝜎 *ℬ is a total function. In addition, ∀𝑥 ∈ 𝜎 𝒜 .ΓDT (𝑥 ) ∈ 𝜎 *ℬ 
+
+for every 𝜎 ∈ 𝒮 Σ.Proof : First note that for every 𝑘 ∈ N, Γ𝑘  
+
+> DT
+
+is a partial function over ⋃︀ 𝜎 ∈𝒮 Σ {𝑥 ∈ 𝜎 𝒜 | h(𝑥 ) ≤ 𝑘 }, and that for every 𝑗, 𝑘 ∈ N, if 𝑗 < 𝑘 , then Γ𝑗  
+
+> DT
+
+⊆ Γ𝑘 
+
+> DT
+
+. Thus, ΓDT is a partial function over ⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 .In order to show it is a total function, we first use induction on 𝑘 to show that Γ𝑘  
+
+> DT
+
+is a total function over ⋃︀ 𝜎 ∈𝒮 Σ {𝑥 ∈ 𝜎 𝒜 | h(𝑥 ) ≤ 𝑘 } and that ∀𝜎 ∈ 𝒮 Σ.∀𝑥 ∈ 𝜎 𝒜 . if h(𝑥 ) ≤ 𝑘 , then Γ𝑘 
+
+> DT
+
+(𝑥 ) ∈ 𝜎 *ℬ .
+
+19 ∀𝑥 ∈ 𝜎 𝒜 .Γ𝑘 
+
+> DT
+
+(𝑥 ) ∈ 𝜎 *ℬ 
+
+Base case: For 𝑘 = 0 , let 𝑡 ∈ 𝜎 𝒜 such that h(𝑡 ) = 0 . Then, by Definition 39, 𝜎 / ∈ (Struct Σ𝑛 +1 ∪
+
+Array Σ). Hence, we have Γ0
+
+> DT
+
+(𝑡 ) = 𝑡 and since 𝜎 𝒜 = 𝜎 *ℬ , we have that Γ0
+
+> DT
+
+(𝑡 ) ∈ 𝜎 *ℬ .
+
+Inductive step: Assume that Γ𝑘  
+
+> DT
+
+is a total function over ⋃︀ 𝜎 ∈𝒮 Σ {𝑥 ∈ 𝜎 𝒜 | h(𝑥 ) ≤ 𝑘 } and that 
+
+∀𝜎 ∈ 𝒮 Σ.∀𝑥 ∈ 𝜎 𝒜 . if h(𝑥 ) ≤ 𝑘 , then Γ𝑘 
+
+> DT
+
+(𝑥 ) ∈ 𝜎 *ℬ . Let there be 𝑡 ∈ 𝜎 𝒜 such that h(𝑡 ) ≤ 𝑘 + 1 . If 
+
+h(𝑡 ) < 𝑘 + 1 , then by the inductive hypothesis, we know that Γ𝑘 
+
+> DT
+
+(𝑡 ) is defined and in 𝜎 *ℬ . Otherwise, by Definition 39, we have two cases: (a) If 𝑡 ∈ 𝜎 𝒜 where 𝜎 ∈ Struct Σ𝑛 +1 , then since 𝒜 Σ𝑛 +1 is a datatypes Σ𝑛 +1 -interpretation, we must have 𝑡 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑐 and 𝑡 1, . . . , 𝑡 𝑚 . By the definition of the h function, we know that h(𝑡 𝑖 ) ≤ 𝑘 for every 𝑖 ∈ [1 , 𝑚 ]. By the inductive hypothesis, we have that Γ𝑘 +1  
+
+> DT
+
+(𝑡 𝑖 ) = Γ 𝑘 
+
+> DT
+
+(𝑡 𝑖 )
+
+and in 𝜎 *  
+
+> 𝑖 ℬ
+
+for every 𝑖 ∈ [1 , 𝑚 ]. Thus, 
+
+Γ𝑘 +1  
+
+> DT
+
+(𝑡 ) = 𝑐 *(︀ Γ𝑘 +1  
+
+> DT
+
+(𝑡 1), . . . , Γ𝑘 +1  
+
+> DT
+
+(𝑡 𝑚 ))︀ .
+
+Since 𝑐 * ∈ 𝒞𝒪 Σ𝜑 , we have that Γ𝑘 +1  
+
+> DT
+
+(𝑡 ) ∈ 𝜎 *ℬ .(b) If 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+for some 𝑗 ∈ [1 , 𝑛 ], then by the definition of the h function, we know that h(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 )) ≤
+
+𝑘 for every 𝑖 ∈ I(𝐴 𝑗 ,𝜑 ). By the inductive hypothesis, we have that Γ𝑘 +1  
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 )) = Γ𝑘 
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 𝒜 )) and in 𝐸 *  
+
+> 𝑗 ℬ
+
+for every 𝑖 ∈ I(𝐴 𝑗 ,𝜑 ). Thus, 
+
+Γ𝑘 +1  
+
+> DT
+
+(𝑡 ) = 𝑐 𝑗 (︀ 𝑡, Γ𝑘 +1  
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝜄 𝒜  
+
+> 1
+
+)) , . . . , Γ𝑘 +1  
+
+> DT
+
+(select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝜄 𝒜  
+
+> 𝑛 (𝐴 𝑗 ,𝜑 )
+
+)) )︀ .
+
+Since 𝑐 𝑗 ∈ 𝒞𝒪 Σ𝜑 , we have that Γ𝑘 +1  
+
+> DT
+
+(𝑡 ) ∈ 𝜎 *ℬ .Let there be 𝑡 ∈ 𝜎 𝒜 we now show that ΓDT (𝑡 ) is defined and in 𝜎 *ℬ . Since Lemma 41 shows that h is a total function over ⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 , we have that ∀𝑡 ∈⋃︀ 𝜎 ∈𝒮 Σ 𝜎 𝒜 . ∃𝑘 ∈ N. h(𝑡 ) = 𝑘 . Thus, ΓDT (𝑡 ) = Γ 𝑘 
+
+> DT
+
+(𝑡 )
+
+and Γ𝑘 
+
+> DT
+
+(𝑡 ) ∈ 𝜎 *ℬ . □
+
+Remark 44. Note that the function ΓDT satisfies the following properties: For each 𝑡 ∈ 𝜎 𝒜 and every 
+
+𝜎 ∈ 𝒮 Σ, we have: (a) If 𝑡 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑐 ∈ 𝒞𝒪 Σ𝑛 +1 , ΓDT (𝑡 ) = 𝑐 *(︀ ΓDT (𝑡 1), . . . , ΓDT (𝑡 𝑚 ))︀ .
+
+(b) If 𝜎 = 𝐴 𝑗 for some 𝑗 ∈ [1 , 𝑛 ]. Then, let 𝜄 1, . . . , 𝜄 𝑛 (𝜎,𝜑 ) be the elements of I(𝜎,𝜑 ), listed in the order determined by 𝑜 (𝜎,𝜑 ). Then, 
+
+ΓDT (𝑡 ) = 𝑐 𝑗 (︀ 𝑡, ΓDT ( select 𝒜 
+
+> 𝜎
+
+(𝑡, 𝜄 𝒜  
+
+> 1
+
+)) , . . . , ΓDT ( select 𝒜 
+
+> 𝜎
+
+(𝑡, 𝜄 𝒜  
+
+> 𝑛 (𝜎,𝜑 )
+
+)) )︀ .
+
+(c) If 𝜎 / ∈ (Struct Σ𝑛 +1 ∪ Array Σ), then ΓDT (𝑡 ) = 𝑡 .
+
+Example 45. Consider the following elements in the interpretations of the sorts in Table 13: 1. 𝑓 1 := const (emp ) ∈ 𝐴 𝒜 0 .2. 𝑥 1 := c(1 , 𝑓 1) ∈ 𝐸 𝒜 0 .3. 𝑓 2 := const (𝑥 1) ∈ 𝐴 𝒜 0 .4. 𝑥 2 = c(2 , 𝑓 2) ∈ 𝐸 𝒜 0 .Then, 1. ΓDT (𝑓 1) = 𝑐 1(︀ 𝑓 1, ΓDT (emp ))︀ = 𝑐 1(︀ 𝑓 1, emp *)︀ .2. ΓDT (𝑥 1) = c*(︀ ΓDT (1) , ΓDT (𝑓 1))︀ = c*(︀ 1, 𝑐 1(︀ 𝑓 1, emp *)︀)︀ .
+
+20 3. ΓDT (𝑓 2) = 𝑐 1(︀ 𝑓 2, ΓDT (𝑥 1))︀ = 𝑐 1(︀ 𝑓 2, c*(︀ 1, 𝑐 1(︀ 𝑓 1, emp *)︀)︀)︀ .4. ΓDT (𝑥 2) = c*(︀ ΓDT (2) , ΓDT (𝑓 1))︀ = c*(︀ 2, 𝑐 1(︀ 𝑓 2, c*(︀ 1, 𝑐 1(︀ 𝑓 1, emp *)︀)︀)︀ ).
+
+Lemma 46. ΓDT is injective. Proof : We show first that if 𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+and 𝑡 2 ∈ 𝜎 𝒜  
+
+> 2
+
+with 𝜎 1̸ = 𝜎 2, then ΓDT (𝑡 1)̸ = Γ DT (𝑡 2). Indeed, by Lemma 43 ΓDT (𝑡 1) ∈ 𝜎 *  
+
+> 1ℬ
+
+and ΓDT (𝑡 2) ∈ 𝜎 * 
+
+> 2ℬ
+
+, and the domains for different new sorts are disjoint (see Table 14). It remains to prove that for each fixed sort 𝜎 , whenever 𝑡 1, 𝑡 2 ∈ 𝜎 𝒜 and 𝑡 1̸ = 𝑡 2, then ΓDT (𝑡 1)̸ =ΓDT (𝑡 2). We proceed by induction on 𝑁 := max {︀ ℎ(𝑡 1), ℎ (𝑡 2)}︀ ,
+
+Base case ( 𝑁 = 0 ). According to the definition of h, if 𝑁 = 0 , then 𝜎 / ∈ (Struct Σ𝑛 +1 ∪ Array Σ), and thus ΓDT (𝑡 1) = 𝑡 1̸ = 𝑡 2 = Γ DT (𝑡 2).
+
+Inductive step. Assume the claim holds for all pairs whose maximum depth is < 𝑁 . Let 𝑡 1, 𝑡 2 ∈ 𝜎 𝒜 
+
+with max {ℎ(𝑡 1), ℎ (𝑡 2)} = 𝑁 > 0. There are two cases to consider: 1. If 𝜎 ∈ Struct Σ𝑛 +1 , then there are two options: (a) If 𝑡 1 = 𝑐 (𝑠 1, . . . , 𝑠 𝑚 ) and 𝑡 2 = ^ 𝑐 (𝑟 1, . . . , 𝑟 𝑘 ) with 𝑐 ̸ = ^ 𝑐 , then according to Remark 44, we have 
+
+ΓDT (𝑡 1) = 𝑐 *(. . . )̸ = ^ 𝑐 *(. . . ) = Γ DT (𝑡 2),
+
+since distinct constructors yield disjoint images. (b) Otherwise both use the same constructor 𝑐 , say 𝑡 1 = 𝑐 (𝑠 1, . . . , 𝑠 𝑚 ) and 𝑡 2 = 𝑐 (𝑟 1, . . . , 𝑟 𝑚 ),but 𝑡 1̸ = 𝑡 2. Then for some 𝑗 , 𝑠 𝑗 ̸ = 𝑟 𝑗 and ℎ(𝑠 𝑗 ), ℎ (𝑟 𝑗 ) < 𝑁 . By the inductive hypoth-esis ΓDT (𝑠 𝑗 )̸ = Γ DT (𝑟 𝑗 ). Thus, due to Remark 44, ΓDT (𝑡 1) = 𝑐 *(. . . , ΓDT (𝑠 𝑗 ), . . . )̸ =
+
+𝑐 *(. . . , ΓDT (𝑟 𝑗 ), . . . ) = Γ DT (𝑡 2).2. If 𝜎 = 𝐴 𝑗 ∈ Array Σ, then 
+
+ΓDT (𝑡 1) = 𝑐 𝑗 (︀ 𝑡 1, . . . )︀ ̸ = 𝑐 𝑗 (︀ 𝑡 2, . . . )︀ = Γ DT (𝑡 2)
+
+□
+
+We can now define the function ΓArr that will be used to define the interpretation of some of the variables in trFormula (𝜑 ).
+
+A.2.2. Defining ΓArr 
+
+We define a function ΓArr :⋃︀ 𝑛 𝑖 =1 𝐴 𝒜  
+
+> 𝑖
+
+→⋃︀ 𝑛 𝑖 =1 𝐴 ′ℬ  
+
+> 𝑖
+
+as follows: for each 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+(with 𝑗 ∈ [1 , 𝑛 ]), 
+
+ΓArr (𝑡 ) ∈ 𝐴 ′ℬ  
+
+> 𝑗
+
+= 𝐼 *  
+
+> 𝑗 ℬ
+
+→ 𝐸 *  
+
+> 𝑗 ℬ
+
+is a function defined as follows: ∀𝑖 ∈ 𝐼 *  
+
+> 𝑗 ℬ
+
+= 𝐼 𝒜  
+
+> 𝑗
+
+:
+
+ΓArr (𝑡 )( 𝑖 ) = Γ DT (︁ select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 ))︁ .
+
+Lemma 47. For every 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+(with 𝑗 ∈ [1 , 𝑛 ]), ΓArr (𝑡 ) ∈ 𝐴 ′ℬ 
+
+> 𝑗
+
+Proof : Let 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+(with 𝑗 ∈ [1 , 𝑛 ]). Then note that every element in 𝐼 *  
+
+> 𝑗 ℬ
+
+is a function from 𝐼 *  
+
+> 𝑗 ℬ
+
+to 
+
+𝐸 * 
+
+> 𝑗 ℬ
+
+. Let there be 𝑖 ∈ 𝐼 * 
+
+> 𝑗 ℬ
+
+. Since 𝐼 *  
+
+> 𝑗 ℬ
+
+= 𝐼 𝒜  
+
+> 𝑗
+
+, we have that 𝑖 ∈ 𝐼 𝒜  
+
+> 𝑗
+
+. We know that select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 ) is defined and in 𝐸 𝒜  
+
+> 𝑗
+
+since 𝑡 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+and 𝑖 ∈ 𝐼 𝒜  
+
+> 𝑗
+
+. Lemma 43 shows that ΓDT (select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 )) ∈ 𝐸 * 
+
+> 𝑗 ℬ
+
+. Thus, 
+
+ΓArr (𝑡 )( 𝑖 ) = Γ DT (select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡, 𝑖 )) is defined and in 𝐸 * 
+
+> 𝑗 ℬ
+
+. □
+
+Example 48. Consider 𝑎 𝒜 0 = const (emp ) from Table 13. Then ΓArr (𝑎 𝒜 0 ) is a function from 𝐼 *  
+
+> 1ℬ
+
+= N
+
+to 𝐸 * 
+
+> 1ℬ
+
+, defined as follows: ∀𝑛 ∈ N.ΓArr (𝑎 𝒜 0 )( 𝑛 ) = Γ DT (select 𝒜 0 
+
+> 𝐴 1
+
+(𝑎 𝒜 0 , 𝑛 )) = Γ DT (emp ) = emp *.Thus, ΓArr (𝑎 𝒜 0 ) = const (emp *)
+
+21 Original Variable Original Sort New Variable New Sort Interpretation in ℬ
+
+𝑢 𝜎 ∈ 𝒮 Σ 𝑢 * 𝜎 * 𝑢 *ℬ = Γ DT (︀ 𝑢 𝒜 )︀ 
+
+𝑎 𝐴 𝑖 ∈ Array Σ
+
+𝑎 ′ 𝐴 ′ 𝑎 ′ℬ = Γ Arr (︀ 𝑎 𝒜 )︀ 
+
+𝑢 (𝑎,𝑘 ) 𝐸 * 
+
+> 𝑖
+
+𝑢 ℬ 
+
+> (𝑎,𝑘 )
+
+= Γ DT (︀ select 𝒜 
+
+> 𝐴 𝑖
+
+(︀ 𝑎 𝒜 , (𝑜 −1(𝐴 𝑖 ,𝜑 )(𝑘 )) 𝒜 )︀)︀ 
+
+Table 16 Fresh variables introduced for the signature Σ𝜑 and their interpretations in ℬ. Here 𝑘 ranges over 1, . . . , 𝑛 (𝐴 𝑖 ,𝜑 ).
+
+Lemma 49. ΓArr is injective. Proof : Let 𝑡 1 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+and 𝑡 2 ∈ 𝐴 𝒜  
+
+> 𝑘
+
+with 𝑗, 𝑘 ∈ [1 , 𝑛 ], such that 𝑡 1̸ = 𝑡 2.
+
+Case 1: 𝑗 ̸ = 𝑘 . Then 𝑡 1 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+and 𝑡 2 ∈ 𝐴 𝒜  
+
+> 𝑘
+
+, so ΓArr (𝑡 1) ∈ 𝐴 ′ℬ  
+
+> 𝑗
+
+∧ ΓArr (𝑡 2) ∈ 𝐴 ′ℬ  
+
+> 𝑘
+
+. These are disjoint domains by construction, so ΓArr (𝑡 1)̸ = Γ Arr (𝑡 2).
+
+Case 2: 𝑗 = 𝑘 , but 𝑡 1̸ = 𝑡 2. Then 𝑡 1, 𝑡 2 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+. Since 𝒜 satisfies extensionality for arrays, there exists some index 𝑖 ∈ 𝐼 𝒜  
+
+> 𝑗
+
+= 𝐼 *  
+
+> 𝑗 ℬ
+
+such that 
+
+select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡 1, 𝑖 )̸ = select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡 2, 𝑖 ).
+
+By the definition of ΓArr and the injectivity of ΓDT (Lemma 46), 
+
+ΓArr (𝑡 1)( 𝑖 ) = Γ DT (︀ select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡 1, 𝑖 ))︀ ̸ = Γ DT (︀ select 𝒜  
+
+> 𝐴 𝑗
+
+(𝑡 2, 𝑖 ))︀ = Γ Arr (𝑡 2)( 𝑖 )
+
+Hence ΓArr (𝑡 1)̸ = Γ Arr (𝑡 2) in both cases. This proves that ΓArr is injective. □
+
+A.2.3. Interpretation of the Variables, using ΓDT and ΓArr 
+
+The interpretation of the variables introduced during the translation is summarized in Table 16. Given a variable 𝑥 for Σ𝜑 we have three possibilities. If 𝑥 = 𝑢 * for some variable 𝑢 of a sort in Σ, the interpretation of 𝑥 in ℬ is set to be the output of ΓDT on the interpretation of 𝑢 in 𝒜 ; If 𝑥 = 𝑎 ′ for some variable 𝑎 of an array sort of Σ, the interpretation of 𝑥 in ℬ is set to be the output of ΓArr on the interpretation of 𝑎 in 𝒜 ; finally, if 𝑥 = 𝑢 (𝑎,𝑘 ) for some variable 𝑎 of an array sort 𝐴 𝑖 of Σ and 
+
+1 ≤ 𝑘 ≤ 𝑛 (𝐴 𝑖 ,𝜑 ), then 𝑥 is interpreted in ℬ using the following considerations. First, let 𝑗 such that 
+
+𝑘 = 𝑜 (𝐴 𝑖 ,𝜑 )(𝑗 ) (or, equivalently, 𝑗 = 𝑜 −1(𝐴 𝑖 ,𝜑 )(𝑘 )). The reason that every 𝑢 (𝑎,𝑘 ) is interpreted this way is that we want to ensure that every possible application of L𝜑 
+
+> 0
+
+(𝑎, 𝑖 ) is satisfied, as seen in Appendix A.6. 
+
+Example 50. Consider the formula trFormula (𝜓 ) from Table 12. Its variable interpretations in ℬ0
+
+are given in Table 15, and rely on Examples 45 and 48. 
+
+A.3. Interpretation of Functions and Predicates 
+
+The interpretation of function and predicate symbols in ℬ is defined in Table 17 and described as follows. 
+
+Array operations. The symbols select 𝐴 ′ 
+
+> 𝑗
+
+and store 𝐴 ′ 
+
+> 𝑗
+
+are interpreted in the standard way, as read and update operations over functions. 
+
+Datatype symbols. The interpretation of constructors and testers is fixed, as we require ℬΣ𝜑 𝑛 +1 
+
+> *
+
+to be a datatypes structure. As for selectors, their interpretation is fixed when applied to terms that are constructed by their corresponding constructors. When applied to different constructors, we maintain the connection to 𝒜 as induced by ΓDT , or set them arbitrarily if no such connection is induced. Injectivity of 
+
+ΓDT guarantees that this definition is unambiguous. 
+
+22 Array operators standard read/update interpretation Constructors Fixed by the theory Testers Fixed by the theory Selectors 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑡 ) = 
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝑡 𝑖 if 𝑡 = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1, . . . , 𝑡 𝑚 
+
+ΓDT (︀ 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑠 ))︀ otherwise, if there is 𝑠 ∈ 𝜎 𝒜 s.t. ΓDT (𝑠 ) = 𝑡 
+
+d𝜎 * 
+
+> 𝑖
+
+otherwise UF symbols 
+
+𝑓 ℬ
+
+> 𝐴 𝑗
+
+(︀ 𝑐 𝑗 (𝑡 1, . . . , 𝑡 𝑘 ))︀ = Γ Arr (𝑡 1)
+
+𝑔 ℬ 
+
+> 𝐴 𝑗
+
+(𝑡 ) = {︃ ΓDT (𝑎 ) if 𝑎 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+and ΓArr (𝑎 ) = 𝑡, 
+
+d𝐴 * 
+
+> 𝑗
+
+otherwise .
+
+Table 17 Interpretation of function and predicate symbols, where d𝜎 * 
+
+> 𝑖
+
+is an arbitrary (but fixed) element of 𝜎 *
+
+> 𝑖
+> ℬ
+
+.
+
+Uninterpreted functions. Let 1 ≤ 𝑗 ≤ 𝑛 . We define 𝑓 ℬ 
+
+> 𝐴 𝑗
+
+: 𝐴 *  
+
+> 𝑗 ℬ
+
+→ 𝐴 ′ℬ  
+
+> 𝑗
+
+and 𝑔 ℬ 
+
+> 𝐴 𝑗
+
+: 𝐴 ′ℬ  
+
+> 𝑗
+
+→ 𝐴 *  
+
+> 𝑗 ℬ
+
+as follows. For 𝑓 𝐴 𝑗 , each element of 𝐴 *  
+
+> 𝑗 ℬ
+
+has the form 𝑐 𝑗 (𝑡 1, . . . , 𝑡 𝑘 ), where 𝑡 1 ∈ 𝐴 𝑗 ∘ℬ = 𝐴 𝒜  
+
+> 𝑗
+
+. We then take 𝑡 1 and pass it through ΓArr . For 𝑔 𝐴 𝑗 , given 𝑡 ∈ 𝐴 ′ 
+
+> 𝑗
+
+we consider two cases. In the first, there exists 
+
+𝑎 ∈ 𝐴 𝒜  
+
+> 𝑗
+
+with ΓArr (𝑎 ) = 𝑡 , and then we return ΓDT (𝑎 ). If there is no such 𝑎 , we return an arbitrary but fixed element d𝐴 * 
+
+> 𝑗
+
+of 𝐴 * 
+
+> 𝑗 ℬ
+
+. Injectivity of ΓArr guarantees that the definition of 𝑔 ℬ 
+
+> 𝐴 𝑗
+
+is unambiguous. 
+
+A.4. ℬ is a 𝑇 𝜑 
+
+> new
+
+-interpretation 
+
+Now that the construction of ℬ is done, we prove that it is indeed a 𝑇 𝜑 
+
+> new
+
+-interpretation. 
+
+Lemma 51. ℬ is a 𝑇 𝜑 
+
+> new
+
+-interpretation. Proof : Recall that 𝑇 𝜑  
+
+> new
+
+=(︁⨄︀ 𝑛 𝑗 =1 𝑇 *
+
+> 𝑗
+
+)︁ ⊎ 𝑇 𝜑 𝑛 +1 ⊎ 𝑇 𝑛 +2 . For each 𝑗 ∈ [1 , 𝑛 ], the reduct ℬΣ* 
+
+> 𝑗
+
+interprets 
+
+select 𝐴 ′ 
+
+> 𝑗
+
+and store 𝐴 ′ 
+
+> 𝑗
+
+in the standard way for an arrays structure. On Σ𝜑 𝑛 +1 , ℬ uses the usual tree-based interpretation of constructors, selectors and testers (see Definition 6). By construction, each selector and tester in Σ𝜑 𝑛 +1 obeys the requirements of datatypes structures. Finally, on Σ𝑛 +2 we only have the symbols 𝑓 𝐴 𝑗 and 𝑔 𝐴 𝑗 , and there is no restriction on their interpretation. □
+
+A.5. Satisfaction of the Translated Literals 
+
+Lemma 52. Let 𝑙 be a Σ-literal and let tr (l) be its translation. If 𝒜 | = 𝑙 then ℬ | = tr (l).Proof : We go over all possible shapes of 𝑙 .1. 𝑥 = 𝑦 . Since 𝑥 𝒜 = 𝑦 𝒜 , ΓDT (𝑥 𝒜 ) = Γ DT (𝑦 𝒜 ), hence 𝑥 *ℬ = 𝑦 *ℬ .2. 𝑥 ̸ = 𝑦 . 𝑥 𝒜 ̸ = 𝑦 𝒜 and injectivity of ΓDT gives 𝑥 *ℬ = Γ DT (𝑥 𝒜 )̸ = Γ DT (𝑦 𝒜 ) = 𝑦 *ℬ .3. 𝑥 = select 𝐴 (𝑎, 𝑖 ). In 𝒜 we have 𝑥 𝒜 = select 𝒜  
+
+> 𝐴
+
+(𝑎 𝒜 , 𝑖 𝒜 ). Therefore 
+
+select ℬ 
+
+> 𝐴 ′
+
+(𝑎 ′ℬ , 𝑖 *ℬ ) = 𝑎 ′ℬ (𝑖 *ℬ ) = Γ DT (︁ select 𝒜  
+
+> 𝐴
+
+(𝑎 𝒜 , 𝑖 𝒜 ))︁ = Γ DT (𝑥 𝒜 ) = 𝑥 *ℬ .
+
+The first equality is by the definition of select ℬ 
+
+> 𝐴 ′
+
+, the second one is by the definition of 𝑎 ′ℬ , the third one is by the substitution of select 𝒜  
+
+> 𝐴
+
+(𝑎 𝒜 , 𝑖 𝒜 ) with 𝑥 𝒜 , and the last one is by the definition of 𝑥 *ℬ .4. 𝑏 = store 𝐴 𝑙 (𝑎, 𝑖, 𝑣 ). As 𝑏 𝒜 = store 𝒜  
+
+> 𝐴 𝑙
+
+(𝑎 𝒜 , 𝑖 𝒜 , 𝑣 𝒜 ), it follows that: a) select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑏 𝒜 , 𝑖 𝒜 ) = 𝑣 𝒜 , and b) for all 𝑗 ∈ 𝐼 𝒜  
+
+> 𝑙
+
+∖ { 𝑖 𝒜 }, select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑏 𝒜 , 𝑗 ) = select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑎 𝒜 , 𝑗 ).
+
+23 Then, by the new interpretation we have: a) 𝑏 ′ℬ (𝑖 *ℬ ) = Γ DT (︀ select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑏 𝒜 , 𝑖 𝒜 ))︀ = Γ DT (𝑣 𝒜 ) = 𝑣 *ℬ = store ℬ
+
+> 𝐴 ′
+> 𝑙
+
+(𝑎 ′ℬ , 𝑖 *ℬ , 𝑣 *ℬ )( 𝑖 *ℬ ),b) For every 𝑗 ∈ 𝐼 *  
+
+> 𝑙 ℬ
+
+∖ { 𝑖 ℬ}, 𝑏 ′ℬ (𝑗 ) = Γ DT (︀ select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑏 𝒜 , 𝑗 ))︀ = Γ DT (︀ select 𝒜  
+
+> 𝐴 𝑙
+
+(𝑎 𝒜 , 𝑗 ))︀ =
+
+select ℬ
+
+> 𝐴 ′
+> 𝑙
+
+(𝑎 ′ℬ , 𝑗 ) = 𝑎 ′ℬ (𝑗 ),Hence, ∀𝑗 ∈ 𝐼 * 
+
+> 𝑙 ℬ
+
+.𝑏 ′ℬ (𝑗 ) = store ℬ
+
+> 𝐴 ′
+> 𝑙
+
+(𝑎 ′ℬ , 𝑖 *ℬ , 𝑣 *ℬ )( 𝑗 ), and thus, 𝑏 *ℬ = store ℬ
+
+> 𝐴 ′
+> 𝑙
+
+(𝑎 ′ℬ , 𝑖 *ℬ , 𝑣 *ℬ ).5. 𝑥 = 𝑠 (𝑐,𝑖 )(𝑦 ). As 𝑥 𝒜 = 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑦 𝒜 ), we distinguish two cases: a) Case 1: If 𝑦 𝒜 is an application of 𝑐 , then we can denote 𝑦 𝒜 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ). Since 𝒜 Σ𝑛 +1 
+
+is a datatypes Σ𝑛 +1 -structure, and by Definition 6: 𝑥 𝒜 = 𝑡 𝑖 . Consequently, according to Remark 44 
+
+𝑦 *ℬ = Γ DT (𝑦 𝒜 ) = 𝑐 *(︀ ΓDT (𝑡 1), . . . , ΓDT (𝑡 𝑚 ))︀ ,
+
+and applying the new selector yields 
+
+𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ ) = Γ DT (𝑡 𝑖 ) = Γ DT (𝑥 𝒜 ) = 𝑥 *ℬ .
+
+b) Case 2: If 𝑦 𝒜 is not an application of 𝑐 , then 
+
+𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ ) = Γ DT (︁ 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(︀ 𝑦 𝒜 )︀)︁ = Γ DT (︁ 𝑥 𝒜 )︁ = 𝑥 *ℬ 
+
+In both cases, the equality 
+
+𝑥 *ℬ = 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ )
+
+holds. 6. 𝑥 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ). Since 𝑥 𝒜 = 𝑐 (𝑡 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝒜 
+
+> 𝑚
+
+), Remark 44 suggests that 
+
+𝑥 *ℬ = Γ DT (𝑥 𝒜 ) = Γ DT (𝑐 (𝑡 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝒜 
+
+> 𝑚
+
+)) = 𝑐 *(︀ ΓDT (𝑡 𝒜  
+
+> 1
+
+), . . . , ΓDT (𝑡 𝒜 
+
+> 𝑚
+
+))︀ = 𝑐 *(︀ 𝑡 *
+
+> 1ℬ
+
+, . . . , 𝑡 *
+
+> 𝑚 ℬ
+
+)︀ .
+
+7. is 𝑐 (𝑥 ) or ¬is 𝑐 (𝑥 ). Whether 𝑥 𝒜 is (or is not) a 𝑐 -term is preserved by ΓDT , so the corresponding tester is 𝑐 * (or its negation) is satisfied in ℬ.
+
+□
+
+Hence every literal of trFormula (𝜑 ) is true in ℬ, so ℬ | = trFormula (𝜑 ).
+
+A.6. Satisfaction of the Lemmas 
+
+A.6.1. Satisfaction of L1(𝜑 ) and L2(𝜑 )
+
+Fix an array variable 𝑎 ∈ vars 𝐴 𝑗 (𝜑 ) (for some 𝑗 ∈ [1 , 𝑛 ]). Let 𝜄 1, . . . , 𝜄 𝑛 (𝐴 𝑗 ,𝜑 ) be the indices in I(𝐴 𝑗 ,𝜑 ) ordered by 𝑜 (𝐴 𝑗 ,𝜑 )
+
+For each 𝑘 ∈ [1 , 𝑛 (𝐴 𝑗 ,𝜑 )] the block L𝜑 
+
+> 0
+
+(𝑎, 𝜄 𝑘 ) = { 𝑢 (𝑎,𝑘 ) = select 𝐴 ′ 
+
+> 𝑗
+
+(𝑎 ′, 𝜄 *
+
+> 𝑘
+
+), 𝑢 (𝑎,𝑘 ) = 𝑠 (𝑐 𝑗 , 𝑘 +1) (𝑎 *) } is satisfied in ℬ:
+
+𝑢 ℬ 
+
+> (𝑎,𝑘 )
+
+= Γ DT (︁ select 𝒜 
+
+> 𝐴 𝑗
+
+(︀ 𝑎 𝒜 , 𝜄 𝒜 
+
+> 𝑘
+
+)︀)︁ = 𝑎 ′ℬ (𝜄 *
+
+> 𝑘 ℬ
+
+) = select ℬ
+
+> 𝐴 ′
+> 𝑗
+
+(︀ 𝑎 ′ℬ , 𝜄 *
+
+> 𝑘 ℬ
+
+)︀ ,
+
+Also, the interpretation of 𝑎 * in ℬ is defined as follows: 
+
+𝑎 *ℬ = 𝑐 𝑗 (︁ 𝑎 𝒜 , ΓDT (︁ select 𝒜 
+
+> 𝐴 𝑗
+
+(︀ 𝑎 𝒜 , 𝜄 𝒜 
+
+> 1
+
+)︀)︁ , . . . , ΓDT (︁ select 𝒜 
+
+> 𝐴 𝑗
+
+(︀ 𝑎 𝒜 , 𝜄 𝒜 
+
+> 𝑛 (𝐴 𝑗 ,𝜑 )
+
+)︀)︁)︁ .
+
+Hence, it follows that 
+
+𝑢 ℬ 
+
+> (𝑎,𝑘 )
+
+= Γ DT (︁ select 𝒜 
+
+> 𝐴 𝑗
+
+(︀ 𝑎 𝒜 , 𝜄 𝒜 
+
+> 𝑘
+
+)︀)︁ = 𝑠 ℬ 
+
+> (𝑐 𝑗 ,𝑘 +1)
+
+(𝑎 *ℬ )
+
+24 and thus ℬ | = L𝜑 
+
+> 0
+
+(𝑎, 𝜄 𝑘 ).Note that 
+
+L1(𝜑 ) ∪ L2(𝜑 ) ⊆⋃︁  
+
+> 𝑎 ∈vars 𝐴 𝑗 (𝜑 )
+
+⋃︁ 𝑖 ∈I(𝐴 𝑗 ,𝜑 )
+
+L𝜑 
+
+> 0
+
+(𝑎, 𝑖 ).
+
+Thus, we have shown that for every literal 𝑙 ∈ L1(𝜑 ) ∪ L2(𝜑 ), we have ℬ | = 𝑙 .
+
+A.6.2. Satisfaction of L3(𝜑 )
+
+Let 𝑎 ∈ vars 𝐴 𝑗 (𝜑 ) for some 𝑗 ∈ [1 , 𝑛 ]. Note that: 
+
+𝑓 ℬ 
+
+> 𝐴 𝑗
+
+(𝑎 *ℬ ) = 𝑓 ℬ 
+
+> 𝐴 𝑗
+
+(𝑐 𝑗 (𝑎 𝒜 , . . . )) = Γ Arr (𝑎 𝒜 ) = 𝑎 ′ℬ 
+
+And: 
+
+𝑔 ℬ 
+
+> 𝐴 𝑗
+
+(𝑎 ′ℬ ) = 𝑔 ℬ 
+
+> 𝐴 𝑗
+
+(Γ Arr (𝑎 𝒜 )) = Γ DT (𝑎 𝒜 ) = 𝑎 *ℬ 
+
+Thus, ∀𝑙 ∈ L3(𝜑 ).ℬ | = 𝑙 .
+
+# B. Completeness 
+
+In what follows, Σ continues to be the NDT signature of Σ1, . . . , Σ𝑛 +1 , where Σ1, . . . , Σ𝑛 are arrays signatures and Σ𝑛 +1 is a datatypes signature. In contrast to Theorem 35, the completeness result assumes that 𝑇 𝑛 +1 is stably infinite w.r.t. (︀⋃︀ 𝑛 𝑖 =1 𝒮 Σ𝑖 )︀ ∩ 𝒮 Σ𝑛 +1 , a.k.a. w.r.t. its shared sorts .
+
+Theorem 53. Let Σ be the NDT signature of Σ1, . . . , Σ𝑛 +1 such that 𝑇 𝑛 +1 is stably infinite w.r.t. (︀⋃︀  
+
+> 𝑛 𝑖 =1
+
+𝒮 Σ𝑖 )︀ ∩ 𝒮 Σ𝑛 +1 and let 𝜑 be a flat Σ-cube such that trFormula (𝜑 ) is 𝑇 𝜑 
+
+> new
+
+-satisfiable. Then 
+
+𝜑 is 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiable. 
+
+The main idea of this section is to generalize the construction of the interpretation presented in Table 13. 
+
+Example 54. Consider the formula 𝜓 from Table 12, and its translation trFormula (𝜓 ), also from Table 12. We already know from Example 36 that 𝜓 is 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-satisfiable, and from Theorem 35 we get that trFormula (𝜓 ) is 𝑇 𝜓 
+
+> new
+
+-satisfiable. We reuse these formulas in order to provide examples for the steps of our completeness proofs. Since our starting point should be a 𝑇 𝜓 
+
+> new
+
+-interpretation that satisfies 
+
+trFormula (𝜓 ), which may not be the one constructed in Appendix A, we define in Table 18 a new 
+
+𝑇 𝜓 
+
+> new
+
+-interpretation, not obtained from the process of Appendix A, that satisfies trFormula (𝜓 ). We shall later see that 𝜓 is 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-satisfiable, by constructing a satisfying 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-interpretation based on the one from Table 18. In turn, this satisfying interpretation will be different from the one shown in Table 13. 
+
+Roadmap. Assume ℬ | = trFormula (𝜑 ) for some arbitrary 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ. The goal is, of course, to construct a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 𝒜 that satisfies 𝜑 . This is carried out in steps: (i) Repairing ℬ. Starting from the given 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ, Appendix B.1 builds a well-behaved 
+
+𝑇 𝜑 
+
+> new
+
+-interpretation that still satisfies trFormula (𝜑 ).(ii) Defining the domains. Appendix B.2 defines the interpretation of every sort in the sought 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 𝒜 . In Appendix B.3 we prove several useful properties of these domains. (iii) Guaranteeing infinite |𝐸 𝒜  
+
+> 𝑖
+
+|. Appendix B.4 shows that ∀𝑖 ∈ [1 , 𝑛 ].|𝐸 𝒜  
+
+> 𝑖
+
+| = ∞. This is needed in order to define the interpretation of the variables. (iv) Defining the interpretation of the symbols. In Appendix B.5–Appendix B.6, we define the interpre-tation of the functions, predicates, and variables in 𝒜 .
+
+25 Domains 
+
+𝐼 * ^ℬ = N
+
+𝐴 ∘ ^ℬ = {𝛾 }
+
+𝐸 * ^ℬ = 𝑇 𝐸 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ 
+
+𝐴 * ^ℬ = 𝑇 𝐴 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ 
+
+𝐴 ′ ^ℬ = 𝐼 * ^ℬ → 𝐸 * ^ℬ
+
+Functions select , store : standard read/update on 𝐴 ′ ^ℬ.
+
+c* ^ℬ(𝑛, 𝑦 ) = c*(𝑛, 𝑦 )
+
+emp * ^ℬ = emp *
+
+id * ^ℬ(c*(𝑛, 𝑦 )) = 𝑛 , chld * ^ℬ(c*(𝑚, 𝑦 )) = 𝑦 
+
+id * ^ℬ(emp *) = 0 , chld * ^ℬ(emp *) = const (emp *)
+
+𝑓 ^ℬ 
+
+> 𝐴
+
+: constant function returning 𝑎 ′ ^ℬ.
+
+𝑔 ^ℬ
+
+> 𝐴
+
+: constant function returning 𝑎 * ^ℬ.
+
+Predicates 
+
+is ^ℬ 
+
+> c*
+
+(c*(𝑛, 𝑦 )) = true, is ^ℬ 
+
+> c*
+
+(emp *) = false, is ^ℬ 
+
+> emp *
+
+(emp *) = true, is ^ℬ 
+
+> emp *
+
+(c*(𝑛, 𝑦 )) = false. 
+
+Variables 
+
+𝑥 * ^ℬ = 𝑢 ^ℬ 
+
+> (𝑎, 1)
+
+= c*(︀ 3, 𝑐 1(𝛾, emp *))︀ 
+
+𝑎 ′ ^ℬ = const (𝑥 * ^ℬ) = const (c*(3 , 𝑐 1(𝛾, emp *))) 
+
+𝑗 * ^ℬ = 𝑘 * ^ℬ = 1 
+
+𝑎 * ^ℬ = 𝑐 1(︀ 𝛾, c*(3 , 𝑐 1(𝛾, emp *)) )︀ 
+
+𝑦 * ^ℬ = c*(︀ 1, 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) )︀ 
+
+Table 18 A Σ𝜓 
+
+> ndt
+
+–interpretation, ^ℬ, that satisfies trFormula (𝜓 ), from Table 12. Here 𝐵 is the 
+
+Elem Σ𝜓 
+
+> ndt
+
+–sorted set with 𝐵 𝜌 = 𝜌 ^ℬ for each 𝜌 ∈ Elem Σ𝜓 
+
+> ndt
+
+.
+
+(v) Proving that 𝒜 is a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation. In Appendix B.7, we show that the interpretation 𝒜 is a 
+
+𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation. (vi) Checking literal satisfaction. Finally, in Appendix B.8, we show that the interpretation 𝒜 satisfies every literal in 𝜑 .
+
+B.1. Creating a well-behaved interpretation 
+
+Given a 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ, that satisfies trFormula (𝜑 ), our overall goal is to construct a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 𝒜 that satisfies 𝜑 . Our first step is to transform ℬ to another interpretation that is more comfortable to work with. Namely, we construct a 𝑇 𝜑 
+
+> new
+
+-interpretation that satisfies trFormula (𝜑 ) and satisfies the following two requirements: (𝑖 ) the domains of all the sorts that are not in Struct Σ𝜑 𝑛 +1 
+
+∪
+
+Array Σ𝜑 (Array 𝑛𝑒𝑤𝑆𝑖𝑔 Σ = {𝐴 ′ 
+
+> 𝑖
+
+| 1 ≤ 𝑖 ≤ 𝑛 }, see Notation 1) are infinite; and (𝑖𝑖 ) the domains of array sorts consist of functions from the domains of their index sorts to the domains of their element sorts (while this is typically the “intended" semantics of arrays, other interpretations can be built that satisfy the axioms of the theory). We start with the following lemma, that establishes a simple property of datatype structures. 
+
+Lemma 55. Let ΣDT be a datatype signature, and let ¯𝐵 and ˜𝐵 be Elem ΣDT -sorted sets with ¯𝐵 𝜏 ⊆ ˜𝐵 𝜏 
+
+for every 𝜏 ∈ Elem ΣDT . Then for all 𝜎 ∈ 𝒮 ΣDT 𝑇 𝜎 (︀ ΣDT |𝒞𝒪 ΣDT , ¯𝐵 )︀ ⊆ 𝑇 𝜎 (︀ ΣDT |𝒞𝒪 ΣDT , ˜𝐵 )︀ .
+
+26 Domains 
+
+𝐼 *ℬ = N
+
+𝐴 ∘ℬ = {𝛾, 𝛿 }
+
+𝐸 *ℬ = 𝑇 𝐸 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ = {emp *}
+
+𝐴 *ℬ = 𝑇 𝐴 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ = {𝑐 1(𝛾 ), 𝑐 1(𝛿 )}
+
+𝑆 *ℬ = 𝑇 𝑆 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ = {c*(𝑐 1(𝛾 )) , c*(𝑐 1(𝛿 )) }
+
+𝐴 ′ℬ = 𝐼 *ℬ → 𝐸 *ℬ 
+
+Functions select , store : standard read/update on 𝐴 ′ℬ .
+
+c*ℬ (𝑦 ) = c*(𝑦 )
+
+emp *ℬ = emp *
+
+𝑐 ℬ 
+
+> 1
+
+(𝑢 ) = 𝑐 1(𝑢 )
+
+𝑠 ℬ
+
+> (c*,1)
+
+(c*(𝑦 )) = 𝑦 𝑠 ℬ
+
+> (𝑐 1,1)
+
+(𝑐 1(𝑢 )) = 𝑢 𝑓 ℬ 
+
+> 𝐴
+
+: constant function returning an arbitrary constant value. 
+
+𝑔 ℬ
+
+> 𝐴
+
+: constant function returning an arbitrary constant value. 
+
+Predicates is ℬ 
+
+> c*
+
+(c*(𝑦 )) = true, is ℬ 
+
+> emp *
+
+(emp *) = true, is ℬ 
+
+> emp *
+
+(emp *) = true. 
+
+Variables 𝑥 *ℬ = c*(𝑐 1(𝛾 )) 
+
+𝑦 *ℬ = c*(𝑐 1(𝛿 )) 
+
+Table 19 A Σ𝜓 
+
+> ndt
+
+–interpretation ℬ satisfying 𝑥 *̸ = 𝑦 *. Here 𝐵 is the Elem Σ𝜓 
+
+> ndt
+
+–sorted set with 𝐵 𝜌 = 𝜌 ℬ
+
+for each 𝜌 ∈ Elem Σ𝜓 
+
+> ndt
+
+.
+
+Proof : First, we denote ̃︂ ΣDT := Σ DT |𝒞𝒪 ΣDT for brevity. If 𝜎 ∈ Elem , then by definition, for every 𝑘 ,
+
+𝑇 𝜎,𝑘 (̃︂ ΣDT , ¯𝐵 ) = ¯𝐵 𝜎 ⊆ ˜𝐵 𝜎 = 𝑇 𝜎,𝑘 (̃︂ ΣDT , ˜𝐵 ).
+
+Now let 𝜎 ∈ Struct . We argue by induction on 𝑘 that 𝑇 𝜎,𝑘 (︀̃︂ ΣDT , ¯𝐵 )︀ ⊆ 𝑇 𝜎,𝑘 (︀̃︂ ΣDT , ˜𝐵 )︀ .
+
+Base ( 𝑘 = 0 ). 
+
+𝑇 𝜎, 0(̃︂ ΣDT , ¯𝐵 ) = ∅ ⊆ 𝑇 𝜎, 0(̃︂ ΣDT , ˜𝐵 ).
+
+Step. Suppose 𝑇 𝜏,𝑘 (̃︂ ΣDT , ¯𝐵 ) ⊆ 𝑇 𝜏,𝑘 (̃︂ ΣDT , ˜𝐵 ) for every 𝜏 . Then 
+
+𝑇 𝜎,𝑘 +1 (̃︂ ΣDT , ¯𝐵 ) = 𝑇 𝜎,𝑘 (̃︂ ΣDT , ¯𝐵 ) ∪{︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) | 𝑐 : 𝜎 1 × · · · × 𝜎 𝑛 → 𝜎, 𝑡 𝑗 ∈ 𝑇 𝜎 𝑗 ,𝑘 (̃︂ ΣDT , ¯𝐵 )}︀ .
+
+By the IH each 𝑡 𝑗 ∈ 𝑇 𝜎 𝑗 ,𝑘 (̃︂ ΣDT , ˜𝐵 ), so each 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) lies in 𝑇 𝜎,𝑘 +1 (̃︂ ΣDT , ˜𝐵 ). Hence 𝑇 𝜎 (̃︂ ΣDT , ¯𝐵 ) = ⋃︀  
+
+> 𝑘 ∈N
+
+𝑇 𝜎,𝑘 (̃︂ ΣDT , ¯𝐵 ) ⊆⋃︀ 𝑘 ∈N 𝑇 𝜎,𝑘 (̃︂ ΣDT , ˜𝐵 ) = 𝑇 𝜎 (̃︂ ΣDT , ˜𝐵 ) □
+
+Lemma 56. Let ℬ be a 𝑇 𝜑 
+
+> new
+
+-interpretation that satisfies a flat Σ𝜑 -cube 𝜃 . Then, there exists 𝒞 , a 
+
+𝑇 𝜑 
+
+> new
+
+-interpretation that satisfies 𝜃 such that: 1. ∀𝜎 ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ).|𝜎 𝒞 | = ∞.2. ∀𝑖 ∈ [1 , 𝑛 ].𝐴 ′𝒞  
+
+> 𝑖
+
+= 𝐼 *  
+
+> 𝑖 𝒞
+
+→ 𝐸 *  
+
+> 𝑖 𝒞
+
+.3. The select 𝐴 ′ 
+
+> 𝑖
+
+and store 𝐴 ′ 
+
+> 𝑖
+
+functions are interpreted in the usual way for every 𝑖 ∈ [1 , 𝑛 ].Proof : W.l.o.g., we can assume that the domains in ℬ of all the sorts in 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 )
+
+are completely fresh and flat (i.e., they in particular do not contain any constructor symbols in them, or more specifically, we may assume that they are “copies" of subsets of the natural numbers). In order to show the existence of such 𝒞 , we go through the following steps: 
+
+27 Sort (in 𝒮 Σ𝜑 ) Original sort (in 𝒮 Σ) Domain chosen in 𝒞 
+
+𝐴 𝑖 ∘ 𝐴 𝑖 ∈ Array Σ 𝐴 𝑖 ∘𝒞 =
+
+⎧⎨⎩
+
+𝐴 𝑖 ∘ℬ ∪ { 𝑒 𝐴 𝑖 ∘ 
+
+> 𝑘
+
+| 𝑘 ∈ N} if |𝐴 𝑖 ∘ℬ | < ∞
+
+𝐴 𝑖 ∘ℬ otherwise 
+
+𝜏 * 𝜏 ∈ 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 ) 𝜏 *𝒞 =
+
+⎧⎨⎩
+
+𝜏 *ℬ ∪ { 𝑒 𝜏 * 
+
+> 𝑘
+
+| 𝑘 ∈ N} if |𝜏 *ℬ | < ∞
+
+𝜏 *ℬ otherwise 
+
+𝜏 ∈ Struct Σ𝑛 +1 ∪ Array Σ 𝜏 *𝒞 = 𝑇 𝜏 *(︀ Σ𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝐵 )︀ 
+
+𝐴 ′ 
+
+> 𝑖
+
+𝐴 𝑖 ∈ Array Σ 𝐴 ′𝒞  
+
+> 𝑖
+
+= 𝐼 * 
+
+> 𝑖
+> 𝒞
+
+→ 𝐸 *
+
+> 𝑖
+> 𝒞
+
+Table 20 Interpretations of the sorts in 𝒞 . The set {𝑒 𝜎 𝑘 | 𝑘 ∈ N} consists of countably many fresh elements. 𝐵 is the Elem Σ𝜑 -sorted set with 𝐵 𝜌 = 𝜌 𝒞 for every 𝜌 ∈ Elem Σ𝜑 .
+
+1. We define the domains of the sorts in 𝒞 .2. We define the interpretations of the symbols in 𝒞 .3. We show that 𝒞 is a 𝑇 𝜑 
+
+> new
+
+-interpretation. 4. We show that every literal in 𝜑 is satisfied by 𝒞 .
+
+1. Defining the domains. The domains of the sorts in Σ𝜑 are defined in Table 20. Let there be 
+
+𝜎 ∈ 𝒮 Σ𝜑 . We have three cases to consider: 1. If 𝜎 = 𝐴 𝑖 ∘ for some 𝑖 ∈ [1 , 𝑛 ] then 𝜎 is interpreted in 𝒞 exactly in the same way it is interpreted in 
+
+ℬ if its domain is already infinite. Otherwise, we add infinitely many fresh elements to it, denoted as {𝑒 𝐴 𝑖 ∘ 
+
+> 𝑘
+
+| 𝑘 ∈ N}.2. If 𝜎 = 𝜏 * for some sort 𝜏 , there are two sub-cases. a) If 𝜏 is neither in Struct Σ𝑛 +1 nor in Array Σ, then according to Table 5, 𝜏 * /∈ Struct Σ𝜑 𝑛 +1 
+
+.We want to make sure that the cardinality of 𝜏 *𝒞 is infinite, so if 𝜏 *ℬ is finite, we add infinitely many fresh elements to it, denoted as {𝑒 𝜏 * 
+
+> 𝑘
+
+| 𝑘 ∈ N}. If 𝜏 *ℬ is already infinite, we simply set 
+
+𝜏 *𝒞 = 𝜏 *ℬ .b) Otherwise, 𝜏 is in Array Σ, or in Struct Σ𝑛 +1 , and thus, according to Table 5, 𝜏 * ∈
+
+Struct Σ𝜑 𝑛 +1 
+
+, and we interpret 𝜏 * in 𝒞 as the set of trees defined in Definition 5. (Note that the interpretations of all the sorts in Elem Σ𝜑 have already been defined in 𝒞 as described in items 1 and 2a above, corresponding to the structure specified by Table 5). 3. If 𝜎 = 𝐴 ′ 
+
+> 𝑖
+
+for some 𝑖 ∈ [1 , 𝑛 ], we interpret 𝐴 ′ 
+
+> 𝑖
+
+in 𝒞 as the set of functions from 𝐼 *  
+
+> 𝑖 𝒞
+
+to 𝐸 *  
+
+> 𝑖 𝒞
+
+.By Lemma 55 we have ∀𝜎 ∈ 𝒮 Σ.𝜎 *ℬ ⊆ 𝜎 *𝒞 .
+
+2. Defining the interpretation of the variables. For every 𝜎 ∈ 𝒮 Σ𝜑 , we choose an arbitrary element d𝜎 ∈ 𝜎 𝒞 .We also create for every 𝑖 ∈ [1 , 𝑛 ] a mapping Ψ𝑖 : 𝐴 ′ℬ  
+
+> 𝑖
+
+→ 𝐴 ′𝒞  
+
+> 𝑖
+
+. Let there be 𝑥 ∈ 𝐴 ′ℬ  
+
+> 𝑖
+
+. Note that 𝐴 ′𝒞  
+
+> 𝑖
+
+is the set of functions from 𝐼 *  
+
+> 𝑖 𝒞
+
+to 𝐸 *  
+
+> 𝑖 𝒞
+
+, and thus we can define Ψ𝑖 (𝑥 ) : 𝐼 *  
+
+> 𝑖 𝒞
+
+→ 𝐸 *  
+
+> 𝑖 𝒞
+
+in the following way: 
+
+∀𝑗 ∈ 𝐼 *  
+
+> 𝑖 𝒞
+
+.Ψ𝑖 (𝑥 )( 𝑗 ) = {︃ select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑥, 𝑗 ) if 𝑗 ∈ 𝐼 * 
+
+> 𝑖 ℬ
+
+d𝐸 * 
+
+> 𝑖
+
+otherwise This is well defined since select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑥, 𝑗 ) ∈ 𝐸 *  
+
+> 𝑖 ℬ
+
+⊆ 𝐸 *  
+
+> 𝑖 𝒞
+
+for every 𝑗 ∈ 𝐼 * 
+
+> 𝑖 ℬ
+
+, and d𝐸 * 
+
+> 𝑖
+
+∈ 𝐸 *  
+
+> 𝑖 𝒞
+
+.The mapping Ψ𝑖 is an injection: let there be 𝑎, 𝑏 ∈ 𝐴 ′ℬ  
+
+> 𝑖
+
+such that 𝑎 ̸ = 𝑏 . Then, there exists 𝑗 ∈ 𝐼 * 
+
+> 𝑖 ℬ
+
+such that select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎, 𝑗 )̸ = select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏, 𝑗 ). Thus, Ψ𝑖 (𝑎 )( 𝑗 )̸ = Ψ 𝑖 (𝑏 )( 𝑗 ).The variables are interpreted in 𝒞 as follows: 
+
+28 1. For every array variable 𝑎 of sort 𝐴 ′
+
+> 𝑖
+
+, we set 𝑎 𝒞 = Ψ 𝑖 (𝑎 ℬ).2. For every variable of any other sort ( 𝒮 Σ𝜑 ∖ Array Σ𝜑 ) , we set 𝑥 𝒞 = 𝑥 ℬ. This is well defined since we have shown that ∀𝜎 ∈ 𝒮 Σ.𝜎 *ℬ ⊆ 𝜎 *𝒞 .
+
+3. Defining the interpretation of the functions and predicates. The function symbols in 𝒞 are interpreted as follows: 1. For every 𝑖 ∈ [1 , 𝑛 ], the select 𝐴 ′ 
+
+> 𝑖
+
+function symbol is interpreted as 
+
+select 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎, 𝑗 ) = 𝑎 (𝑗 )
+
+2. For every 𝑖 ∈ [1 , 𝑛 ], the store 𝐴 ′ 
+
+> 𝑖
+
+function symbol is interpreted as 
+
+store 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎, 𝑗, 𝑣 )( 𝑘 ) = {︃ 𝑣 if 𝑘 = 𝑗 𝑎 (𝑘 ) otherwise 3. The constructor symbols are interpreted according to the datatype theory. 4. The selector symbols are interpreted as follows ( 𝑠 (𝑐,𝑖 ) : 𝜎 * → 𝜏 * when 𝜎, 𝜏 ∈ 𝒮 Σ): 
+
+𝑠 𝒞 
+
+> (𝑐,𝑖 )
+
+(𝑥 ) = 
+
+⎧⎪⎨⎪⎩
+
+𝑡 𝑖 if 𝑥 = 𝑐 (𝑡 1, . . . , 𝑡 𝑛 )
+
+𝑠 ℬ
+
+> (𝑐,𝑖 )
+
+(𝑥 ) otherwise, if 𝑥 ∈ 𝜎 *ℬ 
+
+d𝜏 * otherwise Note that this function is well defined since 𝜏 *ℬ ⊆ 𝜏 *𝒞 and thus 𝑠 ℬ
+
+> (𝑐,𝑖 )
+
+(𝑥 ) ∈ 𝜏 *𝒞 when 𝑥 ∈ 𝜎 *ℬ .5. For every function symbol 𝑓 𝐴 𝑖 of arity 𝐴 * 
+
+> 𝑖
+
+→ 𝐴 ′
+
+> 𝑖
+
+, we define: 
+
+𝑓 𝒞  
+
+> 𝐴 𝑖
+
+(𝑥 ) = {︃ Ψ𝑖 (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 )) if 𝑥 ∈ 𝐴 * 
+
+> 𝑖 ℬ
+
+d𝐴 ′ 
+
+> 𝑖
+
+otherwise Note that this function is well defined since 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+: 𝐴 *  
+
+> 𝑖 ℬ
+
+→ 𝐴 ′ℬ  
+
+> 𝑖
+
+and Ψ𝑖 : 𝐴 ′ℬ  
+
+> 𝑖
+
+→ 𝐴 ′𝒞  
+
+> 𝑖
+
+. Thus, we have that Ψ𝑖 (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 )) ∈ 𝐴 ′𝒞  
+
+> 𝑖
+
+for every 𝑥 ∈ 𝐴 * 
+
+> 𝑖 ℬ
+
+.6. For every function symbol 𝑔 𝐴 𝑖 of arity 𝐴 ′ 
+
+> 𝑖
+
+→ 𝐴 * 
+
+> 𝑖
+
+, we set 
+
+𝑔 𝒞  
+
+> 𝐴 𝑖
+
+(𝑥 ) = {︃ 𝑔 ℬ 
+
+> 𝐴 𝑖
+
+(Ψ −1 
+
+> 𝑖
+
+(𝑥 )) if Ψ−1 
+
+> 𝑖
+
+(𝑥 )̸ = ∅
+
+d𝐴 * 
+
+> 𝑖
+
+otherwise .Note that this function is well defined. First, we have already shown that Ψ𝑖 is injective, so Ψ−1 
+
+> 𝑖
+
+(𝑥 )
+
+contains a single element, if any. Second, since Ψ𝑖 : 𝐴 ′ℬ  
+
+> 𝑖
+
+→ 𝐴 ′𝒞  
+
+> 𝑖
+
+, we know that the restricted inverse 
+
+Ψ−1 
+
+> 𝑖
+
+↾{𝑦 ∈𝐴 ′𝒞    
+
+> 𝑖 |Ψ−1
+> 𝑖 (𝑦 )̸=∅}
+
+: {𝑦 ∈ 𝐴 ′𝒞  
+
+> 𝑖
+
+| Ψ−1 
+
+> 𝑖
+
+(𝑦 )̸ = ∅} → 𝐴 ′ℬ 
+
+> 𝑖
+
+is well defined. Thus, as 𝑔 ℬ 
+
+> 𝐴 𝑖
+
+: 𝐴 ′ℬ  
+
+> 𝑖
+
+→ 𝐴 *  
+
+> 𝑖 ℬ
+
+and 𝐴 *  
+
+> 𝑖 ℬ
+
+⊆ 𝐴 *  
+
+> 𝑖 𝒞
+
+, we have that 𝑔 ℬ 
+
+> 𝐴 𝑖
+
+(Ψ −1 
+
+> 𝑖
+
+(𝑥 )) ∈ 𝐴 *  
+
+> 𝑖 𝒞
+
+when Ψ−1 
+
+> 𝑖
+
+(𝑥 )̸ = ∅.7. The tester symbols are interpreted in the standard way for datatype structors: 
+
+∀𝑐 ∈ 𝒞𝒪 Σ𝜑 . is 𝒞  
+
+> 𝑐
+
+(𝑥 ) = {︃ 𝑡𝑟𝑢𝑒 if 𝑥 = 𝑐 (. . . )
+
+𝑓 𝑎𝑙𝑠𝑒 otherwise By the way 𝒞 interprets the select 𝐴 ′ 
+
+> 𝑗
+
+and store 𝐴 ′ 
+
+> 𝑗
+
+for every 𝑗 ∈ [1 , 𝑛 ], we get that 𝒞 Σ* 
+
+> 𝑗
+
+is an array 
+
+Σ* 
+
+> 𝑗
+
+-structure. Likewise, 𝒞 Σ𝜑 
+
+is a datatype Σ𝜑 -structure. 
+
+29 3. Showing that 𝒞 is a 𝑇 𝜑 
+
+> new
+
+-interpretation. Recall that 𝑇 𝜑  
+
+> new
+
+=(︁⨄︀ 𝑛 𝑗 =1 𝑇 *
+
+> 𝑗
+
+)︁ ⊎ 𝑇 𝜑 𝑛 +1 ⊎ 𝑇 𝑛 +2 .
+
+For each 𝑗 ∈ [1 , 𝑛 ], the reduct 𝒞 Σ* 
+
+> 𝑗
+
+interprets select 𝐴 ′ 
+
+> 𝑗
+
+and store 𝐴 ′ 
+
+> 𝑗
+
+in the standard way for an arrays structure. On Σ𝜑 𝑛 +1 , 𝒞 uses the usual tree-based interpretation of constructors, selectors and testers (see Definition 6). By construction, each selector and tester in Σ𝜑 𝑛 +1 obeys the requirements of datatypes structures. Finally, on Σ𝑛 +2 we only have the symbols 𝑓 𝐴 𝑗 and 𝑔 𝐴 𝑗 , and there is no restriction on their interpretation. 
+
+4. Showing that 𝒞 satisfies every literal in 𝜑 . Let ℓ be a literal in 𝜑 . Suppose ℬ satisfies ℓ. We prove 𝒞 satisfies it, by considering all of its possible shapes. 1. For a literal of the form 𝑥 = 𝑦 , there are two cases: a) If the sort of 𝑥 and 𝑦 is 𝐴 ′
+
+> 𝑖
+
+, then: 
+
+𝑥 𝒞 = Ψ 𝑖 (𝑥 ℬ) = Ψ 𝑖 (𝑦 ℬ) = 𝑦 𝒞 .
+
+b) If the sort of 𝑥 and 𝑦 is not 𝐴 ′
+
+> 𝑖
+
+, then we have that 
+
+𝑥 𝒞 = 𝑥 ℬ = 𝑦 ℬ = 𝑦 𝒞 .
+
+2. For a literal of the form 𝑥 ̸ = 𝑦 , there are two cases: a) If the sort of 𝑥 and 𝑦 is 𝐴 ′
+
+> 𝑖
+
+, the injectivity of Ψ𝑖 ensures that: 
+
+𝑥 𝒞 = Ψ 𝑖 (𝑥 ℬ)̸ = Ψ 𝑖 (𝑦 ℬ) = 𝑦 𝒞 .
+
+b) If the sort of 𝑥 and 𝑦 is not 𝐴 ′
+
+> 𝑖
+
+, then we have that 
+
+𝑥 𝒞 = 𝑥 ℬ̸ = 𝑦 ℬ = 𝑦 𝒞 .
+
+3. For a literal of the form 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎, 𝑗 ), we have that 
+
+𝑥 𝒞 = 𝑥 ℬ = select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ℬ, 𝑗 ℬ) = 𝑎 𝒞 (𝑗 𝒞 ) = select 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 𝒞 , 𝑗 𝒞 ).
+
+The first equality holds since 𝑥 ∈ vars 𝐸 𝑖 (𝜓 ) and thus 𝑥 𝒞 = 𝑥 ℬ. The second equality holds because 
+
+ℬ satisfies the literal 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎, 𝑗 ). The third equality holds by the definition of array variables in 𝒞 . The fourth equality holds by the interpretation of the select 𝐴 ′ 
+
+> 𝑖
+
+function symbol in 𝒞 .4. For a literal of the form 𝑏 = store 𝐴 ′ 
+
+> 𝑖
+
+(𝑎, 𝑖, 𝑣 ), we already know that 
+
+𝑏 ℬ = store ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ℬ, 𝑖 ℬ, 𝑣 ℬ).
+
+Thus: a) select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ℬ, 𝑖 ℬ) = 𝑣 ℬ.b) ∀𝑘 ∈ 𝐼 *  
+
+> 𝑖 ℬ
+
+∖ { 𝑖 ℬ}.select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ℬ, 𝑘 ) = select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ℬ, 𝑘 ).
+
+Let there be 𝑘 ∈ 𝐼 *  
+
+> 𝑖 𝒞
+
+. Since, 𝐼 𝑖 ∈ 𝒮 Σ ∖ (Struct ∪ Array ), we have that 𝐼 *  
+
+> 𝑖 ℬ
+
+⊆ 𝐼 *  
+
+> 𝑖 𝒞
+
+. Hence, 
+
+𝐼 *  
+
+> 𝑖 𝒞
+
+= {𝑖 𝒞 } ∪ (𝐼 *  
+
+> 𝑖 ℬ
+
+∖ { 𝑖 𝒞 }) ∪ (𝐼 *  
+
+> 𝑖 𝒞
+
+∖ 𝐼 * 
+
+> 𝑖 ℬ
+
+) and since 𝑖 𝒞 = 𝑖 ℬ there are three cases: a) If 𝑘 = 𝑖 𝒞 , then 
+
+store 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 𝒞 , 𝑖 𝒞 , 𝑣 𝒞 )( 𝑘 ) = 𝑣 𝒞 = 𝑣 ℬ = select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ℬ, 𝑖 ℬ) = 𝑏 𝒞 (𝑘 ).
+
+The first equality holds by the definition of store 𝒞 
+
+> 𝐴 ′
+> 𝑖
+
+, the second equality holds since the 
+
+𝑣 𝒞 ∈ 𝐸 *  
+
+> 𝑖 𝒞
+
+, and thus 𝑣 𝒞 = 𝑣 ℬ, the third equality is the first equality derived from the fact that 𝑏 ℬ = store ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ℬ, 𝑖 ℬ, 𝑣 ℬ), and the last equality holds by the definition of select 𝒞 
+
+> 𝐴 ′
+> 𝑖
+
+and by substituting 𝑘 = 𝑖 𝒞 = 𝑖 ℬ.
+
+30 b) If 𝑘 ∈ 𝐼 *  
+
+> 𝑖 ℬ
+
+∖ { 𝑖 𝒞 }, then 
+
+store 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 𝒞 , 𝑖 𝒞 , 𝑣 𝒞 )( 𝑘 ) = 𝑎 𝒞 (𝑘 ) = select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ℬ, 𝑘 ) = select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ℬ, 𝑘 ) = 𝑏 𝒞 (𝑘 ).
+
+c) If 𝑘 ∈ 𝐼 *  
+
+> 𝑖 𝒞
+
+∖ 𝐼 * 
+
+> 𝑖 ℬ
+
+, then 
+
+store 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 𝒞 , 𝑖 𝒞 , 𝑣 𝒞 )( 𝑘 ) = 𝑎 𝒞 (𝑘 ) = d𝐸 * 
+
+> 𝑖
+
+= 𝑏 𝒞 (𝑘 ).
+
+Thus, because of the extensionality axiom, we have that 
+
+𝑏 𝒞 = store 𝒞  
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 𝒞 , 𝑖 𝒞 , 𝑣 𝒞 )
+
+5. For a literal of the form 𝑦 = 𝑐 (𝑥 1, . . . , 𝑥 𝑛 ), we have that 
+
+𝑦 𝒞 = 𝑦 ℬ = 𝑐 ℬ(𝑥 ℬ 
+
+> 1
+
+, . . . , 𝑥 ℬ 
+
+> 𝑛
+
+) = 𝑐 𝒞 (𝑥 𝒞  
+
+> 1
+
+, . . . , 𝑥 𝒞 
+
+> 𝑛
+
+)
+
+6. For a literal of the form 𝑥 = 𝑠 (𝑐,𝑖 )(𝑦 ), we have that 
+
+𝑥 𝒞 = 𝑥 ℬ = 𝑠 ℬ
+
+> (𝑐,𝑖 )
+
+(𝑦 ℬ) = 𝑠 𝒞 
+
+> (𝑐,𝑖 )
+
+(𝑦 𝒞 )
+
+7. For a literal of the form is 𝑐 (𝑦 ) or ¬is 𝑐 (𝑦 ), we have that 𝑦 𝒞 is an application of a constructor 𝑐 if and only if 𝑦 ℬ is an application of a constructor 𝑐 .8. For a literal of the form 𝑎 = 𝑓 𝐴 𝑖 (𝑥 ), we have that 
+
+𝑎 𝒞 = Ψ 𝑖 (𝑎 ℬ) = Ψ 𝑖 (𝑓 ℬ 
+
+> 𝐴
+
+(𝑥 ℬ)) = 𝑓 𝒞 
+
+> 𝐴
+
+(𝑥 𝒞 ).
+
+9. For a literal of the form 𝑥 = 𝑔 𝐴 𝑖 (𝑎 ), we have that 
+
+𝑥 𝒞 = 𝑥 ℬ = 𝑔 ℬ
+
+> 𝐴
+
+(𝑎 ℬ) = 𝑔 ℬ
+
+> 𝐴
+
+(Ψ −1 
+
+> 𝑖
+
+(Ψ 𝑖 (𝑎 ℬ))) = 𝑔 𝒞 
+
+> 𝐴
+
+(𝑎 𝒞 ).
+
+□
+
+Example 57. Consider ^ℬ from Table 18, which satisfies the formula trFormula (𝜓 ) (Table 12). Accord-ing to Lemma 56, we can construct a Σ𝜓 
+
+> ndt
+
+-interpretation ℬ1 that satisfies the same formula, and the three conditions specified in Lemma 56. This new interpretation ℬ1 is defined in Table 21. 
+
+B.2. Defining the Domains of the 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 
+
+Recall that starting from a 𝑇 𝜑  
+
+> new
+
+interpretation ℬ, we are constructing a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 𝒜 . Due to Lemma 56 we can assume that the conditions it specifies hold. We define the domains of 𝒜 as follows. For each sort 𝜎 ∈ 𝒮 Σ, we inductively define a sequence 
+
+{𝜎 𝑖 }𝑖 ∈N in Table 22, and then set 𝜎 𝒜 =⋃︀ 𝑖 ∈N 𝜎 𝑖 .
+
+Example 58. Consider again the formula 𝜓 in Table 12. We have seen in Example 57 that trFormula (𝜓 )
+
+is satisfied by the interpretation ℬ1 from Table 21. The domains of the sorts in the above construction are the same as those in Table 13 (The interpretations of the variables may differ). 
+
+Our next goal is to show that the defined domains are indeed non-empty. In order to prove it we first show the following lemma: 
+
+Lemma 59. For every sort 𝜎 ∈ 𝒮 Σ and every 𝑖 ∈ N, 𝜎 𝑖 ⊆ 𝜎 𝑖 +1 .
+
+31 Domains 
+
+𝐼 *ℬ 1 = N
+
+𝐴 ∘ℬ 1 = {𝛾 } ∪ { 𝑒 𝐴 ∘ 
+
+> 𝑘
+
+| 𝑘 ∈ N}
+
+𝐸 *ℬ 1 = 𝑇 𝐸 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ 
+
+𝐴 *ℬ 1 = 𝑇 𝐴 *(︀ Σ𝜓 
+
+> ndt |𝒞𝒪 Σ𝜓
+> ndt
+
+, 𝐵 )︀ 
+
+𝐴 ′ℬ 1 = 𝐼 *ℬ 1 → 𝐸 *ℬ 1
+
+Functions select , store : standard read/update on 𝐴 ′ℬ 1 .
+
+c*ℬ 1 (𝑛, 𝑦 ) = c*(𝑛, 𝑦 )
+
+id *ℬ 1 (c*(𝑛, 𝑦 )) = 𝑛 , chld *ℬ 1 (c*(𝑚, 𝑦 )) = 𝑦 
+
+id *ℬ 1 (emp *) = 0 , chld *ℬ 1 (emp *) = const (emp *)
+
+𝑓 ℬ1 
+
+> 𝐴
+
+: constant function returning 𝑎 ′ℬ 1 .
+
+𝑔 ℬ1 
+
+> 𝐴
+
+: constant function returning 𝑎 *ℬ 1 .
+
+Predicates 
+
+is ℬ1 
+
+> c*
+
+(c*(𝑛, 𝑦 )) = true, is ℬ1 
+
+> c*
+
+(emp *) = false, is ℬ1 
+
+> emp *
+
+(emp *) = true, is ℬ1 
+
+> emp *
+
+(c*(𝑛, 𝑦 )) = false. 
+
+Variables 
+
+𝑥 *ℬ 1 = 𝑢 ℬ1 
+
+> (𝑎, 1)
+
+= c*(︀ 3, 𝑐 1(𝛾, emp *))︀ 
+
+𝑎 ′ℬ 1 = const (𝑥 *ℬ 1 ) = const (c*(3 , 𝑐 1(𝛾, emp *))) 
+
+𝑗 *ℬ 1 = 𝑘 *ℬ 1 = 1 
+
+𝑎 *ℬ 1 = 𝑐 1(︀ 𝛾, c*(3 , 𝑐 1(𝛾, emp *)) )︀ 
+
+𝑦 *ℬ 1 = c*(︀ 1, 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) )︀ 
+
+Table 21 A Σ𝜓 
+
+> ndt
+
+–interpretation ℬ1. Here 𝐵 is the Elem Σ𝜓 
+
+> ndt
+
+–sorted set with 𝐵 𝜌 = 𝜌 ℬ1 for every 
+
+𝜌 ∈ Elem Σ𝜓 
+
+> ndt
+
+.
+
+Sort type Base case ( 𝑖 = 0 ) Inductive step 
+
+𝜎 ∈𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 ) 𝜎 0 = 𝜎 *ℬ 𝜎 𝑖 +1 = 𝜎 *ℬ 
+
+𝜎 = 𝐴 𝑗 (𝑗 ∈ [1 , 𝑛 ]) 𝜎 0 = ∅ 𝜎 𝑖 +1 = AC (𝐼 𝑖 𝑗 , 𝐸 𝑖 𝑗 )
+
+𝜎 ∈ Struct Σ𝑛 +1 𝜎 0 = ∅ 𝜎 𝑖 +1 = 𝜎 𝑖 ∪ 𝑇 𝜎 (︀ Σ|𝒞𝒪 , 𝐵 𝑖 )︀ , where 𝐵 𝑖 𝜏 =
+
+𝜏 𝑖 (𝜏 ∈ Elem )
+
+Table 22 Iterative construction of the domains 𝜎 𝑖 for each sort 𝜎 in 𝒜 . For each 𝜎 , 𝜎 𝒜 =⋃︀ 𝑖 ∈N 𝜎 𝑖 .
+
+Proof : We consider three cases depending on the nature of 𝜎 .1. If 𝜎 / ∈ Struct Σ𝑛 +1 ∪ Array Σ, then by definition 𝜎 𝑖 = 𝜎 *ℬ = 𝜎 𝑖 +1 , so the inclusion is immediate. 2. If 𝜎 ∈ Struct Σ𝑛 +1 , then 𝜎 𝑖 +1 = 𝜎 𝑖 ∪ 𝑇 𝜎 (︀ Σ|𝒞𝒪 , 𝐵 𝑖 )︀ , and hence 𝜎 𝑖 ⊆ 𝜎 𝑖 +1 .3. For all 𝑘 ∈ [1 , 𝑛 ], we use induction over 𝑖 ∈ N to show that 𝐴 𝑖 𝑘 ⊆ 𝐴 𝑖 +1 
+
+𝑘 .
+
+base: if 𝑖 = 0 , then 𝐴 0
+
+𝑘 = ∅,
+
+inductive step: If 𝑖 ≥ 1, then since 𝐸 𝑖 −1
+
+𝑘 ⊆ 𝐸 𝑖 𝑘 and 𝐼 𝑖 −1
+
+𝑘 = 𝐼 𝑖 𝑘 , we have 
+
+𝐴 𝑖 𝑘 = AC (𝐼 𝑖 −1
+
+𝑘 , 𝐸 𝑖 −1
+
+𝑘 ) = AC (𝐼 𝑖 𝑘 , 𝐸 𝑖 −1
+
+𝑘 ) ⊆ AC (𝐼 𝑖 𝑘 , 𝐸 𝑖 𝑘 ) = 𝐴 𝑖 +1 
+
+𝑘 .
+
+The inclusion holds since enlarging the codomain 𝑌 in AC (𝑋, 𝑌 ) preserves all almost constant functions. 
+
+32 □
+
+Now we can prove that the domains of the sorts in Σ are non-empty. 
+
+Lemma 60. For every sort 𝜎 ∈ 𝒮 Σ, the domain 𝜎 𝒜 is nonempty. Proof : Let 𝑆 = 𝒮 Σ ∖(︀ Array Σ ∪ Struct Σ𝑛 +1 )︀ . Since all the sorts in 𝒮 Σ are well-founded with respect to 𝑆 , for each 𝜎 ∈ 𝒮 Σ there is some 𝑘 ∈ N with 𝜎 ∈ 𝐹 𝑘 (Σ , 𝑆 ) (see Definition 10). We prove by induction on 𝑘 that ∀𝜎 ∈ 𝐹 𝑘 (Σ , 𝑆 ). 𝜎 𝑘 ̸ = ∅.
+
+Base case ( 𝑘 = 0 ). Then 𝜎 ∈ 𝐹 0(Σ , 𝑆 ) = 𝑆 , and by definition 𝜎 0 = 𝜎 *ℬ , which is nonempty, as ℬ is an interpretation. 
+
+Inductive step. Assume the claim holds for 𝑘 . Take any 𝜎 ∈ 𝐹 𝑘 +1 (Σ , 𝑆 ). By definition 
+
+𝐹 𝑘 +1 = 𝐹 𝑘 ∪{︀ 𝜎 | ∃ 𝑐 : 𝜎 1 × · · · × 𝜎 𝑛 → 𝜎, 𝜎 𝑖 ∈ 𝐹 𝑘 }︀ ∪ { 𝐴 𝑖 | 𝐼 𝑖 , 𝐸 𝑖 ∈ 𝐹 𝑘 }.
+
+There are three cases: 1. If 𝜎 ∈ 𝐹 𝑘 , then 𝜎 𝑘 ̸ = ∅ by IH, so according to Lemma 59, 𝜎 𝑘 +1 ⊇ 𝜎 𝑘 ̸ = ∅.2. If there exists a constructor 𝑐 : 𝜎 1 × · · · × 𝜎 𝑛 → 𝜎 with each 𝜎 𝑖 ∈ 𝐹 𝑘 , then IH gives 𝜎 𝑘 𝑖 ̸ = ∅.Hence {︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) | 𝑡 𝑖 ∈ 𝜎 𝑘 𝑖 }︀ ⊆ 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 𝑘 ) ⊆ 𝜎 𝑘 +1 , so 𝜎 𝑘 +1 ̸ = ∅.3. If 𝜎 = 𝐴 𝑖 is an array sort where 𝐸 𝑖 , 𝐼 𝑖 ∈ 𝐹 𝑘 , then IH gives 𝐼 𝑘 𝑖 ̸ = ∅ and 𝐸 𝑘 𝑖 ̸ = ∅. Therefore: 
+
+𝐴 𝑘 +1  
+
+> 𝑖
+
+= AC (𝐼 𝑘 𝑖 , 𝐸 𝑘 𝑖 )̸ = ∅.Hence for each 𝜎 there is some 𝑘 with 𝜎 𝑘 ̸ = ∅, and so 𝜎 𝒜 =⋃︀ 𝑘 ∈N 𝜎 𝑘 is nonempty. □
+
+B.3. Properties of the Domains of the 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 
+
+In order to show that 𝒜 is a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation, we need to show that the relation ℛ𝒜 is well-founded (see Definition 16). 5
+
+We first prove the following lemmas, which provide a more intuitive understanding of the domains of the sorts in 𝒜 .
+
+Lemma 61. For every 𝑖 ∈ [1 , 𝑛 ]:
+
+𝐴 𝒜  
+
+> 𝑖
+
+= AC (𝐼 𝒜  
+
+> 𝑖
+
+, 𝐸 𝒜  
+
+> 𝑖
+
+).
+
+Proof : (⊇) Let there be 𝑡 ∈ AC (𝐼 𝒜  
+
+> 𝑖
+
+, 𝐸 𝒜  
+
+> 𝑖
+
+), then its image is finite and lies in ⋃︀ 𝑗 𝐸 𝑗 𝑖 = 𝐸 𝒜  
+
+> 𝑖
+
+. Lemma 59 suggests that ∀𝑗 ∈ N. 𝐸 𝑗 𝑖 ⊆ 𝐸 𝑗 +1  
+
+> 𝑖
+
+, so there exists a 𝑘 such that the image of 𝑡 lies in 𝐸 𝑘 𝑖 . Since 𝐼 𝒜  
+
+> 𝑖
+
+= 𝐼 𝑘 𝑖 ,we get 𝑡 ∈ AC (𝐼 𝑘 𝑖 , 𝐸 𝑘 𝑖 ) ⊆ 𝐴 𝒜  
+
+> 𝑖
+
+.
+
+(⊆) By definition 𝐴 𝒜  
+
+> 𝑖
+
+=⋃︀ 𝑗 ∈N AC (𝐼 𝑗 𝑖 , 𝐸 𝑗 𝑖 ), and each 𝐸 𝑗 𝑖 ⊆ 𝐸 𝒜  
+
+> 𝑖
+
+, 𝐼 𝑗 𝑖 = 𝐼 𝒜  
+
+> 𝑖
+
+, so AC (𝐼 𝑗 𝑖 , 𝐸 𝑗 𝑖 ) ⊆
+
+AC (𝐼 𝒜  
+
+> 𝑖
+
+, 𝐸 𝒜  
+
+> 𝑖
+
+). Hence 𝐴 𝒜  
+
+> 𝑖
+
+⊆ AC (𝐼 𝒜  
+
+> 𝑖
+
+, 𝐸 𝒜  
+
+> 𝑖
+
+).
+
+□
+
+Lemma 62. Let 𝐵 be the Elem -sorted set with 𝐵 𝜏 = 𝜏 𝒜 for every 𝜏 ∈ Elem . Then for every 
+
+𝜎 ∈ Struct . 𝜎 𝒜 = 𝑇 𝜎 (︀ Σ|𝒞𝒪 , 𝐵 )︀ .
+
+Proof : (⊆). Recall 𝜎 𝒜 =⋃︀ 𝑖 ≥0 𝜎 𝑖 with 
+
+𝜎 𝑖 +1 = 𝜎 𝑖 ∪ 𝑇 𝜎 (︀ Σ|𝒞𝒪 , 𝐵 𝑖 )︀ , ∀𝜏 ∈ Elem .𝐵 𝑖 𝜏 := 𝜏 𝑖 .  
+
+> 5Technically, 𝒜 has not been fully defined yet, however, for proving well-foundedness, the interpretations of the domains, the constructors and array operators suffice.
+
+33 For every 𝜏 ∈ Elem we have 𝐵 𝑖 𝜏 = 𝜏 𝑖 =⊆⋃︀ 𝑗 ∈N 𝜏 𝑗 = 𝐵 𝜏 
+
+so according to Lemma 55 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 𝑖 ) ⊆ 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 ) for all 𝑘 . Taking the union over 𝑖 yields 
+
+𝜎 𝒜 ⊆ 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 ).
+
+(⊇). For 𝜎 ∈ Struct we proceed by induction on 𝑘 that 𝑇 𝜎,𝑘 (Σ |𝒞𝒪 , 𝐵 ) ⊆ 𝜎 𝒜 .
+
+Base 𝑘 = 0 . 𝑇 𝜎, 0 = ∅ ⊆ 𝜎 𝒜 .
+
+Step. Assume 𝑇 𝜏,𝑘 (Σ |𝒞𝒪 , 𝐵 ) ⊆ 𝜏 𝒜 for all 𝜏 . Let 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) ∈ 𝑇 𝜎,𝑘 +1 (Σ |𝒞𝒪 , 𝐵 ); each 𝑡 𝑗 lies in 
+
+𝑇 𝜏 𝑗 ,𝑘 (Σ |𝒞𝒪 , 𝐵 ) and hence in 𝜏 𝒜  
+
+> 𝑗
+
+by the IH. Hence there exists 𝑙 1, . . . 𝑙 𝑚 such that ∀𝑗 ∈ { 1, . . . , 𝑚 }. 𝑡 𝑗 ∈
+
+𝑇 𝜏 𝑗 (Σ |𝒞𝒪 , 𝐵 𝑙 𝑗 ) Denoting 𝑙 = max {𝑙 1, . . . , 𝑙 𝑚 }, and since 𝐵 𝑙 𝑗  
+
+> 𝜏
+
+⊆ 𝐵 𝑙 𝜏 for every 𝜏 ∈ Elem , we have, according to Lemma 55 ∀𝑗 ∈ { 1, . . . , 𝑚 }. 𝑡 𝑗 ∈ 𝑇 𝜏 𝑗 (Σ |𝒞𝒪 , 𝐵 𝑙 ) Therefore 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) ∈ 𝑇 𝜏 (Σ |𝒞𝒪 , 𝐵 𝑙 ) ⊆
+
+𝜎 𝒜 . □
+
+B.4. Infiniteness of Each 𝐸 𝒜 
+
+> 𝑖
+
+In order to prove that each 𝐸 𝒜  
+
+> 𝑖
+
+is infinite, we first define the directed graph 𝐺 Σ = ( 𝑉, 𝐸 ) over the sorts of Σ, such that the edges go either from an output sort of a constructor into one of its input sorts, or from an array sort to its corresponding element sort. Formally: 
+
+Definition 63. Let Σ be an NDT signature. We define 𝐺 Σ = ( 𝑉, 𝐸 ) to be the directed graph with 
+
+𝑉 = 𝒮 Σ, 𝐸 = {(𝜎, 𝜎 𝑗 ) | ∃ 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 , 𝑗 ∈ [1 , 𝑘 ]} ∪ { (𝐴 𝑖 , 𝐸 𝑖 ) | 𝑗 ∈ [1 , 𝑛 ]}.
+
+A sort 𝜎 is called cyclic if there is a path with at least one edge in 𝐺 Σ that starts and ends with 𝜎 . A sort is called eventually cyclic if there is a nonempty path in 𝐺 Σ that starts with it and ends with a cyclic sort. 
+
+Note, that by definition every cyclic sort is also eventually cyclic. 
+
+Example 64. Consider Σndt from Table 1. Then the nodes in the graph are {𝐼, 𝐸, 𝐴 } and the edges are: 
+
+• 𝐸 → 𝐴 (from the constructor c)
+
+• 𝐸 → 𝐼 (from the constructor c)
+
+• 𝐴 → 𝐸 (from an array sort to its element sort) Thus, the cyclic sorts are 𝐸 and 𝐴 (and 𝐼 is not eventually cyclic as it has no outgoing edges). 
+
+Lemma 65. Let there be 𝜎, 𝜏 ∈ 𝒮 Σ such that there is a path in 𝐺 Σ from 𝜎 to 𝜏 . Then |𝜎 𝒜 | ≥ | 𝜏 𝒜 |.Proof : Write the (finite) path in 𝐺 Σ from 𝜎 to 𝜏 as 
+
+𝜎 = 𝜌 0 −→ 𝜌 1 −→ . . . −→ 𝜌 𝑙 = 𝜏 (𝑙 ≥ 0) .
+
+It is sufficient to show that for every 𝑖 ∈ [0 , 𝑙 − 1] .|𝜌 𝒜  
+
+> 𝑖
+
+| ≥ | 𝜌 𝒜 
+
+> 𝑖 +1
+
+|.By the definition of the graph, the edge (𝜌 𝑖 , 𝜌 𝑖 +1 ) can be justified due to one of the following two cases: (1) There is a constructor 𝑐 : 𝜏 1 . . . 𝜏 𝑘 → 𝜌 𝑖 such that 𝜌 𝑖 +1 = 𝜏 𝑗 for some 𝑗 .(2) 𝜌 𝑖 = 𝐴 𝑘 and 𝜌 𝑖 +1 = 𝐸 𝑘 for some 𝑘 ∈ [1 , 𝑛 ].In both cases, there exists an injective function 𝑓 𝑖 : 𝜌 𝒜  
+
+> 𝑖 +1
+
+→ 𝜌 𝒜  
+
+> 𝑖
+
+.1. In case (1), we fix for each 𝑠 ∈ [1 , 𝑘 ] ∖ { 𝑗 } some 𝑢 𝑠 ∈ 𝜏 𝒜  
+
+> 𝑠
+
+and define: 
+
+𝑓 𝑖 (𝑥 ) = 𝑐 (𝑢 1, . . . , 𝑢 𝑗 −1, 𝑥, 𝑢 𝑗 +1 , . . . , 𝑢 𝑘 ).
+
+2. In case (2), we define 𝑓 𝑖 (𝑥 ) as the constant array from 𝐼 𝒜  
+
+> 𝑘
+
+to 𝐸 𝒜  
+
+> 𝑘
+
+whose image is the singleton {𝑥 }.
+
+34 □
+
+Definition 66. Let ΣDT be a datatype signature and 𝒞 be a ΣDT -interpretation. For every 𝑥 ∈ 𝜎 𝒞 for some 𝜎 ∈ 𝒮 ΣDT , we define the minimum index of 𝑥 , denoted dtIdx (𝑥 ), as follows: dtIdx (𝑥 ) = min {𝑖 ∈ N | 𝑥 ∈ 𝑇 𝜎,𝑖 (Σ DT |𝒞𝒪 ΣDT , 𝐵 )}
+
+where 𝐵 is the Elem -sorted set with 𝐵 𝜏 = 𝜏 𝒞 for every 𝜏 ∈ Elem .
+
+The underlying signature and interpretation in Definition 66 will always be clear from context. We will make use of the following lemma concerning dtIdx (·) and we include its routine proof for completeness. 
+
+Lemma 67. Let ΣDT be a datatype signature and 𝒞 a ΣDT -interpretation. If 𝑥 = 𝑐 (𝑥 1, . . . , 𝑥 𝑟 ) ∈ 𝜎 𝒞 for some constructor 𝑐 : 𝜎 1 × · · · × 𝜎 𝑟 → 𝜎 ∈ 𝒞𝒪 ΣDT , then dtIdx (𝑥 ) = 1 + max {dtIdx (𝑥 1), . . . , dtIdx (𝑥 𝑟 )}.
+
+Proof : Let’s assume towards a contradiction that dtIdx (𝑥 ) = 0 . Since 𝜎 ∈ Struct ΣDT , 𝑇 𝜎, 0(Σ DT |𝒞𝒪 ΣDT , 𝐵 ) = 
+
+∅, in contradiction. Hence, dtIdx (𝑥 ) ≥ 1. Let’s denote dtIdx (𝑥 ) as 𝑘 +1 for some 𝑘 ∈ N and ^𝑘 = max {dtIdx (𝑥 1), . . . , dtIdx (𝑥 𝑟 )}.By definition of dtIdx (·), 𝑥 ∈ 𝑇 𝜎,𝑘 +1 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) ∖ 𝑇 𝜎,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ).Note that, by definition, 
+
+𝑇 𝜎,𝑘 +1 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) = 𝑇 𝜎,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) ∪{︁ 
+
+𝑐 (𝑡 1, . . . , 𝑡 𝑘 )⃒⃒⃒ 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 ΣDT ,𝑡 𝑖 ∈ 𝑇 𝜎 𝑖 ,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 )}︁ .
+
+Since 𝑥 / ∈ 𝑇 𝜎,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ), 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) for every 𝑖 ∈ [1 , 𝑟 ]. Since dtIdx (𝑥 𝑖 ) is the minimum index 𝑗 such that 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,𝑗 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) and 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ), dtIdx (𝑥 𝑖 ) ≤ 𝑘 .Thus, by definition of ^𝑘 , ^𝑘 ≤ 𝑘 .Since 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,dtIdx (𝑥 𝑖 )(Σ DT |𝒞𝒪 ΣDT , 𝐵 ) for every 𝑖 ∈ [1 , 𝑟 ], we know that 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,^𝑘 (Σ DT |𝒞𝒪 ΣDT , 𝐵 )
+
+for every 𝑖 ∈ [1 , 𝑟 ]. Hence, 𝑥 ∈ 𝑇 𝜎, ^𝑘 +1 (Σ DT |𝒞𝒪 ΣDT , 𝐵 ) and 𝑘 + 1 = dtIdx (𝑥 ) ≤ 1 + ^𝑘 .Thus 𝑘 = ^𝑘 and dtIdx (𝑥 ) = 1 + max {dtIdx (𝑥 1), . . . , dtIdx (𝑥 𝑟 )}. □
+
+Lemma 68. Let 𝜎 ∈ 𝒮 Σ be eventually cyclic . Then |𝜎 𝒜 | = ∞.Proof :Because 𝜎 is eventually cyclic, there is a path 
+
+𝜎 = 𝜎 𝑘 +ℓ → 𝜎 𝑘 +ℓ−1 → · · · → 𝜎 ℓ
+
+ending at a node 𝜎 ℓ that belongs to a directed cycle of some length ℓ:
+
+𝜎 0 → 𝜎 1 → · · · → 𝜎 ℓ (𝜎 ℓ = 𝜎 0).
+
+Due to Lemma 65, it is sufficient to show that |𝜎 𝒜  
+
+> ℓ
+
+| = ∞ in order to prove that |𝜎 𝒜 | = ∞.Consider the sorts 𝜎 0, 𝜎 1, . . . , 𝜎 ℓ that form a directed cycle in 𝐺 Σ.Let there be 𝑚 ∈ N, traversing the cycle 𝑚 additional times yields a path of length 𝑀 := 𝑚ℓ .We use induction over 𝑖 ∈ [0 , 𝑀 ] to define 𝑥 𝑖 ∈ 𝜎 𝒜  
+
+> 𝑖
+
+.
+
+Base Case: Since all domains are not empty, there exists 𝑥 0 ∈ 𝜎 𝒜  
+
+> 0
+
+.
+
+Inductive Step: We define 𝑥 𝑖 +1 ∈ 𝜎 𝒜  
+
+> 𝑖 +1
+
+depending on the edge (𝜎 𝑖 , 𝜎 𝑖 +1 ) in 𝐺 Σ.The edge (𝜎 𝑖 +1 , 𝜎 𝑖 ) occurs in the graph 𝐺 Σ because of one of two options (Since Array ∩Struct = ∅,only one of the two cases can hold): 
+
+35 • Constructor edge: there exists a constructor 𝑐 : 𝜏 1 × · · · × 𝜏 𝑘 → 𝜎 𝑖 +1 with 𝜏 𝑗 = 𝜎 𝑖 for some 
+
+1 ≤ 𝑗 ≤ 𝑘 . As 𝜏 𝒜  
+
+> 1
+
+, . . . , 𝜏 𝒜  
+
+> 𝑘
+
+are all non-empty, we can choose arbitrary 𝑢 𝑟 ∈ 𝜏 𝒜  
+
+> 𝑟
+
+for 𝑟 ∈ [1 , 𝑘 ] ∖ { 𝑗 }.We define: 
+
+𝑥 𝑖 +1 := 𝑐 (𝑢 1, . . . , 𝑢 𝑗 −1, 𝑥 𝑖 , 𝑢 𝑗 +1 , . . . , 𝑢 𝑘 ) ∈ 𝑇 𝜎 𝑖 +1 (Σ |𝒞𝒪 , 𝐵 ) = 𝜎 𝒜 
+
+> 𝑖 +1
+
+Where the equality holds due to Lemma 62 as 𝜎 𝑖 +1 ∈ Struct .• Array edge: the edge (𝜎 𝑖 +1 , 𝜎 𝑖 ) occurs in the graph because there exists some 1 ≤ 𝑗 ≤ 𝑛 such that 
+
+𝜎 𝑖 +1 = 𝐴 𝑗 , 𝜎 𝑖 = 𝐸 𝑗 . We define 𝑥 𝑖 +1 as the constant array from 𝐼 𝒜  
+
+> 𝑗
+
+to 𝐸 𝒜  
+
+> 𝑗
+
+whose image is the singleton {𝑥 𝑖 }.We now show that {𝑥 𝑗ℓ | 𝑗 ∈ [0 , 𝑀 ]} are distinct. Consider two possibilities. If all the edges are constructor edges then we make use of dtIdx (·). Otherwise (i.e. at least one edge is an array edge) we make use of idx (·) (see Definition 66 and notation 2). • If all edges (𝜎 0, 𝜎 1), . . . , (𝜎 ℓ−1, 𝜎 ℓ) are constructor edges, then by Lemma 67 we have dtIdx (𝑥 𝑖 +1 ) >
+
+dtIdx (𝑥 𝑖 ) for every 𝑖 ∈ [0 , 𝑀 −1] . Consequently, each full traversal of the cycle (of length ℓ) strictly increases the minimum index, i.e. ∀𝑘 ∈ [0 , 𝑀 − 1] . dtIdx (𝑥 (𝑘 +1) ℓ) > dtIdx (𝑥 𝑘ℓ ). Therefore the elements {𝑥 𝑘ℓ | 0 ≤ 𝑘 < 𝑚 } are distinct. • Suppose some edge in the cycle is an array edge. Fix any traversal index 𝑘 ∈ { 0, . . . , 𝑚 − 1} and consider the (𝑘ℓ )-th segment. For the specific position 𝑗 ∈ [0 , ℓ − 1] where (𝜎 𝑗 , 𝜎 𝑗 +1 ) is an array edge, Lemma 87 gives a strict increase idx (𝑥 𝑘ℓ +𝑗 +1 ) > idx (𝑥 𝑘ℓ +𝑗 ). For every other step in the same traversal a constructor edge does not decrease the minimum index by Lemma 86, idx (𝑥 𝑘ℓ +𝑖 +1 ) ≥
+
+idx (𝑥 𝑘ℓ +𝑖 ), and an array edge again yields a strict increase by Lemma 87. Hence each full cycle raises the minimum index strictly, i.e. ∀𝑘 ∈ [0 , 𝑀 − 1] . idx (𝑥 (𝑘 +1) ℓ) > idx (𝑥 𝑘ℓ ). It follows that idx (𝑥 𝑚ℓ ) > idx (𝑥 (𝑚 −1) ℓ) > · · · > idx (𝑥 0), so the elements 𝑥 0, 𝑥 ℓ, . . . , 𝑥 (𝑚 −1) ℓ have pairwise distinct idx (·) values and therefore are distinct. Since 𝑚 can be chosen arbitrarily large, we conclude that |𝜎 𝒜  
+
+> ℓ
+
+| = ∞. □
+
+Now we can prove the intended lemma: 
+
+Lemma 69. For every 𝑖 ∈ [1 , 𝑛 ] the domain 𝐸 𝒜  
+
+> 𝑖
+
+is infinite. Proof : Assume, for the sake of contradiction, that there exists an index 𝑖 0 ∈ [1 , 𝑛 ] such that |𝐸 𝒜  
+
+> 𝑖 0
+
+| < ∞.
+
+Step 0. ∀𝜎 ∈ 𝒮 Σ ∖ (Array ∪ Struct ).|𝜎 𝒜 | = ∞. By construction, 𝜎 𝒜 = 𝜎 *ℬ , and we assume w.l.o.g. according to Lemma 56 that 𝜎 *ℬ is infinite. 
+
+Step 1. Single Signature and cyclicity. If the sort 𝐸 𝑖 0 does not belong to any other signature other than Σ𝑖 0 , as all the sorts of Σ𝑖 0 are unique, 𝐸 𝑖 0 ∈ 𝒮 Σ ∖ (Array ∪ Struct ) and thus |𝜎 𝒜 | = ∞
+
+according to Step 0, contradicting our assumption. Hence 𝐸 𝑖 0 belongs to at least one other signature. Consider 𝐺 Σ = ( 𝑉, 𝐸 ) as defined in Definition 63. If 𝐸 𝑖 0 were eventually cyclic in 𝐺 Σ, Lemma 68 would entail |𝐸 𝒜  
+
+> 𝑖 0
+
+| = ∞. Therefore 𝐸 𝑖 0 is not eventually cyclic. 
+
+Step 2. The reachable sub - graph 𝐺 ′ 
+
+> Σ
+
+is a tree. Let 𝐺 ′ 
+
+> Σ
+
+= ( 𝑉 ′, 𝐸 ′) be the sub -graph of 𝐺 Σ that contains every sort reachable from 𝐸 𝑖 0 . Because 𝐸 𝑖 0 is not eventually cyclic, 𝐺 ′ 
+
+> Σ
+
+is a DAG. Moreover, by Lemma 65, every sort 𝜎 ∈ 𝑉 ′ satisfies |𝜎 𝒜 | < ∞.
+
+36 Step 3. Pick 𝐸 𝑖 1 . Note that there exists some 𝐸 𝑖 1 from which no other sort in {𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]} is reachable. Assume towards a contradiction that there is no such sort, then from 𝐸 𝑖 0 we can reach some 
+
+𝐸 2 ∈ { 𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]}, and from 𝐸 2 we can reach some 𝐸 3 ∈ { 𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]} and so on. Thus when we look at 𝐸 1 = 𝐸 𝑖 0 , 𝐸 2, . . . , 𝐸 𝑛 +1 the pigeonhole principle suggests that there must be a sort appearing twice, as there are only 𝑛 elements in {𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]}, which contradicts the acyclicity of 𝐺 ′
+
+> Σ
+
+.We hereby denote as 𝐸 𝑖 1 a sort in 𝑉 ′ from which no other sort in {𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]} is reachable. Let 𝐺 ′′  
+
+> Σ
+
+= ( 𝑉 ′′ , 𝐸 ′′ ) be the sub -graph of 𝐺 ′ 
+
+> Σ
+
+that contains every sort reachable from 𝐸 𝑖 1 . As a subgraph of 𝐺 ′
+
+> Σ
+
+, 𝐺 ′′  
+
+> Σ
+
+is itself a DAG. 
+
+Step 4. 𝑉 ′′ ⊆ Struct . Note that: • Since 𝑉 ′′ ⊆ 𝑉 ′ every sort 𝜎 ∈ 𝑉 ′′ satisfies |𝜎 𝒜 | < ∞.• By definition of 𝐸 𝑖 1 , no other sort in {𝐸 𝑖 | 𝑖 ∈ [1 , 𝑛 ]} except 𝐸 𝑖 1 itself belongs to 𝑉 ′′ .Let there be 𝜎 ∈ 𝑉 ′′ . Since 𝑉 ′′ ⊆ 𝒮 Σ and 𝒮 Σ = Struct Σ𝑛 +1 ⊎ Array Σ ⊎ (𝒮 Σ ∖ (Array Σ ∪
+
+Struct Σ𝑛 +1 )) , 𝜎 belongs to one of the three disjoint sets. ( Array Σ and Struct Σ𝑛 +1 are disjoint by Definition 12). 1. If 𝜎 ∈ 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 ), step 0 suggests that every such sort has an infinite domain, contradicting the fact that every sort in 𝑉 ′′ has a finite domain. 2. If 𝜎 = 𝐴 𝑘 for some 𝑘 ∈ [1 , 𝑛 ], then its element sort 𝐸 𝑘 would be reachable from 𝐴 𝑘 inside 𝐺 ′′ 
+
+> Σ
+
+,contradicting the definition of 𝐸 𝑖 1 .Hence 𝜎 ∈ Struct Σ𝑛 +1 and thus 𝑉 ′′ ⊆ Struct Σ𝑛 +1 .
+
+Step 5. The sorts in 𝑉 ′′ must be interpreted as in 𝒜 . For every 𝑇 𝑛 +1 -interpretation 𝒞 and every 
+
+𝜎 ∈ 𝑉 ′′ we have 𝜎 𝒞 = 𝜎 𝒜 .In order to prove this claim, we first remember that according to Lemma 62, for every 𝜎 ∈ Struct ,
+
+𝜎 𝒜 = 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 ) where 𝐵 is the Elem -sorted set with 𝐵 𝜏 = 𝜏 𝒜 for every 𝜏 ∈ Elem .Since 𝒞 is a 𝑇 𝑛 +1 -interpretation, it follows that for every 𝜎 ∈ Struct , 𝜎 𝒞 = 𝑇 𝜎 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) where ̂︀ 𝐵 is the Elem -sorted set with ̂︀ 𝐵 𝜏 = 𝜏 𝒞 for every 𝜏 ∈ Elem .We use induction to show that ∀𝑘 ∈ N.∀𝜎 ∈ 𝑉 ′′ .𝑇 𝜎,𝑘 (Σ |𝒞𝒪 , 𝐵 ) = 𝑇 𝜎,𝑘 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) (In other words: the elements of 𝐵 and ̂︀ 𝐵 do not occur in any of the terms of 𝑇 𝜎,𝑘 (Σ |𝒞𝒪 , 𝐵 ) or 𝑇 𝜎,𝑘 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) for every 
+
+𝜎 ∈ 𝑉 ′′ ). 1. Base case: 𝑘 = 0 . Then 𝑇 𝜎, 0(Σ |𝒞𝒪 , 𝐵 ) = ∅ = 𝑇 𝜎, 0(Σ |𝒞𝒪 ,̂︀ 𝐵 ), since 𝜎 ∈ 𝑉 ′′ ⊆ Struct .2. Step: Assume 𝑇 𝜏,𝑘 (Σ |𝒞𝒪 , 𝐵 ) = 𝑇 𝜏,𝑘 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) for every 𝜏 ∈ 𝑉 ′′ . Then, let 𝜎 ∈ 𝑉 ′′ : 𝑇 𝜎,𝑘 +1 (Σ |𝒞𝒪 , 𝐵 ) = 
+
+𝑇 𝜎,𝑘 (Σ |𝒞𝒪 , 𝐵 ) ∪{︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑚 )⃒⃒ 𝑐 : 𝜏 1 × · · · × 𝜏 𝑚 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 , 𝑡 𝑖 ∈ 𝑇 𝜏 𝑖 ,𝑘 (Σ |𝒞𝒪 , 𝐵 )}︀ .
+
+Since 𝜏 1, . . . , 𝜏 𝑚 ∈ 𝑉 ′′ , by the IH we have 𝑇 𝜏 𝑖 ,𝑘 (Σ |𝒞𝒪 , 𝐵 ) = 𝑇 𝜏 𝑖 ,𝑘 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) for every 𝑖 ∈ [1 , 𝑚 ].Thus, 𝑇 𝜎,𝑘 +1 (Σ |𝒞𝒪 , 𝐵 ) = 𝑇 𝜎,𝑘 +1 (Σ |𝒞𝒪 ,̂︀ 𝐵 ).
+
+Thus, 𝜎 𝒞 = 𝑇 𝜎 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) = ∪𝑖 ∈N𝑇 𝜎,𝑖 (Σ |𝒞𝒪 ,̂︀ 𝐵 ) = ∪𝑖 ∈N𝑇 𝜎,𝑖 (Σ |𝒞𝒪 , 𝐵 ) = 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 ) = 𝜎 𝒜 .
+
+Step 6. Final contradiction. Since for every 𝑇 𝑛 +1 -interpretation 𝒞 , 𝐸 𝒞  
+
+> 𝑖 1
+
+= 𝐸 𝒜  
+
+> 𝑖 1
+
+and 𝐸 𝒜  
+
+> 𝑖 1
+
+is finite, we get that 𝑇 𝑛 +1 is not stably infinite over 𝐸 𝑖 1 even though 𝐸 𝑖 1 ∈ 𝒮 Σ𝑛 +1 ∩𝒮 Σ𝑖 1 ⊆ 𝒮 Σ𝑛 +1 ∩(︀ 𝒮 Σ1 ∪. . . ∪𝒮 Σ𝑛 )︀ 
+
+contradicting the assumption in Theorem 53. □
+
+37 B.5. Defining the Interpretation of Variables 
+
+We now define the interpretation of variables in 𝒜 . For that, we first introduce several helper definitions. 
+
+𝑆 (Definition 70) collects the interpretations of variables in ℬ and closes it under the sub-term relation. Then, we define functions tl (Definition 75) that restricts the domains of constant arrays, and use it to construct, for each 1 ≤ 𝑖 ≤ 𝑛 , a function tail 𝑖 over subsets of 𝑆 (Lemma 76). Finally, these are used to map 𝑆 to elements in the domains of 𝒜 (Definition 81), which allows us to assign a value to each variable (Definition 85). We start with the definition of 𝑆 .
+
+Definition 70. For each 𝑖 , let 𝑆 𝑖 be defined as follows. 
+
+𝑆 0 ={︀ 𝑥 ℬ⃒⃒ 𝑥 ∈ vars 𝜎 * (trFormula (𝜑 )) , 𝜎 ∈ 𝒮 Σ}︀ ,𝑆 𝑖 +1 = 𝑆 𝑖 ∪{︁ 𝑡 𝑗 ⃒⃒⃒ 𝑐 ∈ 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝑐 (𝑡 1, . . . , 𝑡 𝑘 ) ∈ 𝑆 𝑖 , 𝑗 ∈ [1 , 𝑘 ]}︁ 
+
+Then, 𝑆 =⋃︀ 𝑖 ∈N 𝑆 𝑖 .
+
+Example 71. Consider the interpretation ℬ1 in Table 21 and set 𝜑 to be 𝜓 from Table 12. Then the set 𝑆 0 consists of the following elements: c*(3 , 𝑐 1(𝛾, emp *)) , 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) , 1 and 
+
+c*(1 , 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *)))) . Then the set 𝑆 1 adds 3, 𝑐 1(𝛾, emp *) and 𝛾 to the elements of 𝑆 0. The set 𝑆 = 𝑆 2 is obtained by adding emp *.
+
+Lemma 72. 𝑆 is finite. Proof : First, we use induction to show that ∀𝑖 ∈ N.𝑆 𝑖 is finite. • Base case: For 𝑖 = 0 , 𝑆 0 is finite by definition, as it contains only interpretations of free variables in trFormula (𝜑 ), which are finitely many. • Inductive step: Assume 𝑆 𝑖 is finite. We show that 𝑆 𝑖 +1 is finite. By definition, 𝑆 𝑖 +1 = 𝑆 𝑖 ∪ { 𝑡 𝑗 |
+
+𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝑐 (𝑡 1, . . . , 𝑡 𝑘 ) ∈ 𝑆 𝑖 , 𝑗 ∈ [1 , 𝑘 ]}. Since 𝑆 𝑖 is finite, the set 
+
+{𝑡 𝑗 | 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝑐 (𝑡 1, . . . , 𝑡 𝑘 ) ∈ 𝑆 𝑖 , 𝑗 ∈ [1 , 𝑘 ]} is also finite, as it contains only finitely many elements for each term in 𝑆 𝑖 .Now, we show that there is some ^𝑙 ∈ N such that 𝑆 ^𝑙 = 𝑆 and hence 𝑆 is finite. We define ^𝑙 = max {dtIdx (𝑡 ) | 𝑡 ∈ 𝑆 0, 𝑡 ∈ 𝜎 ℬ, 𝜎 ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+}.We use induction on 𝑖 ∈ { 0, . . . , ^𝑙 − 1} to show that ∀𝑠 ∈ 𝑆 𝑖 +1 ∖ 𝑆 𝑖 .dtIdx (𝑠 ) ≤ ^𝑙 − 𝑖 − 1.
+
+Base case 𝑖 = 0 . We want to show that ∀𝑠 ∈ 𝑆 1 ∖ 𝑆 0.dtIdx (𝑠 ) ≤ ^𝑙 − 1.Since 𝑠 ∈ 𝑆 1 ∖ 𝑆 0, there is some 𝑥 ∈ 𝑆 0 such that 𝑥 = 𝑐 (𝑥 1, . . . , 𝑥 𝑘 ) for some constructor 
+
+𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 and 𝑠 = 𝑥 𝑗 for some 𝑗 ∈ [1 , 𝑘 ]. Thus, according to Lemma 67 , ^𝑙 ≥
+
+dtIdx (𝑥 ) = 1 + max {dtIdx (𝑥 1), . . . , dtIdx (𝑥 𝑘 )} ≥ 1 + dtIdx (𝑠 ), and therefore dtIdx (𝑠 ) ≤ ^𝑙 − 1.
+
+Inductive step. Assume the claim holds for 𝑖 , we now show that it holds for 𝑖 + 1 . Let 𝑡 ∈ 𝑆 𝑖 +2 ∖ 𝑆 𝑖 +1 
+
+Then there is some 𝑥 ∈ 𝑆 𝑖 +1 such that 𝑥 = 𝑐 (𝑥 1, . . . , 𝑥 𝑘 ) for some constructor 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 →
+
+𝜎 and 𝑡 = 𝑥 𝑗 for some 𝑗 ∈ [1 , 𝑘 ]. Assume towards a contradiction that 𝑥 ∈ 𝑆 𝑖 , then 𝑡 ∈ 𝑆 𝑖 +1 , in contradiction. Hence, 𝑥 ∈ 𝑆 𝑖 +1 ∖ 𝑆 𝑖 , and by the inductive hypothesis, dtIdx (𝑥 ) ≤ ^𝑙 − 𝑖 − 1. Due to Lemma 67, dtIdx (𝑡 ) + 1 ≤ dtIdx (𝑥 ), thus dtIdx (𝑡 ) ≤ ^𝑙 − (𝑖 + 1) − 1.
+
+38 Let there be some 𝑠 ∈ 𝑆 ^𝑙 ∖ 𝑆 ^𝑙 −1. By the above, dtIdx (𝑠 ) ≤ ^𝑙 − ^𝑙 = 0 . By definition of dtIdx (·),
+
+𝑠 ∈ 𝑇 𝜎, 0(Σ 𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝐵 ) for some 𝜎 ∈ 𝒮 ΣDT . Since 𝑇 𝜎, 0(Σ 𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝐵 )̸ = ∅, we know that 
+
+𝜎 ∈ Elem ΣDT .That implies that no new elements can be added in 𝑆 ^𝑙 +1 , hence 𝑆 ^𝑙 +1 = 𝑆 ^𝑙 , and therefore 𝑆 ^𝑙 = 𝑆 . □
+
+We partition the elements of 𝑆 ∩⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 *  
+
+> 𝑖 ℬ
+
+into two disjoint sets: in one, we collect those elements that are the interpretations of array variables that occur in store literals, and in the other, the remaining elements reside. 
+
+Definition 73. The set SE 𝜑 (ℬ) consists of the elements 𝑠 ∈ 𝑆 ∩⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 *  
+
+> 𝑖 ℬ
+
+for which there exist some 
+
+𝑎, 𝑏, 𝑖, 𝑥 ∈ vars (𝜑 ) such that either 𝑠 = 𝑎 *ℬ or 𝑠 = 𝑏 *ℬ , and 𝑎 = store 𝐴 𝑗 (𝑏, 𝑖, 𝑥 ) is a literal of 𝜑 .The set NSE 𝜑 (ℬ) is its complement, that is, NSE 𝜑 (ℬ) = (︀ 𝑆 ∩⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 * 
+
+> 𝑖 ℬ
+
+)︀ ∖ SE 𝜑 (ℬ).
+
+Note that by definition, SE 𝜑 (ℬ) ∪ NSE 𝜑 (ℬ) = 𝑆 ∩⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 *  
+
+> 𝑖 ℬ
+
+and SE 𝜑 (ℬ) ∩ NSE 𝜑 (ℬ) = ∅.
+
+Example 74. Consider the formula 𝜓 from Table 12, and its translation trFormula (𝜓 ), also from Table 12. Consider as well the interpretation ℬ in Table 18. We have a single array sort, 𝐴 . Thus: 
+
+𝑆 ∩ 𝐴 *ℬ = {𝑐 1(𝛾, emp *), 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) }.Moreover, SE 𝜓 (ℬ) = ∅ and NSE 𝜓 (ℬ) = 𝑆 ∩ 𝐴 *ℬ .
+
+We shall make use of the following function tl . For each almost constant function 𝑎 ∈ 𝐴 ′ℬ  
+
+> 𝑖
+
+, it removes from its domain the interpretations of variables of sort 𝐼 𝑖 that correspond to occurrences under a select or store operation in 𝜑 , that is, we remove the interpretations of I(𝐴 𝑖 ,𝜑 ). Formally: 
+
+Definition 75. Let 𝑎 ∈ 𝐴 ′ℬ  
+
+> 𝑖
+
+for some 𝑖 ∈ [1 , 𝑛 ]. Then we define: tl (𝑎 ) = 𝑎 |𝐼 *   
+
+> 𝑖 ℬ∖{ 𝑗 *ℬ |𝑗 ∈I(𝐴 𝑖 ,𝜑 )}
+
+.
+
+We then use tl in order to prove the existence of another function tail 𝑖 , for each 1 ≤ 𝑖 ≤ 𝑛 . This function takes an object 𝑠 from the datatype 𝐴 * 
+
+> 𝑖 ℬ
+
+, such that 𝑎 is also in 𝑆 , and returns some element in 
+
+𝐸 𝒜  
+
+> 𝑖
+
+.Recall that 𝐴 * 
+
+> 𝑖
+
+is a datatype sort that is intended to model the original array sort 𝐴 𝑖 .The element returned by tail 𝑖 belongs to the interpretation of the corresponding element sort 𝐸 𝑖 in 𝒜 .We require that tl assigns two objects 𝑠 1 and 𝑠 2 to the same element, if and only if the following two conditions are met: first, both 𝑠 1 and 𝑠 2 are in SE 𝜑 (ℬ), that is, they are interpretations of variables that occur in a literal with an array store operation; and second: recall that 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+: 𝐴 *  
+
+> 𝑖 ℬ
+
+→ 𝐴 ′ℬ  
+
+> 𝑖
+
+, and thus it assigns 𝑠 1 and 𝑠 2 to two almost constant functions (see Appendix B.1). These functions must agree on the restriction given by tl .The purpose of tail 𝑖 is to ensure that if an array is obtained from another array by a single store operation in the formula, then they will have the same tl .
+
+Lemma 76. For every 𝑖 ∈ [1 , 𝑛 ], there exists a function tail 𝑖 : 𝑆 ∩ 𝐴 *  
+
+> 𝑖 ℬ
+
+→ 𝐸 𝒜  
+
+> 𝑖
+
+, such that for every 
+
+𝑠 1, 𝑠 2 ∈ 𝑆 ∩ 𝐴 * 
+
+> 𝑖 ℬ
+
+:
+
+tail 𝑖 (𝑠 1) = tail 𝑖 (𝑠 2) ⇔(︀ 𝑠 1, 𝑠 2 ∈ SE 𝜑 (ℬ) ∧ tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) )︀ 
+
+Proof : Define a relation 𝑅 on 𝑆 ∩ 𝐴 *  
+
+> 𝑖 ℬ
+
+by 
+
+𝑅 = {(𝑠 1, 𝑠 2) | 𝑠 1, 𝑠 2 ∈ SE 𝜑 (ℬ), tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) } ∪ { (𝑠, 𝑠 ) | 𝑠 ∈ 𝑆 ∩ 𝐴 * 
+
+> 𝑖 ℬ
+
+}.
+
+We check that 𝑅 is an equivalence relation: 1. Reflexivity: For every 𝑠 ∈ 𝑆 ∩ 𝐴 * 
+
+> 𝑖 ℬ
+
+, (𝑠, 𝑠 ) ∈ 𝑅 by definition. 2. Symmetry: Assume (𝑠 1, 𝑠 2) ∈ 𝑅 . If 𝑠 1 = 𝑠 2, then (𝑠 2, 𝑠 1) = ( 𝑠 1, 𝑠 2) ∈ 𝑅 . Otherwise, 𝑠 1, 𝑠 2 ∈
+
+SE 𝜑 (ℬ) and tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) . By symmetry of equality, tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) ,hence (𝑠 2, 𝑠 1) ∈ 𝑅 .
+
+39 3. Transitivity: Assume (𝑠 1, 𝑠 2), (𝑠 2, 𝑠 3) ∈ 𝑅 . If 𝑠 1 = 𝑠 2 or 𝑠 2 = 𝑠 3, then by substitution we obtain 
+
+(𝑠 1, 𝑠 3) ∈ 𝑅 . Otherwise, 𝑠 1, 𝑠 2, 𝑠 3 ∈ SE 𝜑 (ℬ) and tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) and tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 2)) = 
+
+tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 3)) . By transitivity of equality, tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 1)) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑠 3)) , hence (𝑠 1, 𝑠 3) ∈ 𝑅 .Thus 𝑅 partitions 𝑆 ∩ 𝐴 *  
+
+> 𝑖 ℬ
+
+into equivalence classes. Since this set is finite (Lemma 72) and 𝐸 𝒜  
+
+> 𝑖
+
+is infinite (Lemma 69), there exists an injection 𝑓 class from the classes of 𝑅 into 𝐸 𝒜  
+
+> 𝑖
+
+.For 𝑠 ∈ 𝑆 ∩ 𝐴 * 
+
+> 𝑖 ℬ
+
+, let [𝑠 ]𝑅 be its equivalence class. Define tail 𝑖 (𝑠 ) := 𝑓 class ([ 𝑠 ]𝑅 ). This satisfies the required property. □
+
+Example 77. Consider the formula 𝜓 from Table 12, and its translation trFormula (𝜓 ), also from Table 12. Consider as well the interpretation ℬ1 in Table 21. As mentioned in Example 74, SE 𝜓 (ℬ) = ∅
+
+and NSE 𝜓 (ℬ) = 𝑆 ∩𝐴 *ℬ = {𝑐 1(𝛾, emp *), 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) }. Thus, tail 1 can be any injection from 𝑆 ∩ 𝐴 *ℬ to 𝐸 𝒜 . For example, we can define it as follows: 
+
+• tail 1(𝑐 1(𝛾, emp *)) = emp .
+
+• tail 1(𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *)))) = c(3 , const (emp )) .
+
+Definition 78. For each 𝑖 ∈ [1 , 𝑛 ] and 𝑠 ∈ 𝑆 ∩ 𝐴 * 
+
+> 𝑖 ℬ
+
+, define the set of associated indices as 
+
+AssocInd (𝑠, 𝑖 ) = {︀ 𝑗 ∈ I(𝐴 𝑖 ,𝜑 )⃒⃒ ∃𝑎 ∈ vars 𝐴 𝑖 (𝜑 ). ∃𝑥 ∈ vars 𝐸 * 
+
+> 𝑖
+
+(trFormula (𝜑 )) . 𝑎 *ℬ = 𝑠 ∧
+
+𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) ∈ trFormula (𝜑 )}︀ .
+
+In the following lemma we clarify the connection between I(𝐴 𝑖 ,𝜑 ) and AssocInd (𝑠, 𝑖 ).
+
+Lemma 79. For every 𝑖 ∈ [1 , 𝑛 ] it holds that I(𝐴 𝑖 ,𝜑 ) =⋃︀ 𝑠 ∈𝑆 ∩𝐴 *  
+
+> 𝑖 ℬ
+
+AssocInd (𝑠, 𝑖 ).Proof : (⊆): Let 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ). Then there exists some 𝑎 ∈ vars 𝐴 𝑖 (𝜑 ) such that one of the following holds: • There exists some 𝑥 ∈ vars 𝐸 * 
+
+> 𝑖
+
+(trFormula (𝜑 )) such that 𝑥 = select 𝐴 𝑖 (𝑎, 𝑗 ) ∈ 𝜑 . In this case, 
+
+select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) = 𝑥 * ∈ trFormula (𝜑 ).• There exists some 𝑥 ∈ vars 𝐸 * 
+
+> 𝑖
+
+(trFormula (𝜑 )) and 𝑏 ∈ vars 𝐴 𝑖 (𝜑 ) such that 𝑏 = store 𝐴 𝑖 (𝑎, 𝑗, 𝑥 ) ∈
+
+𝜑 . In this case, according to L2(𝜑 ), 𝑢 (𝑎,𝑜 (𝐴 𝑗 ,𝜑 )(𝑖 )) = select 𝐴 ′ 
+
+> 𝑗
+
+(𝑎 ′, 𝑖 *) ∈ trFormula (𝜑 ).Hence, in both cases, 𝑗 ∈ AssocInd (𝑎 *ℬ , 𝑖 ), and thus 𝑗 ∈⋃︀ 𝑠 ∈𝑆 ∩𝐴 *  
+
+> 𝑖 ℬ
+
+AssocInd (𝑠, 𝑖 ).
+
+⊇: Let there be 𝑗 ∈⋃︀ 𝑠 ∈𝑆 ∩𝐴 *  
+
+> 𝑖 ℬ
+
+AssocInd (𝑠, 𝑖 ). Then there exists some 𝑠 ∈ 𝑆 ∩ 𝐴 *  
+
+> 𝑖 ℬ
+
+such that 
+
+𝑗 ∈ AssocInd (𝑠, 𝑖 ). By definition of AssocInd (𝑠, 𝑖 ), there exists some 𝑎 ∈ vars 𝐴 𝑖 (𝜑 ) such that 𝑎 *ℬ = 𝑠 
+
+and there exists some 𝑥 ∈ vars 𝐸 * 
+
+> 𝑖
+
+(trFormula (𝜑 )) such that 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) ∈ trFormula (𝜑 ).There are three cases to consider: • 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) ∈ trFormula (𝜑 ) because it is a translation of a literal of the form 𝑥 =
+
+select 𝐴 𝑖 (𝑎, 𝑗 ) ∈ 𝜑 . Note, that in that case, there exists some 𝑦 ∈ vars 𝐸 𝑖 (𝜑 ) such that 𝑦 =
+
+select 𝐴 𝑖 (𝑎, 𝑗 ) ∈ 𝜑 . Therefore, 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ). 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ).• 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) ∈ trFormula (𝜑 ) because of L1(𝜑 ). Note, that in that case, there exists some 𝑦 ∈ vars 𝐸 𝑖 (𝜑 ) such that 𝑦 = select 𝐴 𝑖 (𝑎, 𝑗 ) ∈ 𝜑 . Therefore, 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ).• 𝑥 = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *) ∈ trFormula (𝜑 ) because of L2(𝜑 ). Note, that in that case, there exists some 𝑏, 𝑐 ∈ vars 𝐴 𝑖 (𝜑 ) and some 𝑦 ∈ vars 𝐸 𝑖 (𝜑 ) such that 𝑏 = store 𝐴 𝑖 (𝑐, 𝑗, 𝑦 ) ∈ 𝜑 . Therefore, 
+
+𝑗 ∈ I(𝐴 𝑖 ,𝜑 ).Hence, in all cases, 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ). □
+
+Example 80. Consider the formula 𝜓 from Table 12, and its translation trFormula (𝜓 ), also from Table 12. Consider as well the interpretation ℬ1 in Table 21. Thus: 
+
+40 • AssocInd (( 𝑐 1(𝛾, emp *)) , 1) = ∅.
+
+• AssocInd (( 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *)))) , 1) = {𝑗 }.
+
+Finally, we define a function Ψ, whose goal is to map elements of 𝑆 (and in particular, interpretations of variables that appear in 𝜑 ) to elements in the domains of 𝒜 . For technical reasons, we first define it as a partial function, but later (Lemma 83) prove that it is total; and, we define its range to be a superset of the domains of 𝒜 . Later on we show that for every 𝑥 ∈ vars 𝜎 (𝜑 ), it hods that Ψ( 𝑥 *ℬ ) ∈ 𝜎 𝒜 (also in Lemma 83). The definition relies on notation 𝑜 from Definition 28. 
+
+Definition 81. We define the partial function Ψ : 𝑆 → ∪{ 𝜎 𝒜 | 𝜎 ∈ 𝒮 Σ} ∪ (︀⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 𝑖 ∘ℬ )︀ as follows: 1. If 𝑥 ∈ 𝜎 ℬ for some 𝜎 / ∈ Struct Σ𝜑 𝑛 +1 
+
+and 𝑥 ∈ ∪{ 𝜎 𝒜 | 𝜎 ∈ 𝒮 Σ} ∪ (︀⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 𝑖 ∘ℬ )︀ , then Ψ( 𝑥 ) = 𝑥 .2. If 𝑥 = 𝑐 *(𝑡 1, . . . , 𝑡 𝑘 ) for some 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 , Ψ is defined for 𝑡 1, . . . , 𝑡 𝑘 , and 
+
+∀𝑖 ∈ [1 , 𝑘 ].Ψ( 𝑡 𝑖 ) ∈ 𝜎 𝒜  
+
+> 𝑖
+
+then Ψ( 𝑥 ) = 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑘 )) .3. If 𝑥 = 𝑐 𝑖 (𝑡 1, . . . , 𝑡 𝑘 ) for some 𝑖 ∈ [1 , 𝑛 ], Ψ is defined over 𝑡 1, . . . , 𝑡 𝑘 and ∀𝑗 ∈ 2, . . . , 𝑘. Ψ( 𝑡 𝑗 ) ∈
+
+𝐸 𝒜  
+
+> 𝑖
+
+, then we define Ψ( 𝑥 ) as follows: 
+
+∀𝑗 ∈ 𝐼 𝒜  
+
+> 𝑖
+
+.Ψ( 𝑥 )( 𝑗 ) = {︃ Ψ( 𝑡 min {𝑜 (𝑘 )|𝑘 ∈AssocInd (𝑥,𝑖 ).𝑘 *ℬ =𝑗 }+1 ) if ∃𝑘 ∈ AssocInd (𝑥, 𝑖 ).𝑘 *ℬ = 𝑗 
+
+tail 𝑖 (𝑥 ) otherwise 
+
+Example 82. Consider the formula 𝜓 and its translation in Table 12 and ℬ1 as defined in Table 21. The set 𝑆 is given in Example 71, and is repeated here: 
+
+𝑆 = {c*(3 , 𝑐 1(𝛾, emp *)) , 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))) , c*(1 , 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *)))) , 3, 𝑐 1(𝛾, emp *), 𝛾, 1, emp *}
+
+Since the computation of Ψ is done recursively, we order the elements of 𝑆 according to dtIdx (·).Note that we use the function tail 1 defined in Example 77 to compute Ψ for the elements in 𝑆 ∩ 𝐴 *ℬ .First, we note that 𝐴 ∘, 𝐼 * /∈ Struct Σ𝜓 𝑛 +1 
+
+. Thus, for every 𝑥 ∈ 𝑆 such that 𝑥 ∈ 𝐴 ∘ℬ or 𝑥 ∈ 𝐼 ℬ, we have 
+
+Ψ( 𝑥 ) = 𝑥 .
+
+• Ψ(3) = 3 (Note that 3 ∈ 𝐼 𝒜 )
+
+• Ψ( 𝛾 ) = 𝛾 
+
+• Ψ(1) = 1 
+
+Since emp ∈ 𝒞𝒪 Σ2 , we have Ψ( emp *) = emp .Note that by Definition 19, I(𝐴,𝜓 ) = {𝑗 }, 𝑗 *ℬ = 1 and 𝑜 (𝑗 ) = 1 . Thus, min {𝑜 (𝑘 ) | 𝑘 ∈ I(𝐴,𝜓 ), 𝑘 *ℬ =1} = 1 . Hence, according to the definition of tail 1 in Example 77 we have: 
+
+Ψ( 𝑐 1(𝛾, emp *))( 𝑖 ) = {︃ Ψ( emp *) if 𝑖 = 1 
+
+emp otherwise So Ψ( 𝑐 1(𝛾, emp *)) = const (emp ).Once again, since c ∈ 𝒞𝒪 Σ2 , we have: Ψ( c*(3 , 𝑐 1(𝛾, emp *))) :
+
+Ψ( c*(3 , 𝑐 1(𝛾, emp *))) = c(Ψ(3) , Ψ( 𝑐 1(𝛾, emp *))) = c(3 , const (emp )) 
+
+Similarly, we have: 
+
+Ψ( 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))))( 𝑖 ) = {︃ Ψ( c*(3 , 𝑐 1(𝛾, emp *))) if 𝑖 = 1 
+
+c(3 , const (emp )) otherwise 
+
+41 So Ψ( 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *)))) = const (c(3 , const (emp ))) .Finally, since c ∈ 𝒞𝒪 Σ2 , we have 
+
+Ψ( c*(1 , 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))))) = c(Ψ(1) , Ψ( 𝑐 1(𝛾, c*(3 , 𝑐 1(𝛾, emp *))))) = c(1 , const (c(3 , const (emp )))) 
+
+Lemma 83. The function Ψ : 𝑆 → ∪{ 𝜎 𝒜 | 𝜎 ∈ 𝒮 Σ} ∪ (︀⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 𝑖 ∘ℬ )︀ is total and ∀𝜎 ∈ 𝒮 Σ.∀𝑥 ∈
+
+𝑆 ∩ 𝜎 *ℬ .Ψ( 𝑥 ) ∈ 𝜎 𝒜 .Proof : First note that for every 𝜎 ∈ 𝒮 Σ𝜑 ∖ Struct Σ𝜑 𝑛 +1 
+
+, and every 𝑥 ∈ 𝜎 ℬ, there are 2 options: 1. 𝜎 = 𝐴 𝑖 ∘ for some 𝑖 ∈ [1 , 𝑛 ]. In that case 𝐴 𝑖 ∘ℬ ⊂ ∪{ 𝜎 𝒜 | 𝜎 ∈ 𝒮 Σ} ∪ (︀⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 𝑖 ∘ℬ )︀ , and thus 
+
+Ψ( 𝑥 ) = 𝑥 .2. 𝜎 = 𝜏 * for some 𝜏 ∈ 𝒮 Σ ∖ (Struct Σ𝑛 +1 ∪ Array Σ). In that case, 𝜎 ℬ = 𝜏 𝒜 , and thus, according to the first case in Definition 81, Ψ( 𝑥 ) = 𝑥 ∈ 𝜏 𝒜 .We are left to prove the claim for the interpretations of the sorts of Struct Σ𝜑 𝑛 +1 
+
+. We prove the claim by induction on dtIdx (𝑥 ).
+
+Base case dtIdx (𝑥 ) = 0 . Since ∀𝜎 ∈ Struct Σ𝜑 𝑛 +1 
+
+.𝑇 𝜎, 0(Σ 𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, 𝐵 ) = ∅, the claim holds vacu-ously for all 𝑥 such that dtIdx (𝑥 ) = 0 .
+
+Inductive step. Assume the claim holds for all 𝑥 such that dtIdx (𝑥 ) ≤ 𝑘 (whether its sort is in 
+
+Struct Σ𝜑 𝑛 +1 
+
+or not). We show that it holds for dtIdx (𝑥 ) = 𝑘 + 1 . Let 𝑥 ∈ 𝑆 such that dtIdx (𝑥 ) = 
+
+𝑘 + 1 . Then there are two cases: • 𝑥 = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 . Note that since dtIdx (𝑥 ) = 
+
+𝑘 + 1 , Lemma 67 implies that dtIdx (𝑡 𝑖 ) ≤ 𝑘 for all 𝑖 ∈ [1 , 𝑚 ]. Thus, ∀𝑖 ∈ [1 , 𝑚 ].Ψ( 𝑡 𝑖 )
+
+is defined by the inductive hypothesis, and also Ψ( 𝑡 𝑖 ) ∈ 𝜎 𝒜  
+
+> 𝑖
+
+for all 𝑖 ∈ [1 , 𝑚 ]. Thus, 
+
+Ψ( 𝑥 ) = 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) ∈ 𝜎 𝒜 .• 𝑥 = 𝑐 𝑖 (𝑡 1, . . . , 𝑡 𝑘 ) for some 𝑖 ∈ [1 , 𝑛 ]. Note that since dtIdx (𝑥 ) = 𝑘 + 1 , Lemma 67 suggests that dtIdx (𝑡 𝑗 ) ≤ 𝑘 for all 𝑗 ∈ [0 , 𝑘 ]. Thus ∀𝑗 ∈ [0 , 𝑘 ].Ψ( 𝑡 𝑗 ) is defined and 
+
+∀𝑗 ∈ [2 , 𝑘 ].Ψ( 𝑡 𝑗 ) ∈ 𝐸 𝒜  
+
+> 𝑖
+
+. Hence, according to the third case in the Definition 81, Ψ( 𝑥 ) is defined by the inductive hypothesis, and Ψ( 𝑥 ) ∈ AC (𝐼 𝒜  
+
+> 𝑖
+
+, 𝐸 𝒜  
+
+> 𝑖
+
+) = 𝜎 𝒜 (the equality holds by Lemma 61). 
+
+□
+
+Lemma 84. The function Ψ is injective. Proof : Let there be 𝑥, 𝑦 ∈ 𝑆 such that 𝑥 ̸ = 𝑦 . If 𝑥 ∈ 𝜎 ℬ 
+
+> 1
+
+and 𝑦 ∈ 𝜎 ℬ 
+
+> 2
+
+where 𝜎 1̸ = 𝜎 2, there are two options: • WLOG, if 𝜎 1 /∈ Struct Σ𝜑 𝑛 +1 
+
+, then Ψ( 𝑥 ) = 𝑥 . Thus the only way to have Ψ( 𝑥 ) = Ψ( 𝑦 ) is if 
+
+𝑥 = 𝑦 , contradicting our assumption. • If 𝜎 1, 𝜎 2 ∈ Struct Σ𝜑 𝑛 +1 
+
+, then we can denote 𝜎 1 = 𝜏 * 
+
+> 1
+
+and 𝜎 2 = 𝜏 * 
+
+> 2
+
+for some 𝜏 1, 𝜏 2 ∈ 𝒮 Σ. Since 
+
+Ψ( 𝑥 ) ∈ 𝜏 𝒜  
+
+> 1
+
+and Ψ( 𝑦 ) ∈ 𝜏 𝒜  
+
+> 2
+
+, we have Ψ( 𝑥 )̸ = Ψ( 𝑦 ).
+
+42 Hence, we can assume 𝑥, 𝑦 ∈ 𝜎 ℬ for some 𝜎 ∈ 𝒮 Σ𝜑 .If 𝜎 / ∈ Struct Σ𝜑 𝑛 +1 
+
+, then Ψ( 𝑥 ) = 𝑥 ̸ = 𝑦 = Ψ( 𝑦 ).We are left to prove the claim where 𝜎 ∈ Struct Σ𝜑 𝑛 +1 
+
+.We prove our claim by induction on the 𝑙 = max {dtIdx (𝑥 ), dtIdx (𝑦 )}.
+
+Base Case : If dtIdx (𝑥 ) = dtIdx (𝑦 ) = 0 , since 𝜎 𝒜 = ∅, the claim holds vacuously. 
+
+Inductive Case : Assume the claim holds for all 𝑥, 𝑦 ∈ 𝑆 ∩ 𝜏 ℬ such that max {dtIdx (𝑥 ), dtIdx (𝑦 )} < 𝑘 
+
+for every 𝜏 ∈ Struct Σ𝜑 𝑛 +1 
+
+. We show that it holds for max {dtIdx (𝑥 ), dtIdx (𝑦 )} = 𝑘 . There are 2 cases to consider: • If 𝑥, 𝑦 ∈ 𝜎 *ℬ where 𝜎 ∈ Struct Σ𝜑 𝑛 +1 
+
+, there are two subcases: 1. If 𝑥 = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) and 𝑦 = 𝑐 *(𝑠 1, . . . , 𝑠 𝑚 ) for some 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 ,then by definition there exists some 𝑗 ∈ [1 , 𝑘 ] such that 𝑡 𝑗 ̸ = 𝑠 𝑗 . According to the IH, 
+
+Ψ( 𝑡 𝑗 )̸ = Ψ( 𝑠 𝑗 ), and thus Ψ( 𝑥 ) = 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) ̸ = 𝑐 (Ψ( 𝑠 1), . . . , Ψ( 𝑠 𝑚 )) = Ψ( 𝑦 ).
+
+2. If 𝑥 = ^𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) and 𝑦 = ˜𝑐 *(𝑠 1, . . . , 𝑠 𝑙 ), then Ψ( 𝑥 ) = ^𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) ̸ =˜𝑐 (Ψ( 𝑠 1), . . . , Ψ( 𝑠 𝑙 )) = Ψ( 𝑦 ), since ^𝑐 ̸ = ˜ 𝑐 .• If 𝑥, 𝑦 ∈ 𝐴 *  
+
+> 𝑖 ℬ
+
+for some 𝑖 ∈ [1 , 𝑛 ], then we can denote 𝑥 = 𝑐 𝑖 (𝑡 1, . . . , 𝑡 𝑘 ) and 𝑦 = 𝑐 𝑖 (𝑠 1, . . . , 𝑠 𝑙 ).There are 2 subcases: 1. If ¬(︀ 𝑥, 𝑦 ∈ SE 𝜑 (ℬ)∧tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 )) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑦 )) )︀ according to Lemma 76, tail 𝑖 (𝑥 )̸ = tail 𝑖 (𝑦 ).Hence, for every 𝑘 ∈ 𝐼 * 
+
+> 𝑖
+
+∖ { 𝑙 *ℬ | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )} we have that Ψ( 𝑥 )( 𝑘 ) = tail 𝑖 (𝑥 )̸ = tail 𝑖 (𝑦 ) = Ψ( 𝑦 ).2. Otherwise, we have that (︀ 𝑥, 𝑦 ∈ SE 𝜑 (ℬ) ∧ tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 )) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑦 )) )︀ .Since 𝑥, 𝑦 ∈ SE 𝜑 (ℬ) there are 𝑎, 𝑏 ∈ vars 𝐴 𝑖 (𝜑 ) with 𝑎 *ℬ = 𝑥 and 𝑏 *ℬ = 𝑦 .
+
+ℬ satisfies L3(𝜑 ):
+
+– 𝑎 * = 𝑔 𝐴 𝑖 (𝑎 ′),
+
+– 𝑏 * = 𝑔 𝐴 𝑖 (𝑏 ′),
+
+– 𝑎 ′ = 𝑓 𝐴 𝑖 (𝑎 *),
+
+– 𝑏 ′ = 𝑓 𝐴 𝑖 (𝑏 *).Thus, we have 𝑎 ′ℬ = 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 ) and 𝑏 ′ℬ = 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑦 ).Suppose towards contradiction that 𝑎 ′ℬ = 𝑏 ′ℬ .Using the first 2 equalities, we have: 𝑥 = 𝑎 *ℬ = 𝑔 ℬ 
+
+> 𝐴 𝑖
+
+(𝑎 ′ℬ ) = 𝑔 ℬ 
+
+> 𝐴 𝑖
+
+(𝑏 ′ℬ ) = 𝑏 *ℬ = 𝑦, 
+
+contradicting 𝑥 ̸ = 𝑦 .Thus, 𝑎 ′ℬ ̸ = 𝑏 ′ℬ , meaning there exists some 𝑗 ∈ 𝐼 *  
+
+> 𝑖 ℬ
+
+such that 𝑎 ′ℬ (𝑗 )̸ = 𝑏 ′ℬ (𝑗 ). Since 
+
+tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑥 )) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑦 )) , there exists some 𝑘 ∈ I(𝐴 𝑖 ,𝜑 ) such that 𝑘 *ℬ = 𝑗 .WLOG, for every 𝑙 ∈ I(𝐴 𝑖 ,𝜑 ) with 𝑙 *ℬ = 𝑗 we have 𝑜 (𝐴 𝑖 ,𝜑 )(𝑘 ) ≤ 𝑜 (𝐴 𝑖 ,𝜑 )(𝑙 ).Note, that since 𝑥, 𝑦 ∈ SE 𝜑 (ℬ) and according to the definition of L2(𝜑 ) we know that 
+
+𝑘 ∈ AssocInd (𝑥, 𝑖 ) and 𝑘 ∈ AssocInd (𝑦, 𝑖 ).Since 𝑥, 𝑦 ∈ 𝐴 * 
+
+> 𝑖 ℬ
+
+, since there is a single constructor whose target sort is 𝐴 * 
+
+> 𝑖
+
+, we can denote 
+
+𝑥 = 𝑐 𝑖 (𝑥 1, . . . , 𝑥 𝑚 ) and 𝑦 = 𝑐 𝑖 (𝑦 1, . . . , 𝑦 𝑚 ).
+
+Ψ( 𝑥 )( 𝑗 ) (1) 
+
+= Ψ(︀ 𝑥 𝑜 (𝑘 )+1 )︀ 
+
+> (2)
+
+= Ψ(︀ 𝑠 (𝑐 𝑖 ,𝑜 (𝑘 )+1) (𝑥 ))︀ 
+
+> (3)
+
+= Ψ(︀ 𝑠 (𝑐 𝑖 ,𝑜 (𝑘 )+1) (𝑎 *ℬ ))︀ 
+
+43 (4) 
+
+= Ψ(︀ select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑘 *ℬ ))︀ 
+
+> (5)
+
+= Ψ(︀ select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑗 ))︀ 
+
+> (6)
+
+= Ψ(︀ 𝑎 ′ℬ (𝑗 ))︀ 
+
+> (7)
+
+̸
+
+= Ψ(︀ 𝑏 ′ℬ (𝑗 ))︀ 
+
+> (8)
+
+= Ψ(︀ select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑗 ))︀ 
+
+> (9)
+
+= Ψ(︀ select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑘 *ℬ ))︀ 
+
+> (10)
+
+= Ψ(︀ 𝑠 (𝑐 𝑖 ,𝑜 (𝑘 )+1) (𝑏 *ℬ ))︀ 
+
+> (11)
+
+= Ψ(︀ 𝑠 (𝑐 𝑖 ,𝑜 (𝑘 )+1) (𝑦 ))︀ 
+
+> (12)
+
+= Ψ( 𝑦 𝑜 (𝑘 )+1 )
+
+> (13)
+
+= Ψ( 𝑦 )( 𝑗 )
+
+and Ψ( 𝑥 )̸ = Ψ( 𝑦 ).(1) According to the first subcase in the third case in the definition of Ψ (See Definition 81) (2) According to the interpretation of selectors in ℬ and since 𝑥 = 𝑐 𝑖 (𝑥 1, . . . , 𝑥 𝑚 );(3) Substitute 𝑥 = 𝑎 *ℬ ;(4) Since 𝑘 ∈ I(𝐴 𝑖 ,𝜑 ) and 𝑎 *ℬ = 𝑥 ∈ SE 𝜑 (ℬ), since ℬ satisfies L2(𝜑 ), we have that 𝑠 (𝑐 𝑖 ,𝑜 (𝑘 )+1) (𝑎 *ℬ ) = 
+
+select ℬ
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑘 *ℬ );(5) Substitute 𝑘 *ℬ = 𝑗 ;(6) According to the interpretation of select 𝐴 ′ 
+
+> 𝑖
+
+in ℬ;(7) Since 𝑎 ′ℬ (𝑗 )̸ = 𝑏 ′ℬ (𝑗 ), and due to the IH regarding injectivity of Ψ (Note that dtIdx (𝑥 𝑜 (𝑘 )+1 ) <
+
+dtIdx (𝑥 ) and dtIdx (𝑦 𝑜 (𝑘 )+1 ) < dtIdx (𝑦 ) by Lemma 67); (8) - (13) Reverse of (6) - (1). 
+
+□
+
+Definition 85. For every 𝜎 ∈ 𝒮 Σ, and every 𝑥 ∈ vars 𝜎 (𝜑 ) its interpretation in 𝒜 is defined as follows: 
+
+𝑥 𝒜 = Ψ( 𝑥 *ℬ ).
+
+Note that for every 𝜎 ∈ 𝒮 Σ, and every 𝑥 ∈ vars 𝜎 (𝜑 ), we have that Ψ( 𝑥 *ℬ ) is well defined and 
+
+Ψ( 𝑥 *ℬ ) ∈ 𝜎 𝒜 by Lemma 83. 
+
+B.6. Interpretation of Functions and Predicates 
+
+The interpretation of function and predicate symbols in ℬ is defined in Table 23 and described as follows. 
+
+Array operations. The symbols select 𝐴 𝑗 and store 𝐴 𝑗 are interpreted in the standard way, as read and update operations over functions. 
+
+Datatype symbols. The interpretation of constructors and testers is fixed, as we require 𝒜 Σ𝑛 +1 to be a datatypes structure. As for selectors, their interpretation is fixed when applied to terms that are constructed by their corresponding constructors. When applied to different constructors, we maintain the connection to ℬ as induced by Ψ, or set them arbitrarily if no such connection is induced. 
+
+44 Array operators Standard read/update operations Constructors Fixed by the theory Testers Fixed by the theory Selectors 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑡 ) = 
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝑡 𝑖 if 𝑡 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1, . . . , 𝑡 𝑛 
+
+Ψ(︀ 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑥 ))︀ otherwise, if there is 𝑥 ∈ 𝑆 with Ψ( 𝑥 ) = 𝑡 
+
+d𝜎 otherwise 
+
+Table 23 Interpretation of function and predicate symbols, where d𝜎 is an arbitrary (but fixed) element of 
+
+𝜎 𝒜 . Note that the interpretation of selectors is well defined as Ψ is injective (Lemma 84). 
+
+B.7. 𝒜 is a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation 
+
+In order to show that 𝒜 is a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation, we need to show that the relation ℛ𝒜 is well-founded. Recall that for every sort 𝜎 , 𝜎 𝒜 is defined to be ⋃︀ 𝑖 ∈N 𝜎 𝑖 . Thus, each element of 𝜎 𝒜 belongs to 𝜎 𝑖 for some minimal 𝑖 . For the next lemma, as well as for several subsequent lemmas, it will be useful to have a special notation for that minimal 𝑖 .
+
+Notation 2. For every 𝜎 ∈ 𝒮 Σ and every 𝑥 ∈ 𝜎 𝒜 , we define idx (𝑥 ) = min {𝑙 ∈ N | 𝑥 ∈ 𝜎 𝑙 }.
+
+In order to show that ℛ𝒜 is well-founded, we prove the following lemmas about the function idx (·).
+
+Lemma 86. Let 𝑥 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some constructor 𝑐 : 𝜎 1 × · · · × 𝜎 𝑚 → 𝜎 ∈ 𝒞𝒪 Σ𝑛 +1 and 
+
+𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑚 ∈ 𝜎 𝒜 
+
+> 𝑚
+
+. Then, idx (𝑥 ) ≥ max {idx (𝑡 1), . . . , idx (𝑡 𝑚 )}.Proof : We can denote as 𝑘 = idx (𝑥 ) and 𝑘 𝑗 = idx (𝑡 𝑗 ) for every 𝑗 ∈ [1 , 𝑚 ].Since 𝜎 ∈ Struct Σ𝑛 +1 , we know that 𝜎 0 = ∅ and hence 𝑘 ≥ 1. By minimality of 𝑘 , we know that 
+
+𝑥 ∈ 𝜎 𝑘 ∖ 𝜎 𝑘 −1. Since 𝜎 𝑘 = 𝜎 𝑘 −1 ∪ 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 𝑘 −1), we have that 𝑥 ∈ 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 𝑘 −1). Hence, by the definition of 𝑇 𝜎 (Σ |𝒞𝒪 , 𝐵 𝑘 −1), we have that for every 𝑗 ∈ [1 , 𝑚 ], 𝑡 𝑗 ∈ 𝜎 𝑘 −1 
+
+> 𝑗
+
+. Therefore, by the definition of idx (𝑡 𝑗 ), we have that 𝑘 𝑗 ≤ 𝑘 − 1 < 𝑘 for every 𝑗 ∈ [1 , 𝑚 ], and hence max {idx (𝑡 1), . . . , idx (𝑡 𝑚 )} =max {𝑘 1, . . . , 𝑘 𝑚 } ≤ 𝑘 . □
+
+Lemma 87. Let 𝑥 ∈ 𝐴 𝒜  
+
+> 𝑖
+
+for some 𝑖 ∈ [1 , 𝑛 ] and 𝑗 ∈ 𝐼 𝒜  
+
+> 𝑖
+
+. Then, idx (select 𝒜  
+
+> 𝐴 𝑖
+
+(𝑥, 𝑗 )) < idx (𝑥 ).Proof : We denote 𝑘 = idx (𝑥 ). Since 𝐴 0 
+
+> 𝑖
+
+= ∅, we have that 𝑘 ≥ 1. By the definition of the subdomains, we have 𝐴 𝑘 𝑖 = AC (𝐼 𝑘 −1 
+
+> 𝑖
+
+, 𝐸 𝑘 −1 
+
+> 𝑖
+
+). Thus select 𝒜  
+
+> 𝐴 𝑖
+
+(𝑥, 𝑗 ) ∈ 𝐸 𝑘 −1 
+
+> 𝑖
+
+, and hence by the definition of idx (·), we have that idx (select 𝒜  
+
+> 𝐴 𝑖
+
+(𝑥, 𝑗 )) ≤ 𝑘 − 1 < 𝑘 . □
+
+Lemma 88. The relation ℛ𝒜 is well-founded. Proof : Suppose, toward contradiction, there is an infinite descending sequence 𝑥 0, 𝑥 1, 𝑥 2, . . . such that 
+
+∀𝑖 ∈ N.𝑥 𝑖 +1 ℛ𝒜 𝑥 𝑖 . Let 𝜎 1, 𝜎 2, . . . be a sequence of sorts such that for each 𝑖 , we have 𝑥 𝑖 ∈ 𝜎 𝒜  
+
+> 𝑖
+
+. We denote by 𝑘 𝑖 = idx (𝑥 𝑖 ). According to Definition 16, there are two cases for each 𝑖 :• 𝑥 𝑖 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1 ∈ 𝜎 𝑘 𝑖 −11 , . . . , 𝑡 𝑛 ∈ 𝜎 𝑘 𝑖 −1 
+
+> 𝑚
+
+and 𝑥 𝑖 +1 = 𝑡 𝑗 for some 𝑗 ∈ [1 , 𝑚 ].• 𝑥 𝑖 +1 = select 𝒜  
+
+> 𝜎 𝑖
+
+(𝑥 𝑖 , 𝑗 ) for some 𝑗 ∈ 𝐼 𝒜  
+
+> 𝑖
+
+.
+
+1. If 𝑥 𝑖 +1 ℛ𝒜 𝑥 𝑖 by the first case then 𝑘 𝑖 +1 ≤ 𝑘 𝑖 : If 𝑥 𝑖 +1 ℛ𝒜 𝑥 𝑖 by the first case, then by Lemma 86, we have that 𝑘 𝑖 ≥ max {idx (𝑡 1), . . . , idx (𝑡 𝑚 )}. Since 𝑥 𝑖 +1 = 𝑡 𝑗 for some 𝑗 ∈ [1 , 𝑚 ], we have that 
+
+𝑘 𝑖 +1 = idx (𝑡 𝑗 ) ≤ 𝑘 𝑖 .
+
+2. If 𝑥 𝑖 +1 ℛ𝒜 𝑥 𝑖 by the second case then 𝑘 𝑖 +1 < 𝑘 𝑖 : We can assume that 𝜎 𝑖 = 𝐴 𝑚 for some 
+
+𝑚 ∈ [1 , 𝑛 ]. By Lemma 87, we have that 𝑘 𝑖 +1 = idx (select 𝒜  
+
+> 𝐴 𝑚
+
+(𝑥 𝑖 , 𝑗 )) < idx (𝑥 𝑖 ) = 𝑘 𝑖 .
+
+3. There are infinitely many indices 𝑖 for which the second case holds: Suppose there are finitely many indices 𝑖 for which the second case holds, then there is some index 𝑖 0 such that for every 𝑖 ≥ 𝑖 0, the 
+
+45 first case holds. WLOG, we can assume that for every 𝑖 ≥ 0, 𝑥 𝑖 +1 ℛ𝒜 𝑥 𝑖 by the first case (by renaming the indices). Thus, for every 𝑖 > 0, the first case holds and 𝜎 𝑖 ∈ Struct Σ𝑛 +1 . According to Lemma 62, 
+
+𝜎 𝒜  
+
+> 0
+
+= 𝑇 𝜎 0 (Σ |𝒞𝒪 , 𝐵 ) = ⋃︀ 𝑗 ∈N 𝑇 𝜎 0,𝑗 (Σ |𝒞𝒪 , 𝐵 ).Therefore, there is some 𝑗 0 such that 𝑥 0 ∈ 𝑇 𝜎 0,𝑗 0 (Σ |𝒞𝒪 , 𝐵 ). We prove by induction on 𝑖 that for every 
+
+𝑖 ≥ 0, 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 ,𝑗 0−𝑖 (Σ |𝒞𝒪 , 𝐵 ).
+
+Base case 𝑖 = 0 . By the choice of 𝑗 0, 𝑥 0 ∈ 𝑇 𝜎 0,𝑗 0 (Σ |𝒞𝒪 , 𝐵 ).
+
+Inductive step. Assume 𝑥 𝑖 ∈ 𝑇 𝜎 𝑖 0+𝑖 ,𝑗 0−𝑖 (Σ |𝒞𝒪 , 𝐵 ). We denote by 𝑙 = min {𝑘 ∈ N | 𝑥 𝑖 0+𝑖 ∈
+
+𝑇 𝜎 𝑖 0+𝑖 ,𝑘 (Σ |𝒞𝒪 , 𝐵 )}. It is clear that 𝑙 ≤ 𝑗 0 − 𝑖 .Since 𝑥 𝑖 0+𝑖 ∈ 𝑇 𝜎 𝑖 0+𝑖 ,𝑙 (Σ |𝒞𝒪 , 𝐵 ) ∖ 𝑇 𝜎 𝑖 0+𝑖 ,𝑙 −1(Σ |𝒞𝒪 , 𝐵 ), we get that 𝑥 𝑖 0+𝑖 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some constructor 𝑐 : 𝜎 1 × . . . × 𝜎 𝑚 → 𝜎 𝑖 0+𝑖 and 𝑡 1 ∈ 𝑇 𝜎 1,𝑙 −1(Σ |𝒞𝒪 , 𝐵 ), . . . , 𝑡 𝑚 ∈ 𝑇 𝜎 𝑚 ,𝑙 −1(Σ |𝒞𝒪 , 𝐵 ). There is some 𝑗 ∈ [1 , 𝑚 ] such that 𝑥 𝑖 0+𝑖 +1 = 𝑡 𝑗 , and hence 𝑥 𝑖 0+𝑖 +1 ∈ 𝑇 𝜎 𝑗 ,𝑙 −1(Σ |𝒞𝒪 , 𝐵 ).Note that 𝑙 − 1 < 𝑙 ≤ 𝑗 0 − 𝑖 . Hence, 𝑥 𝑖 0+𝑖 +1 ∈ 𝑇 𝜎 𝑗 ,𝑗 0−(𝑖 +1) (Σ |𝒞𝒪 , 𝐵 ).Thus, for 𝑖 = 𝑗 0, since 𝜎 𝑗 0 ∈ Struct we have 𝑥 𝑗 0 ∈ 𝑇 𝜎 𝑖 ,0(Σ |𝒞𝒪 , 𝐵 ) = ∅, which is a contradiction. 
+
+4. Contradiction: Therefore, there are infinitely many indices 𝑖 for which the second case holds, which contradicts the well foundedness of the natural numbers with the standard less-than relation. □
+
+We can now prove that 𝒜 is indeed a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation. 
+
+Lemma 89. 𝒜 is a 𝒯 N 𝐷𝑇  
+
+> Σ
+
+-interpretation. Proof : We have already seen that ℛ𝒜 is well founded in Lemma 88. Hence, we only need to show that • 𝒜 Σ𝑗 is an arrays structure for 𝑗 ∈ [1 , 𝑛 ].• 𝒜 Σ𝑛 +1 is a datatype structure. For each 𝑗 ∈ [1 , 𝑛 ], Lemma 61 shows that 𝐴 𝒜  
+
+> 𝑗
+
+is the standard functional interpretation of arrays, and we interpret select 𝐴 𝑗 and store 𝐴 𝑗 in the standard way for an arrays structure. As for Σ𝑛 +1 , Lemma 62 shows that ∀𝜎 ∈ Struct , 𝜎 𝒜 is interpreted in the standard way. Likewise, 𝒜 uses the usual tree-based interpretation of constructors, selectors and testers (see Definition 6). By construction, each selector and tester in Σ𝜑 𝑛 +1 obeys the requirements of datatypes structures. □
+
+B.8. Satisfaction of the original formula 
+
+Lemma 90. 𝒜 | = 𝜑 .Proof : Recall that we are under the assumption that 𝜑 is a flat Σ-cube. Let ℓ be a literal of 𝜑 . We prove that 𝒜 | = ℓ by considering every possible shape ℓ may take, and its corresponding translation (given in Table 9). Note that since ℓ is a literal of 𝜑 , tr (ℓ) is a literal of tr (𝜑 ) and is therefore satisfied by ℬ.Further, the lemmas in L1(𝜑 ), L2(𝜑 ) and L3(𝜑 ) are also satisfied by ℬ (see Table 10). 1. For ℓ of the form 𝑥 = 𝑦 , we know that ℬ | = 𝑥 * = 𝑦 *. Hence, 𝑥 𝒜 = Ψ( 𝑥 *ℬ ) = Ψ( 𝑦 *ℬ ) = 𝑦 𝒜 , and so 𝒜 | = ℓ.2. For ℓ of the form 𝑥 ̸ = 𝑦, we know that ℬ | = 𝑥 *̸ = 𝑦 *. Hence, by the injectivity of Ψ (Lemma 84), we have: 𝑥 𝒜 = Ψ( 𝑥 *ℬ )̸ = Ψ( 𝑦 *ℬ ) = 𝑦 𝒜 , and so 𝒜 | = ℓ.3. For ℓ of the form 𝑥 = select 𝐴 𝑖 (𝑎, 𝑗 ), we know that ℬ | = 𝑥 * = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *). According to Definition 78, 𝑗 ∈ AssocInd (𝑎 *ℬ , 𝑖 ). Pick some 𝑘 ∈ AssocInd (𝑎 *ℬ , 𝑖 ) with 𝑘 *ℬ = 𝑗 *ℬ 
+
+which is minimal w.r.t. 𝑜 (𝐴 𝑖 ,𝜑 ), that is, for every 𝑙 ∈ AssocInd (𝑎 *ℬ , 𝑖 ) with 𝑙 *ℬ = 𝑗 *ℬ we have 
+
+𝑜 (𝐴 𝑖 ,𝜑 )(𝑘 ) ≤ 𝑜 (𝐴 𝑖 ,𝜑 )(𝑙 ).Notice that we must have 𝑎 *ℬ = 𝑐 𝑖 (𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1, . . . , 𝑡 𝑚 , as 𝑐 𝑖 is the only constructor of output sort 𝐴 * 
+
+> 𝑖
+
+. Now: 
+
+select 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑗 𝒜 )
+
+46 (1) 
+
+= 𝑎 𝒜 (𝑗 𝒜 )
+
+> (2)
+
+= Ψ( 𝑎 *ℬ )(Ψ( 𝑗 *ℬ )) 
+
+> (3)
+
+= Ψ( 𝑎 *ℬ )( 𝑗 *ℬ )
+
+> (4)
+
+= Ψ( 𝑡 *
+
+> 𝑜 (𝑘 )+1
+> ℬ
+
+)
+
+> (5)
+
+= Ψ( 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑘 )+1)
+
+(𝑎 *ℬ )) 
+
+> (6)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑘 *ℬ )) 
+
+> (7)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑗 *ℬ )) 
+
+> (8)
+
+= Ψ( 𝑥 *ℬ )
+
+> (9)
+
+= 𝑥 𝒜 
+
+(1) According to the interpretation of the select operation in 𝒜 (see Table 23). (2) According to the interpretation of 𝑎 and 𝑗 in 𝒜 (Definition 85). (3) By the first case in the definition of Ψ (see Definition 81), as for every 𝑖 ∈ [1 , 𝑛 ], according to Definition 12 we have that 𝐼 𝑖 /∈ Array Σ ∪ Struct Σ𝑛 +1 and therefore 𝐼 * 
+
+> 𝑖
+
+/∈ Struct Σ𝜑 𝑛 +1 
+
+(see Table 5). (4) Due to the first subcase in the third case in the definition of Ψ (see Definition 81) (5) Since 𝑎 *ℬ = 𝑐 𝑖 (𝑡 1, . . . , 𝑡 𝑚 ) and by the interpretation of selectors in ℬ (see Table 23). (6) Since ℬ | = L1(𝜑 ).(7) Since 𝑗 *ℬ = 𝑘 *ℬ .(8) It holds that ℬ | = 𝑥 * = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑗 *).(9) The last equality holds by the interpretation of 𝑎 in 𝒜 (see Definition 85). 4. For ℓ of the form 𝑏 = store 𝐴 𝑖 (𝑎, 𝑘, 𝑣 ), we know that ℬ | = 𝑏 ′ = store 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑘 *, 𝑣 *). Since ℬΣ* 
+
+> 𝑖
+
+is an arrays structure, the followings hold: 
+
+ℬ | = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑏 ′, 𝑘 *) = 𝑣 * (*)
+
+∀𝑗 ∈ (𝐼 *  
+
+> 𝑖 ℬ
+
+∖ { 𝑘 *ℬ }).select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑗 ) = select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑗 ) (** )In addition, since ℬ satisfies L2(𝜑 ), we have: 
+
+∀𝑗 ∈ I(𝐴 𝑖 ,𝜑 ).select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑗 *ℬ ) = 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑗 )+1)
+
+(𝑎 *ℬ ) (* * * )
+
+∀𝑗 ∈ I(𝐴 𝑖 ,𝜑 ).select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑗 *ℬ ) = 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑗 )+1)
+
+(𝑏 *ℬ ) (* * ** )Since 𝐼 𝒜  
+
+> 𝑖
+
+= {𝑘 𝒜 }∪ (I𝒜  
+
+> (𝐴 𝑖 ,𝜑 )
+
+∖{ 𝑘 𝒜 })∪(𝐼 𝒜  
+
+> 𝑖
+
+∖I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+), in order to show that 𝒜 | = 𝑏 = store 𝐴 𝑖 (𝑎, 𝑘, 𝑣 ),we need to show that: a) store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑘 𝒜 ) = 𝑏 𝒜 (𝑘 𝒜 ).b) For every 𝑗 ∈ I(𝐴 𝑖 ,𝜑 ) such that 𝑗 𝒜 ̸ = 𝑘 𝒜 . we have that store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑗 𝒜 ) = 𝑏 𝒜 (𝑗 𝒜 ).c) ∀𝑟 ∈ (𝐼 𝒜  
+
+> 𝑖
+
+∖ I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+).store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑟 ) = 𝑏 𝒜 (𝑟 ).Note that since there is a single constructor 𝑐 𝑖 whose target sort is 𝐴 * 
+
+> 𝑖
+
+, we have some 𝑎 1, . . . , 𝑎 𝑚 , 𝑏 1, . . . , 𝑏 𝑚 
+
+with: 
+
+𝑎 *ℬ = 𝑐 𝑖 (𝑎 1, . . . , 𝑎 𝑚 ) ∧ 𝑏 *ℬ = 𝑐 𝑖 (𝑏 1, . . . , 𝑏 𝑚 ) (1) 
+
+47 Finally, before showing the three cases, we observe that according to the definition of L2(𝜑 ), for every 𝑙 ∈ I(𝐴 𝑖 ,𝜑 ) we have that 𝑢 (𝑎,𝑜 (𝑙 )+1) = select 𝐴 ′ 
+
+> 𝑖
+
+(𝑎 ′, 𝑙 *) ∈ trFormula (𝜑 ) and 𝑢 (𝑏,𝑜 (𝑙 )+1) =
+
+select 𝐴 ′ 
+
+> 𝑖
+
+(𝑏 ′, 𝑙 *) ∈ trFormula (𝜑 ). Hence, according to Definition 78, 𝑙 ∈ AssocInd (𝑎 *ℬ , 𝑖 ) and 
+
+𝑙 ∈ AssocInd (𝑏 *ℬ , 𝑖 ).Hence, I(𝐴 𝑖 ,𝜑 ) ⊆ AssocInd (𝑎 *ℬ , 𝑖 ) and I(𝐴 𝑖 ,𝜑 ) ⊆ AssocInd (𝑏 *ℬ , 𝑖 ), and thus we get 
+
+I(𝐴 𝑖 ,𝜑 ) = AssocInd (𝑎 *ℬ , 𝑖 ) = AssocInd (𝑏 *ℬ , 𝑖 ) (2) We now prove the aforementioned cases one by one: a) Pick 𝑡 ∈ I(𝐴 𝑖 ,𝜑 ) with 𝑡 *ℬ = 𝑘 *ℬ and minimal w.r.t. 𝑜 (𝐴 𝑖 ,𝜑 ), i.e., for every 𝑙 ∈ I(𝐴 𝑖 ,𝜑 ) with 
+
+𝑙 *ℬ = 𝑘 *ℬ we have 𝑜 (𝐴 𝑖 ,𝜑 )(𝑡 ) ≤ 𝑜 (𝐴 𝑖 ,𝜑 )(𝑙 ).
+
+𝑏 𝒜 (𝑘 𝒜 )
+
+> (1)
+
+= Ψ( 𝑏 *ℬ )(Ψ( 𝑘 *ℬ )) 
+
+> (2)
+
+= Ψ( 𝑏 *ℬ )( 𝑘 *ℬ )
+
+> (3)
+
+= Ψ( 𝑏 𝑜 (𝑡 )+1 )
+
+> (4)
+
+= Ψ( 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑡 )+1)
+
+(𝑏 *ℬ )) 
+
+> (5)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑡 *ℬ )) 
+
+> (6)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑘 *ℬ )) 
+
+> (7)
+
+= Ψ( 𝑣 *ℬ )
+
+> (8)
+
+= 𝑣 𝒜 
+
+> (9)
+
+= store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑘 𝒜 )
+
+(1) According to the interpretation of 𝑏 and 𝑘 in 𝒜 (Definition 85). (2) By the first case in the definition of Ψ (see Definition 81), as for every 𝑖 ∈ [1 , 𝑛 ] we have that 𝐼 𝑖 /∈ Array Σ ∪ Struct Σ𝑛 +1 (see Definition 12) and therefore 𝐼 * 
+
+> 𝑖
+
+/∈ Struct Σ𝜑 𝑛 +1 
+
+(see Table 5). (3) Due to (1) and (2) and the first subcase in the third case in the definition of Ψ (see Definition 81). (4) According to 1 𝑏 *ℬ = 𝑐 𝑖 (𝑏 1, . . . , 𝑏 𝑚 ) and by the interpretation of selectors in ℬ (see Table 23). (5) By Equation ( * * ** ). (6) Since 𝑡 *ℬ = 𝑘 *ℬ .(7) By Equation ( *). (8) This equality holds by the interpretation of 𝑎 in 𝒜 (see Definition 85). (9) The last equality holds by the definition of the store operation in 𝒜 (see Table 23). b) Pick 𝑡 ∈ I(𝐴 𝑖 ,𝜑 ) with 𝑡 *ℬ = 𝑗 *ℬ and minimal w.r.t. 𝑜 (𝐴 𝑖 ,𝜑 ), i.e., for every 𝑟 ∈ I(𝐴 𝑖 ,𝜑 )
+
+with 𝑟 *ℬ = 𝑗 *ℬ we have 𝑜 (𝐴 𝑖 ,𝜑 )(𝑡 ) ≤ 𝑜 (𝐴 𝑖 ,𝜑 )(𝑟 ). By (2) , 𝑡, 𝑗 ∈ AssocInd (𝑎 *ℬ , 𝑖 ) and 
+
+𝑡, 𝑗 ∈ AssocInd (𝑏 *ℬ , 𝑖 ).
+
+48 store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑗 𝒜 )
+
+> (1)
+
+= 𝑎 𝒜 (𝑗 𝒜 )
+
+> (2)
+
+= Ψ( 𝑎 *ℬ )(Ψ( 𝑗 *ℬ )) 
+
+> (3)
+
+= Ψ( 𝑎 *ℬ )( 𝑗 *ℬ )
+
+> (4)
+
+= Ψ( 𝑎 𝑜 (𝑡 )+1 )
+
+> (5)
+
+= Ψ( 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑡 )+1)
+
+(𝑎 *ℬ )) 
+
+> (6)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑎 ′ℬ , 𝑡 *ℬ )) 
+
+> (7)
+
+= Ψ( select ℬ 
+
+> 𝐴 ′
+> 𝑖
+
+(𝑏 ′ℬ , 𝑡 *ℬ )) 
+
+> (8)
+
+= Ψ( 𝑠 ℬ
+
+> (𝑐 𝑖 ,𝑜 (𝑡 )+1)
+
+(𝑏 *ℬ )) 
+
+> (9)
+
+= Ψ( 𝑏 𝑜 (𝑡 )+1 )
+
+> (10)
+
+= Ψ( 𝑏 *ℬ )( 𝑗 *ℬ )
+
+> (11)
+
+= Ψ( 𝑏 *ℬ )(Ψ( 𝑗 *ℬ )) 
+
+> (12)
+
+= 𝑏 𝒜 (𝑗 𝒜 )
+
+(1) According to the interpretation of the store operation in 𝒜 and since 𝑗 𝒜 ̸ = 𝑘 𝒜 (see Table 23). (2) According to the interpretation of 𝑎 and 𝑘 in 𝒜 (Definition 85). (3) By the first case in the definition of Ψ (see Definition 81), as for every 𝑖 ∈ [1 , 𝑛 ] we have that 𝐼 𝑖 /∈ Array Σ ∪ Struct Σ𝑛 +1 and therefore 𝐼 * 
+
+> 𝑖
+
+/∈ Struct Σ𝜑 𝑛 +1 
+
+.(4) Due to (1) 𝑎 *ℬ = 𝑐 𝑖 (𝑎 1, . . . 𝑎 𝑚 ) and the first subcase in the third case in the definition of 
+
+Ψ (see Definition 81). (5) Since 𝑎 *ℬ = 𝑐 𝑖 (𝑎 1, . . . , 𝑎 𝑚 ).(6) By Equation ( * * * ). (7) By Equation ( ** ). (8) – (12) are symmetric to steps (2)-(6), e.g., (8) is explained as (6), (9) as (5), up to (12) as (2). In (8), we rely on Equation ( * * ** ) rather than on Equation ( * * * ). c) Let there be 𝑟 ∈ (𝐼 𝒜  
+
+> 𝑖
+
+∖ I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+). Then, 
+
+store 𝒜  
+
+> 𝐴 𝑖
+
+(𝑎 𝒜 , 𝑘 𝒜 , 𝑣 𝒜 )( 𝑟 )
+
+> (1)
+
+= 𝑎 𝒜 (𝑟 )
+
+> (2)
+
+= Ψ( 𝑎 *ℬ )( 𝑟 )
+
+> (3)
+
+= tail 𝑖 (𝑎 *ℬ )
+
+> (4)
+
+= tail 𝑖 (𝑏 *ℬ )
+
+> (5)
+
+= Ψ( 𝑏 *ℬ )( 𝑟 )
+
+> (6)
+
+= 𝑏 𝒜 (𝑟 )
+
+49 (1) According to the interpretation of the store operation in 𝒜 and since 𝑟 ̸ = 𝑘 𝒜 (see Table 23). (2) According to the interpretation of 𝑎 in 𝒜 (Definition 85). (3) We first show the following three claims: • 𝑟 ∈ 𝐼 * 
+
+> 𝑖 ℬ
+
+: Since 𝐼 𝑖 /∈ Array Σ ∪Struct Σ𝑛 +1 (Definition 12), we have 𝐼 * 
+
+> 𝑖
+
+/∈ Struct Σ𝜑 𝑛 +1 
+
+by Table 5. By Table 22, ∀𝑚 ∈ N.𝐼 𝑚 𝑖 = 𝐼 * 
+
+> 𝑖 ℬ
+
+, so 𝐼 𝒜  
+
+> 𝑖
+
+=⋃︀ 𝑚 ∈N 𝐼 𝑚 𝑖 = 𝐼 * 
+
+> 𝑖 ℬ
+
+. Since 𝑟 ∈ 𝐼 𝒜  
+
+> 𝑖
+
+,we have 𝑟 ∈ 𝐼 * 
+
+> 𝑖 ℬ
+
+.• {𝑙 *ℬ | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )} = I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+: For any 𝑙 ∈ I(𝐴 𝑖 ,𝜑 ), 𝑙 is of sort 𝐼 𝑖 . Since 𝐼 * 
+
+> 𝑖
+
+/∈ Struct Σ𝜑 𝑛 +1 
+
+and 𝑙 *ℬ ∈ 𝐼 *  
+
+> 𝑖 ℬ
+
+= 𝐼 𝒜  
+
+> 𝑖
+
+⊆ ∪{ 𝜎 𝒜 | 𝜎 ∈ 𝒮 Σ} ∪ (︀⋃︀ 𝑖 ∈[1 ,𝑛 ] 𝐴 𝑖 ∘ℬ )︀ , the first case in the definition of Ψ (Definition 81) gives Ψ( 𝑙 *ℬ ) = 𝑙 *ℬ . By Definition 85, 𝑙 *ℬ = 𝑙 𝒜 . Hence, 
+
+{𝑙 *ℬ | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )} = {Ψ( 𝑙 *ℬ ) | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )} = I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+.• There exists no 𝑙 ∈ AssocInd (𝑎 *ℬ , 𝑖 ) such that 𝑙 *ℬ = 𝑟 : Since AssocInd (𝑎 *ℬ , 𝑖 ) ⊆
+
+I(𝐴 𝑖 ,𝜑 ) (Definition 78), if such an 𝑙 existed, we would have 𝑙 *ℬ ∈ { 𝑙 *ℬ | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )}.However, by the previous bullet, {𝑙 *ℬ | 𝑙 ∈ I(𝐴 𝑖 ,𝜑 )} = I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+, and we know 𝑟 / ∈ I𝒜 
+
+> (𝐴 𝑖 ,𝜑 )
+
+.Therefore, no such 𝑙 exists. Now we can deduce that equality (3) stems from the second subcase in the third case of the definition of Ψ (see Definition 81). (4) Note that 𝑎 *ℬ , 𝑏 *ℬ ∈ SE 𝜑 (ℬ) since 𝑏 = store 𝐴 𝑖 (𝑎, 𝑘, 𝑣 ) ∈ 𝜑 (see Definition 73). According to Equation ( ** ) and the definition of tl (see Definition 75), we have that tl (𝑎 ′ℬ ) = 
+
+tl (𝑏 ′ℬ ). Since ℬ satisfies L3(𝜑 ), we have that 𝑎 ′ℬ = 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑎 *ℬ ) and 𝑏 ′ℬ = 𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑏 *ℬ ).Thus, tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑎 *ℬ )) = tl (𝑎 ′ℬ ) = tl (𝑏 ′ℬ ) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑏 *ℬ )) .Hence, • 𝑎 *ℬ , 𝑏 *ℬ ∈ SE 𝜑 (ℬ) .• tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑎 *ℬ )) = tl (𝑓 ℬ 
+
+> 𝐴 𝑖
+
+(𝑏 *ℬ )) .and according to the definition of tail 𝑖 , we have that tail 𝑖 (𝑎 *ℬ ) = tail 𝑖 (𝑏 *ℬ ) (see Lemma 76). (5) We have shown in step (3) that 𝑟 ∈ 𝐼 *  
+
+> 𝑖 ℬ
+
+and there exists no 𝑙 ∈ AssocInd (𝑏 *ℬ , 𝑖 ) such that 𝑙 *ℬ = 𝑟 . Hence, by the second subcase in the third case of the definition of Ψ (see Definition 81), we get this equality. (6) According to the interpretation of 𝑏 in 𝒜 (Definition 85). 5. For ℓ of the form 𝑥 = 𝑠 (𝑐,𝑖 )(𝑦 ), we know that ℬ | = 𝑥 * = 𝑠 (c*,𝑖 )(𝑦 *). We distinguish two cases: a) Case 1: If 𝑦 *ℬ is an application of 𝑐 *, we can denote 𝑦 *ℬ = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) for some 
+
+𝑡 1, . . . , 𝑡 𝑚 .
+
+𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑦 𝒜 )
+
+> (1)
+
+= 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(Ψ( 𝑦 *ℬ )) 
+
+> (2)
+
+= 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(Ψ( 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ))) 
+
+> (3)
+
+= 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 ))) 
+
+> (4)
+
+= Ψ( 𝑡 𝑖 )
+
+> (5)
+
+= Ψ(︀ 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ ))︀ 
+
+> (6)
+
+= Ψ( 𝑥 *ℬ )
+
+50 (7) 
+
+= 𝑥 𝒜 
+
+(1) According to the interpretation of 𝑦 in 𝒜 (see Definition 85). (2) Substitute 𝑦 *ℬ = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ).(3) By the second case in the definition of Ψ (see Definition 81). (4) By the interpretation of selectors in 𝒜 (see Table 23). (5) Since 𝑦 *ℬ = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) and ℬΣ𝜑 𝑛 +1 is a datatype structure, 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ ) = 𝑡 𝑖 (see Definition 6). (6) Since ℬ | = 𝑥 * = 𝑠 (c*,𝑖 )(𝑦 *).(7) The last equality holds by the interpretation of 𝑥 in 𝒜 (see Definition 85). b) Case 2: 𝑦 *ℬ is not an application of 𝑐 *, we can denote 𝑦 * =̃︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ) for some construc-tor ̃︀ 𝑐 ̸ = 𝑐 *.According to the definition of Σ𝜑 𝑛 +1 (Table 5), we can denote the target domain of those two constructors by 𝜎 * where either 𝜎 ∈ Struct Σ𝑛 +1 or 𝜎 = 𝐴 𝑖 for some 𝑖 ∈ [1 , 𝑛 ]. Since there are 2 constructors with target sort 𝜎 * in Struct Σ𝜑 𝑛 +1 
+
+, we have that 𝜎 ∈ Struct Σ𝑛 +1 
+
+(as there is a single constructor whose target sort is 𝐴 * 
+
+> 𝑖
+
+). Hence, we can denote ̃︀ 𝑐 = ^ 𝑐 * for some constructor ^𝑐 ̸ = 𝑐 in 𝒞𝒪 Σ𝑛 +1 and 𝑦 *ℬ = ^ 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ). By the interpretation of 𝑦 in 
+
+𝒜 (see Definition 85), we have that 𝑦 𝒜 = Ψ( 𝑦 *ℬ ) = ^ 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) .
+
+𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑦 𝒜 )
+
+> (1)
+
+= Ψ (︀ 𝑠 ℬ
+
+> (𝑐 *,𝑖 )
+
+(𝑦 *ℬ ))︀ 
+
+> (2)
+
+= Ψ( 𝑥 *ℬ )
+
+> (3)
+
+= 𝑥 𝒜 
+
+(1) Note that since 𝑦 𝒜 is an application of ^𝑐 (and not 𝑐 ), and 𝑦 𝒜 = Ψ( 𝑦 *ℬ ), this equality stems from the second case in the interpretation of selectors in Table 23. (2) Since ℬ | = 𝑥 * = 𝑠 (𝑐 *,𝑖 )(𝑦 *).(3) The last equality holds by the interpretation of 𝑥 in 𝒜 (see Definition 85). 6. For ℓ of the form 𝑥 = 𝑐 (𝑡 1, . . . , 𝑡 𝑚 ), We know that ℬ | = 𝑥 * = 𝑐 *(𝑡 *
+
+> 1
+
+, . . . , 𝑡 *
+
+> 𝑚
+
+) and thus 
+
+𝑥 𝒜 = Ψ( 𝑥 *ℬ ) = Ψ( 𝑐 *(𝑡 *
+
+> 1ℬ
+
+, . . . , 𝑡 *
+
+> 𝑚 ℬ
+
+)) = 𝑐 (Ψ( 𝑡 *
+
+> 1ℬ
+
+), . . . , Ψ( 𝑡 *
+
+> 𝑚 ℬ
+
+)) = 𝑐 (𝑡 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝒜 
+
+> 𝑚
+
+)
+
+7. For ℓ of the form is 𝑐 (𝑥 ), we know that ℬ | = is 𝑐 * (𝑥 *). Thus, since ℬΣ𝜑 𝑛 +1 is a datatype structure, we have that 𝑥 *ℬ = 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1, . . . , 𝑡 𝑚 . Hence, 
+
+𝑥 𝒜 = Ψ( 𝑥 *ℬ ) = Ψ( 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 )) = 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) 
+
+and so 𝒜 | = ℓ.8. For ℓ of the form ¬is 𝑐 (𝑥 ), we know that ℬ | = ¬is 𝑐 * (𝑥 *). Thus, since ℬΣ𝜑 𝑛 +1 is a datatype structure, we have that 𝑥 *ℬ = ^ 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 ) for some 𝑡 1, . . . , 𝑡 𝑚 and ^𝑐 ̸ = 𝑐 . Hence, 
+
+𝑥 𝒜 = Ψ( 𝑥 *ℬ ) = Ψ(^ 𝑐 *(𝑡 1, . . . , 𝑡 𝑚 )) = ^ 𝑐 (Ψ( 𝑡 1), . . . , Ψ( 𝑡 𝑚 )) 
+
+and so 𝒜 | = ℓ.
+
+□
+
+51 C. Decidability 
+
+In this section, we prove Theorem 32. Let Σ be an NDT-signature and 𝜑 a flat Σ-cube, and recall the graph 𝐺 Σ from Definition 63. We prove a lemma similar to Lemma 65, but for 𝑇 𝜑 
+
+> new
+
+-interpretations. 
+
+Lemma 91. If there is a path from 𝜎 to 𝜏 in the graph 𝐺 Σ (see Definition 63), then for every 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ, |𝜏 *ℬ | ≤ | 𝜎 *ℬ |.Proof : In this proof we assume w.l.o.g. that for every 𝑖 in [1 , 𝑛 ], there exists a literal of the form 
+
+𝑥 = select 𝐴 𝑖 (𝑎, 𝑗 ) in 𝜑 (we can always add such a literal with fresh variables without changing the 
+
+𝒯 N 𝐷𝑇  
+
+> Σ
+
+-satisfiability of 𝜑 ). Write the (finite) path in 𝐺 Σ from 𝜎 to 𝜏 as 
+
+𝜎 = 𝜌 0 −→ 𝜌 1 −→ . . . −→ 𝜌 𝑙 = 𝜏 (𝑙 ≥ 0) .
+
+It is sufficient to show that for every 𝑖 ∈ [0 , 𝑙 − 1] .|𝜌 * 
+
+> 𝑖 ℬ
+
+| ≥ | 𝜌 *
+
+> 𝑖 +1 ℬ
+
+|.By the definition of the graph, the edge (𝜌 𝑖 , 𝜌 𝑖 +1 ) exists due to one of the following two cases: (1) There is a constructor 𝑐 : 𝜏 1 . . . 𝜏 𝑘 → 𝜌 𝑖 such that 𝜌 𝑖 +1 = 𝜏 𝑗 for some 𝑗 .(2) 𝜌 𝑖 = 𝐴 𝑚 and 𝜌 𝑖 +1 = 𝐸 𝑚 for some 𝑚 ∈ [1 , 𝑛 ].In both cases, there exists an injective function 𝑓 𝑖 : 𝜌 * 
+
+> 𝑖 +1 ℬ
+
+→ 𝜌 * 
+
+> 𝑖 ℬ
+
+:1. In case (1), we fix for every 𝑙 ∈ [1 , 𝑘 ] ∖ { 𝑗 } some 𝑢 𝑙 ∈ 𝜏 *  
+
+> 𝑙 ℬ
+
+and define: 
+
+𝑓 𝑖 (𝑥 ) = 𝑐 *(𝑢 1, . . . , 𝑢 𝑗 −1, 𝑥, 𝑢 𝑗 +1 , . . . , 𝑢 𝑘 ).
+
+2. In case (2), we fix 𝑦 ∈ 𝐴 𝑚 ∘ℬ and define: 
+
+𝑓 𝑖 (𝑥 ) = 𝑐 𝑚 (𝑦, 𝑥, . . . , 𝑥 ).
+
+(Since by our assumption at the beginning of the proof, there is at least one literal of the form 
+
+𝑥 = select 𝐴 𝑖 (𝑎, 𝑗 ) in 𝜑 , 𝑛 (𝐴 𝑖 ,𝜑 ) > 0 and so the constructor 𝑐 𝑚 has at least one argument of the element sort 𝐸 *
+
+> 𝑚
+
+.) 
+
+□
+
+Next, we prove a lemma that is similar to Lemma 68. 
+
+Lemma 92. Let 𝜎 ∈ 𝒮 Σ be eventually cyclic (see Definition 63). For every 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ,
+
+|𝜎 *ℬ | = ∞.Proof :As before, we may assume without loss of generality that 𝜑 contains a literal of the form 𝑥 =
+
+select 𝐴 𝑖 (𝑎, 𝑗 ) for each 𝑖 in [1 , 𝑛 ].Since 𝜎 is eventually cyclic, there exists in particular a sort ^𝜏 such that the edge (𝜎, ^𝜏 ) is in 𝐺 Σ.By Definition 63, this implies 𝜎 ∈ Struct Σ𝑛 +1 ∪ Array Σ, and according to Table 5, we have 𝜎 * ∈
+
+Struct Σ𝜑 𝑛 +1 
+
+⊆ 𝒮 Σ𝜑 𝑛 +1 
+
+.Because 𝜎 * ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+and ℬΣ𝜑 𝑛 +1 is a datatypes structure, we can compute dtIdx (·) (see Definition 66) for elements in 𝜎 *ℬ under the interpretation ℬΣ𝜑 𝑛 +1 .To prove the lemma, it suffices to show that ∀𝑁 ∈ N.∃𝑥 ∈ 𝜎 *ℬ . dtIdx (𝑥 ) ≥ 𝑁 . 1. Obtaining a long path. Let 𝑁 ∈ N. We define a path of length at least 𝑁 . Because 𝜎 is eventually cyclic, there is a path 
+
+𝜎 = 𝜏 0 → 𝜏 1 → · · · → 𝜏 ℓ
+
+52 ending at a node 𝜏 ℓ that belongs to a directed cycle 
+
+𝜏 ℓ → 𝜏 ℓ+1 → · · · → 𝜏 ℓ+𝐿 (𝜏 ℓ+𝐿 = 𝜏 ℓ).
+
+Choose 𝑡 ∈ N so that ℓ + 𝑡𝐿 ≥ 𝑁 . Traversing the cycle 𝑡 additional times yields a (possibly repeating) path of length 𝑇 := ℓ + 𝑡𝐿 ≥ 𝑁 :
+
+𝜎 = 𝜏 0 → 𝜏 1 → · · · → 𝜏 𝑇 .
+
+For convenience, we represent this path with reverse indices as 
+
+𝜎 = 𝜎 𝑇 → 𝜎 𝑇 −1 → · · · → 𝜎 0 = 𝜏 𝑇 ,
+
+where 𝜎 𝑖 = 𝜏 𝑇 −𝑖 for each 𝑖 ∈ [0 , 𝑇 ].We now show that for every 𝑖 ∈ [0 , 𝑇 − 1] , 𝜎 * 
+
+> 𝑖
+
+∈ 𝒮 Σ𝜑 𝑛 +1 
+
+, which ensures that dtIdx (·) is defined on 𝜎 * 
+
+> 𝑖 ℬ
+
+.(We already know that 𝜎 * 
+
+> 𝑇
+
+= 𝜎 * ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+.) For every 𝑖 ∈ [0 , 𝑇 − 1] , the edge (𝜎 𝑖 +1 , 𝜎 𝑖 ) occurs in the graph 𝐺 Σ. By Definition 63, this edge arises from one of two cases: • There exists a constructor 𝑐 : 𝜌 1 ×· · ·× 𝜌 𝑘 → 𝜎 𝑖 +1 with 𝜌 𝑟 = 𝜎 𝑖 for some 1 ≤ 𝑟 ≤ 𝑘 . In this case, 
+
+𝜎 𝑖 ∈ 𝒮 Σ𝑛 +1 , and according to Table 5, 𝜎 * 
+
+> 𝑖
+
+∈ 𝒮 Σ𝜑 𝑛 +1 
+
+.• There exists some 1 ≤ 𝑚 ≤ 𝑛 such that 𝜎 𝑖 +1 = 𝐴 𝑚 and 𝜎 𝑖 = 𝐸 𝑚 . By our assumption at the beginning of the proof, 𝜑 contains a literal 𝑥 = select 𝐴 𝑚 (𝑎, 𝑗 ). Therefore, by Table 5, the constructor 𝑐 𝑚 : 𝐴 𝑚 ∘ × 𝐸 * 
+
+> 𝑚
+
+× · · · × 𝐸 * 
+
+> 𝑚
+
+→ 𝐴 * 
+
+> 𝑚
+
+belongs to 𝒞𝒪 Σ𝜑 𝑛 +1 
+
+. Consequently, 𝜎 * 
+
+> 𝑖
+
+= 𝐸 * 
+
+> 𝑚
+
+∈𝒮 Σ𝜑 𝑛 +1 
+
+.
+
+2. From a path to an element of large dtIdx (·).
+
+We use induction over 𝑖 to show that ∀𝑖 ∈ [0 , 𝑇 ].∃𝑥 𝑖 ∈ 𝜎 * 
+
+> 𝑖 ℬ
+
+.dtIdx (𝑥 𝑖 ) ≥ 𝑖 . When 𝑖 = 𝑇 , we get an element 𝑥 𝑇 ∈ 𝜎 *  
+
+> 𝑇 ℬ
+
+= 𝜎 *ℬ with dtIdx (𝑥 𝑇 ) ≥ 𝑇 ≥ 𝑁 , which concludes the proof. 
+
+Base Case: Since all domains are not empty, there exists 𝑥 0 ∈ 𝜎 *  
+
+> 0ℬ
+
+and by definition dtIdx (𝑥 0) ≥ 0.
+
+Inductive Step: Assume that for some 𝑖 ∈ [0 , 𝑇 − 1] there exists 𝑥 𝑖 ∈ 𝜎 *  
+
+> 𝑖 ℬ
+
+such that dtIdx (𝑥 𝑖 ) ≥ 𝑖 .We show that there exists 𝑥 𝑖 +1 ∈ 𝜎 * 
+
+> 𝑖 +1 ℬ
+
+such that dtIdx (𝑥 𝑖 +1 ) ≥ 𝑖 + 1 .The edge (𝜎 𝑖 +1 , 𝜎 𝑖 ) occurs in the graph 𝐺 Σ because of one of two reasons: • Constructor edge: there exists a constructor 𝑐 : 𝜌 1 ×· · ·× 𝜌 𝑘 → 𝜎 𝑖 +1 with 𝜌 𝑟 = 𝜎 𝑖 for some 1 ≤
+
+𝑟 ≤ 𝑘 . As 𝜌 *
+
+> 1ℬ
+
+, . . . , 𝜌 * 
+
+> 𝑘 ℬ
+
+are all non-empty, we can choose arbitrary 𝑢 𝑠 ∈ 𝜌 *  
+
+> 𝑠 ℬ
+
+for 𝑠 ∈ [1 , 𝑘 ] ∖ { 𝑟 }.Thus, 
+
+𝑥 𝑖 +1 := 𝑐 *(𝑢 1, . . . , 𝑢 𝑟 −1, 𝑥 𝑖 , 𝑢 𝑟 +1 , . . . , 𝑢 𝑘 ) ∈ 𝜎 *
+
+> 𝑖 +1 ℬ
+
+dtIdx (𝑥 𝑖 +1 )
+
+> (1)
+
+= 1 + max {dtIdx (𝑢 1), . . . , dtIdx (𝑢 𝑟 −1), dtIdx (𝑥 𝑖 ), dtIdx (𝑢 𝑟 +1 ), . . . , dtIdx (𝑢 𝑘 )}
+
+> (2)
+
+≥ 1 + dtIdx (𝑥 𝑖 )
+
+> (3)
+
+≥ 𝑖 + 1 
+
+(1) According to Lemma 67. (2) From the definition of max .(3) According to the IH dtIdx (𝑥 𝑖 ) ≥ 𝑖 .
+
+53 • Array edge: the edge (𝜎 𝑖 +1 , 𝜎 𝑖 ) occurs in the graph because there exists some 1 ≤ 𝑚 ≤ 𝑛 such that 𝜎 𝑖 +1 = 𝐴 𝑚 , 𝜎 𝑖 = 𝐸 𝑚 . Fix some 𝑟 ∈ 𝐴 𝑚 ∘ℬ and set 
+
+𝑥 𝑖 +1 := 𝑐 𝑚 (𝑟, 𝑥 𝑖 , . . . , 𝑥 𝑖 ) ∈ 𝜎 *
+
+> 𝑖 +1 ℬ
+
+dtIdx (𝑥 𝑖 +1 )
+
+> (1)
+
+= 1 + max {dtIdx (𝑟 ), dtIdx (𝑥 𝑖 ), }
+
+> (2)
+
+≥ 1 + dtIdx (𝑥 𝑖 )
+
+> (3)
+
+≥ 𝑖 + 1 
+
+(1) According to Lemma 67. (2) From the definition of max .(3) According to the IH dtIdx (𝑥 𝑖 ) ≥ 𝑖 .
+
+□
+
+One more ingredient that is needed for the proof of Theorem 32 is a generalization of Theorem 34 to multiple theories, which we prove here for the sake of completeness. Our proof uses Theorem 2.5 of [19 ] (which is an extended version of [ 20 ]) and Theorem 9 of [ 21 ] (the order-sorted Löwenheim-Skolem Theorem): 
+
+Definition 93. Let 𝑉 be a set of variables and 𝛿 𝑉 a conjunction of equality literals and negations of such literals (i.e., equalities and disequalities) between variables in 𝑉 . We say that 𝛿 𝑉 is an arrangement of 
+
+𝑉 if there exists an equivalence relation 𝐸 on 𝑉 such that 𝛿 𝑉 = ∧{ 𝑥 = 𝑦 | (𝑥, 𝑦 ) ∈ 𝐸 }⋀︀ ∧{ 𝑥 ̸ = 𝑦 |
+
+(𝑥, 𝑦 ) /∈ 𝐸 }.
+
+Theorem 94 (Many-sorted Löwenheim-Skolem Theorem). Given a many-sorted signature ˜Σ, a ˜Σ-theory ˜𝑇 , a satisfiable ˜𝑇 -formula Φ, and a ˜𝑇 -interpretation 𝒜 satisfying Φ, there exists a ˜Σ-interpretation 
+
+ℬ satisfying Φ such that |𝜎 𝒜 | ≥ ℵ 0 implies |𝜎 ℬ| = ℵ0, for each sort 𝜎 ∈ 𝒮 ˜Σ.
+
+Lemma 95 (Thm 2.5 of [19]). Let 𝑇 𝑖 be a Σ𝑖 -theory, for 𝑖 = 1 , 2, such that ℱΣ1 ∩ ℱ Σ2 = ∅ and 
+
+𝒫 Σ1 ∩ 𝒫 Σ2 = ∅. Let Σ = Σ 1 ∪ Σ2, 𝑇 = 𝑇 1 ⊕ 𝑇 2, and 𝑆 = 𝒮 Σ1 ∩ 𝒮 Σ2 . For 𝑖 = 1 , 2, let 𝜑 𝑖 be a flat Σ𝑖 -cube, and let 𝑉 = vars (𝜑 1) ∩ vars (𝜑 2). Suppose there exist a 𝑇 1-interpretation 𝒜 , a 𝑇 2-interpretation 
+
+ℬ, and an arrangement 𝛿 𝑉 of 𝑉 such that 
+
+• 𝒜 | = 𝜑 1 ∧ 𝛿 𝑉 ,
+
+• ℬ | = 𝜑 2 ∧ 𝛿 𝑉 , and 
+
+• |𝐴 𝜎 | = |𝐵 𝜎 | for every 𝜎 ∈ 𝑆 .Then there exists a 𝑇 -interpretation 𝒞 such that 
+
+• 𝒞 | = 𝜑 1 ∧ 𝜑 2 ∧ 𝛿 𝑉 ,
+
+• 𝐶 𝜎 = 𝐴 𝜎 for every 𝜎 ∈ 𝒮 Σ1 , and 
+
+• 𝐶 𝜎 = 𝐵 𝜎 for every 𝜎 ∈ 𝒮 Σ2 ∖ 𝑆 .
+
+Theorem 96 (Nelson–Oppen combination for 𝑛 theories). Let 𝑛 ≥ 2 and, for each 𝑖 ∈ { 1, . . . , 𝑛 },let Σ𝑖 be a signature and 𝑇 𝑖 a Σ𝑖 -theory. Assume: 
+
+54 (i) For all 𝑖 ̸ = 𝑗 , ℱΣ𝑖 ∩ ℱ Σ𝑗 = ∅ and 𝒫 Σ𝑖 ∩ 𝒫 Σ𝑗 = ∅ (only sorts may be shared). (ii) For every 𝑖 ∈ [1 , 𝑛 ] we have that 𝑇 𝑖 is stably infinite w.r.t. 𝒮 Σ𝑖 .(iii) The quantifier-free satisfiability problem for each 𝑇 𝑖 is decidable. Let Σ = ⋃︀ 𝑛 𝑖 =1 Σ𝑖 and let 𝑇 = 𝑇 1 ⊕ · · · ⊕ 𝑇 𝑛 . Then the quantifier-free Σ-satisfiability problem for 𝑇 is decidable and 𝑇 is stably infinite w.r.t. 𝒮 Σ.Proof : We prove the claim by induction on 𝑛 :
+
+Base case (𝑛 = 2 ): According to Theorem 34, 𝑇 is decidable. We want to also show that 𝑇 is stably infinite w.r.t. 𝒮 Σ1 ∪ 𝒮 Σ2 . Let 𝜑 be a Σ-formula that is 𝑇 -satisfiable. We need to show that there exists a 𝑇 -interpretation 𝒞 such that 𝒞 | = 𝜑 and |𝜎 𝒞 | is infinite for every 
+
+𝜎 ∈ 𝒮 Σ1 ∪ 𝒮 Σ2 .Since 𝜑 is 𝑇 -satisfiable, there exists a 𝑇 -interpretation ^𝒞 such that ^𝒞 | = 𝜑 .W.l.o.g, 𝜑 = 𝜑 1 ∧ 𝜑 2, where 𝜑 1 and 𝜑 2 are conjunctions of Σ1-literals and Σ2-literals in 𝜑 , respectively. Let 𝑉 = vars (𝜑 1) ∩ vars (𝜑 2) be the set of shared variables between 𝜑 1 and 𝜑 2.We can define the following arrangement 𝛿 𝑉 of 𝑉 :
+
+𝛿 𝑉 = ∧{ 𝑥 = 𝑦 | ^𝒞 | = 𝑥 = 𝑦 }⋀︁ ∧{ 𝑥 ̸ = 𝑦 | ^𝒞 | = 𝑥 ̸ = 𝑦 }
+
+Note that ^𝒞 Σ1 |= 𝜑 1 ∧ 𝛿 𝑉 and ^𝒞 Σ2 |= 𝜑 2 ∧ 𝛿 𝑉 . Since both 𝑇 1 and 𝑇 2 are stably infinite w.r.t. all their sorts, there exist: • a 𝑇 1-interpretation ℬ such that ℬ | = 𝜑 1 ∧ 𝛿 𝑉 and for every 𝜎 ∈ 𝒮 Σ1 , |𝜎 ℬ| is infinite, and • a 𝑇 2-interpretation 𝒜 such that 𝒜 | = 𝜑 2 ∧ 𝛿 𝑉 and for every 𝜎 ∈ 𝒮 Σ2 , |𝜎 𝒜 | is infinite. By Theorem 94, we can further assume that |𝜎 ℬ| = ℵ0 for every 𝜎 ∈ 𝒮 Σ1 , and |𝜎 𝒜 | = ℵ0 for every 
+
+𝜎 ∈ 𝒮 Σ2 . In particular, for every 𝜎 ∈ 𝒮 Σ1 ∩ 𝒮 Σ2 , we have |𝜎 ℬ| = ℵ0 = |𝜎 𝒜 |.Thus, the conditions of Lemma 95 are satisfied. By Lemma 95, there exists a 𝑇 -interpretation 𝒞 such that 𝒞 | = 𝜑 1∧𝜑 2∧𝛿 𝑉 , and for every 𝜎 ∈ 𝒮 Σ1 ∪𝒮 Σ2 ,
+
+|𝜎 𝒞 | is infinite. In particular, we also have 𝒞 | = 𝜑 .
+
+Inductive step (𝑛 > 2): Assume the claim holds for 𝑘 < 𝑛 theories, and let 𝑇 1, . . . , 𝑇 𝑛 be Σ1, . . . , Σ𝑛 -theories, respectively, such that conditions (i), (ii), and (iii) of the theorem statement hold. Let Σ′ =⋃︀  
+
+> 𝑛 −1
+> 𝑖 =1
+
+Σ𝑖 and 𝑇 ′ = 𝑇 1 ⊕ · · · ⊕ 𝑇 𝑛 −1. By the induction hypothesis, 𝑇 ′ is decidable and stably infinite w.r.t. ⋃︀  
+
+> 𝑛 −1
+> 𝑖 =1
+
+𝒮 Σ𝑖 . Applying the IH once more to 𝑇 ′ and 𝑇 𝑛 , we conclude that 𝑇 ′ ⊕ 𝑇 𝑛 = 𝑇 is decidable and stably infinite w.r.t. ⋃︀ 𝑛 𝑖 =1 𝒮 Σ𝑖 . □
+
+We now prove two lemmas that will be useful in the proof of Theorem 32. The first restricts the sorts with finite interpretations in 𝑇 𝜑 
+
+> new
+
+, while the second does so for sorts with infinite interpretations. 
+
+Lemma 97. Let 𝒞 be a 𝑇 𝜑 
+
+> new
+
+-interpretation that satisfies ∀𝜎 ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ).|𝜎 𝒞 | =
+
+∞. For every 𝜎 ∈ 𝒮 Σ if 𝜎 *𝒞 is finite then 𝜎 ∈ Struct Σ𝑛 +1 .Proof : Let 𝜎 ∈ 𝒮 Σ be such that 𝜎 *𝒞 is finite. We show that 𝜎 ∈ Struct Σ𝑛 +1 by ruling out all other possibilities. By Definition 12, Array Σ ∩ Struct Σ𝑛 +1 = ∅, so we can partition 𝒮 Σ into three disjoint sets: 
+
+𝒮 Σ = ( 𝒮 Σ ∖ (Struct Σ𝑛 +1 ∪ Array Σ)) ⊎ Array Σ ⊎ Struct Σ𝑛 +1 
+
+We show that 𝜎 cannot belong to the first two sets. 
+
+Case 1: Suppose 𝜎 ∈ 𝒮 Σ ∖ (Struct Σ𝑛 +1 ∪ Array Σ). By Table 5, we have 𝜎 * /∈ Struct Σ𝜑 𝑛 +1 
+
+.Additionally, by Notation 1 and Table 4, Array Σ𝜑 = {𝐴 ′ 
+
+> 𝑖
+
+| 𝑖 ∈ [1 , 𝑛 ]}, which implies 𝜎 * /∈ Array Σ𝜑 .
+
+55 Thus, 𝜎 * ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ). Since 𝒞 satisfies the condition of the lemma, we have 
+
+|𝜎 *𝒞 | = ∞, contradicting our assumption that 𝜎 *𝒞 is finite. 
+
+Case 2: If 𝜎 = 𝐴 𝑖 for some 𝑖 ∈ [1 , 𝑛 ], then since 𝐴 𝑖 ∘ ∈ 𝒮 Σ𝜑 ∖(Struct Σ𝜑 𝑛 +1 
+
+∪Array Σ𝜑 ) (see Table 5), we have |𝐴 𝑖 ∘𝒞 | = ∞. Fix an element 𝑡 ∈ 𝐸 *  
+
+> 𝑖 𝒞
+
+. Then for every 𝑗 ∈ 𝐴 𝑖 ∘𝒞 , we have 𝑐 𝑖 (𝑗, 𝑡, . . . , 𝑡 ) ∈ 𝐴 * 
+
+> 𝑖 𝒞
+
+(if 𝑐 𝑖 only has one argument, we omit the 𝑡 s). Therefore, |𝐴 *  
+
+> 𝑖 𝒞
+
+| = ∞, which is a contradiction. □
+
+Lemma 98. Let 𝒞 be a 𝑇 𝜑 
+
+> new
+
+-interpretation in which for each 𝜎 ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ),
+
+|𝜎 𝒞 | = ∞. Define ̂︀ 𝑆 = 𝒮 Σ𝜑 𝑛 +1 
+
+∩(︀ 𝒮 Σ* 
+
+> 1
+
+∪ . . . ∪ 𝒮 Σ* 
+
+> 𝑛
+
+∪ 𝒮 Σ𝑛 +2 )︀ , then: |𝜏 𝒞 | = ∞ for every 𝜏 ∈̂︀ 𝑆 .Proof : First note that ̂︀ 𝑆 ⊆ 𝒮 Σ𝜑 𝑛 +1 
+
+. Thus, it suffices to consider 𝜏 ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+with |𝜏 𝒞 | < ∞ and show that 
+
+𝜏 / ∈̂︀ 𝑆 .
+
+Step 1. 𝜏 = 𝜎 * for some 𝜎 ∈ Struct Σ𝑛 +1 . By Table 5, 𝒮 Σ𝜑 𝑛 +1 
+
+= {𝜎 * | 𝜎 ∈ Elem Σ𝑛 +1 ∖
+
+Array Σ} ∪ { 𝐴 𝑖 ∘ | 𝑖 ∈ [1 , 𝑛 ]} ∪ { 𝐸 * 
+
+> 𝑖
+
+| 𝑖 ∈ [1 , 𝑛 ], 𝐸 𝑖 /∈ (Array Σ ∪ Struct Σ𝑛 +1 )} ∪ { 𝜎 * | 𝜎 ∈
+
+Struct Σ𝑛 +1 ∪ Array Σ}.If 𝜏 = 𝐴 𝑖 ∘ for some 𝑖 ∈ [1 , 𝑛 ], then since 𝐴 𝑖 ∘ ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ), by the assumption over 𝒞 we have |𝐴 𝑖 ∘𝒞 | = ∞, which is a contradiction. Hence, 𝜏 = 𝜎 * for some 𝜎 ∈ 𝒮 Σ𝑛 +1 . By Lemma 97, we have 𝜎 ∈ Struct Σ𝑛 +1 .
+
+Step 2. Constructing a matching subgraph for 𝜎 . Consider the graph 𝐺 Σ (see Definition 63). Since |𝜎 *𝒞 | < ∞, Lemma 92 shows that 𝜎 is not eventually cyclic. Consider the subgraph of 𝐺 Σ
+
+reachable from 𝜎 , denoted 𝐺 ′ 
+
+> Σ
+
+= ( 𝑉 ′, 𝐸 ′). Since 𝜎 is not eventually cyclic, 𝐺 ′ 
+
+> Σ
+
+is a DAG. Let 𝜌 ∈ 𝑉 ′. Since 𝜌 is reachable from 𝜎 in 𝐺 Σ, Lemma 91 implies that |𝜌 *𝒞 | ≤ | 𝜎 *𝒞 | < ∞. By Lemma 97, 𝜌 ∈ Struct Σ𝑛 +1 .Hence, 𝑉 ′ ⊆ Struct Σ𝑛 +1 .
+
+Step 3. Showing that |𝜎 𝒜 ′
+
+| < ∞ for every 𝑇 𝑛 +1 -interpretation 𝒜 ′. Let 𝒜 ′ be any 𝑇 𝑛 +1 -interpretation. We use induction on the length of the longest path starting from a node in the graph 𝐺 ′ 
+
+> Σ
+
+to show that ∀𝜌 ∈ 𝑉 ′.|𝜌 𝒜 ′
+
+| < ∞.• Base Case (longest path length = 0): Let 𝜌 ∈ 𝑉 ′ be a node such that the longest path starting from 𝜌 has length 0. This means 𝜌 has no outgoing edges in 𝐺 ′
+
+> Σ
+
+. Since 𝜌 ∈ Struct Σ𝑛 +1 , any constructor in 𝒞𝒪 Σ𝑛 +1 with target sort 𝜌 must take no arguments (otherwise there would be an outgoing edge from 𝜌 ). Therefore, 𝜌 𝒜 ′
+
+is the finite set of all constant constructors in 𝒞𝒪 Σ𝑛 +1 of sort 𝜌 , which is finite since Σ𝑛 +1 is a datatype signature (see Definition 3). • Inductive Step: Assume the claim holds for every node 𝜌 ′ ∈ 𝑉 ′ where the longest path starting from 𝜌 ′ has length at most 𝑘 . Let 𝜌 ∈ 𝑉 ′ be a node where the longest path starting from 𝜌 has length 𝑘 + 1 . Since 𝜌 ∈ Struct Σ𝑛 +1 , for every constructor 𝑐 : 𝜏 1 × . . . × 𝜏 𝑚 → 𝜌 , and for each argument sort 𝜏 𝑖 (where 𝑖 ∈ { 1, . . . , 𝑚 }), there is an edge from 𝜌 to 𝜏 𝑖 in 𝐺 Σ. Since the longest path from 𝜌 has length 𝑘 + 1 , the longest path from any of its successors 𝜏 𝑖 has length at most 𝑘 .By the induction hypothesis, |𝜏 𝒜 ′ 
+
+> 𝑖
+
+| < ∞ for each 𝑖 . Therefore, due to Definition 6 we get that 𝜌 𝒜 ′
+
+is finite, since it is the finite union of finite sets. Thus, for all 𝜌 ∈ 𝑉 ′, including 𝜎 , we have |𝜌 𝒜 ′
+
+| < ∞.
+
+56 Domains ∀𝜎 ∈ 𝒮 Σ𝜑 .𝜎 ℬ1 =
+
+⎧⎪⎪⎨⎪⎪⎩
+
+𝜎 ℬ0 if 𝜎 ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+,𝐼 * 
+
+> 𝑖
+> ℬ1
+
+→ 𝐸 * 
+
+> 𝑖
+> ℬ1
+
+if 𝜎 = 𝐴 ′ 
+
+> 𝑖
+
+for some 𝑖 ∈ [1 , 𝑛 ],
+
+{𝑐 𝜎 } else Functions 
+
+select and store are defined as read and update operations on functions. All functions in ℱΣ𝜑 𝑛 +1 
+
+are interpreted as in ℬ0.For every 𝑖 ∈ [1 , 𝑛 ] we fix 𝑓 ℬ1 
+
+> 𝐴 𝑖
+
+and 𝑔 ℬ1 
+
+> 𝐴 𝑖
+
+to some arbitrary functions. Predicates All predicates are interpreted as in ℬ0.Variables All variables are interpreted as in ℬ0.
+
+Table 24 A 𝑇 𝜑 
+
+> new
+
+-interpretation ℬ1. 𝑐 𝜎 is an arbitrary but fixed element for each sort 𝜎 ∈ 𝒮 Σ𝜑 ∖(︀ 𝒮 Σ𝜑 𝑛 +1 
+
+∪{ 𝐴 ′ 
+
+> 𝑖
+
+|
+
+𝑖 ∈ [1 , 𝑛 ]})︀ .
+
+Step 4. 𝜎 / ∈ 𝒮 Σ𝑛 +1 ∩(︀ 𝒮 {Σ1} ∪ . . . ∪ 𝒮 {Σ𝑛 })︀ . By the assumption of Theorem 32, the theory 𝑇 𝑛 +1 is stably infinite with respect to 𝒮 Σ𝑛 +1 ∩(︀ 𝒮 {Σ1} ∪ . . . ∪ 𝒮 {Σ𝑛 })︀ .This means that there is a 𝑇 𝑛 +1 interpretation in which every sort in 𝒮 Σ𝑛 +1 ∩(︀ 𝒮 {Σ1} ∪ . . . ∪ 𝒮 {Σ𝑛 })︀ 
+
+has an infinite domain. However, by Step 3, the interpretation of 𝜎 is finite for every 𝑇 𝑛 +1 -interpretation 𝒜 ′. Therefore, 
+
+𝜎 / ∈ 𝒮 Σ𝑛 +1 ∩(︀ 𝒮 {Σ1} ∪ . . . ∪ 𝒮 {Σ𝑛 })︀ . (3) 
+
+Step 5. Concluding that 𝜏 / ∈̂︀ 𝑆 According to Step 1, we have 𝜏 = 𝜎 * for some 𝜎 ∈ Struct Σ𝑛 +1 
+
+and by our assumption over 𝜏 we know that 𝜏 ∈ 𝒮 Σ𝜑 𝑛 +1 
+
+.We now show that 𝜏 does not appear in any of the other signatures (i.e. Σ* 
+
+> 1
+
+. . . Σ* 
+
+> 𝑛
+
+or Σ𝑛 +2 ) and thus 
+
+𝜏 / ∈̂︀ 𝑆 . First, because of Step 3, we know that 𝜎 ∈ Struct Σ𝑛 +1 and by Equation (3) it holds that 𝜎 / ∈ 𝒮 Σ𝑖 
+
+for every 𝑖 ∈ [1 , 𝑛 ]. According to Table 4 we have 𝒮 Σ* 
+
+> 𝑖
+
+= {𝐼 * 
+
+> 𝑖
+
+, 𝐸 * 
+
+> 𝑖
+
+, 𝐴 ′
+
+> 𝑖
+
+}, it follows that 𝜏 = 𝜎 * /∈ 𝒮 Σ* 
+
+> 𝑖
+
+for every 𝑖 ∈ [1 , 𝑛 ].Second, we have established that 𝜎 / ∈ 𝒮 Σ𝑖 for every 𝑖 ∈ [1 , 𝑛 ] and thus 𝜎 / ∈ Array Σ. By Table 6, we have 𝒮 Σ𝑛 +2 = {𝐴 * 
+
+> 𝑖
+
+| 1 ≤ 𝑖 ≤ 𝑛 } ∪ { 𝐴 ′ 
+
+> 𝑖
+
+| 1 ≤ 𝑖 ≤ 𝑛 }. Therefore, 𝜏 = 𝜎 * /∈ 𝒮 Σ𝑛 +2 .Thus, 𝜏 = 𝜎 * /∈ 𝒮 Σ* 
+
+> 1
+
+∪ . . . ∪ 𝒮 Σ* 
+
+> 𝑛
+
+∪ 𝒮 Σ𝑛 +2 , which implies 𝜏 / ∈̂︀ 𝑆 . □
+
+Now we can restate and prove Theorem 32. 
+
+Theorem 32. Suppose 𝑇 𝑛 +1 is stably infinite w.r.t. (︀⋃︀ 𝑛 𝑖 =1 𝒮 Σ𝑖 )︀ ∩ 𝒮 Σ𝑛 +1 Then 𝑇 𝜑  
+
+> new
+
+is decidable. Proof :
+
+Step 1. Reducing to stable infiniteness of 𝑇 𝜑 𝑛 +1 . Using Section 2.3 observe that the theories 
+
+𝑇 * 
+
+> 1
+
+, . . . , 𝑇 * 
+
+> 𝑛
+
+are stably infinite with respect to all their sorts, since they are array theories. Similarly, 𝑇 𝑛 +2 
+
+is stably infinite with respect to all its sorts, since it is the theory of uninterpreted functions. Therefore, by Theorem 96, the combination 𝑇 * 
+
+> 1
+
+⊕ . . . ⊕ 𝑇 * 
+
+> 𝑛
+
+⊕ 𝑇 𝑛 +2 is decidable and stably infinite with respect to all its sorts. To apply Theorem 34 to 𝑇 * 
+
+> 1
+
+⊕ . . . ⊕ 𝑇 * 
+
+> 𝑛
+
+⊕ 𝑇 𝑛 +2 and 𝑇 𝜑 𝑛 +1 , it remains to prove that 𝑇 𝜑 𝑛 +1 is stably infinite with respect to ̂︀ 𝑆 = 𝒮 Σ𝜑 𝑛 +1 
+
+∩(︀ 𝒮 Σ* 
+
+> 1
+
+∪ . . . ∪ 𝒮 Σ* 
+
+> 𝑛
+
+∪ 𝒮 Σ𝑛 +2 )︀ .Let 𝜃 be a 𝑇 𝜑 𝑛 +1 -satisfiable Σ𝜑 𝑛 +1 -formula. Then there exists a 𝑇 𝜑 𝑛 +1 -interpretation ℬ0 such that ℬ0 |= 𝜃 .
+
+Step 2. Constructing a 𝑇 𝜑 
+
+> new
+
+-interpretation of 𝜃 . Since Σ𝜑 = Σ * 
+
+> 1
+
+∪ . . . ∪ Σ* 
+
+> 𝑛
+
+∪ Σ𝜑 𝑛 +1 ∪ Σ𝑛 +2 ,we can view 𝜃 as a formula in the signature Σ𝜑 . We define an interpretation ℬ1 over the signature Σ𝜑 
+
+using ℬ0 (see Table 24). We now show that ℬ1 is a 𝑇 𝜑 
+
+> new
+
+-interpretation: 
+
+57 ℛ𝒪𝒲 1 : ∀𝑎, 𝑖, 𝑒. select 𝐴 (store 𝐴 (𝑎, 𝑖, 𝑒 ), 𝑖 ) = 𝑒 
+
+ℛ𝒪𝒲 2 : ∀𝑎, 𝑖, 𝑒, 𝑗. ¬(𝑗 = 𝑖 ) = ⇒ select 𝐴 (store 𝐴 (𝑎, 𝑖, 𝑒 ), 𝑗 ) = select 𝐴 (𝑎, 𝑗 )
+
+ℰ𝒳 𝒯 : ∀𝑎 1, 𝑎 2.¬(𝑎 1 = 𝑎 2) = ⇒ ∃ 𝑗 : ¬(select 𝐴 (𝑎 1, 𝑗 ) = select 𝐴 (𝑎 2, 𝑗 )) 
+
+Figure 5: Axioms for arrays. 
+
+• For every 𝑖 ∈ [1 , 𝑛 ], ℬΣ* 
+
+> 𝑖
+> 1
+
+is an array interpretation: the array sort is interpreted as the set of functions 𝐴 ′ℬ 1 
+
+> 𝑖
+
+= 𝐼 *  
+
+> 𝑖 ℬ1
+
+→ 𝐸 *  
+
+> 𝑖 ℬ1
+
+, and the symbols select 𝐴 ′ 
+
+> 𝑖
+
+and store 𝐴 ′ 
+
+> 𝑖
+
+are interpreted as the usual read and update operations on arrays. • ℬΣ𝜑 𝑛 +1  
+
+> 1
+
+is a 𝑇 𝜑 𝑛 +1 -interpretation, since all domains, functions, and predicates in Σ𝜑 𝑛 +1 are interpreted as in ℬ0.• ℬΣ𝑛 +2  
+
+> 1
+
+is a 𝑇 𝑛 +2 -interpretation, since 𝑇 𝑛 +2 is the theory of uninterpreted functions and thus every interpretation over the signature Σ𝑛 +2 is a 𝑇 𝑛 +2 -interpretation. Note that ℬ1 satisfies 𝜃 , since ℬΣ𝜑 𝑛 +1  
+
+> 1
+
+is interpreted as ℬ0, which satisfies 𝜃 .By Lemma 56, there exists a 𝑇 𝜑 
+
+> new
+
+-interpretation 𝒞 such that 𝒞 | = 𝜃 and: 
+
+∀𝜎 ∈ 𝒮 Σ𝜑 ∖ (Struct Σ𝜑 𝑛 +1 
+
+∪ Array Σ𝜑 ).|𝜎 𝒞 | = ∞ (4) 
+
+Step 3. 𝑇 𝜑 𝑛 +1 is stably infinite w.r.t. ̂︀ 𝑆 . Define the 𝑇 𝜑 𝑛 +1 -interpretation ℬ = 𝒞 Σ𝜑 𝑛 +1 . By construction, 
+
+ℬ | = 𝜃 , and due to Equation (4) and Lemma 98, |𝜏 ℬ| = |𝜏 𝒞 | = ∞ for every 𝜏 ∈̂︀ 𝑆 .Since 𝜃 was an arbitrary satisfiable 𝑇 𝜑 𝑛 +1 -formula, we conclude that 𝑇 𝜑 𝑛 +1 is stably infinite with respect to ̂︀ 𝑆 .
+
+□
+
+# D. Additional Material 
+
+D.1. A concrete interpretation for Example 15 
+
+In Example 15, satisfiability of 𝜙 from Table 1 was proven indirectly, using an argument that relates to the Nelson-Oppen method. In this section, we provide a concrete 𝒯 P𝑁 𝐷𝑇  
+
+> Σndt
+
+-interpretation that satisfies the formula 𝜙 . Define an interpretation 𝒜 by setting 𝐼 𝒜 = {− 1}, 𝐸 𝒜 = {emp } ∪ { c(−1, 𝑛 ) | 𝑛 ∈
+
+N ∪ {∞}} , and 𝐴 𝒜 = N ∪ {∞} . The interpretation of the variables is given by 𝑎 𝒜 = ∞, 𝑖 𝒜 = −1,and 𝑥 𝒜 = c(−1, ∞). To interpret the symbols, we define a bijection 𝑚 : N ∪ {∞} → 𝐸 𝒜 by setting 
+
+𝑚 (0) = emp , 𝑚 (𝑛 ) = c(−1, 𝑛 − 1) for every 𝑛 ∈ N ∖ { 0}, and 𝑚 (∞) = c(−1, ∞). Finally, 
+
+select 𝒜 (𝛼, 𝛽 ) = 𝑚 (𝛼 ) store 𝒜 (𝛼, 𝛽, 𝛾 ) = 𝑚 −1(𝛾 ), and the remaining function symbols of Σ2 are defined according to Definition 6. It can be shown that 𝒜 is indeed a 𝒯 P𝑁 𝐷𝑇  
+
+> Σ
+
+-interpretation that satisfies 𝜙 .First, let’s show that 𝒜 Σ1 is an arrays Σ1-structure by showing it satisfies the needed axioms from Figure 5. 1. ℛ𝒪𝒲 1 :
+
+∀𝛼 ∈ 𝐴 𝒜 .∀𝛽 ∈ 𝐼 𝒜 .∀𝛾 ∈ 𝐸 𝒜 .
+
+select 𝒜 (︀ store 𝒜 (𝛼, 𝛽, 𝛾 ), 𝛽 )︀ 
+
+= select 𝒜 (︀ 𝑚 −1(𝛾 ), 𝛽 )︀ 
+
+= 𝑚 (︀ 𝑚 −1(𝛾 ))︀ = 𝛾. 
+
+58 2. ℛ𝒪𝒲 2: We need to show that: 
+
+∀𝛼 ∈ 𝐴 𝒜 .𝛽 ∈ 𝐼 𝒜 .𝛾 ∈ 𝐸 𝒜 .𝛿 ∈ 𝐼 𝒜 .
+
+¬(𝛿 = 𝛽 ) = ⇒ select 𝒜 (︀ store 𝒜 (𝛼, 𝛽, 𝛾 ), 𝛿 )︀ 
+
+= select 𝒜 (𝛼, 𝛿 ).
+
+And since |𝐼 𝒜 | = 1 , the condition ¬(𝛿 = 𝛽 ) is never satisfied and the axiom is trivially true. 3. ℰ𝒳 𝒯 : Let there be 𝛼 1, 𝛼 2 ∈ 𝐴 such that 𝛼 1̸ = 𝛼 2. Then, we need to show that there exists 𝛽 ∈ 𝐼 
+
+such that select 𝒜 (𝛼 1, 𝛽 )̸ = select 𝒜 (𝛼 2, 𝛽 ). Then, since 𝑚 is a bijection, we have: 
+
+select 𝒜 (𝛼 1, −1) = 𝑚 (𝛼 1)̸ = 𝑚 (𝛼 2) = select 𝒜 (𝛼 2, −1) .
+
+Now, we show that 𝒜 Σ2 is a datatype Σ2-structure generated by Elem .1. 𝐸 𝒜 is indeed the 𝑇 𝐸 (︀ Σ|𝒞𝒪 , {𝐼 𝒜 , 𝐴 𝒜 })︀ ,2. 𝑐 𝒜 (𝑡 1, . . . , 𝑡 𝑛 ) = 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) for every 𝑐 ∈ 𝒞𝒪 Σ2 of arity (𝜎 1 × . . . × 𝜎 𝑛 ) → 𝜎 and 𝑡 1 ∈
+
+𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑛 ∈ 𝜎 𝒜  
+
+> 𝑛
+
+,3. 𝑠 𝒜 
+
+> (𝑐,𝑖 )
+
+(𝑐 (𝑡 1, . . . , 𝑡 𝑛 )) = 𝑡 𝑖 for every 𝑐 ∈ 𝒞𝒪 Σ2 of arity (𝜎 1 × . . . × 𝜎 𝑛 ) → 𝜎 , 𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑛 ∈ 𝜎 𝒜 
+
+> 𝑛
+
+and 1 ≤ 𝑖 ≤ 𝑛 ,4. is 𝒜  
+
+> 𝑐
+
+={︀ 𝑐 (𝑡 1, . . . , 𝑡 𝑛 ) | 𝑡 1 ∈ 𝜎 𝒜  
+
+> 1
+
+, . . . , 𝑡 𝑛 ∈ 𝜎 𝒜 
+
+> 𝑛
+
+}︀ for every 𝑐 ∈ 𝒞𝒪 Σ2 of arity (𝜎 1 × . . . × 𝜎 𝑛 ) → 𝜎 .Now let’s show that 𝒜 | = 𝜙 :1. is 𝒜  
+
+> c
+
+(𝑥 𝒜 ) holds since 𝑥 𝒜 = c(−1, ∞) is an application of the constructor c.2. chld 𝒜 (𝑥 𝒜 ) = chld 𝒜 (c(−1, ∞)) = ∞ = 𝑎 𝒜 .3. 𝑥 𝒜 = c(−1, ∞) = 𝑚 (∞) = select 𝒜 (∞, −1) = select 𝒜 (𝑎 𝒜 , 𝑖 𝒜 )
+
+Finally, we verify that indeed Definition 16 excludes the interpretation 𝒜 from being an NDT-Σndt -structure. 
+
+ℛ𝒜 ={(c(−1, 𝑛 − 1) , 𝑛 ) | 𝑛 ∈ N ∖ { 0}} ∪ { (emp , 0) , (c(−1, ∞), ∞)}∪ { (−1, c(−1, 𝑛 )) | 𝑛 ∈ N ∪ {∞}} ∪ { (𝑛, c(−1, 𝑛 )) | 𝑛 ∈ N ∪ {∞}} 
+
+The first two sets come from the select function, and the last two from constructor applications. Since 
+
+ℛ𝒜 contains the cycle (𝑎 𝒜 , 𝑥 𝒜 , 𝑎 𝒜 ), we have that 𝒜 is not an NDT Σndt -interpretation. 
+
+D.2. More Details on Example 17 
+
+The formula 𝜙 from Table 1 is 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-unsatisfiable. Assume otherwise, and let there be a 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-interpretation 𝒜 that satisfies 𝜙 . 𝒜 | = 𝜓 ′ 
+
+> 1
+
+and therefore 𝑥 𝒜 = select (𝑎, 𝑖 ) and so: 
+
+(𝑥 𝒜 , 𝑎 𝒜 ) ∈ ℛ 𝒜 . (5) Similarly, 𝒜 | = 𝜓 2 and thus is 𝒜  
+
+> c
+
+(𝑥 𝒜 ) and 𝑎 𝒜 = chld (𝑥 𝒜 ). Definition 6 then suggests that 𝑥 𝒜 = c(𝑎 𝒜 , 𝑐 )
+
+for some 𝑏 and 𝑐 , and thus: 
+
+(𝑎 𝒜 , 𝑥 𝒜 ) ∈ ℛ 𝒜 (6) From Equations (5) and (6), we get a cycle in ℛ𝒜 which entails an infinite descending sequence, thus violating well-foundedness. 
+
+59 D.3. Proof of Lemma 21 
+
+Lemma 21. Σ𝜑 𝑛 +1 is a datatypes signature. Proof : Σ𝜑 𝑛 +1 is already presented using element and struct sorts, as well as constructors, selectors and testers. In particular, Elem Σ𝜑 𝑛 +1 
+
+and Struct Σ𝜑 𝑛 +1 
+
+are specified in Table 5. It is left to show that each sort in Struct Σ𝜑 𝑛 +1 
+
+is well-founded w.r.t. Elem Σ𝜑 𝑛 +1 
+
+in Σ𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, according to Definition 2. Let 
+
+𝜏 ∈ Struct Σ𝜑 𝑛 +1 
+
+. Then there exists 𝜎 ∈ Struct Σ𝑛 +1 ∪ Array Σ such that 𝜏 = 𝜎 *. Since Σ is well-founded as an NDT signature, we have that there exists some 𝑚 ∈ N with 𝜎 ∈ 𝐹 𝑚 (Σ , 𝒮 Σ ∖ (Array Σ ∪
+
+Struct Σ𝑛 +1 )) . We prove that for every 𝑚 ≥ 0, if 𝜎 ∈ 𝐹 𝑚 (Σ , 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 )) then 
+
+𝜎 * ∈ 𝐺 𝑚 (Σ 𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, Elem Σ𝜑 𝑛 +1 
+
+). We do so by induction on 𝑚 . As a result, we then get that 𝜏 = 𝜎 *
+
+is well-founded w.r.t. Elem Σ𝜑 𝑛 +1 
+
+in Σ𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+.For the sake of this proof, we abbreviate 𝐹 𝑘 (Σ , 𝒮 Σ ∖ (Array Σ ∪ Struct Σ𝑛 +1 )) as 𝐹 𝑘 and 𝐺 𝑘 (Σ 𝜑 𝑛 +1 |𝒞𝒪 Σ𝜑 𝑛 +1 
+
+, Elem Σ𝜑 𝑛 +1 
+
+as 𝐺 𝑘 for every 𝑘 ∈ N.• Base case ( 𝑚 = 0 ): No 𝜎 ∈ Struct Σ𝑛 +1 ∪ Array Σ belongs to 𝐹 0, so the claim holds vacuously. • Inductive step: Assume the claim holds for 𝑚 , and let 𝜎 ∈ 𝐹 𝑚 +1 . If already 𝜎 ∈ 𝐹 𝑚 , then by definition 𝐺 𝑚 ⊆ 𝐺 𝑚 +1 and the inductive hypothesis we are done. Otherwise there are two cases: 1. Array sort. Suppose 𝜎 = 𝐴 𝑖 for some 𝑖 ∈ [1 , 𝑛 ]. Since 𝜎 ∈ 𝐹 𝑚 +1 , we have that 𝐼 𝑖 and 𝐸 𝑖 
+
+are in 𝐹 𝑚 .
+
+– If 𝐸 𝑖 /∈ Struct Σ𝑛 +1 ∪ Array Σ, then 𝐸 * 
+
+> 𝑖
+
+is in Elem Σ𝜑 𝑛 +1 
+
+= 𝐺 0 and clearly so is 𝐴 𝑖 ∘,so by the constructor 𝑐 𝑖 we get 𝐴 * 
+
+> 𝑖
+
+∈ 𝐺 1 ⊆ 𝐺 𝑚 +1 .
+
+– Otherwise 𝐸 𝑖 ∈ Struct Σ𝑛 +1 ∪ Array Σ and since 𝐸 𝑖 ∈ 𝐹 𝑚 , we have by IH that 
+
+𝐸 * 
+
+> 𝑖
+
+∈ 𝐺 𝑚 , and clearly 𝐴 𝑖 ∘ ∈ 𝐺 0 ⊆ 𝐺 𝑚 . Again 𝑐 𝑖 yields 𝐴 * 
+
+> 𝑖
+
+∈ 𝐺 𝑚 +1 .2. Struct sort. There is a constructor 𝑐 : 𝜎 1 × · · · × 𝜎 𝑘 → 𝜎 with each 𝜎 𝑗 ∈ 𝐹 𝑚 . For every 
+
+𝑗 ∈ [1 , 𝑘 ], if 𝜎 𝑗 ∈ Struct Σ𝑛 +1 ∪ Array Σ, by IH 𝜎 * 
+
+> 𝑗
+
+∈ 𝐺 𝑚 , otherwise, 𝜎 * 
+
+> 𝑗
+
+∈ 𝐺 0 ⊆ 𝐺 𝑚 .Hence constructor 𝑐 * places 𝜎 * into 𝐺 𝑚 +1 .
+
+□
+
+D.4. More Details on Example 27 
+
+We hereby define a 𝑇 𝜙 
+
+> new
+
+-interpretation, ℬ that satisfies tr (𝜙 ).For the domains, we set 𝐼 *ℬ = N, 𝐴 ∘ℬ = {− 1}, and define an Elem Σ𝜙  
+
+> ndt
+
+-sorted set 𝐵 such that 
+
+𝐵 𝜎 = 𝜎 ℬ for each 𝜎 ∈ Elem Σ𝜙  
+
+> ndt
+
+. Then we can set 𝐸 *ℬ = 𝑇 𝐸 * (Σ *
+
+> 2|𝒞𝒪 Σ*
+> 2
+
+, 𝐵 ), 𝐴 *ℬ = 𝑇 𝐴 * (Σ *
+
+> 2|𝒞𝒪 Σ*
+> 2
+
+, 𝐵 ),and 𝐴 ′ℬ = 𝐼 *ℬ → 𝐸 *ℬ .The function symbols select and store , as well as the constructors, selectors and testers are interpreted as expected (for this example, it does not matter how wrongly applied selectors are interpreted). As for the variables, we set 𝑖 *ℬ = 1 , 𝑎 *ℬ = 𝑐 1(−1, emp *), 𝑥 *ℬ = c*(3 , 𝑐 1(−1, emp *)) , and 
+
+𝑎 ′ℬ = {(𝑛, 𝑥 *ℬ ) | 𝑛 ∈ N}, that is, 𝑎 ′ℬ is the constant function that always returns 𝑥 *ℬ . ℬ is therefore a 
+
+𝑇 𝜙 
+
+> new
+
+-interpretation that clearly satisfies every literal of tr (𝜙 ).
+
+60 Name Sorts Symbols Formula                                             
+
+> ˜Σ1𝒮 ˜Σ1={𝐴, 𝐼, 𝐸 }ℱ˜Σ1={select 𝐴 ,store 𝐴 }.
+> ˜Σ2
+> 𝒮 ˜Σ2=Elem ˜Σ2⊎Struct ˜Σ2
+> Elem ˜Σ2={𝐴 }
+> Struct ˜Σ2={𝐸, 𝑆 }ℱ˜Σ2=𝒞𝒪 ˜Σ2∪ 𝒮ℰ ˜Σ2
+> 𝒞𝒪 ˜Σ2={c,emp }𝒮ℰ ˜Σ2={𝑠 (c,1) }𝒫 ˜Σ2={is c,is emp }
+> 𝜃 2:= 𝑥 ̸=𝑦
+
+Table 25 Signature ˜Σ = ˜Σ1 ⊎ ˜Σ2 used in the stable–infiniteness counterexample. ˜Σ1 is an arrays signature with sorts {𝐴, 𝐼, 𝐸 } and operations select 𝐴 : 𝐴 × 𝐼 → 𝐸 and store 𝐴 : 𝐴 × 𝐼 × 𝐸 → 𝐴 . ˜Σ2 is a datatypes signature whose element sorts are {𝐴 } and struct sorts are {𝐸, 𝑆 }; it provides constructors 
+
+c : 𝐴 → 𝑆 and emp : 𝐸 , selector 𝑠 (c,1) : 𝑆 → 𝐴 , and testers is c : 𝑆 and is emp : 𝐸 . The formula is 
+
+𝜃 := 𝑥 ̸ = 𝑦 with 𝑥, 𝑦 of sort 𝑆 .                                        
+
+> Name Sorts Symbols Formula
+> Σ*
+> 1𝒮 Σ1={𝐴 ′, 𝐼 *, 𝐸 *}ℱΣ1={select 𝐴 ′,store 𝐴 ′}.
+> Σ𝜃
+> 2
+> 𝒮 Σ𝜃
+> 2
+> =Elem Σ𝜃
+> 2
+> ⊎Struct Σ𝜃
+> 2
+> Elem Σ𝜃
+> 2
+> ={𝐴 ∘}
+> Struct Σ𝜃
+> 2
+> ={𝐸 *, 𝑆 *, 𝐴 *}ℱΣ𝜃
+> 2
+> =𝒞𝒪 Σ𝜃 ∪ 𝒮ℰ Σ𝜃
+> 𝒞𝒪 Σ𝜃 ={c*,emp *, 𝑐 1}𝒮ℰ Σ𝜃 ={𝑠 (c*,1) , 𝑠 (𝑐 1,1) }𝒫 Σ𝜃
+> 2
+> ={is c*,is emp *,is 𝑐 1}
+> trFormula (𝜃 ) := x*̸=y*
+> Σ3𝒮 Σ3={𝐴 *, 𝐴 ′}ℱΣ2={𝑓 𝐴 , 𝑔 𝐴 }.
+
+Table 26 The three-part translated signature for the counterexample of Table 25. Σ* 
+
+> 1
+
+is an arrays signature with sorts {𝐴 ′, 𝐼 *, 𝐸 *} and operations select 𝐴 ′ : 𝐴 ′ × 𝐼 * → 𝐸 *, store 𝐴 ′ : 𝐴 ′ × 𝐼 * × 𝐸 * → 𝐴 ′.
+
+Σ𝜃  
+
+> 2
+
+is a datatype signature with element sort {𝐴 ∘}, struct sorts {𝐸 *, 𝑆 *, 𝐴 *}, constructors c* : 𝐴 * →
+
+𝑆 *, emp * : 𝐸 *, 𝑐 1 : 𝐴 ∘ → 𝐴 *, and the matching selectors and testers. Σ3 adds two UF symbols 
+
+𝑓 𝐴 : 𝐴 * → 𝐴 ′ and 𝑔 𝐴 : 𝐴 ′ → 𝐴 *.
+
+D.5. Necessity of Stable Infiniteness 
+
+The stable infiniteness condition is necessary in the right-to-left direction of Theorem 31. Consider the NDT signature ˜Σ = ˜Σ1 ∪ ˜Σ2 described in Table 25, and let ˜𝑇 1 be the ˜Σ1-theory of arrays and ˜𝑇 2 the 
+
+˜Σ2-theory of datatypes. Consider the ˜Σ-formula 𝜃 2 := 𝑥 ̸ = 𝑦 , such that 𝑥, 𝑦 both have sort 𝑆 . Let 𝒞 be a ˜𝑇 2-interpretation. Let 
+
+𝐵 be the Elem ˜Σ2 -sorted set with 𝐵 𝜌 = 𝜌 𝒞 for each 𝜌 ∈ Elem ˜Σ2 . Thus: 𝐸 𝒞 = 𝑇 𝐸 ( ˜Σ2|𝒞𝒪 ˜Σ2
+
+, 𝐵 ) =
+
+{emp }.Note that 𝐸 is a shared sort between ˜Σ1 and ˜Σ2 and since ˜𝑇 2 enforces that the interpretation of 𝐸 is 
+
+{emp }, we know that ˜𝑇 2 is not stably infinite over 𝒮 ˜Σ1 ∩ 𝒮 ˜Σ2 .Assume towards a contradiction that 𝜃 2 is satisfiable by a 𝒯 N 𝐷𝑇  
+
+> ˜Σ
+
+-interpretation 𝒜 1. Since 𝒜 1 ˜Σ2 is a ˜𝑇 2-interpretation, we can denote as ˜𝐵 the Elem ˜Σ2 -sorted set with ˜𝐵 𝜌 = 𝜌 𝒜 1 for each 𝜌 ∈ Elem ˜Σ2 .Thus: 
+
+𝑆 𝒜 1 = 𝑇 𝑆 ( ˜Σ2|𝒞𝒪 ˜Σ2
+
+, ˜𝐵 ) = {c(𝑧 ) | 𝑧 ∈ 𝐴 𝒜 1 } 𝐸 𝒜 1 = 𝑇 𝐸 ( ˜Σ2|𝒞𝒪 ˜Σ2
+
+, ˜𝐵 ) = {emp }
+
+Hence, 𝑥 𝒜 1 = c(𝑎 ) and 𝑦 𝒜 1 = c(𝑏 ) for some 𝑎, 𝑏 ∈ 𝐴 𝒜 1 . Since 𝑥 𝒜 1̸ = 𝑦 𝒜 1 , we have 𝑎 ̸ = 𝑏 .According to the Extensionality axiom, we have that there exists 𝑘 ∈ 𝐼 𝒜 1 such that select 𝒜 1 
+
+> 𝐴
+
+(𝑎, 𝑘 )̸ =
+
+select 𝒜 1 
+
+> 𝐴
+
+(𝑏, 𝑘 ). However, since select 𝒜 1 
+
+> 𝐴
+
+(𝑎, 𝑘 ), select 𝒜 1 
+
+> 𝐴
+
+(𝑏, 𝑘 ) ∈ 𝐸 𝒜 1 , we have that select 𝒜 1 
+
+> 𝐴
+
+(𝑎, 𝑘 ) = 
+
+emp = select 𝒜 1 
+
+> 𝐴
+
+(𝑏, 𝑘 ), which is a contradiction. 
+
+61 Signature Sorts Functions Predicates 
+
+Σ* 
+
+> 1
+
+{𝐼 *, 𝐸 *, 𝐴 ′} select 𝐴 ′ : 𝐴 ′ ×𝐼 * → 𝐸 *
+
+store 𝐴 ′ : 𝐴 ′ ×𝐼 * ×𝐸 * → 𝐴 ′
+
+—
+
+Σ𝜃  
+
+> 2
+
+{𝐼 *, 𝐸 *, 𝐴 *} 𝑐 1 : 𝐸 * → 𝐴 *
+
+c* : 𝐼 * ×𝐴 * → 𝐸 *
+
+𝑠 (𝑐 1,1) : 𝐴 * → 𝐸 *
+
+𝑠 (c*,1) : 𝐸 * → 𝐼 *
+
+𝑠 (c*,2) : 𝐸 * → 𝐴 *
+
+is 𝑐 1 : 𝐴 *
+
+is c* : 𝐸 *
+
+Σ3 {𝐴 *, 𝐴 ′} 𝑓 𝐴 : 𝐴 * → 𝐴 ′
+
+𝑔 𝐴 : 𝐴 ′ → 𝐴 *
+
+—
+
+Table 27 Component signatures of Σ𝜃  
+
+> ndt
+
+when the index sort 𝐴 ∘ is omitted .
+
+Yet, its translation trFormula (𝜃 2) and its matching signature are given in Table 26, and trFormula (𝜃 2)
+
+is satisfied by the 𝒯 N 𝐷𝑇  
+
+> ˜Σ𝜃 2
+
+-interpretation ℬ defined in Table 19. 
+
+D.6. Discussion on the translation 
+
+We describe various decisions made in our translation-based approach. 
+
+D.6.1. The sorts 𝐴 ∘
+
+Although trFormula (𝜑 ) does not introduce terms of the sorts 𝐴 𝑖 ∘ for 𝑖 ∈ [1 , 𝑛 ], those sorts are still required in Σ𝜑 . If we drop them, the translation may turn a satisfiable formula into an unsatisfiable one, thus violating Theorem 31. The following example makes this precise. Let 𝜃 be defined as follows: 
+
+𝜃 := 𝑎 ̸ = 𝑏 ∧ 𝑥 = select 𝐴 (𝑎, 𝑖 ) ∧ 𝑥 = select 𝐴 (𝑏, 𝑖 ),
+
+Where 𝑎 and 𝑏 are array variables of sort 𝐴 , 𝑥 is a variables of sort 𝐸 and 𝑖 is a variable of sort 𝐼 . 𝜃 is 
+
+𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-satisfiable. Assume we construct Σ𝜃  
+
+> ndt
+
+exactly as in Table 5 but omit the index sort 𝐴 ∘. The three component signatures that form Σ𝜃  
+
+> ndt
+
+are summarised in Table 27. Because 𝐴 ∘ is absent, the constructor 𝑐 1 now has arity 𝐸 * → 𝐴 * and hence only one selector. Then, the translation of 𝜃 would be 
+
+trFormula (𝜃 ) = (︀ 𝑎 *̸ = 𝑏 * ∧ 𝑥 * = select 𝐴 ′ (𝑎 ′, 𝑖 *) ∧ 𝑥 * = select 𝐴 ′ (𝑏 ′, 𝑖 *))︀ 
+
+∧(︀ 𝑢 (𝑎, 1) = select 𝐴 ′ (𝑎 ′, 𝑖 *) ∧ 𝑢 (𝑏, 1) = select 𝐴 ′ (𝑏 ′, 𝑖 *)
+
+∧ 𝑢 (𝑎, 1) = 𝑠 (𝑐 1,1) (𝑎 *) ∧ 𝑢 (𝑏, 1) = 𝑠 (𝑐 1,1) (𝑏 *)
+
+∧ 𝑎 ′ = 𝑓 𝐴 (𝑎 *) ∧ 𝑏 ′ = 𝑓 𝐴 (𝑏 *) ∧ 𝑎 * = 𝑔 𝐴 (𝑎 ′) ∧ 𝑏 * = 𝑔 𝐴 (𝑏 ′))︀ .
+
+Since 𝑐 1 is the only constructor whose target sort is 𝐴 *, and it has only one argument (which is of sort 
+
+𝐸 *), the four middle conjuncts imply 𝑠 (𝑐 1,1) (𝑎 *) = 𝑠 (𝑐 1,1) (𝑏 *), hence 𝑎 * = 𝑏 *. This contradicts 𝑎 *̸ = 𝑏 *,the first conjunct, so trFormula (𝜃 ) is 𝑇 𝜃 
+
+> new
+
+-unsatisfiable .On the other hand, when the index sort 𝐴 ∘ is retained, 𝑐 1 has sort 𝐴 ∘ × 𝐸 * → 𝐴 *. Hence 𝑠 (𝑐 1,2) (𝑎 *)
+
+and 𝑠 (𝑐 1,2) (𝑏 *) may be equal without forcing 𝑎 * = 𝑏 *.
+
+D.6.2. On The Third Lemma 
+
+The motivation for L3(𝜑 ) is to ensure that for every array sort 𝐴 , there is a one to one mapping between the interpretations of free variables of sort 𝐴 ′ and those of sort 𝐴 *. 𝑓 𝐴 and 𝑔 𝐴 are asserted to be inverses of one another when restricted to the relevant domain, thus ensuring the 1-1 correspondence. 
+
+62 ̂︀ 𝜙 𝑎 ̸ = 𝑏 ∧ 𝑥 = select (𝑎, 𝑖 ) ∧ 𝑏 = store (𝑎, 𝑖, 𝑥 )
+
+tr (̂︀ 𝜙 ) ∧ L 1(̂︀ 𝜙 ) ∧
+
+L2(̂︀ 𝜙 )
+
+𝑎 *̸ = 𝑏 * ∧ 𝑥 * = select (𝑎 ′, 𝑖 *) ∧ 𝑏 ′ = store (𝑎 ′, 𝑖 *, 𝑥 *)∧
+
+𝑢 (𝑎, 1) = select (𝑎 ′, 𝑖 *) ∧ 𝑢 (𝑎, 1) = 𝑠 (𝑐 1,2) (𝑎 *)∧
+
+𝑢 (𝑏, 1) = select (𝑏 ′, 𝑖 *) ∧ 𝑢 (𝑏, 1) = 𝑠 (𝑐 1,2) (𝑏 *)
+
+Table 28 A 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-formula and its translation. Note that Σ𝜓  
+
+> ndt
+
+= Σ 𝜙 
+
+> ndt
+
+, given in Table 7. 
+
+Example 99. Consider the Σndt -formula 𝜙 from Table 1. Then, 
+
+L3(𝜙 ) = {︁ 𝑎 ′ = 𝑓 𝐴 (𝑎 *), 𝑎 * = 𝑔 𝐴 (𝑎 ′)}︁ .
+
+Here, 𝑎 * and 𝑎 ′ are new variables of sort 𝐴 ′, 𝑓 𝐴 is a function symbol of arity 𝐴 * → 𝐴 ′, and 𝑔 𝐴 is a function symbol of arity 𝐴 ′ → 𝐴 *.
+
+Example 100. In order to demonstrate the necessity of L3(𝜑 ), we can consider the following Σndt -formula ̂︀ 𝜙 in Table 28. Notice that Σ̂︀  
+
+> 𝜙
+> ndt
+
+is the same as Σ𝜙  
+
+> ndt
+
+(given in Table 7), and tr (̂︀ 𝜙 )∧L 1(̂︀ 𝜙 )∧L 2(̂︀ 𝜙 )
+
+is also given in Table 28. Now, ̂︀ 𝜙 is not 𝒯 N 𝐷𝑇  
+
+> Σndt
+
+-satisfiable, which can be seen by pure array reasoning. However, its translation with the first two sets of lemmas is 𝑇 ̂︀ 
+
+> 𝜙
+> new
+
+-satisfiable, since there is nothing preventing 𝑎 *̸ = 𝑏 * while 
+
+𝑎 ′ = 𝑏 ′, despite the fact that both 𝑎 * and 𝑎 ′ represent 𝑎 and 𝑏 * and 𝑏 ′ represent 𝑏 . The issue is that 𝑎 and 
+
+𝑏 may differ on indices that do not occur in ̂︀ 𝜙 , and this is lost in translation, unless we use L 3(𝜑 ).
+
+D.6.3. Optimized Lemmas 
+
+The lemmas from Section 4.3 are defined in a way that L1(𝜑 ) and L2(𝜑 ) collect the lemmas of L𝜑 
+
+> 0
+
+(𝑎, 𝑖 )
+
+for specific terms 𝑎 and 𝑖 . A simpler alternative is to discard the delicate construction of L1(𝜑 ) and L2(𝜑 )
+
+and instead add every lemma L𝜑 
+
+> 0
+
+(𝑎, 𝑖 ) for each array variable 𝑎 ∈ vars 𝐴 𝑗 (𝜑 ) and every index 𝑖 ∈ I(𝐴 𝑗 ,𝜑 ).Formally, we could have replaced L(𝜑 ) (see Examples 30 and 99) by: 
+
+L(𝜑 )′ =(︀⋃︁ 
+
+> 1≤𝑗 ≤𝑛
+
+⋃︁ 𝑎 ∈vars 𝐴 𝑗 (𝜑 )⋃︁ 𝑖 ∈I(𝐴 𝑗 ,𝜑 )
+
+L𝜑 
+
+> 0
+
+(𝑎, 𝑖 ))︀ ∪ L3(𝜑 ),
+
+and clearly L(𝜑 )′ ⊇ L1(𝜑 ) ∪ L2(𝜑 ).The reason to bother with L(𝜑 ) rather than using the simpler L(𝜑 )′ is not correctness, but efficiency. Let 
+
+𝑘 be the number of distinct variables of sort 𝐴 𝑗 in 𝜑 , 𝑙 the number of select literals 𝑥 = select 𝐴 𝑗 (𝑎, 𝑖 )
+
+in 𝜑 , 𝑚 the number of store literals 𝑏 = store 𝐴 𝑗 (𝑎, 𝑖, 𝑣 ) in 𝜑 , and 𝑡 = 𝑛 (𝐴 𝑗 ,𝜑 ) = |I(𝐴 𝑗 ,𝜑 )|. Because 
+
+L𝜑 
+
+> 0
+
+(𝑎, 𝑖 ) contains a constant (two) literals, L(𝜑 ) contributes 𝑂 (𝑙 ) literals from the select s and 𝑂 (𝑚 𝑡 )
+
+from the store s, while never exceeding 𝑂 (𝑘 𝑡 ). Hence |L(𝜑 )| = 𝑂 (︀ min { 𝑙 + 𝑚 𝑡, 𝑘 𝑡 })︀ . By contrast the naive set L(𝜑 )′ always contains 𝑘 𝑡 such blocks, so |L(𝜑 )′| = 𝑂 (𝑘 𝑡 ).Consequently, whenever 𝑙 ≪ 𝑘 𝑡 ∧ 𝑚 ≪ 𝑘 , the original definition saves a factor of 𝑂 (︀ 𝑘 𝑡/ (𝑙 + 𝑚 𝑡 ))︀ 
+
+literals, whereas in the worst case the two approaches are equivalent. For instance, consider the case where 𝑚 is constant and 𝑙, 𝑡, 𝑘 ∈ 𝑂 (︀ 𝑛 )︀ for some 𝑛 , then L(𝜑 ) ∈ 𝑂 (︀ 𝑛 )︀ 
+
+while L(𝜑 )′ ∈ 𝑂 (︀ 𝑛 2)︀ .
+
+Example 101. Let there be 𝑡 ∈ N, consider the following formula in the signature Σndt :
+
+𝜃 =
+
+> 𝑡
+
+⋀︁ 
+
+> 𝑗 =1
+
+(︀ 
+
+𝑥 𝑗 = select 𝐴 (𝑎 𝑗 , 𝑖 𝑗 ))︀ .
+
+Where 𝑥 𝑗 are variables of sort 𝐸 , 𝑎 𝑗 are variables of sort 𝐴 , and 𝑖 𝑗 are variables of sort 𝐼 .Then, L(𝜃 ) = ⋃︀ 𝑡 𝑗 =1 L𝜃 
+
+> 0
+
+(𝑎 𝑗 , 𝑖 𝑗 )∪L3(𝜃 ), which contains 4𝑡 literals, while L(𝜃 )′ =⋃︀ 𝑡 𝑗 =1 ⋃︀ 𝑡 𝑘 =1 L𝜃 
+
+> 0
+
+(𝑎 𝑗 , 𝑖 𝑘 )∪
+
+L3(𝜃 ), which contains 2𝑡 2 + 2 𝑡 literals. 
+
+63
