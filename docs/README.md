@@ -6,100 +6,92 @@
 </div>
 
 ## 每次日报
-- 最新运行日期：2026-07-07
-- 运行时间：2026-07-07 22:14:47 UTC
+- 最新运行日期：2026-07-08
+- 运行时间：2026-07-08 21:45:50 UTC
 - 运行状态：成功
-- 本次总论文数：26
-- 精读区：14
+- 本次总论文数：23
+- 精读区：11
 - 速读区：12
 
 ### 今日简报（AI）
-今日深度研读 26 篇论文，重点聚焦 AI 在法律商议与因果逻辑解释领域的满分突破。
-核心结论指出多智能体协作能显著优化法律决策，而引入实际因果律则为抽象论证提供了更精准的反事实解释。
-建议关注 LLM 对逻辑谬误的辨识能力及隐私保护下的表格学习，以应对更复杂的 AI 实战场景。
-- 详情：[/202607/07/README](/202607/07/README)
+- 今日共生成 23 篇推荐（精读 11 篇，速读 12 篇）
+- 精读：《Prompting Beats Fine-Tuning: Generative Expected Value Scoring for Statutory Term Retrieval》（10.0/10）, 《ForecastAgentSearch: Towards a Multi-Expert Agent Search System for Geopolitical Event Forecasting》（9.0/10）
+- 速读：《Can LLMs Imagine Moral Alternatives Beyond Binary Dilemmas?》（8.0/10）, 《When RAG Meets Query Planning: Logical Query Trees for Resolving Exploratory Reasoning Problems》（8.0/10）, 《Theoria: Rewrite-Acceptability Verification over Informal Reasoning States》（8.0/10）
+- 这些结果覆盖了当下较热的方向，建议先看精读区论文的关键问题与方法。
+- 详情：[/202607/08/README](/202607/08/README)
 
 ### 精读区论文标签
-1. [Investigating Multi-Agent Deliberation in Law](/202607/07/2606.30906v1-investigating-multi-agent-deliberation-in-law)  
-   标签：评分：10.0/10、query:q8
-   evidence：受法庭程序和法律辩论启发的多智能体框架
-2. [Beyond But-for Test: Counterfactual Explanation in Abstract Argumentation via Actual Causality (Extended Version)](/202607/07/2606.31080v1-beyond-but-for-test-counterfactual-explanation-in-abstract-argumentation-via-actual-causality-extended-version)  
-   标签：评分：10.0/10、query:q1
-   evidence：通过实际因果关系在抽象论证中进行反事实解释
-3. [From Runtime Records to Legal Findings: An Evidentiary-Adequacy Criterion for Agentic AI Oversight](/202607/07/2607.00941v1-from-runtime-records-to-legal-findings-an-evidentiary-adequacy-criterion-for-agentic-ai-oversight)  
-   标签：评分：10.0/10、query:profile-3
-   evidence：将记录的事件映射到法律生效的裁决
-4. [From Judgments to Issues: Structured Extraction of Legal Reasoning with Citation-Hallucination Control](/202607/07/2607.03325v1-from-judgments-to-issues-structured-extraction-of-legal-reasoning-with-citation-hallucination-control)  
-   标签：评分：10.0/10、query:profile-3
-   evidence：从判决书中结构化提取法律推理
-5. [Shortcut Learning in Legal Judgment Prediction: Empirical Evidence from the UK Employment Tribunal](/202607/07/2607.04261v1-shortcut-learning-in-legal-judgment-prediction-empirical-evidence-from-the-uk-employment-tribunal)  
-   标签：评分：10.0/10、query:kgee
-   evidence：法庭法律判决预测与捷径学习的实证研究
-6. [Psychological features of dispute content and public acceptance of AI in legal adjudication: evidence for systematic variation beyond individual differences](/202607/07/2607.04838v1-psychological-features-of-dispute-content-and-public-acceptance-of-ai-in-legal-adjudication-evidence-for-systematic-variation-beyond-individual-differences)  
-   标签：评分：10.0/10、query:q8
-   evidence：公众对 AI 法律裁决的接受度
-7. [Modal Extensions of CLoN with Bi-neighborhood Semantics](/202607/07/2606.30297v1-modal-extensions-of-clon-with-bi-neighborhood-semantics)  
-   标签：评分：9.0/10、query:q5
-   evidence：容纳道德困境的规范逻辑基础
-8. [Drawing Out Legal Risks: Co-Designing with Lawyers to Predict and Manage Legal Uncertainties of Medical AI Tools](/202607/07/2606.30828v1-drawing-out-legal-risks-co-designing-with-lawyers-to-predict-and-manage-legal-uncertainties-of-medical-ai-tools)  
-   标签：评分：9.0/10、query:q8
-   evidence：预测和管理AI工具的法律风险与不确定性
-9. [Beyond Clean Text: Evaluating Encoder and Decoder Robustness for Bangla Event Detection in Noisy Text](/202607/07/2606.30914v1-beyond-clean-text-evaluating-encoder-and-decoder-robustness-for-bangla-event-detection-in-noisy-text)  
+1. [Prompting Beats Fine-Tuning: Generative Expected Value Scoring for Statutory Term Retrieval](/202607/08/2607.05582v1-prompting-beats-fine-tuning-generative-expected-value-scoring-for-statutory-term-retrieval)  
+   标签：评分：10.0/10、query:q4
+   evidence：利用案例法进行法律条款检索与解释
+2. [ForecastAgentSearch: Towards a Multi-Expert Agent Search System for Geopolitical Event Forecasting](/202607/08/2606.31665v1-forecastagentsearch-towards-a-multi-expert-agent-search-system-for-geopolitical-event-forecasting)  
    标签：评分：9.0/10、query:kgee
-   evidence：孟加拉语事件检测基准与评估
-10. [Probing Stylistic Appropriation using Large Language Models: An Evaluation Framework for Copyright Infringement under EU Law](/202607/07/2606.31250v1-probing-stylistic-appropriation-using-large-language-models-an-evaluation-framework-for-copyright-infringement-under-eu-law)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：欧盟法律下的版权侵权评估框架
-11. [PolicyGuard: From Organizational Policies to Neuro-SymbolicCompliance Review Engines](/202607/07/2606.32004v1-policyguard-from-organizational-policies-to-neuro-symboliccompliance-review-engines)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：组织政策的神经符号合规性审查
-12. [NormWorlds-CF: Solver-Verified Counterfactual Normative Reasoning with Metamorphic-Relation GRPO](/202607/07/2607.03957v1-normworlds-cf-solver-verified-counterfactual-normative-reasoning-with-metamorphic-relation-grpo)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：可执行规则世界中的反事实规范推理
-13. [From Regulation to Requirements: An Automated Requirement Derivation and Explanation Pipeline](/202607/07/2607.04448v1-from-regulation-to-requirements-an-automated-requirement-derivation-and-explanation-pipeline)  
-   标签：评分：9.0/10、query:profile-3
-   evidence：从法律法规中自动推导软件需求
-14. [Enhancing Large Multimodal Models in Key Information Extraction via Scene-Aware Document Synthesis](/202607/07/2607.04636v1-enhancing-large-multimodal-models-in-key-information-extraction-via-scene-aware-document-synthesis)  
+   evidence：地缘政治事件预测框架
+3. [Analysis of a maximum-entropy based estimator for dynamic random graph models](/202607/08/2606.32013v1-analysis-of-a-maximum-entropy-based-estimator-for-dynamic-random-graph-models)  
+   标签：评分：9.0/10、query:kgee
+   evidence：基于最大熵的图模型估计器
+4. [From Answer Generators to Reasoning Facilitators: Designing AI Tutors for Mathematical Reasoning in High-Stakes Environments](/202607/08/2607.01692v1-from-answer-generators-to-reasoning-facilitators-designing-ai-tutors-for-mathematical-reasoning-in-high-stakes-environments)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：教育环境下的数学推理AI导师
+5. [HaloGuard 1.0: An Open Weights Constitutional Classifier for Multilingual AI Safety](/202607/08/2607.02079v1-haloguard-10-an-open-weights-constitutional-classifier-for-multilingual-ai-safety)  
    标签：评分：9.0/10、query:ds-gen
-   evidence：用于生成可扩展训练数据的文档合成框架
+   evidence：由自然语言宪法驱动的合成数据生成
+6. [Applying Answer Set Programming with Fuzzy Membership Functions: a Case Study](/202607/08/2607.03550v1-applying-answer-set-programming-with-fuzzy-membership-functions-a-case-study)  
+   标签：评分：9.0/10、query:q2
+   evidence：桥接数值数据与符号逻辑的自动推理系统
+7. [LogicProof: An Interactive Web-Based Educational Theorem Prover for Natural Deduction and Sequent Calculus across Classical and Constructive Logics](/202607/08/2607.04321v1-logicproof-an-interactive-web-based-educational-theorem-prover-for-natural-deduction-and-sequent-calculus-across-classical-and-constructive-logics)  
+   标签：评分：9.0/10、query:edu-llm
+   evidence：用于逻辑概念的教育定理证明器
+8. [CHARLIE: An On-Premise Multi-Agent Retrieval-Augmented Generation System for Evidential Reasoning in Forensic Science](/202607/08/2607.05428v1-charlie-an-on-premise-multi-agent-retrieval-augmented-generation-system-for-evidential-reasoning-in-forensic-science)  
+   标签：评分：9.0/10、query:profile-3
+   evidence：取证科学中的证据推理与法律合规
+9. [Beyond Accuracy: How Humans Evaluate Legally Correct but Socially Controversial Legal Advice from Machines](/202607/08/2607.05680v1-beyond-accuracy-how-humans-evaluate-legally-correct-but-socially-controversial-legal-advice-from-machines)  
+   标签：评分：9.0/10、query:q8
+   evidence：提供法律正确建议的人工智能系统
+10. [Inject or Navigate? Token-Efficient Retrieval for LLM Analysis of Transactional Legal Documents](/202607/08/2607.05764v1-inject-or-navigate-token-efficient-retrieval-for-llm-analysis-of-transactional-legal-documents)  
+   标签：评分：9.0/10、query:profile-3
+   evidence：针对交易法律文件的大模型分析和结构化检索
+11. [LongCrafter: Towards Diverse Long-Context Understanding via Evidence-Graph-Guided Instruction Synthesis](/202607/08/2607.06160v1-longcrafter-towards-diverse-long-context-understanding-via-evidence-graph-guided-instruction-synthesis)  
+   标签：评分：9.0/10、query:ds-gen
+   evidence：合成长文本监督微调数据
 
 ### 速读区论文标签
-1. [CORTEX: High-Quality Cross-Domain Organization of Web-Scale Corpora through Ontological Corpus Graph](/202607/07/2606.30175v1-cortex-high-quality-cross-domain-organization-of-web-scale-corpora-through-ontological-corpus-graph)  
+1. [Can LLMs Imagine Moral Alternatives Beyond Binary Dilemmas?](/202607/08/2606.31213v1-can-llms-imagine-moral-alternatives-beyond-binary-dilemmas)  
    标签：评分：8.0/10、query:ds-gen
-   evidence：通过本体语料库图系统组织高质量语料库
-2. [Truth or Sophistry? LoFa: A Benchmark for LLM Robustness Against Logical Fallacies](/202607/07/2606.31039v1-truth-or-sophistry-lofa-a-benchmark-for-llm-robustness-against-logical-fallacies)  
-   标签：评分：8.0/10、query:q1
-   evidence：评估逻辑谬误的多轮辩论框架
-3. [TabPATE: Differentially Private Tabular In-Context Learning Without Public Data](/202607/07/2606.31474v1-tabpate-differentially-private-tabular-in-context-learning-without-public-data)  
-   标签：评分：8.0/10、query:ds-gen
-   evidence：为隐私上下文学习生成合成表格查询
-4. [When RAG Meets Query Planning: Logical Query Trees for Resolving Exploratory Reasoning Problems](/202607/07/2607.00508v2-when-rag-meets-query-planning-logical-query-trees-for-resolving-exploratory-reasoning-problems)  
+   evidence：包含折中方案的307个道德困境数据集
+2. [When RAG Meets Query Planning: Logical Query Trees for Resolving Exploratory Reasoning Problems](/202607/08/2607.00508v1-when-rag-meets-query-planning-logical-query-trees-for-resolving-exploratory-reasoning-problems)  
    标签：评分：8.0/10、query:kgee
-   evidence：将复杂查询建模为逻辑查询树以进行探索性推理
-5. [MaDI-Bench: An End-to-End Data Integration Benchmark](/202607/07/2606.30371v1-madi-bench-an-end-to-end-data-integration-benchmark)  
-   标签：评分：7.0/10、query:kgee
-   evidence：数据集成与融合基准
-6. [Automated Reasoning with Nested Datatypes](/202607/07/2606.30888v2-automated-reasoning-with-nested-datatypes)  
+   evidence：将自然语言查询建模为逻辑查询树以进行复杂推理
+3. [Theoria: Rewrite-Acceptability Verification over Informal Reasoning States](/202607/08/2607.01223v2-theoria-rewrite-acceptability-verification-over-informal-reasoning-states)  
+   标签：评分：8.0/10、query:profile-3
+   evidence：带有明确理由的非正式推理状态验证
+4. [ADVENT: LLM-Driven Automatic Predicate Invention for ILP](/202607/08/2607.01585v1-advent-llm-driven-automatic-predicate-invention-for-ilp)  
+   标签：评分：8.0/10、query:q6
+   evidence：大模型驱动的归纳逻辑程序设计谓词发明
+5. [Automating Cause-Effect Specification with Knowledge Graphs and Large Language Models](/202607/08/2606.31614v1-automating-cause-effect-specification-with-knowledge-graphs-and-large-language-models)  
    标签：评分：7.0/10、query:q2
-   evidence：带有判定过程的自动推理
-7. [Measuring Judgment Quality in Natural-Language Explanations: Evidence from Forecasting Tournaments](/202607/07/2606.30987v1-measuring-judgment-quality-in-natural-language-explanations-evidence-from-forecasting-tournaments)  
-   标签：评分：7.0/10、query:kgee
-   evidence：利用推理模式衡量预测竞赛中的判断质量
-8. [Beyond Compilation: Evaluating Faithful Natural-Language-to-Lean Statement Formalization](/202607/07/2606.31002v1-beyond-compilation-evaluating-faithful-natural-language-to-lean-statement-formalization)  
-   标签：评分：7.0/10、query:q6
-   evidence：将自然语言形式化为Lean逻辑
-9. [Two-Stage Prompt Optimization for Few-Shot Relation Extraction: From Reasoning-Guided Search to Gradient-Guided Refinement](/202607/07/2606.29639v1-two-stage-prompt-optimization-for-few-shot-relation-extraction-from-reasoning-guided-search-to-gradient-guided-refinement)  
-   标签：评分：6.0/10、query:kgee
-   evidence：用于关系抽取的推理引导提示优化
-10. [Budgeted Act-or-Defer Multi-Agent LLM Deliberation with Local Reliability Bounds](/202607/07/2606.29654v1-budgeted-act-or-defer-multi-agent-llm-deliberation-with-local-reliability-bounds)  
-   标签：评分：6.0/10、query:q1
-   evidence：多智能体大模型商议与辩论前缀映射
-11. [Toward Secure and Reliable PDDL Formalization of Large Language Models with Planner-in-the-Loop Feedback](/202607/07/2606.29700v1-toward-secure-and-reliable-pddl-formalization-of-large-language-models-with-planner-in-the-loop-feedback)  
+   evidence：利用知识图谱和LLM自动生成逻辑规则
+6. [Moral Safety in LLMs: Exposing Performative Compliance with Puzzled Cues](/202607/08/2606.31644v1-moral-safety-in-llms-exposing-performative-compliance-with-puzzled-cues)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：大模型在法律和医疗背景下的道德安全和伦理行为
+7. [Moral Safety in LLMs: Exposing Performative Compliance with Puzzled Cues](/202607/08/2606.31644v3-moral-safety-in-llms-exposing-performative-compliance-with-puzzled-cues)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：法律和医疗背景下的道德安全与伦理行为
+8. [Stratified Counterpossible Logic](/202607/08/2606.31881v1-stratified-counterpossible-logic)  
+   标签：评分：7.0/10、query:profile-3
+   evidence：用于在矛盾下维持推理的分层逻辑
+9. [Wait, am I Being Fair? Characterizing Deductive Stereotyping and Mitigating It with Fair-GCG](/202607/08/2606.30989v1-wait-am-i-being-fair-characterizing-deductive-stereotyping-and-mitigating-it-with-fair-gcg)  
    标签：评分：6.0/10、query:profile-3
-   evidence：将 LLM 输出形式化为可验证的符号规范
-12. [Beyond Triplet Plausibility: Relation Set Completion in Knowledge Graphs](/202607/07/2606.29860v2-beyond-triplet-plausibility-relation-set-completion-in-knowledge-graphs)  
-   标签：评分：6.0/10、query:kgee
-   evidence：推理知识图谱中缺失的关系
+   evidence：个体案例中的演绎推理与公平性
+10. [The Logic of Data Access and Data Exchanges](/202607/08/2606.31858v1-the-logic-of-data-access-and-data-exchanges)  
+   标签：评分：6.0/10、query:q6
+   evidence：用于知识表示和访问的形式逻辑
+11. [Inquisitive Action Logic](/202607/08/2606.31866v1-inquisitive-action-logic)  
+   标签：评分：6.0/10、query:profile-3
+   evidence：用于行动推理的多主体模态逻辑
+12. [Labelled Sequents for Inquisitive First-Order Modal Logic](/202607/08/2606.31868v1-labelled-sequents-for-inquisitive-first-order-modal-logic)  
+   标签：评分：6.0/10、query:q6
+   evidence：模态依赖的形式逻辑和证明系统
 
 
 <div class="dpr-home-promo-card">
